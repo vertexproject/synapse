@@ -110,3 +110,10 @@ class XmlTest(s_test.SynTest):
             with mock.patch('xml.etree.ElementTree.fromstring', mockexc):
                 with self.raises(Exception):
                     await core.callStorm('$lib.xml.parse("")', opts=opts)
+
+            # the repr shows the element's tag, not a Python object address
+            q = '''
+                $root = $lib.xml.parse($xmltext)
+                return(`{$root}`)
+            '''
+            self.eq('xml:element: data', await core.callStorm(q, opts={'vars': {'xmltext': xml0}}))

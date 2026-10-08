@@ -14,6 +14,7 @@ import synapse.common as s_common
 
 import synapse.lib.ast as s_ast
 import synapse.lib.cache as s_cache
+import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.processpool as s_processpool
 
@@ -37,6 +38,7 @@ terminalEnglishMap = {
     'CATCH': 'catch',
     'CASEBARE': 'case value',
     'CCOMMENT': 'C comment',
+    'CLASS': 'class',
     'CMDARGV': 'command argument',
     'CMDOPT': 'command line option',
     'CMDNAME': 'command name',
@@ -63,6 +65,7 @@ terminalEnglishMap = {
     'EXPRPOW': '**',
     'EXPRTAGSEGNOVAR': 'non-variable tag segment',
     'EXPRTIMES': '*',
+    'EXTENDS': 'extends',
     'FOR': 'for',
     'FORMATSTRING': 'backtick-quoted format string',
     'FORMATTEXT': 'text within a format string',
@@ -79,6 +82,7 @@ terminalEnglishMap = {
     'LPAR': '(',
     'LSQB': '[',
     'MCASEBARE': 'case multi-value',
+    'METHOD': 'method',
     'MODSET': '+= or -=',
     'MODSETMULTI': '++= or --=',
     'NONQUOTEWORD': 'unquoted value',
@@ -138,6 +142,7 @@ terminalEnglishMap = {
     '_EXPRCOLONNOSPACE': ':',
     '_EMIT': 'emit',
     '_EMPTY': 'empty',
+    '_EXEC': 'exec',
     '_FINI': 'fini',
     '_HASH': '#',
     '_HASHSPACE': '#',
@@ -344,6 +349,20 @@ class AstConverter(lark.Transformer):
         return s_ast.Function(astinfo, kids)
 
     @lark.v_args(meta=True)
+    def funcarg(self, meta, kids):
+        '''
+        A single function parameter: name, optional "as <type>", optional default value.
+        '''
+        newkids = []
+        for kid in kids:
+            if isinstance(kid, lark.lexer.Token) and kid.type == 'EQNOSPACE':
+                continue
+            newkids.append(self._convert_child(kid))
+
+        astinfo = self.metaToAstInfo(meta)
+        return s_ast.FuncArg(astinfo, newkids)
+
+    @lark.v_args(meta=True)
     def funcargs(self, meta, kids):
         '''
         A list of function parameters (as part of a function definition)
@@ -351,46 +370,244 @@ class AstConverter(lark.Transformer):
         kids = self._convert_children(kids)
         astinfo = self.metaToAstInfo(meta)
 
-        newkids = []
         kwnames = set()
         kwfound = False
 
-        todo = collections.deque(kids)
+        for kid in kids:
 
-        while todo:
+            if kid.name in kwnames:
+                mesg = f'Duplicate parameter "{kid.name}" in function definition'
+                self.raiseBadSyntax(mesg, kid.kids[0].astinfo)
 
-            kid = todo.popleft()
+            if kid.name in ('lib', 'node', 'path'):
+                mesg = f'Assignment to reserved variable ${kid.name} is not allowed.'
+                self.raiseBadSyntax(mesg, kid.kids[0].astinfo)
 
-            if kid.valu in kwnames:
-                mesg = f'Duplicate parameter "{kid.valu}" in function definition'
-                self.raiseBadSyntax(mesg, kid.astinfo)
+            kwnames.add(kid.name)
 
-            if kid.valu in ('lib', 'node', 'path'):
-                mesg = f'Assignment to reserved variable ${kid.valu} is not allowed.'
-                self.raiseBadSyntax(mesg, kid.astinfo)
-
-            kwnames.add(kid.valu)
-
-            # look ahead for name = <default> kwarg decls
-            if len(todo) >= 2:
-
-                nextkid = todo[0]
-                if isinstance(nextkid, s_ast.Const) and nextkid.valu == '=':
-                    todo.popleft()
-                    valukid = todo.popleft()
-
-                    kwfound = True
-
-                    newkids.append(s_ast.CallKwarg(kid.astinfo, (kid, valukid)))
-                    continue
+            if kid.defvkid is not None:
+                kwfound = True
+                continue
 
             if kwfound:
-                mesg = f'Positional parameter "{kid.valu}" follows keyword parameter in definition'
+                mesg = f'Positional parameter "{kid.name}" follows keyword parameter in definition'
                 self.raiseBadSyntax(mesg, astinfo)
 
-            newkids.append(kid)
+        return s_ast.FuncArgs(astinfo, kids)
 
-        return s_ast.FuncArgs(astinfo, newkids)
+    def reqNotReservedName(self, kid):
+        '''
+        Reject a $self or $super variable binding.
+        '''
+        names = kid.value()
+        if not isinstance(names, (list, tuple)):
+            names = (names,)
+
+        for name in names:
+            if name in ('self', 'super'):
+                mesg = f'Assignment to reserved variable ${name} is not allowed.'
+                self.raiseBadSyntax(mesg, kid.astinfo)
+
+    def reqNotSelfRef(self, node, mesg):
+        '''
+        Reject a $self or $super reference within the given node.
+        '''
+        for kid in node.kids:
+
+            # an embedded query is parsed again from its text when it runs
+            if isinstance(kid, (s_ast.EmbedQuery, s_ast.ArgvQuery)):
+                continue
+
+            if isinstance(kid, s_ast.VarValue) and kid.kids[0].value() in ('self', 'super'):
+                self.raiseBadSyntax(mesg, kid.astinfo)
+
+            self.reqNotSelfRef(kid, mesg)
+
+    def markMethod(self, clsname, hasbase, meth, node, infunc):
+        '''
+        Mark each $self and $super reference within a class method body with the
+        method which provides it, and reject a use the class runtime does not allow.
+
+        Only a marked reference may reach the members of the running instance.
+        '''
+        for kid in node.kids:
+
+            # a nested class marks its own methods, and an embedded query is
+            # parsed again from its text when it runs.
+            if isinstance(kid, (s_ast.Class, s_ast.EmbedQuery, s_ast.ArgvQuery)):
+                continue
+
+            if isinstance(kid, (s_ast.SetVarOper, s_ast.ForLoop, s_ast.VarListSetOper)):
+                self.reqNotReservedName(kid.kids[0])
+
+            elif isinstance(kid, s_ast.CatchBlock):
+                self.reqNotReservedName(kid.kids[1])
+
+            elif isinstance(kid, s_ast.Function):
+
+                # a function declared within a method is a closure over it
+                self.reqNotReservedName(kid.kids[0])
+                for argkid in kid.kids[1].kids:
+                    self.reqNotReservedName(argkid.kids[0])
+
+                self.markMethod(clsname, hasbase, meth, kid, True)
+                continue
+
+            elif isinstance(kid, s_ast.VarValue):
+                self.markSelfRef(clsname, hasbase, meth, kid, infunc)
+
+            self.markMethod(clsname, hasbase, meth, kid, infunc)
+
+    def markSelfRef(self, clsname, hasbase, meth, varv, infunc):
+
+        name = varv.kids[0].value()
+        if name not in ('self', 'super'):
+            return
+
+        if name == 'super' and not hasbase:
+            mesg = f'$super may only be used in a class which extends another class, and {clsname} does not.'
+            self.raiseBadSyntax(mesg, varv.astinfo)
+
+        varv.selfkind = name
+        varv.methnode = meth
+
+        parent = varv.parent
+
+        if varv.pindex == 0 and isinstance(parent, s_ast.VarDeref):
+            self.markSelfDeref(clsname, meth, parent, infunc)
+            return
+
+        if name == 'super':
+            mesg = '$super may only be used to call a method of the base class.'
+            self.raiseBadSyntax(mesg, varv.astinfo)
+
+        if varv.pindex == 0 and isinstance(parent, s_ast.SetItemOper):
+
+            literal = self._literalName(parent.kids[1])
+            if literal in s_const.STORM_BUILTIN_METHODS:
+                mesg = f'{clsname}.{literal}() is invoked by the runtime and may not be set.'
+                self.raiseBadSyntax(mesg, parent.kids[1].astinfo)
+
+            parent.selfkind = name
+            parent.methnode = meth
+            parent.islit = literal is not None
+
+    def _literalName(self, namekid):
+        '''
+        Return the fixed member name a deref or setitem uses, or None if it is
+        computed when the query runs.
+
+        A bare word, a quoted string and a backtick string with no interpolation
+        are all fixed at parse time.
+        '''
+        if type(namekid) is s_ast.Const:
+            return namekid.value()
+
+        if isinstance(namekid, s_ast.FormatString):
+            if not namekid.kids:
+                return ''
+
+            if len(namekid.kids) == 1 and type(namekid.kids[0]) is s_ast.Const:
+                return namekid.kids[0].value()
+
+        return None
+
+    def markSelfDeref(self, clsname, meth, deref, infunc):
+
+        name = deref.kids[0].selfkind
+        methname = meth.kids[0].value()
+
+        literal = self._literalName(deref.kids[1])
+        islit = literal is not None
+
+        iscall = isinstance(deref.parent, s_ast.FuncCall) and deref.pindex == 0
+
+        if name == 'super':
+
+            if not iscall:
+                mesg = '$super may only be used to call a method of the base class.'
+                self.raiseBadSyntax(mesg, deref.astinfo)
+
+            if literal == '__storm_init':
+
+                if methname != '__storm_init' or infunc:
+                    mesg = f'$super.__storm_init() may only be called from within the __storm_init() method of {clsname}.'
+                    self.raiseBadSyntax(mesg, deref.astinfo)
+
+                deref.superinit = True
+
+            elif literal == '__storm_fini':
+                mesg = f'{clsname}.__storm_fini() is invoked by the runtime and may not be called directly.'
+                self.raiseBadSyntax(mesg, deref.astinfo)
+
+            elif literal is not None and literal.startswith('__'):
+                mesg = f'The private member {literal} of the class {clsname} extends may not be used through $super.'
+                self.raiseBadSyntax(mesg, deref.astinfo)
+
+        elif literal == '__storm_init':
+            mesg = (f'{clsname}.__storm_init() is invoked by the runtime and may not be called directly. '
+                    'Use $super.__storm_init() from within an __storm_init() method to run the base constructor.')
+            self.raiseBadSyntax(mesg, deref.astinfo)
+
+        elif literal == '__storm_fini':
+            mesg = f'{clsname}.__storm_fini() is invoked by the runtime and may not be called directly.'
+            self.raiseBadSyntax(mesg, deref.astinfo)
+
+        deref.selfkind = name
+        deref.methnode = meth
+        deref.iscall = iscall
+        deref.islit = islit
+
+    @lark.v_args(meta=True)
+    def stormclass(self, meta, kids):
+
+        kids = self._convert_children(kids)
+
+        clsname = kids[0].value()
+        if clsname in ('lib', 'node', 'path', 'self', 'super'):
+            mesg = f'Assignment to reserved variable ${clsname} is not allowed.'
+            self.raiseBadSyntax(mesg, kids[0].astinfo)
+
+        hasbase = any(isinstance(kid, s_ast.ClassExtends) for kid in kids[1:])
+
+        methnames = set()
+        for kid in kids[1:]:
+
+            if not isinstance(kid, s_ast.Method):
+                continue
+
+            methname = kid.kids[0].value()
+            if methname in methnames:
+                mesg = f'Duplicate method "{methname}" in class {clsname}'
+                self.raiseBadSyntax(mesg, kid.kids[0].astinfo)
+
+            methnames.add(methname)
+
+            if methname.startswith(s_const.STORM_BUILTIN_PREFIX) and methname not in s_const.STORM_BUILTIN_METHODS:
+                mesg = f'{clsname}.{methname}() uses the {s_const.STORM_BUILTIN_PREFIX} prefix, which is reserved for Storm built-in methods.'
+                self.raiseBadSyntax(mesg, kid.kids[0].astinfo)
+
+            if methname in s_const.STORM_RESERVED_NAMES:
+                mesg = f'{clsname}.{methname}() may not be declared; {methname} is reserved for the Storm built-in {methname}() method.'
+                self.raiseBadSyntax(mesg, kid.kids[0].astinfo)
+
+            # parameter defaults and types are computed when the class is
+            # declared, which is outside of any method call.
+            mesg = f'$self and $super may not be used in the parameters of {clsname}.{methname}().'
+            for argkid in kid.kids[1].kids:
+                if argkid.name in ('self', 'super'):
+                    self.raiseBadSyntax(mesg, argkid.kids[0].astinfo)
+
+            self.reqNotSelfRef(kid.kids[1], mesg)
+
+            if methname in s_const.STORM_BUILTIN_METHODS and kid.kids[2].hasAstClass(s_ast.Emit):
+                mesg = f'{clsname}.{methname}() is invoked by the runtime and may not use emit.'
+                self.raiseBadSyntax(mesg, kid.kids[0].astinfo)
+
+            self.markMethod(clsname, hasbase, kid, kid.kids[2], False)
+
+        astinfo = self.metaToAstInfo(meta)
+        return s_ast.Class(astinfo, kids)
 
     @lark.v_args(meta=True)
     def cmdargs(self, meta, kids):
@@ -782,11 +999,13 @@ ruleClassMap = {
     'andexpr': s_ast.AndCond,
     'baresubquery': s_ast.SubQuery,
     'catchblock': s_ast.CatchBlock,
+    'classextends': s_ast.ClassExtends,
     'condsetoper': s_ast.CondSetOper,
     'condtrysetoper': lambda astinfo, kids: s_ast.CondSetOper(astinfo, kids, errok=True),
     'condsubq': s_ast.SubqCond,
     'derefprops': s_ast.DerefProps,
     'dollarexpr': s_ast.DollarExpr,
+    'funcargtype': s_ast.FuncArgType,
     'edgeaddn1': s_ast.EditEdgeAdd,
     'edgedeln1': s_ast.EditEdgeDel,
     'edgeaddn2': lambda astinfo, kids: s_ast.EditEdgeAdd(astinfo, kids, n2=True),
@@ -795,6 +1014,7 @@ ruleClassMap = {
     'editparens': s_ast.EditParens,
     'emit': s_ast.Emit,
     'initblock': s_ast.InitBlock,
+    'execblock': s_ast.ExecBlock,
     'emptyblock': s_ast.EmptyBlock,
     'finiblock': s_ast.FiniBlock,
     'formname': s_ast.FormName,
@@ -889,6 +1109,7 @@ ruleClassMap = {
     'setitem': lambda astinfo, kids: s_ast.SetItemOper(astinfo, [kids[0], kids[1], kids[3]]),
     'stop': s_ast.Stop,
     'stormcmd': lambda astinfo, kids: s_ast.CmdOper(astinfo, kids=kids if len(kids) == 2 else (kids[0], s_ast.Const(astinfo, tuple()))),
+    'stormmethod': s_ast.Method,
     'tagcond': s_ast.TagCond,
     'tagname': s_ast.TagName,
     'tagmatch': s_ast.TagMatch,

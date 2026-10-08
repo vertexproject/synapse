@@ -52,5 +52,24 @@ assert layer_pdef_qsize <= layer_pdef_qsize_max
 MAX_LINE_SIZE = kibibyte * 64
 MAX_FIELD_SIZE = kibibyte * 64
 
+# Axon constants
+AXON_READY_TIMEOUT = 300  # seconds
+
 # Socket constants
 UNIX_SOCKET_PATH_MAX = 103
+
+# Storm class constants. A method name with the reserved prefix may only be
+# declared for one of the built-in methods which the runtime invokes.
+STORM_BUILTIN_PREFIX = '__storm_'
+STORM_BUILTIN_METHODS = ('__storm_init', '__storm_fini')
+
+# public names which every Storm class instance provides, and which a class
+# may therefore not declare as a method or set as an instance value.
+STORM_RESERVED_NAMES = ('fini',)
+
+# Cell boot phases, in order.
+BOOT_PHASE_EARLY = 1
+BOOT_PHASE_STORAGE = 2
+BOOT_PHASE_NEXUS = 3
+BOOT_PHASE_RUNTIME = 4
+BOOT_PHASE_NETWORK = 5

@@ -14,6 +14,7 @@ import synapse.lib.base as s_base
 import synapse.lib.json as s_json
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.httpclient as s_httpclient
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -500,7 +501,7 @@ class LibHttp(s_stormtypes.Lib):
             except asyncio.CancelledError:  # pragma: no cover
                 raise
             except Exception as e:
-                logger.exception(f'Error during http {meth} @ {url}')
+                logger.exception(f'Error during http {meth} @ {s_urlhelp.sanitizeUrl(url)}')
                 err = s_common.err(e)
                 errmsg = err[1].get('mesg')
                 if errmsg:

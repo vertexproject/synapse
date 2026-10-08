@@ -16,7 +16,7 @@ The Synapse Admin Guide provides important instructions and background informati
 
 Synapse provides a number of additional methods that can be used to perform some or all of the tasks described in this guide; however, these methods are **not** covered here. Additional methods include:
 
-- [stormtypes-libs-header](stormtypes_libs.md#stormtypes-libs-header) that allow you to work with a broad range of objects in Synapse.
+- [Storm Libraries](stormtypes_libs.md#stormtypes-libs-header) that allow you to work with a broad range of objects in Synapse.
 - Synapse tools that can be used from the host CLI (as opposed to the Storm CLI). The [Synapse User Guide](userguide.md#userguide) includes documentation on some of these [Tools](userguides/index_tools.md#userguide_tools).
 - The [Synapse HTTP/REST API](httpapi.md#http-api).
 
@@ -142,7 +142,7 @@ auth.user.mod ron_admin --locked (true)
 > [!WARNING]
 > We strongly encourage you to **lock** (disable) accounts when necessary instead of deleting them. Changes to data in the Cortex (such as creating nodes, setting properties, or adding tags) are associated with the user account that made those changes. Deleting an account associated with past changes will prohibit you from identifying the user who made those changes.
 >
-> If necesssary, user accounts can be deleted using the [stormlibs-lib-auth-users-del](stormtypes_libs.md#stormlibs-lib-auth-users-del) library, but there is no equivalent Storm command.
+> If necesssary, user accounts can be deleted using the [`$lib.auth.users.del()`](stormtypes_libs.md#stormlibs-lib-auth-users-del) library, but there is no equivalent Storm command.
 
 <a id="admin_user_list"></a>
 
@@ -287,7 +287,7 @@ auth.user.revoke ron "a-cat-emic researcher"
 >
 > - revoke the roles and grant them in the desired order;
 > - use the `--index` option to specify the location to insert the role;
-> - use [stormprims-auth-user-setRoles](stormtypes_prims.md#stormprims-auth-user-setRoles) to replace the user's roles with a new list of roles; or
+> - use [`auth:user.setRoles()`](stormtypes_prims.md#stormprims-auth-user-setRoles) to replace the user's roles with a new list of roles; or
 > - use the commercial Synapse UI (Optic) to reorder the roles using drag-and drop.
 >
 > See [Permissions Background](adminguide.md#admin_perms_background) for additional detail on permissions and [Precedence](adminguide.md#admin_bkd_precedence).
@@ -560,7 +560,7 @@ Specifying rules at the global (Cortex) level may be sufficient for many basic S
 >
 > - use the `--index` option with `auth.user.addrule` or `auth.role.addrule` to specify a location to insert a specific rule;
 > - remove and re-add the rules in the desired order;
-> - use [stormprims-auth-user-setRules](stormtypes_prims.md#stormprims-auth-user-setRules) or [stormprims-auth-role-setRules](stormtypes_prims.md#stormprims-auth-role-setRules) to replace the rules for a user or role with a new set of rules; or
+> - use [`auth:user.setRules()`](stormtypes_prims.md#stormprims-auth-user-setRules) or [`auth:role.setRules()`](stormtypes_prims.md#stormprims-auth-role-setRules) to replace the rules for a user or role with a new set of rules; or
 > - use the commercial Synapse UI (Optic) to reorder rules using drag-and-drop.
 
 ##### Assign Permissions
@@ -1010,96 +1010,9 @@ See the [Rapid Power-Up Development](devguides/power-ups.md#dev_rapid_power_ups)
 
 ## Add Extended Model Elements
 
-The Synapse data model in a Cortex can be extended with custom [forms](glossary.md#gloss-form-extended) or [properties](glossary.md#gloss-prop-extended) by using the model extension Storm Library ([stormlibs-lib-model-ext](stormtypes_libs.md#stormlibs-lib-model-ext)). Extended model forms and properties must have names beginning with an underscore (`_`) to avoid potential naming conflicts with built-in model elements.
+The data model in a Cortex can be extended with custom types, [forms](glossary.md#gloss-form-extended), [properties](glossary.md#gloss-prop-extended), tag properties, and edges by using the model extension Storm library ([`$lib.model.ext`](stormtypes_libs.md#stormlibs-lib-model-ext)). Extended model element names begin with an underscore (`_`) so they do not conflict with built-in model elements.
 
-> [!NOTE]
-> Extended model elements that are in-use (have nodes using the extended forms or properties) cannot be removed until all instances of that extended model element are removed. In other words, before removing extended forms any nodes created with that extended form must be delete first, and before removing extended properties any nodes with that extended property must have the property value removed.
-
-### Extended Forms
-
-When adding a form, `$lib.model.ext.addForm` takes the following arguments:
-
-`formname`
-
-:   Name of the form, must begin with an underscore (`_`) and contain at least one colon (`:`).
-
-`basetype`
-
-:   The [Synapse data model type](datamodel_types.md) for the form.
-
-`typeopts`
-
-:   A dictionary of type specific options.
-
-`typeinfo`
-
-:   A dictionary of info values for the form.
-
-To add a new form named `_foocorp:name`, which contains string values which will be normalized to lowercase, with whitespace stripped from the beginning/end:
-
-```storm
-$typeopts = ({'lower': true, 'strip': true})
-$typeinfo = ({'doc': 'Foocorp name.'})
-
-$lib.model.ext.addForm(_foocorp:name, str, $typeopts, $typeinfo)
-```
-
-If the form is no longer in use and there are no nodes of this form in the Cortex, it can be removed with:
-
-```storm
-$lib.model.ext.delForm(_foocorp:name)
-```
-
-### Extended Properties
-
-When adding properties, `$lib.model.ext.addFormProp` takes the following arguments:
-
-`formname`
-
-:   Name of the form to add the property to, may be a built-in or extended model form.
-
-`propname`
-
-:   Relative name of the property, must begin with an underscore (`_`).
-
-`typedef`
-
-:   A tuple of (`type`, `typeopts`) which defines the type for the property
-
-`propinfo`
-
-:   A dictionary of info values for the property.
-
-To add a property named `_score` to the `_foocorp:name` form which contains int values between 0 and 100:
-
-```storm
-$typeopts = ({'min': 0, 'max': 100})
-$propinfo = ({'doc': 'Score for this name.'})
-
-$lib.model.ext.addFormProp(_foocorp:name, _score, (int, $typeopts), $propinfo)
-```
-
-To add a property named `_aliases` to the `_foocorp:name` form which contains a unique array of `base:name` values:
-
-```storm
-$typeopts = ({'type': 'base:name', 'uniq': true})
-$propinfo = ({'doc': 'Aliases for this name.'})
-
-$lib.model.ext.addFormProp(_foocorp:name, _aliases, (array, $typeopts), $propinfo)
-```
-
-Properties may also be added to existing forms, for example, to add a property named `_classification` to `inet:fqdn` which must contain a string from a predefined set of values:
-
-```storm
-$typeopts = ({'enums': 'unknown,benign,malicious'})
-$propinfo = ({'doc': 'Classification for this FQDN.'})
-
-$lib.model.ext.addFormProp(inet:fqdn, _classification, (str, $typeopts), $propinfo)
-```
-
-### Extended Universal Properties
-
-Similar to `$lib.model.ext.addFormProp`, `$lib.model.ext.addUnivProp` takes the same `propname`, `typedef`, and `propinfo` arguments, but applies to all forms.
+See [Extended Model](storm_lib_modelext.md#modelext) for how to add, export, and remove extended model elements, with examples.
 
 <a id="admin_manage_deprecations"></a>
 

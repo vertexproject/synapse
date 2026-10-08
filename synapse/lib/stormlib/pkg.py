@@ -379,10 +379,7 @@ class LibPkg(s_stormtypes.Lib):
     @s_stormtypes.stormfunc(readonly=True)
     async def _libPkgHas(self, name):
         name = await s_stormtypes.tostr(name)
-        pkgdef = await self.runt.view.core.getStormPkg(name)
-        if pkgdef is None:
-            return False
-        return True
+        return await self.runt.view.core.hasStormPkg(name)
 
     async def _libPkgDel(self, name):
         self.runt.confirm(('pkg', 'del'), None)

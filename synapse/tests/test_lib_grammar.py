@@ -7,6 +7,7 @@ import synapse.exc as s_exc
 import synapse.data as s_data
 import synapse.common as s_common
 
+import synapse.lib.ast as s_ast
 import synapse.lib.parser as s_parser
 import synapse.lib.grammar as s_grammar
 import synapse.lib.msgpack as s_msgpack
@@ -852,6 +853,12 @@ Queries = [
     'some.cmd "foo{bar}"',
     'tee word { inet:ip }',
     'inet:ip:asn max :asn return($node)',
+    'function foo(x as int) { return($x) }',
+    'function foo(x as inet:ipv4, y as str=hehe) { return($x) }',
+    'class Foo { method __storm_init(x as int) { $self.x = $x } }',
+    'class Foo extends Bar { method bar() { return($self.x) } }',
+    'exec { $x = $(1) [ test:int=$x ] }',
+    'test:int exec{ $lib.print(hi) } fini { $lib.print(bye) }',
 ]
 
 # Generated with print_parse_list below
@@ -1365,8 +1372,8 @@ _ParseResults = [
     'Query: [LiftPropBy: [Const: test:str, Const: =, VarDeref: [VarDeref: [VarValue: [Const: foo], VarValue: [Const: space key]], Const: subkey]]]',
     'Query: [ForLoop: [Const: iterkey, VarDeref: [VarDeref: [VarValue: [Const: foo], VarValue: [Const: bar key]], VarValue: [Const: biz key]], SubQuery: [Query: [LiftPropBy: [Const: inet:ip, Const: =, VarDeref: [VarDeref: [VarDeref: [VarValue: [Const: foo], VarValue: [Const: bar key]], VarValue: [Const: biz key]], VarValue: [Const: iterkey]]]]]]]',
     'Query: [EditParens: [EditNodeAdd: [FormName: [Const: ou:org], Const: =, Const: c71cd602f73af5bed208da21012fdf54], EditPropSet: [RelProp: [Const: loc], Const: =, Const: us]]]',
-    'Query: [Function: [Const: x, FuncArgs: [Const: y, Const: z], Query: [Return: [DollarExpr: [ExprNode: [VarValue: [Const: x], Const: -, VarValue: [Const: y]]]]]]]',
-    'Query: [Function: [Const: echo, FuncArgs: [Const: arg, CallKwarg: [Const: arg2, Const: default]], Query: [Return: [VarValue: [Const: arg]]]]]',
+    'Query: [Function: [Const: x, FuncArgs: [FuncArg: [Const: y], FuncArg: [Const: z]], Query: [Return: [DollarExpr: [ExprNode: [VarValue: [Const: x], Const: -, VarValue: [Const: y]]]]]]]',
+    'Query: [Function: [Const: echo, FuncArgs: [FuncArg: [Const: arg], FuncArg: [Const: arg2, Const: default]], Query: [Return: [VarValue: [Const: arg]]]]]',
     'Query: [SetVarOper: [Const: name, Const: asdf], SetVarOper: [Const: foo, DollarExpr: [ExprDict: []]], SetItemOper: [VarValue: [Const: foo], Const: bar, Const: asdf], SetItemOper: [VarValue: [Const: foo], Const: bar baz, Const: asdf], SetItemOper: [VarValue: [Const: foo], VarValue: [Const: name], Const: asdf]]',
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: a], SwitchCase: [VarDeref: [VarValue: [Const: node], Const: form], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]]]]',
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: a], SwitchCase: [VarValue: [Const: woot], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]]]]',
@@ -1389,7 +1396,7 @@ _ParseResults = [
     'Query: [LiftPropBy: [Const: inet:ip, Const: =, Const: 1.2.3.4], PivotToTags: [TagMatch: [Const: *]], isjoin=True]',
     'Query: [LiftPropBy: [Const: inet:ip, Const: =, Const: 1.2.3.4], PivotToTags: [TagMatch: [Const: biz, Const: *]], isjoin=True]',
     'Query: [LiftPropBy: [Const: inet:ip, Const: =, Const: 1.2.3.4], PivotToTags: [TagMatch: [Const: bar, Const: baz]], isjoin=True]',
-    'Query: [Function: [Const: middlechild, FuncArgs: [Const: arg2], Query: [YieldValu: [FuncCall: [VarValue: [Const: rockbottom], CallArgs: [VarValue: [Const: arg2]], CallKwargs: []]]]]]',
+    'Query: [Function: [Const: middlechild, FuncArgs: [FuncArg: [Const: arg2]], Query: [YieldValu: [FuncCall: [VarValue: [Const: rockbottom], CallArgs: [VarValue: [Const: arg2]], CallKwargs: []]]]]]',
     'Query: [EditNodeAdd: [FormName: [Const: test:comp], Const: =, List: [Const: 10, Const: bar]], SubQuery: [Query: [FormPivot: [PivotTarget: [Const: test:int]], isjoin=False]]]',
     'Query: [LiftProp: [Const: test:arrayprop], FiltOper: [Const: +, ArrayCond: [RelProp: [Const: ints], Const: range=, List: [Const: 50, Const: 100]]]]',
     'Query: [LiftProp: [Const: inet:ip], FiltOper: [Const: +, AndCond: [VarValue: [Const: foo], VarValue: [Const: bar]]]]',
@@ -1599,6 +1606,12 @@ _ParseResults = [
     'Query: [CmdOper: [Const: some.cmd, List: [Const: foo{bar}]]]',
     'Query: [CmdOper: [Const: tee, List: [Const: word, ArgvQuery: [Query: [LiftProp: [Const: inet:ip]]]]]]',
     'Query: [LiftProp: [Const: inet:ip:asn], CmdOper: [Const: max, List: [RelPropValue: [RelProp: [Const: asn]], Const: return($node)]]]',
+    'Query: [Function: [Const: foo, FuncArgs: [FuncArg: [Const: x, FuncArgType: [Const: int]]], Query: [Return: [VarValue: [Const: x]]]]]',
+    'Query: [Function: [Const: foo, FuncArgs: [FuncArg: [Const: x, FuncArgType: [Const: inet:ipv4]], FuncArg: [Const: y, FuncArgType: [Const: str], Const: hehe]], Query: [Return: [VarValue: [Const: x]]]]]',
+    'Query: [Class: [Const: Foo, Method: [Const: __storm_init, FuncArgs: [FuncArg: [Const: x, FuncArgType: [Const: int]]], Query: [SetItemOper: [VarValue: [Const: self], Const: x, VarValue: [Const: x]]]]]]',
+    'Query: [Class: [Const: Foo, ClassExtends: [Const: Bar], Method: [Const: bar, FuncArgs: [], Query: [Return: [VarDeref: [VarValue: [Const: self], Const: x]]]]]]',
+    'Query: [ExecBlock: [Query: [SetVarOper: [Const: x, DollarExpr: [Const: 1]], EditNodeAdd: [FormName: [Const: test:int], Const: =, VarValue: [Const: x]]]]]',
+    'Query: [LiftProp: [Const: test:int], ExecBlock: [Query: [VarEvalOper: [FuncCall: [VarDeref: [VarValue: [Const: lib], Const: print], CallArgs: [Const: hi], CallKwargs: []]]]], FiniBlock: [Query: [VarEvalOper: [FuncCall: [VarDeref: [VarValue: [Const: lib], Const: print], CallArgs: [Const: bye], CallKwargs: []]]]]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):
@@ -2199,6 +2212,194 @@ class GrammarTest(s_t_utils.SynTest):
         q = parser.query()
         embed = q.kids[0].kids[1]
         self.eq(embq, embed.getAstText())
+
+    async def test_class_syntax_errors(self):
+        '''
+        A Cortex parses in a forked process pool, so the parse time rejections
+        for a class definition are exercised here in process.
+        '''
+        for query, mesg in (
+            ('class Foo { method a() { $self = (1) } }',
+             'Assignment to reserved variable $self is not allowed.'),
+            ('class Foo { method a() { $super = (1) } }',
+             'Assignment to reserved variable $super is not allowed.'),
+            ('class Foo { method a() { for $self in $lib.range(3) { } } }',
+             'Assignment to reserved variable $self is not allowed.'),
+            ('class Foo { method a() { for ($x, $super) in $lib.range(3) { } } }',
+             'Assignment to reserved variable $super is not allowed.'),
+            ('class Foo { method a() { ($x, $self) = $lib.range(2) } }',
+             'Assignment to reserved variable $self is not allowed.'),
+            ('class Foo { method a() { try { } catch * as self { } } }',
+             'Assignment to reserved variable $self is not allowed.'),
+            ('class Foo { method a(self) { } }',
+             '$self and $super may not be used in the parameters of Foo.a().'),
+            ('class Foo { method a(super) { } }',
+             '$self and $super may not be used in the parameters of Foo.a().'),
+            ('class Foo { method a() { } method a() { } }',
+             'Duplicate method "a" in class Foo'),
+            ('class lib { method a() { } }',
+             'Assignment to reserved variable $lib is not allowed.'),
+            ('class self { method a() { } }',
+             'Assignment to reserved variable $self is not allowed.'),
+            ('class Foo { method a(x, x) { } }',
+             'Duplicate parameter "x" in function definition'),
+            ('class Foo { method a(x=(1), y) { } }',
+             'Positional parameter "y" follows keyword parameter in definition'),
+            ('class Foo { method a(node) { } }',
+             'Assignment to reserved variable $node is not allowed.'),
+            ('class Foo { method __storm_newp() { } }',
+             'Foo.__storm_newp() uses the __storm_ prefix, which is reserved for Storm built-in methods.'),
+            ('class Foo { method __storm_() { } }',
+             'Foo.__storm_() uses the __storm_ prefix, which is reserved for Storm built-in methods.'),
+            ('class Foo { method fini() { } }',
+             'Foo.fini() may not be declared; fini is reserved for the Storm built-in fini() method.'),
+            ('class Foo { method a(x=$self) { } }',
+             '$self and $super may not be used in the parameters of Foo.a().'),
+            ('class Foo { method a(x as $self.t) { } }',
+             '$self and $super may not be used in the parameters of Foo.a().'),
+            ('class Foo { method a() { function self() { } } }',
+             'Assignment to reserved variable $self is not allowed.'),
+            ('class Foo { method a() { function f(super) { } } }',
+             'Assignment to reserved variable $super is not allowed.'),
+            ('class Foo { method a() { function f() { $self = (1) } } }',
+             'Assignment to reserved variable $self is not allowed.'),
+            ('class Foo { method a() { $super.a() } }',
+             '$super may only be used in a class which extends another class, and Foo does not.'),
+            ('class Base { } class Foo extends Base { method a() { $x = $super } }',
+             '$super may only be used to call a method of the base class.'),
+            ('class Base { } class Foo extends Base { method a() { $super.x = (1) } }',
+             '$super may only be used to call a method of the base class.'),
+            ('class Base { } class Foo extends Base { method a() { $f = $super.a } }',
+             '$super may only be used to call a method of the base class.'),
+            ('class Base { } class Foo extends Base { method a() { $x.$super = (1) } }',
+             '$super may only be used to call a method of the base class.'),
+            ('class Base { } class Foo extends Base { method a() { $super.__storm_init() } }',
+             '$super.__storm_init() may only be called from within the __storm_init() method of Foo.'),
+            ('class Base { } class Foo extends Base { method __storm_init() { function f() { $super.__storm_init() } } }',
+             '$super.__storm_init() may only be called from within the __storm_init() method of Foo.'),
+            ('class Base { } class Foo extends Base { method a() { $super.__storm_fini() } }',
+             'Foo.__storm_fini() is invoked by the runtime and may not be called directly.'),
+            ('class Base { } class Foo extends Base { method a() { $super.__priv() } }',
+             'The private member __priv of the class Foo extends may not be used through $super.'),
+            ('class Foo { method a() { $self.__storm_init() } }',
+             'Foo.__storm_init() is invoked by the runtime and may not be called directly. '
+             'Use $super.__storm_init() from within an __storm_init() method to run the base constructor.'),
+            ('class Foo { method a() { $f = $self.__storm_fini } }',
+             'Foo.__storm_fini() is invoked by the runtime and may not be called directly.'),
+            ('class Foo { method a() { $self.__storm_init = (1) } }',
+             'Foo.__storm_init() is invoked by the runtime and may not be set.'),
+            ('class Foo { method a() { $self."__storm_fini" = (1) } }',
+             'Foo.__storm_fini() is invoked by the runtime and may not be set.'),
+            ('class Foo { method __storm_init() { emit (1) } }',
+             'Foo.__storm_init() is invoked by the runtime and may not use emit.'),
+            ('class Foo { method __storm_fini() { if (true) { emit (1) } } }',
+             'Foo.__storm_fini() is invoked by the runtime and may not use emit.'),
+        ):
+            with self.raises(s_exc.BadSyntax) as cm:
+                s_parser.Parser(query).query()
+
+            self.eq(cm.exception.get('mesg'), mesg)
+
+        # a nested class declares its own $self, so the inner method is what
+        # rejects the assignment rather than the outer one.
+        query = 'class Foo { method a() { class Bar { method b() { $self = (1) } } } }'
+        with self.raises(s_exc.BadSyntax) as cm:
+            s_parser.Parser(query).query()
+
+        self.eq(cm.exception.get('mesg'), 'Assignment to reserved variable $self is not allowed.')
+
+        # a nested class with a valid body is walked over rather than into
+        query = 'class Foo { method a() { class Bar { method b() { $ok = (1) } } } }'
+        self.nn(s_parser.Parser(query).query())
+
+        # an assignment to $self outside of a class is still allowed
+        self.nn(s_parser.Parser('$self = ({}) $self.foo = bar').query())
+
+        # an embedded query is parsed again from its text when it runs, so the
+        # $self and $super references within one are not checked or marked.
+        query = 'class Foo { method a(q=${ $self }) { $x = ${ $super } return($x) } }'
+        self.nn(s_parser.Parser(query).query())
+
+        # a function declared within a lifecycle method may still emit
+        query = 'class Foo { method __storm_fini() { function g() { emit (1) } return() } }'
+        self.nn(s_parser.Parser(query).query())
+
+        def getDerefs(query):
+            return [n for n in iterAst(s_parser.Parser(query).query()) if isinstance(n, s_ast.VarDeref)]
+
+        # the parser marks each member of $self and $super with its method
+        query = '''
+        class Base { method b() { return() } }
+        class Foo extends Base {
+            method __storm_init() { $super.__storm_init() return() }
+            method a(n) {
+                $self.__x = (1)
+                $self.$n = (2)
+                $lib.print($self.__x)
+                $lib.print($self.$n)
+                $self.b()
+                $super.$n()
+                return()
+            }
+        }
+        '''
+        derefs = [(n.selfkind, n.islit, n.iscall, n.superinit) for n in getDerefs(query) if n.selfkind is not None]
+        self.eq(derefs, [
+            ('super', True, True, True),
+            ('self', True, False, False),
+            ('self', False, False, False),
+            ('self', True, True, False),
+            ('super', False, True, False),
+        ])
+
+        setitems = [n for n in iterAst(s_parser.Parser(query).query()) if isinstance(n, s_ast.SetItemOper)]
+        self.eq([(n.selfkind, n.islit) for n in setitems], [('self', True), ('self', False)])
+
+        # a static backtick or quoted name is a literal member name, while a
+        # backtick with interpolation is computed
+        query = '''
+        class Foo {
+            method a(n) {
+                $self.`__x` = (1)
+                $self."__y"
+                $self.`__{$n}`
+                return()
+            }
+        }
+        '''
+        derefs = [(n.selfkind, n.islit) for n in getDerefs(query) if n.selfkind is not None]
+        self.eq(derefs, [('self', True), ('self', False)])
+
+        setitems = [n for n in iterAst(s_parser.Parser(query).query()) if isinstance(n, s_ast.SetItemOper)]
+        self.eq([(n.selfkind, n.islit) for n in setitems], [('self', True)])
+
+        # an empty backtick is a literal ( empty ) member name
+        query = 'class Foo { method a() { $self.`` return() } }'
+        derefs = [(n.selfkind, n.islit) for n in getDerefs(query) if n.selfkind is not None]
+        self.eq(derefs, [('self', True)])
+
+        # a static backtick lifecycle name is rejected the same as a bare one
+        with self.raises(s_exc.BadSyntax) as cm:
+            s_parser.Parser('class Foo { method a() { $self.`__storm_init` = (1) } }').query()
+
+        self.eq(cm.exception.get('mesg'), 'Foo.__storm_init() is invoked by the runtime and may not be set.')
+
+        # every marked reference names the method which declared it
+        meths = [n for n in iterAst(s_parser.Parser(query).query()) if isinstance(n, s_ast.Method)]
+        for meth in meths:
+            for node in iterAst(meth):
+                if getattr(node, 'selfkind', None) is not None:
+                    self.true(node.methnode is meth)
+
+        # a reference outside of a class, or within an embedded query, is not marked
+        query = '$self = ({}) $self.x = (1) $lib.print($self.x) class Foo { method a() { return(${ $self.x }) } }'
+        nodes = list(iterAst(s_parser.Parser(query).query()))
+        self.true(all(getattr(n, 'selfkind', None) is None for n in nodes))
+
+def iterAst(node):
+    yield node
+    for kid in node.kids:
+        yield from iterAst(kid)
 
 def gen_parse_list():
     '''

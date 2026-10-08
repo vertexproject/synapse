@@ -211,16 +211,16 @@ The following items should be considered when contributing to Synapse:
   - Logger calls should use logging string interpolation, instead of using % or .format() methods. See Python Logging module docs for reference.
   - Example:
 
-  > ```text
-  > # Get the module level logger
-  > logger = logging.getLogger(__name__)
-  > # Do this - it only forms the final string if the message is
-  > # actually going to be logged
-  > logger.info('I am a message from %s about %s', 'bob', 'a duck')
-  > # NOT this - it performs the string format() call regardless of
-  > # whether or not the message is going to be logged.
-  > logger.info('I am a message from {} about {}'.format('bob', 'a duck'))
-  > ```
+  ```text
+  # Get the module level logger
+  logger = logging.getLogger(__name__)
+  # Do this - it only forms the final string if the message is
+  # actually going to be logged
+  logger.info('I am a message from %s about %s', 'bob', 'a duck')
+  # NOT this - it performs the string format() call regardless of
+  # whether or not the message is going to be logged.
+  logger.info('I am a message from {} about {}'.format('bob', 'a duck'))
+  ```
 
 - Convenience methods are available for unit tests, primarily through the SynTest class. This is a subclass of unittest.TestCase and provides many short aliases for the assert\* functions that TestCase provides.
 

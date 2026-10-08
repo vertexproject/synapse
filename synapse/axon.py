@@ -1,14 +1,18 @@
+import io
 import os
 import csv
+import codecs
 import struct
 import asyncio
 import hashlib
 import logging
 import tempfile
 import contextlib
+import collections
 
 import aiohttp
 import aiohttp_socks
+import tornado.web as t_web
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -17,7 +21,6 @@ import synapse.telepath as s_telepath
 import synapse.lib.cell as s_cell
 import synapse.lib.base as s_base
 import synapse.lib.json as s_json
-import synapse.lib.link as s_link
 import synapse.lib.const as s_const
 import synapse.lib.nexus as s_nexus
 import synapse.lib.share as s_share
@@ -26,7 +29,6 @@ import synapse.lib.hashset as s_hashset
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.process as s_process
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
 
@@ -35,6 +37,145 @@ logger = logging.getLogger(__name__)
 CHUNK_SIZE = 16 * s_const.mebibyte
 MAX_SPOOL_SIZE = CHUNK_SIZE * 32  # 512 mebibytes
 MAX_HTTP_UPLOAD_SIZE = 4 * s_const.tebibyte
+
+# readlines() / csvrows() decode a blob in slices of this size, yielding the
+# ioloop between them, and yield it again after this many lines or rows.
+READ_SLICE_SIZE = s_const.mebibyte
+READ_YIELD_COUNT = 1000
+
+# the longest line ( in characters ) readlines() / csvrows() will buffer
+READ_MAX_LINE = 128 * s_const.mebibyte
+
+class _CsvNeedMore(Exception):
+    pass
+
+class _BlobLines:
+    '''
+    Split decoded blob text into newline terminated lines.
+
+    This is also the line iterator given to csv.reader(). When the buffered lines
+    run out before the blob does, it raises _CsvNeedMore so the record csv.reader()
+    was parsing can be rewound and parsed again once more text arrives.
+    '''
+    def __init__(self):
+        self.done = False
+        self.need = 0
+        self.size = 0
+        self.tail = []
+        self.pend = []
+        self.lines = collections.deque()
+        self.tailsize = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.lines:
+            line = self.lines.popleft()
+            self.size -= len(line)
+            self.pend.append(line)
+            return line
+
+        if self.done:
+            raise StopIteration
+
+        raise _CsvNeedMore()
+
+    def feed(self, text):
+        # split on newline only, since str.splitlines() also splits on
+        # characters such as \x0b and \u2028 which a text file does not.
+        parts = text.split('\n')
+
+        self._addTail(parts[0])
+        if len(parts) == 1:
+            return
+
+        self._addLine(''.join(self.tail) + '\n')
+        for part in parts[1:-1]:
+            self._addLine(part + '\n')
+
+        self.tail = []
+        self.tailsize = 0
+        self._addTail(parts[-1])
+
+    def _addTail(self, text):
+        # a line is buffered until its newline arrives, so bound it rather than
+        # buffer an entire blob which has no newlines.
+        self.tailsize += len(text)
+        if self.tailsize > READ_MAX_LINE:
+            mesg = f'Line exceeds the maximum length of {READ_MAX_LINE} characters.'
+            raise s_exc.BadDataValu(mesg=mesg)
+
+        self.tail.append(text)
+
+    def fini(self):
+        last = ''.join(self.tail)
+        if last:
+            self._addLine(last)
+
+        self.tail = []
+        self.done = True
+
+    def _addLine(self, line):
+        self.size += len(line)
+        self.lines.append(line)
+
+    def pop(self):
+        while self.lines:
+            line = self.lines.popleft()
+            self.size -= len(line)
+            yield line
+
+    def ready(self):
+        return self.done or self.size >= self.need
+
+    def commit(self):
+        self.pend.clear()
+        self.need = 0
+
+    def rewind(self):
+        # put back the lines of a record which ran past the buffered text, and
+        # wait for the buffer to double before parsing it again so a record which
+        # spans many slices is not re-parsed once per slice.
+        size = sum(len(line) for line in self.pend)
+
+        self.lines.extendleft(reversed(self.pend))
+        self.size += size
+        self.pend.clear()
+
+        self.need = size * 2
+
+def _decodeText(decoder, byts, errors, final=False):
+    # the errors handler is only looked up once a bad byte is decoded, so a bad
+    # errors value surfaces here as a LookupError.
+    try:
+        return decoder.decode(byts, final=final)
+
+    except UnicodeDecodeError as e:
+        raise s_exc.BadDataValu(mesg=str(e)) from None
+
+    except LookupError as e:
+        raise s_exc.BadArg(mesg=f'Invalid errors value: {errors} ({e})') from None
+
+def _iterCsvRows(reader, lines):
+
+    while True:
+
+        try:
+            row = next(reader)
+
+        except _CsvNeedMore:
+            lines.rewind()
+            return
+
+        except StopIteration:
+            return
+
+        except csv.Error as e:
+            raise s_exc.BadDataValu(mesg=f'CSV error: {e}') from None
+
+        lines.commit()
+        yield row
 
 class AxonHandlerMixin:
     async def getAxon(self):
@@ -50,6 +191,7 @@ class AxonHttpUploadV3(AxonHandlerMixin, s_httpapi.StreamHandler):
 
         if not await self.allowed(('axon', 'upload')):
             await self.finish()
+            return
 
         # max_body_size defaults to 100MB and requires a value
         self.request.connection.set_max_body_size(MAX_HTTP_UPLOAD_SIZE)
@@ -146,7 +288,7 @@ class AxonFileHandler(AxonHandlerMixin, s_httpapi.Handler):
 
         status = 200
         info = await self.getAxonInfo()
-        if info.get('features', {}).get('byterange'):
+        if (features := info.get('features')) is not None and features.get('byterange'):
             self.set_header('Accept-Ranges', 'bytes')
             self._chopRangeHeader()
 
@@ -510,6 +652,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'has'))
         return await self.cell.wants(sha256s)
 
+    @s_cell.nopoolapi
     async def put(self, byts):
         '''
         Store bytes in the Axon.
@@ -526,6 +669,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'upload'))
         return await self.cell.put(byts)
 
+    @s_cell.nopoolapi
     async def puts(self, files):
         '''
         Store a set of bytes in the Axon.
@@ -542,6 +686,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'upload'))
         return await self.cell.puts(files)
 
+    @s_cell.nopoolapi
     async def upload(self):
         '''
         Get an Upload object.
@@ -573,6 +718,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'upload'))
         return await UpLoadShare.anit(self.cell, self.link)
 
+    @s_cell.nopoolapi
     async def del_(self, sha256):
         '''
         Remove the given bytes from the Axon by sha256.
@@ -586,6 +732,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'del'))
         return await self.cell.del_(sha256)
 
+    @s_cell.nopoolapi
     async def dels(self, sha256s):
         '''
         Given a list of sha256 hashes, delete the files from the Axon.
@@ -599,6 +746,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'del'))
         return await self.cell.dels(sha256s)
 
+    @s_cell.nopoolapi
     async def wget(self, url, *, params=None, headers=None, json=None, body=None, method='GET',
                    ssl=None, timeout=None, proxy=True):
         '''
@@ -823,7 +971,7 @@ class Axon(s_cell.Cell):
         path = s_common.gendir(self.dirn, 'axon_v2.lmdb')
 
         # holds what the axon:file:add / axon:file:del handlers write
-        self.axonslab = await self._initSlabFile(path)
+        self.axonslab = await self._initSlabFile(path, readonly=self.readonly)
         await self._migrateAxonHistory()
         self.sizes = self.axonslab.initdb('sizes')
 
@@ -832,11 +980,7 @@ class Axon(s_cell.Cell):
         self.axonhist = s_lmdbslab.Hist(self.axonslab, 'history')
         self.axonseqn = s_slabseqn.SlabSeqn(self.axonslab, 'axonseqn')
 
-        self.axonmetrics = await self.axonslab.getHotCount('metrics')
-
-        if self.inaugural:
-            self.axonmetrics.set('size:bytes', 0)
-            self.axonmetrics.set('file:count', 0)
+        self.metricsdb = self.axonslab.initdb('metrics')
 
         await self.initCellVers('axon:metrics')
 
@@ -892,14 +1036,27 @@ class Axon(s_cell.Cell):
     def _reqBelowLimit(self):
 
         if (self.maxbytes is not None and
-            self.maxbytes <= self.axonmetrics.get('size:bytes')):
+            self.maxbytes <= self._getAxonMetric('size:bytes')):
             mesg = f'Axon is at size:bytes limit: {self.maxbytes}'
             raise s_exc.HitLimit(mesg=mesg)
 
         if (self.maxcount is not None and
-            self.maxcount <= self.axonmetrics.get('file:count')):
+            self.maxcount <= self._getAxonMetric('file:count')):
             mesg = f'Axon is at file:count limit: {self.maxcount}'
             raise s_exc.HitLimit(mesg=mesg)
+
+    def _getAxonMetric(self, name):
+        byts = self.axonslab.get(name.encode(), db=self.metricsdb)
+        if byts is None:
+            return 0
+
+        return s_common.signedint64un(byts)
+
+    def _incAxonMetric(self, name, valu):
+        # synchronous so the handlers do not yield to a hashes() waiter before the
+        # file size it checks for is written.
+        byts = s_common.signedint64en(self._getAxonMetric(name) + valu)
+        self.axonslab._put(name.encode(), byts, db=self.metricsdb)
 
     async def _axonHealth(self, health):
         health.update('axon', 'nominal', '', data=await self.metrics())
@@ -942,7 +1099,7 @@ class Axon(s_cell.Cell):
 
         path = s_common.gendir(self.dirn, 'blob.lmdb')
 
-        self.blobslab = await self._initSlabFile(path)
+        self.blobslab = await self._initSlabFile(path, readonly=self.readonly)
         self.blobs = self.blobslab.initdb('blobs')
         self.offsets = self.blobslab.initdb('offsets')
         self.metadata = self.blobslab.initdb('metadata')
@@ -1245,7 +1402,10 @@ class Axon(s_cell.Cell):
         Returns:
             dict: A dictionary of runtime data about the Axon.
         '''
-        return self.axonmetrics.pack()
+        return {
+            'file:count': self._getAxonMetric('file:count'),
+            'size:bytes': self._getAxonMetric('size:bytes'),
+        }
 
     async def save(self, sha256, genr, size):
         '''
@@ -1294,8 +1454,8 @@ class Axon(s_cell.Cell):
         tick = info.get('tick')
         self._addSyncItem((sha256, size), tick=tick)
 
-        self.axonmetrics.inc('file:count')
-        self.axonmetrics.inc('size:bytes', valu=size)
+        self._incAxonMetric('file:count', 1)
+        self._incAxonMetric('size:bytes', size)
 
         await self.axonslab.put(sha256, size.to_bytes(8, 'big'), db=self.sizes)
 
@@ -1407,8 +1567,8 @@ class Axon(s_cell.Cell):
             logger.debug(f'Deleting blob [{fhash}].', extra=self.getLogExtra(sha256=fhash))
 
             size = int.from_bytes(byts, 'big')
-            self.axonmetrics.inc('file:count', valu=-1)
-            self.axonmetrics.inc('size:bytes', valu=-size)
+            self._incAxonMetric('file:count', -1)
+            self._incAxonMetric('size:bytes', -size)
 
             await self._delBlobByts(sha256)
 
@@ -1455,108 +1615,110 @@ class Axon(s_cell.Cell):
             for _, item in unpk.feed(byts):
                 yield item
 
-    async def _sha256ToLink(self, sha256, link):
-        try:
-            async for byts in self.get(sha256):
-                await link.send(byts)
-                await asyncio.sleep(0)
+    async def _readBlobText(self, sha256, errors):
 
-        except asyncio.CancelledError:
+        fhash = s_common.ehex(sha256)
+
+        textdec = codecs.getincrementaldecoder('utf8')(errors=errors)
+        decoder = io.IncrementalNewlineDecoder(textdec, translate=True)
+
+        try:
+
+            async with contextlib.aclosing(self.get(sha256)) as genr:
+
+                async for byts in genr:
+
+                    for offs in range(0, len(byts), READ_SLICE_SIZE):
+
+                        text = _decodeText(decoder, byts[offs:offs + READ_SLICE_SIZE], errors)
+                        if text:
+                            yield text
+
+                        await asyncio.sleep(0)
+
+            text = _decodeText(decoder, b'', errors, final=True)
+            if text:
+                yield text
+
+        except (asyncio.CancelledError, GeneratorExit):
             # the reader bailed out early ( or we are shutting down ) so leave a
             # trace of the partial read without logging it as an error.
-            fhash = s_common.ehex(sha256)
-            logger.debug(f'Stopped feeding blob [{fhash}].', extra=self.getLogExtra(sha256=fhash))
+            logger.debug(f'Stopped reading blob [{fhash}].', extra=self.getLogExtra(sha256=fhash))
             raise
-
-        finally:
-            link.txfini()
 
     async def readlines(self, sha256, errors='ignore'):
 
         sha256 = s_common.uhex(sha256)
         await self._reqHas(sha256)
 
-        link00, sock00 = await s_link.linksock(forceclose=True)
+        count = 0
+        lines = _BlobLines()
 
-        feedtask = None
+        async with contextlib.aclosing(self._readBlobText(sha256, errors)) as genr:
 
-        try:
-            todo = s_common.todo(_spawn_readlines, sock00, errors=errors)
-            async with await s_base.Base.anit() as scope:
+            async for text in genr:
 
-                scope.schedCoro(s_process.spawn(todo, logconf=self.getLogConf()))
-                feedtask = scope.schedCoro(self._sha256ToLink(sha256, link00))
+                lines.feed(text)
 
-                while not self.isfini:
-
-                    mesg = await link00.rx()
-                    if mesg is None:
-                        return
-
-                    line = s_common.result(mesg)
-                    if line is None:
-                        return
+                for line in lines.pop():
 
                     yield line.rstrip('\n')
 
-        finally:
-            sock00.close()
-            await link00.fini()
+                    count += 1
+                    if count % READ_YIELD_COUNT == 0:
+                        await asyncio.sleep(0)
 
-            # exiting the scope above cancels the feed task, so only await it
-            # when it ran to completion in order to re-raise any feed error.
-            if feedtask is not None and not feedtask.cancelled():
-                await feedtask
+        lines.fini()
+        for line in lines.pop():
+            yield line.rstrip('\n')
 
     async def csvrows(self, sha256, dialect='excel', errors='ignore', **fmtparams):
         await self._reqHas(sha256)
         if dialect not in csv.list_dialects():
             raise s_exc.BadArg(mesg=f'Invalid CSV dialect, use one of {csv.list_dialects()}')
 
-        link00, sock00 = await s_link.linksock(forceclose=True)
-
-        feedtask = None
+        lines = _BlobLines()
 
         try:
-            todo = s_common.todo(_spawn_readrows, sock00, dialect, fmtparams, errors=errors)
-            async with await s_base.Base.anit() as scope:
+            reader = csv.reader(lines, dialect, **fmtparams)
+        except TypeError as e:
+            raise s_exc.BadArg(mesg=f'Invalid csv format parameter: {str(e)}') from None
 
-                scope.schedCoro(s_process.spawn(todo, logconf=self.getLogConf()))
-                feedtask = scope.schedCoro(self._sha256ToLink(sha256, link00))
+        count = 0
 
-                while not self.isfini:
+        async with contextlib.aclosing(self._readBlobText(sha256, errors)) as genr:
 
-                    mesg = await link00.rx()
-                    if mesg is None:
-                        return
+            async for text in genr:
 
-                    row = s_common.result(mesg)
-                    if row is None:
-                        return
+                lines.feed(text)
+                if not lines.ready():
+                    continue
+
+                for row in _iterCsvRows(reader, lines):
 
                     yield row
 
-        finally:
-            sock00.close()
-            await link00.fini()
+                    count += 1
+                    if count % READ_YIELD_COUNT == 0:
+                        await asyncio.sleep(0)
 
-            # exiting the scope above cancels the feed task, so only await it
-            # when it ran to completion in order to re-raise any feed error.
-            if feedtask is not None and not feedtask.cancelled():
-                await feedtask
+        lines.fini()
+        for row in _iterCsvRows(reader, lines):
+            yield row
 
     async def jsonlines(self, sha256, errors='ignore'):
-        async for line in self.readlines(sha256, errors=errors):
-            line = line.strip()
-            if not line:
-                continue
+        async with contextlib.aclosing(self.readlines(sha256, errors=errors)) as genr:
+            async for line in genr:
+                line = line.strip()
+                if not line:
+                    continue
 
-            try:
-                yield s_json.loads(line)
-            except s_exc.BadJsonText as e:
-                logger.exception(f'Bad json line encountered for {sha256}')
-                raise s_exc.BadJsonText(mesg=f'Bad json line encountered while processing {sha256}, ({e})',
-                                        sha256=sha256) from None
+                try:
+                    yield s_json.loads(line)
+                except s_exc.BadJsonText as e:
+                    logger.exception(f'Bad json line encountered for {sha256}')
+                    raise s_exc.BadJsonText(mesg=f'Bad json line encountered while processing {sha256}, ({e})',
+                                            sha256=sha256) from None
 
     async def unpack(self, sha256, fmt, offs=0):
         '''
@@ -1942,10 +2104,25 @@ class HasAxon:
         logger.debug('Connected to axon')
         self._has_axoninfo = await proxy.getCellInfo()
 
-    async def getAxon(self, timeout=None):
-        # returns a live proxy to the axon ( embedded or remote ) so callers get
-        # a uniform, prod-equivalent method-call interface.
-        return await self._has_axon_client.proxy(timeout=timeout)
+    async def getAxon(self, timeout=s_const.AXON_READY_TIMEOUT):
+        '''
+        Get a live proxy to the Axon ( embedded or remote ), so callers get a
+        uniform, prod-equivalent method-call interface.
+
+        Args:
+            timeout (int): The maximum number of seconds to wait for the Axon, or None to wait indefinitely.
+
+        Returns:
+            telepath.Proxy: A proxy to the Axon.
+
+        Raises:
+            s_exc.TimeOut: If the Axon is not available within the timeout.
+        '''
+        try:
+            return await self._has_axon_client.proxy(timeout=timeout)
+        except asyncio.TimeoutError:
+            mesg = f'Timed out waiting {timeout} seconds for the Axon to be ready.'
+            raise s_exc.TimeOut(mesg=mesg, timeout=timeout) from None
 
     async def getAxonInfo(self):
         # lazily resolve and cache the axon cell info. the onlink handler
@@ -1957,61 +2134,29 @@ class HasAxon:
 
         return self._has_axoninfo
 
-def _spawn_senderr(sock, exc): # pragma: no cover
-    # send an error message to the parent process. if the reader bailed out
-    # early we may be unable to, which is not an error worth raising.
-    try:
-        sock.sendall(s_msgpack.en(s_common.retnexc(exc)))
-    except (BrokenPipeError, ConnectionResetError):
-        pass
+class HasAxonHandlerMixin:
+    '''
+    Mixin for an Axon HTTP handler served by a Cell which uses an Axon ( see HasAxon ).
 
-def _spawn_readlines(sock, errors='ignore'): # pragma: no cover
-    try:
-        with sock.makefile('r', errors=errors) as fd:
+    The Axon is resolved through the Cell, and a request which times out waiting for
+    it is answered with an HTTP 503 `TimeOut` error.
+    '''
+    async def getAxon(self):
+        '''
+        Get a proxy to the Cell's Axon, answering a timed out wait with an HTTP 503.
+        '''
+        try:
+            return await self.cell.getAxon()
+        except s_exc.TimeOut as e:
+            self.sendRestExc(e, status_code=s_httpapi.HTTPStatus.SERVICE_UNAVAILABLE)
+            raise t_web.Finish() from None
 
-            try:
-
-                for line in fd:
-                    sock.sendall(s_msgpack.en((True, line)))
-
-                sock.sendall(s_msgpack.en((True, None)))
-
-            except UnicodeDecodeError as e:
-                raise s_exc.BadDataValu(mesg=str(e))
-
-    except (BrokenPipeError, ConnectionResetError):
-        # the reader bailed out early, so there is nobody left to tell.
-        return
-
-    except Exception as e:
-        _spawn_senderr(sock, e)
-
-def _spawn_readrows(sock, dialect, fmtparams, errors='ignore'): # pragma: no cover
-    try:
-
-        # Assume utf8 encoding and ignore errors.
-        with sock.makefile('r', errors=errors) as fd:
-
-            try:
-
-                for row in csv.reader(fd, dialect, **fmtparams):
-                    sock.sendall(s_msgpack.en((True, row)))
-
-                sock.sendall(s_msgpack.en((True, None)))
-
-            except TypeError as e:
-                raise s_exc.BadArg(mesg=f'Invalid csv format parameter: {str(e)}')
-
-            except UnicodeDecodeError as e:
-                raise s_exc.BadDataValu(mesg=str(e))
-
-            except csv.Error as e:
-                mesg = f'CSV error: {str(e)}'
-                raise s_exc.BadDataValu(mesg=mesg)
-
-    except (BrokenPipeError, ConnectionResetError):
-        # the reader bailed out early, so there is nobody left to tell.
-        return
-
-    except Exception as e:
-        _spawn_senderr(sock, e)
+    async def getAxonInfo(self):
+        '''
+        Get the Cell's Axon info, answering a timed out wait with an HTTP 503.
+        '''
+        try:
+            return await self.cell.getAxonInfo()
+        except s_exc.TimeOut as e:
+            self.sendRestExc(e, status_code=s_httpapi.HTTPStatus.SERVICE_UNAVAILABLE)
+            raise t_web.Finish() from None

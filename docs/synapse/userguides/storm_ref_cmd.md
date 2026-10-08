@@ -139,7 +139,7 @@ syn:cmd=movetag
 
 ## help
 
-The `help` command displays the list of available commands within the current instance of Synapse and a brief message describing each command. Help for individual commands is available via `<command> --help`. The `help` command can also be used to inspect information about [stormtypes-libs-header](../stormtypes_libs.md#stormtypes-libs-header) and [stormtypes-prim-header](../stormtypes_prims.md#stormtypes-prim-header).
+The `help` command displays the list of available commands within the current instance of Synapse and a brief message describing each command. Help for individual commands is available via `<command> --help`. The `help` command can also be used to inspect information about [Storm Libraries](../stormtypes_libs.md#stormtypes-libs-header) and [Storm Types](../stormtypes_prims.md#stormtypes-prim-header).
 
 **Syntax:**
 
@@ -160,7 +160,7 @@ Storm includes `aha.*` commands that allow you to work with Synapse's [AHA servi
 
 Help for individual `aha.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-aha-svc-list"></a>
 
@@ -229,7 +229,7 @@ Storm includes `auth.*` commands that allow you create and manage users and role
 
 Help for individual `auth.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-auth-gate-show"></a>
 
@@ -555,7 +555,7 @@ Storm includes `cortex.httpapi.*` commands that allow a user to list and manage 
 
 Help for individual `cortex.httpapi.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-cortex-httpapi-index"></a>
 
@@ -657,7 +657,7 @@ Storm includes `cron.*` commands that allow you to create and manage scheduled [
 
 Help for individual `cron.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-cron-add"></a>
 
@@ -843,7 +843,7 @@ Storm includes `dmon.*` commands that allow you to work with daemons (see [Daemo
 
 Help for individual `dmon.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-dmon-list"></a>
 
@@ -869,7 +869,7 @@ Storm includes `edges.*` commands that allow you to work with lightweight (light
 
 Help for individual `edge.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-edges-del"></a>
 
@@ -911,7 +911,7 @@ Nodes created using generate commands will have a limited subset of properties s
 
 Help for individual `gen.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 > [!NOTE]
 > New `gen.*` commands are added to Synapse on an ongoing basis as we identify new cases where such commands are helpful. Use the `help` command for the current list of `gen.*` commands available in your instance of Synapse.
@@ -1106,7 +1106,7 @@ Storm includes `layer.*` commands that allow you to work with layers (see [Layer
 
 Help for individual `layer.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-layer-add"></a>
 
@@ -1262,7 +1262,7 @@ Storm includes `lift.*` commands that allow you to perform specialized lift oper
 
 Help for individual `lift.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-lift-byverb"></a>
 
@@ -1329,7 +1329,7 @@ Storm includes `macro.*` commands that allow you to work with macros (see [Macro
 
 Help for individual `macro.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-macro-list"></a>
 
@@ -1522,7 +1522,7 @@ Storm includes `model.*` commands that allow you to work with model elements.
 
 Help for individual `model.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-model-deprecated-check"></a>
 
@@ -1653,7 +1653,7 @@ Storm includes `nodes.*` commands that allow you to work with nodes and `.nodes`
 
 Help for individual `nodes.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-nodes-import"></a>
 
@@ -1679,7 +1679,7 @@ Storm includes `note.*` commands that allow you to work with free form text note
 
 Help for individual `note.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-note-add"></a>
 
@@ -1742,7 +1742,7 @@ Storm includes `pkg.*` commands that allow you to work with Storm packages (see 
 
 Help for individual `pkg.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 Packages typically contain Storm commands and Storm library code used to implement a Storm [Service](../glossary.md#gloss-service).
 
@@ -1826,7 +1826,7 @@ Storm includes `queue.*` commands that allow you to work with queues (see [Queue
 
 Help for individual `queue.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-queue-add"></a>
 
@@ -1958,7 +1958,7 @@ Storm includes `service.*` commands that allow you to work with Storm services (
 
 Help for individual `service.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-service-add"></a>
 
@@ -2006,7 +2006,7 @@ service.del --help
 
 The `sleep` command adds a delay in returning each result for a given Storm query. By default, query results are streamed back and displayed as soon as they arrive for optimal performance. A `sleep` delay effectively slows the display of results.
 
-> `sleep` may be useful in cases such as querying rate-limited APIs.
+`sleep` may be useful in cases such as querying rate-limited APIs.
 
 **Syntax:**
 
@@ -2032,6 +2032,9 @@ inet:email sleep 1.0
 ## spin
 
 The `spin` command is used to suppress the output of a Storm query. `Spin` simply consumes all nodes sent to the command, so no nodes are output to the CLI. This allows you to execute a Storm query and view messages and results without displaying the associated nodes.
+
+> [!TIP]
+> To run Storm without the nodes it yields entering the Storm pipeline (for example, to create nodes or set up state within a larger Storm query), an [Exec Block](storm_adv_control.md#flow-exec) is preferred. The `spin` command remains useful for suppressing the nodes displayed when running a query interactively.
 
 **Syntax:**
 
@@ -2062,7 +2065,7 @@ Storm includes `stats.*` commands that allow you to query and work with statisti
 
 Help for individual `stats.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-stats-countby"></a>
 
@@ -2101,7 +2104,7 @@ Storm includes `tag.*` commands that allow you to work with tags (see [Tag](../g
 
 Help for individual `tag.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 See also the related [movetag](storm_ref_cmd.md#storm-movetag) command.
 
@@ -2130,7 +2133,7 @@ Storm includes `task.*` commands that allow you to work with Storm tasks.
 
 Help for individual `task.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-task-list"></a>
 
@@ -2239,7 +2242,7 @@ Storm includes `trigger.*` commands that allow you to create automated event-dri
 
 Help for individual `trigger.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-trigger-add"></a>
 
@@ -2396,7 +2399,7 @@ Storm includes `vault.*` commands that allow you to create and manage vaults (se
 
 Help for individual `vault.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-vault-add"></a>
 
@@ -2503,7 +2506,7 @@ Storm includes `vertex.*` commands that allow you to register a deployment with 
 
 Help for individual `vertex.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-vertex-packages-install"></a>
 
@@ -2575,7 +2578,7 @@ Storm includes `view.*` commands that allow you to work with views (see [View](.
 
 Help for individual `view.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-view-add"></a>
 

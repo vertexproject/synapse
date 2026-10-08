@@ -327,6 +327,65 @@ class InfoSecTest(s_test.SynTest):
                 valu = await core.callStorm(cmd, opts={'vars': {'vect': vect, 'vers': None}})
                 self.eq(norm, valu.get('normalized'))
 
+            # test building vectors from metrics
+            cmd = 'return($lib.infosec.cvss.metricsToVect($metrics))'
+            for vect, _ in VECTORS:
+                if vect.startswith('(') or vect.endswith(')'):
+                    continue
+
+                # Shuffle the metric order, vectToScore normalization is the expected result
+                norm = (await core.callStorm('return($lib.infosec.cvss.vectToScore($vect))',
+                                             opts={'vars': {'vect': vect}})).get('normalized')
+
+                for tag in s_cvss.tags.values():
+                    vect = vect.removeprefix(tag)
+
+                metrics = dict(m.split(':') for m in vect.split('/'))
+                metrics = dict(reversed(list(metrics.items())))
+
+                self.eq(norm, await core.callStorm(cmd, opts={'vars': {'metrics': metrics}}))
+
+            # undefined values are dropped
+            metrics = {'AV': 'N', 'AC': 'L', 'Au': 'N', 'C': 'N', 'I': 'N', 'A': 'P', 'E': 'ND'}
+            self.eq('AV:N/AC:L/Au:N/C:N/I:N/A:P', await core.callStorm(cmd, opts={'vars': {'metrics': metrics}}))
+
+            metrics = {'A': 'H', 'I': 'N', 'C': 'N', 'S': 'U', 'UI': 'N', 'PR': 'N', 'AC': 'L', 'AV': 'N', 'E': 'X'}
+            self.eq('AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H', await core.callStorm(cmd, opts={'vars': {'metrics': metrics}}))
+
+            with self.raises(s_exc.BadArg) as exc:
+                await core.callStorm(cmd, opts={'vars': {'metrics': 'AV:N'}})
+            self.isin('metricsToVect requires a dictionary, got str.', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.BadArg) as exc:
+                await core.callStorm(cmd, opts={'vars': {'metrics': True}})
+            self.isin('metricsToVect requires a dictionary, got boolean.', exc.exception.get('mesg'))
+
+            for metrics in ({'AV': 1}, {1: 'N'}, {'AV': None}):
+                with self.raises(s_exc.BadArg) as exc:
+                    await core.callStorm(cmd, opts={'vars': {'metrics': metrics}})
+                self.isin('requires string metric names and values', exc.exception.get('mesg'))
+
+            # Au selects CVSS2, so the CVSS3 only metrics are invalid
+            metrics = {'AV': 'N', 'AC': 'L', 'Au': 'N', 'C': 'N', 'I': 'N', 'A': 'P', 'PR': 'N'}
+            with self.raises(s_exc.BadDataValu) as exc:
+                await core.callStorm(cmd, opts={'vars': {'metrics': metrics}})
+            self.isin('contains invalid metrics: PR', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.BadDataValu) as exc:
+                await core.callStorm(cmd, opts={'vars': {'metrics': {'AV': 'N', 'AC': 'L', 'C': 'N', 'I': 'N'}}})
+            self.isin('missing mandatory metric(s): PR, UI, S, A', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.BadDataValu) as exc:
+                await core.callStorm(cmd, opts={'vars': {'metrics': {'AV': 'Z', 'AC': 'L', 'PR': 'N', 'UI': 'N',
+                                                                     'S': 'U', 'C': 'N', 'I': 'N', 'A': 'N'}}})
+            self.isin('contains invalid metric value(s): AV:Z', exc.exception.get('mesg'))
+
+            # delimiters in a name or value cannot be used to smuggle in additional metrics
+            for metrics in ({'AV': 'N/AC:L'}, {'AV:N': 'N'}):
+                with self.raises(s_exc.BadDataValu) as exc:
+                    await core.callStorm(cmd, opts={'vars': {'metrics': metrics}})
+                self.isin('contains an invalid character', exc.exception.get('mesg'))
+
     async def test_stormlib_infosec_attack_flow(self):
 
         self.skip('Skip this during the major-model-rev1 since it can be cleaned up after merging.')

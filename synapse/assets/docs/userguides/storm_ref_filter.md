@@ -1444,7 +1444,7 @@ Filter the current set of nodes associated with any threat group or threat clust
 
 This query may identify nodes that are incorrectly attributed to more than one group, or instances where two or more threat clusters overlap (which may indicate that the clusters actually represent a single set of activity).
 
-This example uses the [$node.globtags()](storm_adv_methods.md#meth-node-globtags) method to select the set of tags on each node that match the specified expression (`cno.threat.*`) and [stormprims-list-size](../stormtypes_prims.md#stormprims-list-size) to count the number of matches.
+This example uses the [$node.globtags()](storm_adv_methods.md#meth-node-globtags) method to select the set of tags on each node that match the specified expression (`cno.threat.*`) and [`list.size()`](../stormtypes_prims.md#stormprims-list-size) to count the number of matches.
 
 <a id="embed_prop_syntax"></a>
 

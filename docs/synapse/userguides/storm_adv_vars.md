@@ -88,7 +88,7 @@ Global variables operate independently of any node. That is, they can be invoked
 
 The library variable ( `$lib` ) is a built-in variable that provides access to the global Storm library. In Storm, libraries are accessed using built-in variable names (e.g., `$lib.print()`).
 
-Libraries provide access to a wide range of additional functionality with Storm. See the [stormtypes-libs-header](../stormtypes_libs.md#stormtypes-libs-header) technical documentation for descriptions of the libraries available within Storm.
+Libraries provide access to a wide range of additional functionality with Storm. See the [Storm Libraries](../stormtypes_libs.md#stormtypes-libs-header) technical documentation for descriptions of the libraries available within Storm.
 
 <a id="vars-node"></a>
 
@@ -113,7 +113,7 @@ Invoking this variable during a Storm query is useful when you want to:
 - store the value of the current node before pivoting to another node, or
 - use an aspect of the current node in subsequent query operations.
 
-The `$node` variable supports a number of built-in **methods** that can be used to access specific data or properties associated with a node. See the technical documentation for the [stormprims-node-f527](../stormtypes_prims.md#stormprims-node-f527) object or the [$node](storm_adv_methods.md#meth-node) section of the [Storm Reference - Advanced - Methods](storm_adv_methods.md#storm-adv-methods) user documentation for additional detail and examples.
+The `$node` variable supports a number of built-in **methods** that can be used to access specific data or properties associated with a node. See the technical documentation for the [`node`](../stormtypes_prims.md#stormprims-node-f527) object or the [$node](storm_adv_methods.md#meth-node) section of the [Storm Reference - Advanced - Methods](storm_adv_methods.md#storm-adv-methods) user documentation for additional detail and examples.
 
 <a id="vars-node-path"></a>
 
@@ -122,7 +122,7 @@ The `$node` variable supports a number of built-in **methods** that can be used 
 
 The path variable (`$path`) is a built-in Storm variable that **references the path of a node as it travels through the pipeline of a Storm query**.
 
-The `$path` variable is not used on its own, but in conjunction with its methods. See the technical documentation for the [stormprims-node-path-f527](../stormtypes_prims.md#stormprims-node-path-f527) object or the [$path](storm_adv_methods.md#meth-path) section of the [Storm Reference - Advanced - Methods](storm_adv_methods.md#storm-adv-methods) user documentation for additional detail and examples.
+The `$path` variable is not used on its own, but in conjunction with its methods. See the technical documentation for the [`node:path`](../stormtypes_prims.md#stormprims-node-path-f527) object or the [$path](storm_adv_methods.md#meth-path) section of the [Storm Reference - Advanced - Methods](storm_adv_methods.md#storm-adv-methods) user documentation for additional detail and examples.
 
 <a id="vars-trigger"></a>
 
@@ -286,7 +286,7 @@ inet:fqdn=mail.mydomain.com $fqdn=$node $lib.print($fqdn)
 >
 > For some use cases, Synapse and Storm can understand which component of the node you want when referring to the full `$node` object. However, you can always be explicit by using the appropriate **attribute** to access the component you want (such as `$node.value` or `$node.form`).
 >
-> See the technical documentation for the [stormprims-node-f527](../stormtypes_prims.md#stormprims-node-f527) object or the [$node](storm_adv_methods.md#meth-node) section of the [Storm Reference - Advanced - Methods](storm_adv_methods.md#storm-adv-methods) user documentation for additional detail and examples when using methods associated with the `$node` built-in variable.
+> See the technical documentation for the [`node`](../stormtypes_prims.md#stormprims-node-f527) object or the [$node](storm_adv_methods.md#meth-node) section of the [Storm Reference - Advanced - Methods](storm_adv_methods.md#storm-adv-methods) user documentation for additional detail and examples when using methods associated with the `$node` built-in variable.
 
 **Node attribute:** Assign the **primary property value** of an `inet:fqdn` node to the variable `$fqdn` using the `$node.value` attribute:
 

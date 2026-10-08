@@ -10,4 +10,5 @@ storm_adv_vars.md
 storm_adv_methods.md
 storm_adv_control.md
 storm_adv_functions.md
+storm_adv_classes.md
 ```

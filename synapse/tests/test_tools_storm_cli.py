@@ -74,7 +74,9 @@ class StormCliTest(s_test.SynTest):
 
         outp = s_output.OutPutStr()
         async with await s_t_storm.StormCli.anit(item, outp=outp) as scli:
-            await scli.runCmdLine('[inet:ip=1.2.3.4 +#foo=2012 +#bar +#baz:_foo=10 :_test:score=7]')
+            q = '''[inet:ip=1.2.3.4 +#foo=2012 +#bar +#baz:_foo=10 :_test:score=7
+                    :seen=(2012, 2013) +(refs)> { [ inet:fqdn=vertex.link ] } ]'''
+            await scli.runCmdLine(q)
             text = str(outp)
             self.isin('.....', text)
             self.isin('inet:ip=1.2.3.4', text)
@@ -84,6 +86,25 @@ class StormCliTest(s_test.SynTest):
             self.isin('#baz:_foo = 10', text)
             self.isin('#foo = 2012-01-01T00:00:00Z - 2012-01-01T00:00:00.000001Z', text)
             self.isin('complete. 1 nodes in', text)
+
+            # the virts of an interval prop follow it
+            self.isin(':seen = 2012-01-01T00:00:00Z - 2013-01-01T00:00:00Z', text)
+            self.isin(':seen.min = 2012-01-01T00:00:00Z', text)
+            self.isin(':seen.max = 2013-01-01T00:00:00Z', text)
+            self.isin(':seen.duration = 366D 00:00:00', text)
+
+            # the meta props are always displayed
+            self.isin('        .created = ', text)
+            self.isin('        .updated = ', text)
+
+            # the light edge counts roll up by verb and form
+            self.isin('-(*)> * = 1', text)
+            self.isin('-(refs)> * = 1', text)
+            self.isin('-(refs)> inet:fqdn = 1', text)
+
+            # virts print in the order the model declares them, not as packed
+            await scli.runCmdLine('[ file:path=c:/windows/cmd.exe ]')
+            self.isin('        .dir = c:/windows\n        .base = cmd.exe\n        .ext = exe\n', str(outp))
 
         outp = s_output.OutPutStr()
         async with await s_t_storm.StormCli.anit(item, outp=outp) as scli:
@@ -287,6 +308,9 @@ class StormCliTest(s_test.SynTest):
 
         # Check completion of forms/props
         vals = await get_completions('inet:fq')
+
+        # the model the completer loads is shared with the cli for ordering virts
+        self.nn(cli.modeldict['types'].get('inet:fqdn'))
         self.isin(Completion('dn', display='[form] inet:fqdn - A Fully Qualified Domain Name (FQDN).'), vals)
         self.isin(Completion('dn:domain', display='[prop] inet:fqdn:domain - The parent domain for the FQDN.'), vals)
         self.isin(Completion('dn:host', display='[prop] inet:fqdn:host - The host part of the FQDN.'), vals)

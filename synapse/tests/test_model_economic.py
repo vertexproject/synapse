@@ -163,6 +163,7 @@ class EconTest(s_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ econ:exchange=(us,nasdaq)
+                    :name=" NASDAQ "
                     :operator={ gen.org "nasdaq inc" }
                     :operator:name="nasdaq inc"
                     :currency=usd
@@ -171,8 +172,11 @@ class EconTest(s_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].ndef[1])
             self.nn(nodes[0].get('operator'))
+            self.propeq(nodes[0], 'name', 'NASDAQ')
             self.propeq(nodes[0], 'currency', 'USD')
             self.propeq(nodes[0], 'operator:name', 'nasdaq inc')
+
+            self.len(1, await core.nodes('econ:exchange:name=NASDAQ'))
 
             nodes = await core.nodes('''
                 [

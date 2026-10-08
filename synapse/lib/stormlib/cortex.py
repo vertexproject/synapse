@@ -1,5 +1,6 @@
 import copy
 import logging
+import urllib.parse
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -948,6 +949,11 @@ class HttpReq(s_stormtypes.StormType):
             'sendbody': self._methSendBody,
             'reply': self._methReply,
         }
+
+    async def stormrepr(self):
+        method = self.rnfo.get('method')
+        path = urllib.parse.urlsplit(self.rnfo.get('uri')).path
+        return f'{self._storm_typename}: {method} {path}'
 
     @s_stormtypes.stormfunc(readonly=True)
     def _ctorHeaders(self, path=None):

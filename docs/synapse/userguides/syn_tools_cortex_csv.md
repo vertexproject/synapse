@@ -17,8 +17,8 @@ That said, the set of advanced Storm concepts and features can be fully leverage
 - [Storm Reference - Advanced - Variables](storm_adv_vars.md#storm-adv-vars)
 - [Storm Reference - Advanced - Methods](storm_adv_methods.md#storm-adv-methods)
 - [Storm Reference - Advanced - Control Flow](storm_adv_control.md#storm-adv-control)
-- [stormtypes-libs-header](../stormtypes_libs.md#stormtypes-libs-header)
-- [stormtypes-prim-header](../stormtypes_prims.md#stormtypes-prim-header)
+- [Storm Libraries](../stormtypes_libs.md#stormtypes-libs-header)
+- [Storm Types](../stormtypes_prims.md#stormtypes-prim-header)
 
 ## Syntax
 
@@ -167,7 +167,7 @@ inet:dns:a=('woot.com', '1.2.3.4')
     :seen = 2018-04-18T13:12:47Z - 2018-06-23T09:45:12Z
     :fqdn = woot.com
     :ip = 1.2.3.4
-complete. 3 nodes in 12 ms (250/sec).
+complete. 3 nodes in 0.012 sec (250/sec).
 ```
 
 **Loading the Data:**
@@ -297,7 +297,7 @@ inet:fqdn=dns.domain-resolve.org
     :iszone = False
     :zone = domain-resolve.org
     #cno.threat.viciouswombat
-complete. 2 nodes in 14 ms (142/sec).
+complete. 2 nodes in 0.014 sec (142/sec).
 ```
 
 Check that four `hash:sha256` nodes were created and given both the Vicious Wombat and the UMPTYSCRUNCH tags:
@@ -321,7 +321,7 @@ hash:sha256=b4e3b2a1f1e343d14af8d812d4a29440940b99aaf145b5699dfe277b5bfb8405
     .created = 2019-07-05T14:49:20.116Z
     #cno.mal.umptyscrunch
     #cno.threat.viciouswombat
-complete. 4 nodes in 3 ms (1333/sec).
+complete. 4 nodes in 0.003 sec (1333/sec).
 ```
 
 **Loading the Data:**

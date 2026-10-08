@@ -48,6 +48,8 @@ inet:fqdn=vertex.link
         :issuffix = false
         :iszone = true
         :zone = vertex.link
+        .created = 2026-09-30T16:15:33.165927Z
+        .updated = 2026-09-30T16:15:33.166387Z
 ```
 
 ## Yielding New Nodes
@@ -63,6 +65,8 @@ inet:fqdn=vertex.link
         :issuffix = false
         :iszone = true
         :zone = vertex.link
+        .created = 2026-09-30T16:15:33.165927Z
+        .updated = 2026-09-30T16:15:33.166387Z
 ```
 
 With `--yield`, the newly created `inet:dns:a` nodes are emitted instead:
@@ -72,9 +76,13 @@ storm> inet:fqdn=vertex.link | acme.hello.mayyield --yield
 inet:dns:a=('vertex.link', '1.2.3.4')
         :fqdn = vertex.link
         :ip = 1.2.3.4
+        .created = 2026-09-30T16:15:33.173Z
+        .updated = 2026-09-30T16:15:33.173Z
 inet:dns:a=('vertex.link', '123.123.123.123')
         :fqdn = vertex.link
         :ip = 123.123.123.123
+        .created = 2026-09-30T16:15:33.173614Z
+        .updated = 2026-09-30T16:15:33.173614Z
 ```
 
 ## Calling the Module Directly

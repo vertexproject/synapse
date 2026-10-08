@@ -358,7 +358,7 @@ Synapse's data model is extensible by design, so the model can expand to encompa
 
 **The preferred method for extending the data model is for The Vertex Project to incorporate new model elements into the Synapse base model** (i.e., the existing data model / source code). This way, changes and expansions are available to **all** Synapse users (both Enterprise and open source), as opposed to organizations creating one-off modifications. We encourage community members to reach out to us to address model gaps or emergent needs.
 
-That said, users can extend the data model on their own using the [stormlibs-lib-model-ext](../stormtypes_libs.md#stormlibs-lib-model-ext) libraries (though see the caveats below).
+That said, users can extend the data model on their own using the [`$lib.model.ext`](../stormtypes_libs.md#stormlibs-lib-model-ext) libraries (though see the caveats below).
 
 You can create:
 

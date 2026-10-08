@@ -28,10 +28,13 @@ class StormLibPkgTest(s_test.SynTest):
             self.stormIsInPrint('hehe', msgs)
 
             self.true(await core.callStorm('return($lib.pkg.has(haha))'))
+            self.true(await core.hasStormPkg('haha'))
+            self.false(await core.hasStormPkg('newp'))
 
             await core.delStormPkg('haha')
             self.none(await core.callStorm('return($lib.pkg.get(haha))'))
             self.false(await core.callStorm('return($lib.pkg.has(haha))'))
+            self.false(await core.hasStormPkg('haha'))
 
             msgs = await core.stormlist('pkg.list --verbose')
             self.stormIsInPrint('not available', msgs)

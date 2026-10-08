@@ -1069,7 +1069,6 @@ It is implemented by the following class: `synapse.lib.types.Poly`.
 This type has the following virtual properties:
 
 - `type`
-- `value`
 
 This type supports lifting using the following operators:
 
@@ -8861,6 +8860,7 @@ The `it:hardware` type is derived from the base type: [`guid`](#dm-type-guid).
 This type implements the following interfaces:
 
 - `('meta:usable', {})`
+- `('meta:reported', {})`
 - `('meta:observable', {})`
 - `('biz:manufactured', {})`
 - `('risk:exploitable', {})`
@@ -12189,6 +12189,7 @@ This interface extends the following interfaces:
 This interface defines the following properties:
 
 - `:body` ([`text`](#dm-type-text)) - The text of the document.
+- `:deprecated` ([`time`](#dm-type-time)) - The time that the document was retired.
 - `:file` ([`file:bytes`](#dm-type-file-bytes)) - The file containing the document contents.
 - `:file:captured` ([`time`](#dm-type-time)) - The time when the file content was captured.
 - `:file:name` ([`file:base`](#dm-type-file-base)) - The name of the file containing the document contents.

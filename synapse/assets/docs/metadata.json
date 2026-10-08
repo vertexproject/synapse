@@ -235,6 +235,10 @@
             {
               "href": "userguides/storm_adv_functions.md",
               "title": "Storm Reference - Advanced - Functions"
+            },
+            {
+              "href": "userguides/storm_adv_classes.md",
+              "title": "Storm Reference - Advanced - Classes"
             }
           ],
           "href": "userguides/index_storm_adv.md",
@@ -425,20 +429,6 @@
           "title": "Assign and Manage Permissions"
         },
         {
-          "children": [
-            {
-              "href": "adminguide.md#extended-forms",
-              "title": "Extended Forms"
-            },
-            {
-              "href": "adminguide.md#extended-properties",
-              "title": "Extended Properties"
-            },
-            {
-              "href": "adminguide.md#extended-universal-properties",
-              "title": "Extended Universal Properties"
-            }
-          ],
           "href": "adminguide.md#add-extended-model-elements",
           "title": "Add Extended Model Elements"
         },
@@ -2213,6 +2203,10 @@
               "title": "$lib.macro"
             },
             {
+              "href": "stormtypes_libs.md#libmarkdown",
+              "title": "$lib.markdown"
+            },
+            {
               "href": "stormtypes_libs.md#libmath",
               "title": "$lib.math"
             },
@@ -2503,6 +2497,42 @@
               "title": "list"
             },
             {
+              "href": "stormtypes_prims.md#markdownblock",
+              "title": "markdown:block"
+            },
+            {
+              "href": "stormtypes_prims.md#markdowncode",
+              "title": "markdown:code"
+            },
+            {
+              "href": "stormtypes_prims.md#markdowndiv",
+              "title": "markdown:div"
+            },
+            {
+              "href": "stormtypes_prims.md#markdowndoc",
+              "title": "markdown:doc"
+            },
+            {
+              "href": "stormtypes_prims.md#markdownheading",
+              "title": "markdown:heading"
+            },
+            {
+              "href": "stormtypes_prims.md#markdownlist",
+              "title": "markdown:list"
+            },
+            {
+              "href": "stormtypes_prims.md#markdownparagraph",
+              "title": "markdown:paragraph"
+            },
+            {
+              "href": "stormtypes_prims.md#markdownstormblock",
+              "title": "markdown:stormblock"
+            },
+            {
+              "href": "stormtypes_prims.md#markdowntable",
+              "title": "markdown:table"
+            },
+            {
               "href": "stormtypes_prims.md#modeledge",
               "title": "model:edge"
             },
@@ -2527,7 +2557,7 @@
               "title": "model:type"
             },
             {
-              "href": "stormtypes_prims.md#node",
+              "href": "stormtypes_prims.md#node-1",
               "title": "node"
             },
             {
@@ -2635,7 +2665,7 @@
               "title": "trigger"
             },
             {
-              "href": "stormtypes_prims.md#valu",
+              "href": "stormtypes_prims.md#valu-5",
               "title": "valu"
             },
             {
@@ -2657,6 +2687,44 @@
           ],
           "href": "stormtypes_prims.md",
           "title": "Storm Types"
+        },
+        {
+          "children": [
+            {
+              "href": "storm_lib_modelext.md#overview",
+              "title": "Overview"
+            },
+            {
+              "href": "storm_lib_modelext.md#extended-types",
+              "title": "Extended Types"
+            },
+            {
+              "href": "storm_lib_modelext.md#extended-forms",
+              "title": "Extended Forms"
+            },
+            {
+              "href": "storm_lib_modelext.md#extended-properties",
+              "title": "Extended Properties"
+            },
+            {
+              "href": "storm_lib_modelext.md#extended-tag-properties",
+              "title": "Extended Tag Properties"
+            },
+            {
+              "href": "storm_lib_modelext.md#extended-edges",
+              "title": "Extended Edges"
+            },
+            {
+              "href": "storm_lib_modelext.md#exporting-and-importing",
+              "title": "Exporting and Importing"
+            },
+            {
+              "href": "storm_lib_modelext.md#removing-extended-elements",
+              "title": "Removing Extended Elements"
+            }
+          ],
+          "href": "storm_lib_modelext.md",
+          "title": "Extended Model"
         }
       ],
       "href": "stormtypes.md",
@@ -2705,6 +2773,10 @@
         {
           "children": [
             {
+              "href": "changelog.md#flag-day",
+              "title": "Flag Day"
+            },
+            {
               "href": "changelog.md#model-changes",
               "title": "Model Changes"
             },
@@ -2719,10 +2791,18 @@
             {
               "href": "changelog.md#notes",
               "title": "Notes"
+            },
+            {
+              "href": "changelog.md#improved-documentation",
+              "title": "Improved documentation"
+            },
+            {
+              "href": "changelog.md#deprecations",
+              "title": "Deprecations"
             }
           ],
-          "href": "changelog.md#v340---2026-09-28",
-          "title": "v3.4.0 - 2026-09-28"
+          "href": "changelog.md#v350---2026-10-08",
+          "title": "v3.5.0 - 2026-10-08"
         },
         {
           "children": [
@@ -2741,14 +2821,10 @@
             {
               "href": "changelog.md#notes-1",
               "title": "Notes"
-            },
-            {
-              "href": "changelog.md#improved-documentation",
-              "title": "Improved documentation"
             }
           ],
-          "href": "changelog.md#v330---2026-09-22",
-          "title": "v3.3.0 - 2026-09-22"
+          "href": "changelog.md#v340---2026-09-28",
+          "title": "v3.4.0 - 2026-09-28"
         },
         {
           "children": [
@@ -2765,16 +2841,16 @@
               "title": "Bugfixes"
             },
             {
-              "href": "changelog.md#improved-documentation-1",
-              "title": "Improved documentation"
+              "href": "changelog.md#notes-2",
+              "title": "Notes"
             },
             {
-              "href": "changelog.md#deprecations",
-              "title": "Deprecations"
+              "href": "changelog.md#improved-documentation-1",
+              "title": "Improved documentation"
             }
           ],
-          "href": "changelog.md#v320---2026-09-11",
-          "title": "v3.2.0 - 2026-09-11"
+          "href": "changelog.md#v330---2026-09-22",
+          "title": "v3.3.0 - 2026-09-22"
         },
         {
           "children": [
@@ -2789,10 +2865,18 @@
             {
               "href": "changelog.md#bugfixes-3",
               "title": "Bugfixes"
+            },
+            {
+              "href": "changelog.md#improved-documentation-2",
+              "title": "Improved documentation"
+            },
+            {
+              "href": "changelog.md#deprecations-1",
+              "title": "Deprecations"
             }
           ],
-          "href": "changelog.md#v310---2026-08-20",
-          "title": "v3.1.0 - 2026-08-20"
+          "href": "changelog.md#v320---2026-09-11",
+          "title": "v3.2.0 - 2026-09-11"
         },
         {
           "children": [
@@ -2809,8 +2893,8 @@
               "title": "Bugfixes"
             }
           ],
-          "href": "changelog.md#v300---2026-08-13",
-          "title": "v3.0.0 - 2026-08-13"
+          "href": "changelog.md#v310---2026-08-20",
+          "title": "v3.1.0 - 2026-08-20"
         },
         {
           "children": [
@@ -2825,32 +2909,10 @@
             {
               "href": "changelog.md#bugfixes-5",
               "title": "Bugfixes"
-            },
-            {
-              "href": "changelog.md#notes-2",
-              "title": "Notes"
-            },
-            {
-              "href": "changelog.md#improved-documentation-2",
-              "title": "Improved documentation"
-            },
-            {
-              "href": "changelog.md#deprecations-1",
-              "title": "Deprecations"
             }
           ],
-          "href": "changelog.md#v300rc1---2026-08-12",
-          "title": "v3.0.0rc1 - 2026-08-12"
-        },
-        {
-          "children": [
-            {
-              "href": "changelog.md#improved-documentation-3",
-              "title": "Improved documentation"
-            }
-          ],
-          "href": "changelog.md#v300b6---2026-08-11",
-          "title": "v3.0.0b6 - 2026-08-11"
+          "href": "changelog.md#v300---2026-08-13",
+          "title": "v3.0.0 - 2026-08-13"
         },
         {
           "children": [
@@ -2871,7 +2933,7 @@
               "title": "Notes"
             },
             {
-              "href": "changelog.md#improved-documentation-4",
+              "href": "changelog.md#improved-documentation-3",
               "title": "Improved documentation"
             },
             {
@@ -2879,8 +2941,18 @@
               "title": "Deprecations"
             }
           ],
-          "href": "changelog.md#v300b5---2026-08-11",
-          "title": "v3.0.0b5 - 2026-08-11"
+          "href": "changelog.md#v300rc1---2026-08-12",
+          "title": "v3.0.0rc1 - 2026-08-12"
+        },
+        {
+          "children": [
+            {
+              "href": "changelog.md#improved-documentation-4",
+              "title": "Improved documentation"
+            }
+          ],
+          "href": "changelog.md#v300b6---2026-08-11",
+          "title": "v3.0.0b6 - 2026-08-11"
         },
         {
           "children": [
@@ -2890,20 +2962,6 @@
             },
             {
               "href": "changelog.md#features-and-enhancements-7",
-              "title": "Features and Enhancements"
-            }
-          ],
-          "href": "changelog.md#v300b4---2026-07-24",
-          "title": "v3.0.0b4 - 2026-07-24"
-        },
-        {
-          "children": [
-            {
-              "href": "changelog.md#model-changes-8",
-              "title": "Model Changes"
-            },
-            {
-              "href": "changelog.md#features-and-enhancements-8",
               "title": "Features and Enhancements"
             },
             {
@@ -2917,10 +2975,28 @@
             {
               "href": "changelog.md#improved-documentation-5",
               "title": "Improved documentation"
+            },
+            {
+              "href": "changelog.md#deprecations-3",
+              "title": "Deprecations"
             }
           ],
-          "href": "changelog.md#v300b3---2026-07-17",
-          "title": "v3.0.0b3 - 2026-07-17"
+          "href": "changelog.md#v300b5---2026-08-11",
+          "title": "v3.0.0b5 - 2026-08-11"
+        },
+        {
+          "children": [
+            {
+              "href": "changelog.md#model-changes-8",
+              "title": "Model Changes"
+            },
+            {
+              "href": "changelog.md#features-and-enhancements-8",
+              "title": "Features and Enhancements"
+            }
+          ],
+          "href": "changelog.md#v300b4---2026-07-24",
+          "title": "v3.0.0b4 - 2026-07-24"
         },
         {
           "children": [
@@ -2939,10 +3015,14 @@
             {
               "href": "changelog.md#notes-5",
               "title": "Notes"
+            },
+            {
+              "href": "changelog.md#improved-documentation-6",
+              "title": "Improved documentation"
             }
           ],
-          "href": "changelog.md#v300b2---2026-07-11",
-          "title": "v3.0.0b2 - 2026-07-11"
+          "href": "changelog.md#v300b3---2026-07-17",
+          "title": "v3.0.0b3 - 2026-07-17"
         },
         {
           "children": [
@@ -2955,7 +3035,29 @@
               "title": "Features and Enhancements"
             },
             {
+              "href": "changelog.md#bugfixes-9",
+              "title": "Bugfixes"
+            },
+            {
               "href": "changelog.md#notes-6",
+              "title": "Notes"
+            }
+          ],
+          "href": "changelog.md#v300b2---2026-07-11",
+          "title": "v3.0.0b2 - 2026-07-11"
+        },
+        {
+          "children": [
+            {
+              "href": "changelog.md#model-changes-11",
+              "title": "Model Changes"
+            },
+            {
+              "href": "changelog.md#features-and-enhancements-11",
+              "title": "Features and Enhancements"
+            },
+            {
+              "href": "changelog.md#notes-7",
               "title": "Notes"
             }
           ],

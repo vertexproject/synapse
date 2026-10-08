@@ -2585,6 +2585,10 @@ class LayerTest(s_t_utils.SynTest):
                 with self.raises(s_exc.BadOptValu):
                     await core.callStorm('$layer = $lib.layer.get() $layer.set(newp, hehe)')
 
+                visi = await core.auth.addUser('visi')
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm('$lib.layer.get().set(name, newp)', opts={'user': visi.iden})
+
                 await core.nodes('''
                     $layer = $lib.layer.get()
                     $layer.set(readonly, (false))  // so we can set everything else

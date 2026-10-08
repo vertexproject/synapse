@@ -81,8 +81,9 @@ WARNINGS_IGNORE = [
     # Python logging regardless of whether the caller (mdstorm) expected
     # it. A failing fence produces exactly this one record, logged
     # synchronously by view.runStorm() and therefore inside the per-file
-    # log-capture window (see runMdstorm).
-    r'Error during storm execution for \{.*\}',
+    # log-capture window (see runMdstorm). DOTALL, since a multi-line fence
+    # logs its query text verbatim, newlines and all.
+    r'(?s)Error during storm execution for \{.*\}',
     # Benign: a ```mdstorm-setup --load-svc fence's Telepath clientv2 makes
     # its first connect attempt to the just-registered service's dmon
     # before that dmon's listener has fully finished coming up (a normal
@@ -130,6 +131,7 @@ _md_parser = markdown_it.MarkdownIt('commonmark')
 _re_heading = regex.compile(r'^(#{1,6})\s+(.*?)\s*#*\s*$')
 _re_explicit_anchor = regex.compile(r'<a\s+id="([^"]+)">\s*</a>')
 _re_md_link = regex.compile(r'\[[^\]]*\]\(([^)\s]+)\)')
+_re_md_link_text = regex.compile(r'\[([^\]]*)\]\(([^)\s]+)\)')
 # A cross-bundle link into the Vertex Hub docs viewer, e.g.
 # /docs/synapse-enterprise-optic/latest/user_interface/userguide.md -- the
 # hub route is r'/docs/([\w.-]+)/([\w.-]+)/(.+)', so this mirrors that shape.
@@ -1244,6 +1246,46 @@ def lintInlineCode(outdir):
 
     return issues
 
+def lintLinkText(outdir):
+    '''
+    Check every staged .md file for a link whose visible text is the raw
+    anchor id it points at (e.g. "[stormlibs-lib-cron](x.md#stormlibs-lib-cron)"),
+    which renders the id in the prose instead of a readable phrase. The text
+    may carry surrounding backticks. Only a multi-part id (one containing a
+    hyphen) is flagged, so a link whose text is a plain word matching its
+    heading, such as "[limit](cmd.md#limit)", is left alone. Fenced code
+    blocks are masked out. Returns issue strings in the same format as
+    validate() -- empty list means clean.
+
+    Args:
+        outdir (str): The staged output directory.
+
+    Returns:
+        list: Human-readable issue strings (empty if no link text is a raw anchor id).
+    '''
+    issues = []
+
+    for path in sorted(_iterMdFiles(outdir)):
+        relpath = os.path.relpath(path, outdir)
+        with open(path, 'r') as fd:
+            text = fd.read()
+
+        masked = _maskFencedBlocks(text)
+        lines = text.splitlines()
+
+        for match in _re_md_link_text.finditer(masked):
+            anchor = match.group(2).partition('#')[2]
+            if '-' not in anchor or match.group(1).strip('`') != anchor:
+                continue
+
+            lineno = masked.count('\n', 0, match.start()) + 1
+            issues.append(
+                f'link text is the raw anchor id {anchor} in {relpath} line {lineno}: '
+                f'{lines[lineno - 1].strip()}'
+            )
+
+    return issues
+
 async def buildDocs(srcdir, outdir, ci=False, staticdir=None, force=False):
     '''
     Build one doc bundle from srcdir into outdir: stage sources, run mdstorm
@@ -1302,6 +1344,7 @@ async def buildDocs(srcdir, outdir, ci=False, staticdir=None, force=False):
         issues.extend(f'{relpath}: {mesg}' for mesg in msgs)
     issues.extend(lintFenceStyle(outdir))
     issues.extend(lintInlineCode(outdir))
+    issues.extend(lintLinkText(outdir))
     issues.extend(validate(outdir, tocbuilder, staticdir=staticdir, srcdir=srcdir))
 
     metadata = {'toc': toc}

@@ -17,6 +17,7 @@ class DocModelTest(s_tests.SynTest):
                     :creator={[ entity:contact=* :name=visi ]}
                     :version=1.2.3
                     :supersedes={[ doc:policy=* doc:policy=* ]}
+                    :deprecated=20250101
                 ]
             ''')
             self.len(1, nodes)
@@ -26,6 +27,7 @@ class DocModelTest(s_tests.SynTest):
             self.propeq(nodes[0], 'created', 1729209600000000)
             self.propeq(nodes[0], 'updated', 1729209600000000)
             self.propeq(nodes[0], 'version', '1.2.3')
+            self.propeq(nodes[0], 'deprecated', 1735689600000000)
 
             self.nn(nodes[0].get('file'))
             self.nn(nodes[0].get('creator'))
@@ -117,9 +119,10 @@ class DocModelTest(s_tests.SynTest):
             self.propeq(nodes[0], 'base', 'foo')
             self.none(nodes[0].get('parent'))
 
-            nodes = await core.nodes('[ doc:report=* :topics=(foo, Bar) ]')
+            nodes = await core.nodes('[ doc:report=* :topics=(foo, Bar) :deprecated=20250101 ]')
             self.len(1, nodes)
             self.propeq(nodes[0], 'topics', ('Bar', 'foo'))
+            self.propeq(nodes[0], 'deprecated', 1735689600000000)
 
             nodes = await core.nodes('''[
                 doc:reference=*

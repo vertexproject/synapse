@@ -66,15 +66,29 @@ class ProvCast(s_base.Base):
     Messages are msgpack serialized and encrypted with a shared-secret derived
     AES-GCM key. Datagrams which fail to decrypt ( foreign / corrupt ) are
     silently dropped.
+
+    A listener ( listen=True ) binds the well known discovery port. Multicast group
+    membership is NOT taken at construction: the caller controls it with joinGroup()
+    and dropGroup(), so a socket which has dropped membership stops receiving group
+    addressed requests while unicast to its port still arrives.
     '''
-    async def __anit__(self, key, port, group=DEFAULT_MCAST_GROUP, join=False):
+    async def __anit__(self, key, port, group=DEFAULT_MCAST_GROUP, listen=False):
 
         await s_base.Base.__anit__(self)
 
         self.tinf = s_tinfoil.TinFoilHat(key)
 
         self.port = port
-        self.group = group
+
+        # normalize so a non-canonical but valid form such as 239.192.1 still
+        # produces the canonical mreq and send address.
+        self.group = socket.inet_ntoa(socket.inet_aton(group))
+
+        # packed form for the mreq in joinGroup()/dropGroup(); send() uses the
+        # string form above as the sendto address.
+        self.groupbytes = socket.inet_aton(self.group)
+
+        self.joined = False
 
         self.rxq = asyncio.Queue()
 
@@ -85,25 +99,64 @@ class ProvCast(s_base.Base):
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, MCAST_TTL)
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
 
-        if join:
-            # bind the group port and join the multicast group to receive requests.
+        if listen:
+            # bind the well known group port to receive requests. Group
+            # membership is joined later by the caller, via joinGroup().
             sock.bind(('', port))
-            mreq = struct.pack('4sl', socket.inet_aton(group), socket.INADDR_ANY)
-            sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
         else:
             # bind an ephemeral port to send requests and receive unicast replies.
             sock.bind(('', 0))
 
+        self.sock = sock
+
         self.transport, self.protocol = await loop.create_datagram_endpoint(lambda: _ProvProto(self), sock=sock)
 
         async def fini():
+            # closing the socket drops any group membership and emits the IGMP
+            # leave, so dropGroup() here would be redundant.
             self.transport.close()
 
         self.onfini(fini)
 
+    def joinGroup(self):
+        '''
+        Join the multicast discovery group ( idempotent ).
+
+        setsockopt on the live fd works even though the socket is owned by an
+        asyncio datagram transport.
+        '''
+        if self.joined:
+            return
+
+        # exactly sizeof( ip_mreq ) so BSD/macOS accept it, not the 16 bytes '4sl' packs.
+        mreq = struct.pack('=4sI', self.groupbytes, socket.INADDR_ANY)
+        self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+        self.joined = True
+
+    def dropGroup(self):
+        '''
+        Drop the multicast discovery group ( idempotent ).
+        '''
+        if not self.joined:
+            return
+
+        # exactly sizeof( ip_mreq ) so BSD/macOS accept it, not the 16 bytes '4sl' packs.
+        mreq = struct.pack('=4sI', self.groupbytes, socket.INADDR_ANY)
+        self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_DROP_MEMBERSHIP, mreq)
+        self.joined = False
+
     def _onDatagram(self, data, addr):
 
-        byts = self.tinf.dec(data)
+        # unauthenticated input reaches here, and tinfoil.dec raises ( not merely
+        # returns None ) on a non-dict or non-msgpack envelope -- it only returns
+        # None for a valid envelope it cannot decrypt -- so this guard is what
+        # keeps a garbage datagram from escaping into the event loop.
+        try:
+            byts = self.tinf.dec(data)
+        except Exception:
+            logger.warning('Error decrypting provision datagram')
+            return
+
         if byts is None:
             return
 

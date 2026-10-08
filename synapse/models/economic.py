@@ -375,6 +375,10 @@ modeldefs = (
             ('econ:exchange', ('guid', {}), {
                 'props': (
 
+                    ('name', ('base:name', {}), {
+                        'doc': 'The name of the exchange.',
+                        'ex': 'NASDAQ'}),
+
                     ('operator', ('entity:actor', {}), {
                         'doc': 'The entity which operates the exchange.'}),
 

@@ -102,6 +102,9 @@ class OAuthV1Client(s_stormtypes.StormType):
             'sign': self._methSign,
         }
 
+    async def stormrepr(self):
+        return f'{self._storm_typename}: {self.sigtype}'
+
     async def _methSign(self, baseurl, method='GET', headers=None, params=None, body=None):
         url = yarl.URL(baseurl).with_query(await s_stormtypes.toprim(params))
         headers = await s_stormtypes.toprim(headers)

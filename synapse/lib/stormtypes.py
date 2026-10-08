@@ -2,6 +2,7 @@ import os
 import bz2
 import copy
 import gzip
+import math
 import time
 import regex
 import types
@@ -617,6 +618,9 @@ class StormType:
         '''
         return {}
 
+    async def stormrepr(self):
+        return self._storm_typename
+
     async def _storm_copy(self):
         mesg = f'Type ({self._storm_typename}) does not support being copied!'
         raise s_exc.BadArg(mesg=mesg)
@@ -751,6 +755,468 @@ class Lib(StormType):
         async for item in self.runt.dyniter(iden, todo, gatekeys=gatekeys):
             yield item
 
+class MethCtx:
+    '''
+    The context of a running Storm class method, which provides $self and $super.
+
+    A MethCtx is attached to the sub runtime which runs the method body. A $self
+    or $super reference is resolved by walking up the runtime tree from where
+    the reference runs to the context of the method which declared it, so that
+    only code written within the method may reach the members of the instance.
+    '''
+    __slots__ = ('obj', 'clss', 'methnode', 'active')
+
+    def __init__(self, obj, clss, methnode):
+        self.obj = obj
+        self.clss = clss
+        self.methnode = methnode
+        self.active = False
+
+    def activate(self, runt):
+        # a generator method may be created while the instance is live and
+        # iterated after it is finalized, so the body is guarded as it starts.
+        self.obj.reqLive()
+        runt.methctx = self
+        self.active = True
+
+class StormClass:
+    '''
+    A user defined Storm class declared with the "class" keyword.
+
+    A StormClass is built once when the class definition executes. It holds the
+    declared methods along with the argument defaults and the runtime they were
+    declared in, so that a method body resolves outer variables lexically.
+
+    Like a function, each method runs with the user and privileges of the
+    runtime which declared it, whoever calls it. A method inherited from a
+    class declared in an elevated module runs elevated, while a method a
+    subclass declares runs with the privileges of the code declaring it.
+    '''
+    def __init__(self, name, base, meths, runt, rootquery):
+
+        self.name = name
+        self.base = base
+
+        # the runtime which declared the class, whose bus tracks its instances
+        self.runt = runt
+
+        # instance type name, qualified so it can not collide with a built-in:
+        # <module>.<name> from a module's own source, else <query>.<name>.
+        modname = runt.getModName(rootquery)
+        if modname is not None:
+            self.typename = f'{modname}.{name}'
+        else:
+            self.typename = f'<query>.{name}'
+
+        # the methods this class declares itself
+        self.meths = meths
+
+        # the flattened table of public methods: name -> (owner, astnode, argdefs, runt)
+        # a __ prefixed method belongs to the class which declares it.
+        self.lookup = {}
+        if base is not None:
+            self.lookup.update(base.lookup)
+
+        for mname, (astnode, argdefs, runt) in meths.items():
+            if not mname.startswith('__'):
+                self.lookup[mname] = (self, astnode, argdefs, runt)
+
+        # the nearest class in the chain which declares __storm_init()
+        self.initowner = None
+        if '__storm_init' in meths:
+            self.initowner = self
+        elif base is not None:
+            self.initowner = base.initowner
+
+        # whether an instance has a __storm_fini() chain to run when finalized
+        self.hasfini = '__storm_fini' in meths or (base is not None and base.hasfini)
+
+    def getMethod(self, name):
+        '''
+        Return the public method of the given name, which may be inherited.
+        '''
+        return self.lookup.get(name)
+
+    def getPrivMeth(self, name):
+        '''
+        Return the private method of the given name declared by this class itself.
+        '''
+        if name in s_const.STORM_BUILTIN_METHODS:
+            return None
+
+        mdef = self.meths.get(name)
+        if mdef is None:
+            return None
+
+        return (self,) + mdef
+
+    def getInit(self):
+        '''
+        Return the __storm_init() declaration this class runs, which may be inherited.
+        '''
+        if self.initowner is None:
+            return None
+
+        return (self.initowner,) + self.initowner.meths['__storm_init']
+
+    def getFiniMeths(self):
+        '''
+        Yield the __storm_fini() declarations for this class and its bases, most derived first.
+        '''
+        clss = self
+        while clss is not None:
+
+            mdef = clss.meths.get('__storm_fini')
+            if mdef is not None:
+                yield (clss,) + mdef
+
+            clss = clss.base
+
+    async def instance(self, args, kwargs):
+        '''
+        Construct an instance of this class and run its __storm_init() method.
+
+        Construction only succeeds once the __storm_init() of every class in the
+        chain has run. Once it does, an instance with a __storm_fini() chain is
+        tracked by the bus of the runtime which declared the class, which
+        finalizes it when torn down unless the instance was already finalized
+        by an explicit call to fini().
+        '''
+        mdef = self.getInit()
+        if mdef is None and (args or kwargs):
+            mesg = f'{self.name}() takes no arguments because it declares no __storm_init() method.'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=self.name)
+
+        obj = StormObject(self)
+
+        try:
+
+            if mdef is not None:
+                await obj.callMethod(mdef, args, kwargs)
+
+            # a subclass which catches a failed base __storm_init() may not continue
+            # construction, so that the base's refusal can not be suppressed.
+            if obj.initfail:
+                names = ', '.join(sorted(clss.name for clss in obj.initfail))
+                mesg = f'{self.name}() could not be constructed because an error occurred in __storm_init() of: {names}.'
+                raise s_exc.StormRuntimeError(mesg=mesg, name=self.name)
+
+            self._reqInitChain(obj)
+
+        except Exception:
+            # $self may have been handed out while under construction, so the
+            # instance is made unusable rather than left partially initialized.
+            obj.discard()
+            raise
+
+        obj.ready = True
+
+        if self.hasfini:
+            self.runt.bus.addStormObj(obj)
+
+        return obj
+
+    def _reqInitChain(self, obj):
+        '''
+        Raise if a __storm_init() in the chain did not run the one of the class it extends.
+        '''
+        clss = self
+        while clss.base is not None:
+
+            owner = clss.base.initowner
+            if '__storm_init' in clss.meths and owner is not None and owner not in obj.initd:
+                mesg = (f'{self.name}() could not be constructed because {clss.name}.__storm_init() '
+                        f'did not call $super.__storm_init() to run {owner.name}.__storm_init().')
+                raise s_exc.StormRuntimeError(mesg=mesg, name=self.name)
+
+            clss = clss.base
+
+class StormObject(StormType):
+    '''
+    An instance of a user defined Storm class.
+
+    A private ( __ prefixed ) value may only be used through $self within a
+    method of the class which set it. Each class in the chain has its own
+    private values, so a class may neither read nor replace those of the
+    classes it extends or which extend it.
+    '''
+    def __init__(self, clss):
+
+        StormType.__init__(self)
+
+        self.clss = clss
+
+        # the runtime which declared our class, whose bus tracks us
+        self.runt = clss.runt
+        self.attrs = {}
+
+        # the private values of each class in the chain: clss -> {name: valu}
+        self.privs = {}
+
+        self._storm_typename = clss.typename
+
+        # the classes whose __storm_init() has completed or failed for this instance
+        self.initd = set()
+        self.initfail = set()
+
+        # whether construction has completed, or failed and left us unusable
+        self.ready = False
+        self.discarded = False
+
+        self.isfini = False
+        self.finalizing = False
+
+    def reqLive(self):
+        if self.isfini:
+
+            if self.discarded:
+                mesg = f'The {self.clss.name} object could not be constructed and may not be used.'
+            else:
+                mesg = f'The {self.clss.name} object has been finalized and may no longer be used.'
+
+            raise s_exc.StormRuntimeError(mesg=mesg, name=self.clss.name)
+
+    def discard(self):
+        '''
+        Make an instance whose construction failed unusable, without finalizing it.
+        '''
+        self.isfini = True
+        self.discarded = True
+        self.attrs.clear()
+        self.privs.clear()
+
+    @stormfunc(readonly=True)
+    async def _methFini(self):
+        await self.fini()
+
+    async def fini(self):
+        '''
+        Finalize the instance, running its __storm_fini() chain once.
+
+        Each __storm_fini() in the chain runs, most derived first, even if a more
+        derived one fails. A failure is reported as a warning.
+        '''
+        if self.isfini or self.finalizing:
+            return
+
+        # every __storm_init() in the chain must run before any __storm_fini()
+        if not self.ready:
+            mesg = f'The {self.clss.name} object may not be finalized while it is being constructed.'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=self.clss.name)
+
+        self.finalizing = True
+
+        try:
+            self.runt.bus.popStormObj(self)
+
+            for mdef in self.clss.getFiniMeths():
+                try:
+                    await self.callMethod(mdef, (), {})
+                except Exception as e:
+                    errmesg = s_exc.reprexc(e)
+                    mesg = f'{mdef[0].name}.__storm_fini() failed for {self.clss.name} object: {errmesg}'
+                    await self.runt.warn(mesg, log=False, name=mdef[0].name, err=e.__class__.__name__)
+
+        finally:
+            self.isfini = True
+            self.attrs.clear()
+            self.privs.clear()
+
+    async def callMethod(self, mdef, args, kwargs):
+
+        owner, astnode, argdefs, runt = mdef
+
+        # the method runs with the class which declared it, so that an inherited
+        # method dispatches from where it was written rather than from the
+        # instance class, and reaches only the private methods of that class.
+        ctx = MethCtx(self, owner, astnode)
+
+        funcpath = f'{self.clss.name}.{astnode.name}'
+
+        if astnode.name == '__storm_init':
+            return await self._callInit(owner, astnode, argdefs, runt, args, kwargs, funcpath, ctx)
+
+        return await astnode.callfunc(runt, argdefs, args, kwargs, funcpath, methctx=ctx)
+
+    async def _callInit(self, owner, astnode, argdefs, runt, args, kwargs, funcpath, ctx):
+
+        # each __storm_init() runs at most once for an instance, and one which
+        # failed may not be retried.
+        if owner in self.initfail:
+            mesg = f'{owner.name}.__storm_init() failed for this {self.clss.name} object and may not be retried.'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=owner.name)
+
+        if owner in self.initd:
+            mesg = f'{owner.name}.__storm_init() has already run for this {self.clss.name} object.'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=owner.name)
+
+        try:
+            retn = await astnode.callfunc(runt, argdefs, args, kwargs, funcpath, methctx=ctx)
+        except Exception:
+            # a failed __storm_init() is recorded so that a subclass which catches
+            # the error can neither retry it nor finish construction.
+            self.initfail.add(owner)
+            raise
+
+        self.initd.add(owner)
+        return retn
+
+    def bindMethod(self, name, mdef):
+
+        @stormfunc(readonly=True)
+        async def realmeth(*args, **kwargs):
+            # a method taken by reference may be called after we are finalized
+            self.reqLive()
+            return await self.callMethod(mdef, args, kwargs)
+
+        realmeth._storm_funcpath = f'{self.clss.name}.{name}'
+        return realmeth
+
+    async def deref(self, name):
+
+        name = await tostr(name)
+
+        if name.startswith('__'):
+            mesg = f'Cannot dereference private value [{name}] on object of type {self.clss.name}.'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name)
+
+        return self._derefPublic(self.clss, name)
+
+    @stormfunc(readonly=True)
+    async def setitem(self, name, valu):
+
+        name = await tostr(name)
+
+        if name.startswith('__'):
+            mesg = f'Cannot set private value [{name}] on object of type {self.clss.name}.'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name)
+
+        self._setAttr(self.clss, name, valu)
+
+    def _derefPublic(self, clss, name):
+
+        # fini() may be called on an instance which is already finalized
+        if name == 'fini':
+            return self._methFini
+
+        self.reqLive()
+
+        # a method is found before a value, and the method table is the one of
+        # the given class, so that a base class method calling a method through
+        # $self runs its own declaration rather than an override.
+        mdef = clss.getMethod(name)
+        if mdef is not None:
+            return self.bindMethod(name, mdef)
+
+        valu = self.attrs.get(name, s_common.novalu)
+        if valu is not s_common.novalu:
+            return valu
+
+        mesg = f'Cannot find name [{name}] on object of type {self.clss.name}.'
+        raise s_exc.NoSuchName(mesg=mesg, name=name)
+
+    def _setAttr(self, clss, name, valu, privs=None):
+        '''
+        Set a value on the instance. Every path which sets one comes through here,
+        so that the names reserved for Storm built-ins are denied in one place.
+
+        A private value is set in privs, the private values of the class clss.
+        '''
+        self.reqLive()
+
+        if name.startswith(s_const.STORM_BUILTIN_PREFIX):
+            mesg = f'The {s_const.STORM_BUILTIN_PREFIX} prefix is reserved for Storm built-in methods: {name}'
+            raise s_exc.BadArg(mesg=mesg, name=name)
+
+        if name in s_const.STORM_RESERVED_NAMES:
+            mesg = f'The name {name} is reserved for the Storm built-in {name}() method.'
+            raise s_exc.BadArg(mesg=mesg, name=name)
+
+        # no value may take the name of a method, including a public method
+        # which is only declared by a subclass of the class setting it.
+        if self.clss.getMethod(name) is not None or name in clss.meths:
+            mesg = f'Cannot set [{name}] on object of type {self.clss.name} because it is a method.'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name)
+
+        if privs is not None:
+            privs[name] = valu
+            return
+
+        self.attrs[name] = valu
+
+    def _reqLitPriv(self, ctx, name, islit):
+
+        if not islit:
+            mesg = (f'Private member [{name}] of {ctx.clss.name} may only be used by a literal name, '
+                    f'such as $self.{name}.')
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name)
+
+    async def derefSelf(self, ctx, name, iscall, islit):
+        '''
+        Dereference a member through $self within a method of the class ctx.clss.
+        '''
+        if not name.startswith('__'):
+            return self._derefPublic(ctx.clss, name)
+
+        self._reqLitPriv(ctx, name, islit)
+
+        mdef = ctx.clss.getPrivMeth(name)
+        if mdef is not None:
+
+            if not iscall:
+                mesg = f'Private method {ctx.clss.name}.{name}() may only be called.'
+                raise s_exc.StormRuntimeError(mesg=mesg, name=name)
+
+            return self.bindMethod(name, mdef)
+
+        if (privs := self.privs.get(ctx.clss)) is not None:
+            valu = privs.get(name, s_common.novalu)
+            if valu is not s_common.novalu:
+                return valu
+
+        mesg = f'Cannot find name [{name}] on object of type {self.clss.name}.'
+        raise s_exc.NoSuchName(mesg=mesg, name=name)
+
+    async def setSelf(self, ctx, name, valu, islit):
+        '''
+        Set a member through $self within a method of the class ctx.clss.
+        '''
+        if not name.startswith('__'):
+            self._setAttr(ctx.clss, name, valu)
+            return
+
+        self._reqLitPriv(ctx, name, islit)
+        self._setAttr(ctx.clss, name, valu, privs=self.privs.setdefault(ctx.clss, {}))
+
+    async def derefSuper(self, ctx, name, superinit):
+        '''
+        Dereference a method of the base class through $super within a method of ctx.clss.
+        '''
+        base = ctx.clss.base
+
+        if superinit:
+
+            mdef = base.getInit()
+            if mdef is None:
+                mesg = f'{base.name} declares no __storm_init() method to call through $super.'
+                raise s_exc.NoSuchName(mesg=mesg, name=name)
+
+            return self.bindMethod(name, mdef)
+
+        if name.startswith('__'):
+            mesg = f'Cannot dereference private value [{name}] of {base.name} through $super.'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name)
+
+        mdef = base.getMethod(name)
+        if mdef is not None:
+            return self.bindMethod(name, mdef)
+
+        mesg = f'Cannot find method [{name}] on {base.name}.'
+        raise s_exc.NoSuchName(mesg=mesg, name=name)
+
+    async def stormrepr(self):
+        return f'{self.clss.name} object'
+
 @registry.registerLib
 class LibDmon(Lib):
     '''
@@ -801,7 +1267,7 @@ class LibDmon(Lib):
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Storm Dmon to restart.'},
                   ),
                   'returns': {'type': 'boolean',
-                              'desc': 'True if the Dmon is restarted; False if the iden does not exist.'}}},
+                              'desc': 'True if the Dmon is restarted; False if the iden does not exist or the Dmon is disabled.'}}},
         {'name': 'stop', 'desc': 'Stop a Storm Dmon.',
          'type': {'type': 'function', '_funcname': '_libDmonStop',
                   'args': (
@@ -914,8 +1380,7 @@ class LibDmon(Lib):
         viewiden = ddef['stormopts']['view']
         self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
-        await self.runt.view.core.bumpStormDmon(iden)
-        return True
+        return await self.runt.view.core.bumpStormDmon(iden)
 
     async def _libDmonStop(self, iden):
         iden = await tostr(iden)
@@ -1510,6 +1975,7 @@ class LibBase(Lib):
 
         modr = await self.runt.getModRuntime(query, opts={'vars': {'modconf': modconf}})
         modr.asroot = asroot
+        modr.modname = name
 
         if debug:
             modr.debug = debug
@@ -1581,6 +2047,10 @@ class LibBase(Lib):
             typeitem = self._reqTypeByName(name)
             if len(parts) > 1:
                 typeitem = typeitem.getVirtType(parts[1])
+
+            if isinstance(valu, (Valu, s_node.Node)):
+                tval = valu.valu if isinstance(valu, Valu) else valu.ndef
+                valu = tval if typeitem.ispoly else tval[1]
 
             return typeitem.repr(valu)
         except s_exc.SynErr:
@@ -3210,8 +3680,17 @@ class LibTime(Lib):
                 break
 
     async def _fromunix(self, secs):
-        secs = float(secs)
-        return int(secs * 1000000)
+
+        try:
+            valu = await tofloat(secs) * 1000000
+        except s_exc.BadCast:
+            valu = None
+
+        if valu is None or not math.isfinite(valu):
+            mesg = f'Invalid unix epoch time: {s_common.trimText(await torepr(secs))}'
+            raise s_exc.BadArg(mesg=mesg)
+
+        return int(valu)
 
 @registry.registerLib
 class LibRegx(Lib):
@@ -3720,6 +4199,10 @@ class Pipe(StormType):
         the slice()/slices() API to return once drained.
         '''
         await self.queue.close()
+
+    async def stormrepr(self):
+        size = await self.queue.size()
+        return f'{self._storm_typename}: size={size}'
 
     @stormfunc(readonly=True)
     async def _methPipeSize(self):
@@ -6213,9 +6696,6 @@ _FlipCmpr = {
     '<=': '>=',
 }
 
-# the .value virtual property was deprecated during the 3.0.0 development cycle.
-VALUVIRTDEPR = {'eoldate': '2026-09-24'}
-
 @registry.registerType
 class Valu(Prim):
     '''
@@ -6228,9 +6708,6 @@ class Valu(Prim):
     _storm_locals = (
         {'name': 'type', 'desc': 'Get the type of the tuple.',
          'type': 'str'},
-        {'name': 'value', 'desc': 'Get the valu of the tuple.',
-         'deprecated': VALUVIRTDEPR,
-         'type': 'any'},
         {'name': 'is', 'desc': 'Check if the type in the tuple is a given type.',
          'type': {'type': 'function', '_funcname': '_methIsType',
                   'args': (
@@ -6365,11 +6842,6 @@ class Valu(Prim):
     @stormfunc(readonly=True)
     async def _derefGet(self, name):
         name = await tostr(name)
-
-        if name == 'value':
-            # a Valu resolves .value from its own tuple, so it never reaches Poly._getValue()
-            s_common.deprdate('.value', VALUVIRTDEPR['eoldate'])
-            return self.valu[1]
 
         if self.virts is not None:
             if (valu := self.virts.get(name)) is not None:
@@ -6957,28 +7429,21 @@ class LibLayer(Lib):
 
         ldef['creator'] = self.runt.user.iden
 
-        useriden = self.runt.user.iden
-
-        gatekeys = ((useriden, ('layer', 'add'), None),)
-        todo = ('addLayer', (ldef,), {})
-
-        ldef = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        self.runt.confirm(('layer', 'add'))
+        ldef = await self.runt.view.core.addLayer(ldef)
 
         return Layer(self.runt, ldef, path=self.path)
 
     async def _libLayerDel(self, iden):
-        todo = s_common.todo('getLayerDef', iden)
-        ldef = await self.runt.dyncall('cortex', todo)
+        ldef = await self.runt.view.core.getLayerDef(iden)
         if ldef is None:
             mesg = f'No layer with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
 
         layriden = ldef.get('iden')
-        useriden = self.runt.user.iden
-        gatekeys = ((useriden, ('layer', 'del'), iden),)
 
-        todo = ('delLayer', (layriden,), {})
-        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        self.runt.confirm(('layer', 'del'), gateiden=iden)
+        return await self.runt.view.core.delLayer(layriden)
 
     @stormfunc(readonly=True)
     async def _libLayerGet(self, iden=None):
@@ -7002,8 +7467,7 @@ class LibLayer(Lib):
 
     @stormfunc(readonly=True)
     async def _libLayerList(self):
-        todo = s_common.todo('getLayerDefs')
-        defs = await self.runt.dyncall('cortex', todo)
+        defs = await self.runt.view.core.getLayerDefs()
         return [Layer(self.runt, ldef, path=self.path) for ldef in defs
                 if self.runt.userCanReadLayer(ldef['iden'])]
 
@@ -7662,8 +8126,7 @@ class Layer(Prim):
             'queue:size': queue_size,
             'chunk:size': chunk_size,
         }
-        todo = s_common.todo('addLayrPull', layriden, pdef)
-        await self.runt.dyncall('cortex', todo)
+        await self.runt.view.core.addLayrPull(layriden, pdef)
         return pdef
 
     async def _delPull(self, iden):
@@ -7674,8 +8137,7 @@ class Layer(Prim):
             mesg = '$layr.delPull() requires admin privs on the top layer.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
-        todo = s_common.todo('delLayrPull', layriden, iden)
-        await self.runt.dyncall('cortex', todo)
+        await self.runt.view.core.delLayrPull(layriden, iden)
 
     async def _addPush(self, url, offs=0, queue_size=s_const.layer_pdef_qsize, chunk_size=s_const.layer_pdef_csize):
         url = await tostr(url)
@@ -7705,8 +8167,7 @@ class Layer(Prim):
             'queue:size': queue_size,
             'chunk:size': chunk_size,
         }
-        todo = s_common.todo('addLayrPush', layriden, pdef)
-        await self.runt.dyncall('cortex', todo)
+        await self.runt.view.core.addLayrPush(layriden, pdef)
         return pdef
 
     async def _delPush(self, iden):
@@ -7717,8 +8178,7 @@ class Layer(Prim):
             mesg = '$layer.delPush() requires admin privs on the layer.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
-        todo = s_common.todo('delLayrPush', layriden, iden)
-        await self.runt.dyncall('cortex', todo)
+        await self.runt.view.core.delLayrPush(layriden, iden)
 
     @stormfunc(readonly=True)
     async def _methGetFormcount(self):
@@ -8022,11 +8482,9 @@ class Layer(Prim):
             mesg = f'Layer does not support setting: {name}'
             raise s_exc.BadOptValu(mesg=mesg)
 
-        useriden = self.runt.user.iden
         layriden = self.valu.get('iden')
-        gatekeys = ((useriden, ('layer', 'set', name), layriden),)
-        todo = s_common.todo('setLayerInfo', name, valu)
-        valu = await self.runt.dyncall(layriden, todo, gatekeys=gatekeys)
+        self.runt.confirm(('layer', 'set', name), gateiden=layriden)
+        valu = await self.runt.view.core.reqLayer(layriden).setLayerInfo(name, valu)
         self.valu[name] = valu
 
     async def value(self):
@@ -8117,22 +8575,16 @@ class LibView(Lib):
         if name is not None:
             vdef['name'] = name
 
-        useriden = self.runt.user.iden
-        gatekeys = [(useriden, ('view', 'add'), None)]
-
         for layriden in layers:
             await self.runt.reqUserCanReadLayer(layriden)
 
-        todo = ('addView', (vdef,), {})
-
-        vdef = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        self.runt.confirm(('view', 'add'))
+        vdef = await self.runt.view.core.addView(vdef)
         return View(self.runt, vdef, path=self.path)
 
     async def _methViewDel(self, iden):
-        useriden = self.runt.user.iden
-        gatekeys = ((useriden, ('view', 'del'), iden),)
-        todo = ('delView', (iden,), {})
-        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        self.runt.confirm(('view', 'del'), gateiden=iden)
+        return await self.runt.view.core.delView(iden)
 
     @stormfunc(readonly=True)
     async def _methViewGet(self, iden=None):
@@ -8236,6 +8688,19 @@ class View(Prim):
                   'returns': {'type': 'view', 'desc': 'The `view` object for the new View.', }}},
         {'name': 'insertParentFork', 'desc': 'Insert a new View between a forked View and its parent.',
          'type': {'type': 'function', '_funcname': '_methViewInsertParentFork',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the new View.', 'default': None},
+                  ),
+                  'returns': {'type': 'view', 'desc': 'The `view` object for the new View.', }}},
+        {'name': 'insertChildFork', 'desc': '''
+            Insert a new View between this View and all of its child Views.
+
+            Only admin permissions on this View are required, and every child View is
+            re-parented, including Views owned by other users. The new View receives a
+            copy of this View's quorum, so pending merge requests on the re-parented
+            child Views now target the new View. Child Views which are currently
+            merging are left under this View.''',
+         'type': {'type': 'function', '_funcname': '_methViewInsertChildFork',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the new View.', 'default': None},
                   ),
@@ -8519,6 +8984,7 @@ class View(Prim):
 
             'fork': self._methViewFork,
             'insertParentFork': self._methViewInsertParentFork,
+            'insertChildFork': self._methViewInsertChildFork,
 
             'getMerges': self.getMerges,
             'delMergeVote': self.delMergeVote,
@@ -8571,11 +9037,10 @@ class View(Prim):
         layriden = self.valu.get('layers')[0].get('iden')
 
         meta = {'user': useriden}
-        todo = s_common.todo('addNodeEdits', edits, meta)
 
         # ensure the user may make *any* node edits
-        gatekeys = ((useriden, ('node',), layriden),)
-        await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
+        self.runt.confirm(('node',), gateiden=layriden)
+        await self.runt.view.core.reqView(viewiden).addNodeEdits(edits, meta)
 
     @stormfunc(readonly=True)
     async def _methGetFormcount(self):
@@ -8846,6 +9311,22 @@ class View(Prim):
         self.runt.confirm(('view', 'fork'), gateiden=view.parent.iden)
 
         newv = await view.insertParentFork(useriden, name=name)
+
+        return View(self.runt, newv, path=self.path)
+
+    async def _methViewInsertChildFork(self, name=None):
+        useriden = self.runt.user.iden
+        viewiden = self.valu.get('iden')
+
+        name = await tostr(name, noneok=True)
+
+        self.runt.reqAdmin(gateiden=viewiden)
+
+        self.runt.confirm(('view', 'add'))
+
+        view = self.runt.view.core.reqView(viewiden)
+
+        newv = await view.insertChildFork(useriden, name=name)
 
         return View(self.runt, newv, path=self.path)
 
@@ -9139,20 +9620,17 @@ class LibTrigger(Lib):
         if n2form is not None:
             tdef['n2form'] = n2form
 
-        gatekeys = ((useriden, ('trigger', 'add'), viewiden),)
-        todo = ('addTrigger', (tdef,), {})
-        tdef = await self.dyncall(viewiden, todo, gatekeys=gatekeys)
+        self.runt.confirm(('trigger', 'add'), gateiden=viewiden)
+        tdef = await self.runt.view.core.reqView(viewiden).addTrigger(tdef)
 
         return Trigger(self.runt, tdef)
 
     async def _methTriggerDel(self, prefix):
-        useriden = self.runt.user.iden
         trig = await self._matchIdens(prefix)
         iden = trig.iden
 
-        todo = s_common.todo('delTrigger', iden)
-        gatekeys = ((useriden, ('trigger', 'del'), iden),)
-        await self.dyncall(trig.view.iden, todo, gatekeys=gatekeys)
+        self.runt.confirm(('trigger', 'del'), gateiden=iden)
+        await self.runt.view.core.reqView(trig.view.iden).delTrigger(iden)
 
         return iden
 
@@ -9305,13 +9783,8 @@ class Trigger(Prim):
         except (s_exc.SchemaViolation, s_exc.BadSyntax) as exc:
             raise s_exc.StormRuntimeError(mesg=f'Cannot move invalid trigger {trigiden}: {str(exc)}') from None
 
-        gatekeys = ((useriden, ('trigger', 'del'), trigiden),)
-        todo = s_common.todo('delTrigger', trigiden)
-        await self.runt.dyncall(trigview, todo, gatekeys=gatekeys)
-
-        gatekeys = ((useriden, ('trigger', 'add'), viewiden),)
-        todo = ('addTrigger', (tdef,), {})
-        tdef = await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
+        await self.runt.view.core.reqView(trigview).delTrigger(trigiden)
+        tdef = await view.addTrigger(tdef)
 
         self.valu = tdef
 
@@ -9650,8 +10123,7 @@ class LibCron(Lib):
         Returns the cron that starts with prefix.  Prints out error and returns None if it doesn't match
         exactly one.
         '''
-        todo = s_common.todo('listCronJobs')
-        crons = await self.dyncall('cortex', todo)
+        crons = await self.runt.view.core.listCronJobs()
         matchcron = None
 
         for cron in crons:
@@ -10032,9 +10504,8 @@ class LibCron(Lib):
             if (valu := kwargs.get(argname)) is not None:
                 cdef[argname] = await tostr(valu)
 
-        todo = s_common.todo('addCronJob', cdef)
-        gatekeys = ((self.runt.user.iden, ('cron', 'add'), view),)
-        cdef = await self.dyncall('cortex', todo, gatekeys=gatekeys)
+        self.runt.confirm(('cron', 'add'), gateiden=view)
+        cdef = await self.runt.view.core.addCronJob(cdef)
 
         return CronJob(self.runt, cdef, path=self.path)
 
@@ -10123,9 +10594,8 @@ class LibCron(Lib):
             if (valu := kwargs.get(argname)) is not None:
                 cdef[argname] = await tostr(valu)
 
-        todo = s_common.todo('addCronJob', cdef)
-        gatekeys = ((self.runt.user.iden, ('cron', 'add'), view),)
-        cdef = await self.dyncall('cortex', todo, gatekeys=gatekeys)
+        self.runt.confirm(('cron', 'add'), gateiden=view)
+        cdef = await self.runt.view.core.addCronJob(cdef)
 
         return CronJob(self.runt, cdef, path=self.path)
 
@@ -10159,9 +10629,8 @@ class LibCron(Lib):
 
     @stormfunc(readonly=True)
     async def _methCronList(self):
-        todo = s_common.todo('listCronJobs')
-        gatekeys = ((self.runt.user.iden, ('cron', 'get'), None),)
-        defs = await self.dyncall('cortex', todo, gatekeys=gatekeys)
+        self.runt.confirm(('cron', 'get'))
+        defs = await self.runt.view.core.listCronJobs()
 
         retn = []
         for cdef in defs:
@@ -10580,6 +11049,25 @@ async def toint(valu, noneok=False):
         return int(valu)
     except Exception as e:
         mesg = f'Failed to make an integer from {s_common.trimText(repr(valu))}.'
+        raise s_exc.BadCast(mesg=mesg) from e
+
+async def tofloat(valu, noneok=False):
+
+    if noneok and valu is None:
+        return None
+
+    try:
+        return float(valu)
+    except OverflowError as e:
+        mesg = f'Failed to make a float from {s_common.trimText(repr(valu))}.'
+        raise s_exc.BadCast(mesg=mesg) from e
+    except (TypeError, ValueError):
+        pass
+
+    try:
+        return float(await tostr(valu))
+    except (s_exc.BadCast, ValueError) as e:
+        mesg = f'Failed to make a float from {s_common.trimText(repr(valu))}.'
         raise s_exc.BadCast(mesg=mesg) from e
 
 async def toiter(valu, noneok=False):

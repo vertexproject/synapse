@@ -2265,7 +2265,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 child.layers = layers
                 child.wlyr = layers[0]
-                self.clearCache()
+                child.clearCache()
 
                 # convert layers to a list of idens...
                 lids = [layr.iden for layr in layers]
@@ -2290,6 +2290,8 @@ class View(s_nexus.Pusher):  # type: ignore
         if not self.isafork():
             mesg = f'View ({self.iden}) is not a fork, cannot insert a new fork between it and parent.'
             raise s_exc.BadState(mesg=mesg)
+
+        self._reqNotMerging()
 
         ctime = s_common.now()
         layriden = s_common.guid()
@@ -2327,6 +2329,9 @@ class View(s_nexus.Pusher):  # type: ignore
         s_layer.reqValidLdef(ldef)
         s_schemas.reqValidView(vdef)
 
+        # a merge may have started since the request was validated
+        self._reqNotMerging()
+
         if self.getMergeRequest() is not None:
             await self._delMergeRequest()
 
@@ -2354,31 +2359,129 @@ class View(s_nexus.Pusher):  # type: ignore
 
         self.core._calcViewsByLayer()
 
-        authgate = await self.core.getAuthGate(self.iden)
-        if authgate is None:  # pragma: no cover
-            return await self.parent.pack()
+        await self._copyGatePerms(self.iden, forkiden)
 
-        # copy the source view's gate perms onto the new fork's gate. These are
-        # durable auth writes.
+        return await self.parent.pack()
+
+    async def insertChildFork(self, useriden, name=None):
+        '''
+        Insert a new View between this View and all of its child Views.
+
+        Returns:
+            New view definition with the same perms as the current view.
+        '''
+        self._reqNotMerging()
+
+        ctime = s_common.now()
+        layriden = s_common.guid()
+
+        ldef = {
+            'iden': layriden,
+            'created': ctime,
+            'creator': useriden,
+            'readonly': False
+        }
+
+        if name is None:
+            if (vname := self.info.get('name')) is not None:
+                name = f'inserted fork of {vname}'
+            else:
+                name = f'inserted fork of {self.iden}'
+
+        vdef = {
+            'iden': s_common.guid(),
+            'name': name,
+            'created': ctime,
+            'creator': useriden,
+            'parent': self.iden,
+            'layers': [layriden] + [lyr.iden for lyr in self.layers]
+        }
+
+        # the forks' pending merge requests now target the new view, so it
+        # carries this view's quorum to keep them (and their votes) valid.
+        if (quorum := self.info.get('quorum')) is not None:
+            vdef['quorum'] = s_msgpack.deepcopy(quorum, use_list=True)
+
+        s_layer.reqValidLdef(ldef)
+        s_schemas.reqValidView(vdef)
+
+        return await self._push('view:forkchild', ldef, vdef)
+
+    @s_nexus.Pusher.onPush('view:forkchild', passitem=True)
+    async def _insertChildFork(self, ldef, vdef, nexsitem):
+
+        s_layer.reqValidLdef(ldef)
+        s_schemas.reqValidView(vdef)
+
+        # a merge may have started since the request was validated
+        self._reqNotMerging()
+
+        forkiden = vdef.get('iden')
+
+        # snapshot the children before the new fork becomes one of them. a child
+        # which is merging stays put so its merge completes into this view.
+        kids = [view for view in self.children() if view.iden != forkiden and not view.merging]
+
+        await self.core._addLayer(ldef, nexsitem)
+        await self.core._addView(vdef)
+
+        fork = self.core.reqView(forkiden)
+
+        for kid in kids:
+
+            kid.info['parent'] = forkiden
+            kid.parent = fork
+            if not self.core.readonly:
+                self.core.viewdefs.set(kid.iden, kid.info)
+
+            self._children.remove(kid)
+            fork._children.append(kid)
+
+            mesg = {'iden': kid.iden, 'name': 'parent', 'valu': forkiden}
+            await self.core.feedBeholder('view:set', mesg, gates=[kid.iden, kid.layers[0].iden])
+
+        await fork._calcChildViews()
+
+        self.core._calcViewsByLayer()
+
+        await self._copyGatePerms(self.iden, forkiden)
+        await self._copyGatePerms(self.wlyr.iden, ldef.get('iden'))
+
+        return await fork.pack()
+
+    def _reqNotMerging(self):
+        if self.merging:
+            mesg = f'View ({self.iden}) is currently merging, cannot insert a new fork.'
+            raise s_exc.BadState(mesg=mesg)
+
+    async def _copyGatePerms(self, srciden, gateiden):
+        '''
+        Copy the user and role rules from one AuthGate to another AuthGate.
+        '''
+        authgate = await self.core.getAuthGate(srciden)
+        if authgate is None:  # pragma: no cover
+            return
+
+        # these are durable auth writes
         if not self.core.readonly:
             for userinfo in authgate.get('users'):
                 useriden = userinfo.get('iden')
                 if (user := self.core.auth.user(useriden)) is None:  # pragma: no cover
-                    logger.warning(f'View {self.iden} AuthGate refers to unknown user {useriden}')
+                    logger.warning(f'AuthGate {srciden} refers to unknown user {useriden}')
                     continue
 
-                await user.setRules(userinfo.get('rules'), gateiden=forkiden, nexs=False)
-                await user.setAdmin(userinfo.get('admin'), gateiden=forkiden, logged=False)
+                await user.setRules(userinfo.get('rules'), gateiden=gateiden, nexs=False)
+                # grant only, so the creator never loses admin on a new gate
+                if userinfo.get('admin'):
+                    await user.setAdmin(True, gateiden=gateiden, logged=False)
 
             for roleinfo in authgate.get('roles'):
                 roleiden = roleinfo.get('iden')
                 if (role := self.core.auth.role(roleiden)) is None:  # pragma: no cover
-                    logger.warning(f'View {self.iden} AuthGate refers to unknown role {roleiden}')
+                    logger.warning(f'AuthGate {srciden} refers to unknown role {roleiden}')
                     continue
 
-                await role.setRules(roleinfo.get('rules'), gateiden=forkiden, nexs=False)
-
-        return await self.parent.pack()
+                await role.setRules(roleinfo.get('rules'), gateiden=gateiden, nexs=False)
 
     async def fork(self, ldef=None, vdef=None):
         '''

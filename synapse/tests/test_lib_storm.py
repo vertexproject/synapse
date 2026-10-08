@@ -789,13 +789,6 @@ class StormTest(s_t_utils.SynTest):
                                 [ ou:org=* ]
                                 return($node.nid)
                             }
-                            function dyncall() {
-                                return($lib.queue.list())
-                            }
-                            function dyniter() {
-                                for $item in $lib.queue.add(dyniter).gets(wait=(false)) {}
-                                return(woot)
-                            }
                         ''',
                         'asroot:perms': [['foopkg', 'foo', 'bar']],
                     },
@@ -857,9 +850,37 @@ class StormTest(s_t_utils.SynTest):
             await visi.addRule((True, ('foopkg', 'foo', 'bar')))
             self.len(1, await core.nodes('yield $lib.import(foo.bar).lol()', opts=opts))
 
-            # coverage for dyncall/dyniter with asroot...
-            await core.nodes('$lib.import(foo.bar).dyncall()', opts=opts)
-            await core.nodes('$lib.import(foo.bar).dyniter()', opts=opts)
+            # Runtime.dyncall/dyniter enforce gatekeys unless running asroot
+            await core.setStormVar('dynvar', 'woot')
+
+            gatekeys = ((visi.iden, ('newp',), None),)
+            calltodo = s_common.todo('getCellIden')
+            itertodo = s_common.todo('itemsStormVar')
+
+            query = await core.getStormQuery('')
+            async with core.getStormRuntime(query, opts=opts) as runt:
+
+                with self.raises(s_exc.AuthDeny):
+                    await runt.dyncall('cortex', calltodo, gatekeys=gatekeys)
+
+                with self.raises(s_exc.AuthDeny):
+                    await alist(runt.dyniter('cortex', itertodo, gatekeys=gatekeys))
+
+                slib = s_stormtypes.Lib(runt)
+
+                with self.raises(s_exc.AuthDeny):
+                    await slib.dyncall('cortex', calltodo, gatekeys=gatekeys)
+
+                with self.raises(s_exc.AuthDeny):
+                    await alist(slib.dyniter('cortex', itertodo, gatekeys=gatekeys))
+
+                runt.asroot = True
+
+                self.eq(core.iden, await runt.dyncall('cortex', calltodo, gatekeys=gatekeys))
+                self.isin(('dynvar', 'woot'), await alist(runt.dyniter('cortex', itertodo, gatekeys=gatekeys)))
+
+                self.eq(core.iden, await slib.dyncall('cortex', calltodo, gatekeys=gatekeys))
+                self.isin(('dynvar', 'woot'), await alist(slib.dyniter('cortex', itertodo, gatekeys=gatekeys)))
 
             # Call a non-existent function on the lib
             msgs = await core.stormlist('$mod = $lib.import(foo.bar) $lib.print($mod) $mod.newp()')
@@ -921,6 +942,15 @@ class StormTest(s_t_utils.SynTest):
             self.none(core.stormdmons.getDmon(ddef0['iden']).task)
             self.false(await core.callStorm('return($lib.dmon.get($iden).enabled)', opts={'vars': {'iden': ddef0['iden']}}))
             self.false(await core.callStorm('return($lib.dmon.stop($iden))', opts={'vars': {'iden': ddef0['iden']}}))
+            self.eq('stopped', await core.callStorm('return($lib.dmon.get($iden).status)', opts={'vars': {'iden': ddef0['iden']}}))
+
+            self.false(await core.callStorm('return($lib.dmon.bump($iden))', opts={'vars': {'iden': ddef0['iden']}}))
+            self.none(core.stormdmons.getDmon(ddef0['iden']).task)
+            self.false(await core.callStorm('return($lib.dmon.get($iden).enabled)', opts={'vars': {'iden': ddef0['iden']}}))
+
+            async with core.getLocalProxy() as proxy:
+                self.false(await proxy.bumpStormDmon(ddef0['iden']))
+                self.none(core.stormdmons.getDmon(ddef0['iden']).task)
 
             self.true(await core.callStorm('return($lib.dmon.start($iden))', opts={'vars': {'iden': ddef0['iden']}}))
             self.nn(core.stormdmons.getDmon(ddef0['iden']).task)
@@ -1324,8 +1354,8 @@ class StormTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist('[ inet:net=10.0.0.0/24 ]', opts=opts)
             nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
-            self.eq(nodes[0][1]['virts'].get('mask'), 24)
-            self.eq(nodes[0][1]['virts'].get('size'), 256)
+            self.eq(nodes[0][1]['valuinfo']['v'].get('mask'), (24, {}))
+            self.eq(nodes[0][1]['valuinfo']['v'].get('size'), (256, {}))
 
             fork = await core.callStorm('return($lib.view.get().fork().iden)', opts=opts)
             opts['view'] = fork
@@ -1333,7 +1363,7 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:net=10.0.0.0/24', opts=opts)
             await core.nodes('inet:net=10.0.0.0/24 | delnode', opts=opts)
             pode = nodes[0].pack(virts=True)
-            self.eq(pode[1]['virts'], {})
+            self.none(pode[1].get('valuinfo'))
 
             # test set tag assignment
             nodes = await core.nodes('[ test:str=boo +?#baz="dud" ]')
@@ -2571,11 +2601,34 @@ class StormTest(s_t_utils.SynTest):
                 await runt.popVar('base1')
                 self.true(base1.isfini)
 
+                # popVar() from a sub-runtime delegates to the parent scope
+                base3 = await s_base.Base.anit()
+                base3._syn_refs = 0
+                await runt.setVar('base3', base3)
+                await runt.setVar('foo', 'root')
+
+                async with runt.getSubRuntime(query) as subr:
+                    self.true(await subr.popVar('base3') is base3)
+                    self.true(base3.isfini)
+                    self.notin('base3', runt.vars)
+
+                async with runt.getSubRuntime(query, opts={'vars': {'foo': 'subr'}}) as subr:
+                    self.eq('subr', await subr.popVar('foo'))
+                    self.notin('foo', subr.vars)
+                    self.eq('root', runt.getVar('foo'))
+
                 base2 = await s_base.Base.anit()
                 base2._syn_refs = 0
                 await runt.setVar('base2', base2)
 
             self.true(base2.isfini)
+
+            # deleting a parent scope var from a sub-runtime removes it
+            q = '$x = (1) storm.exec "$lib.vars.x = $lib.undef" | return($lib.dict.has($lib.vars, x))'
+            self.false(await core.callStorm(q))
+
+            q = '$x = (1) $y = { $lib.vars.x = $lib.undef } return($lib.dict.has($lib.vars, x))'
+            self.false(await core.callStorm(q))
 
     async def test_storm_dmon_user_locked(self):
         async with self.getTestCore() as core:
@@ -2591,6 +2644,25 @@ class StormTest(s_t_utils.SynTest):
                 q = 'return($lib.dmon.bump($iden))'
                 self.true(await core.callStorm(q, opts={'vars': {'iden': ddef0['iden']}}))
                 await stream.expect('user is locked', timeout=2)
+
+            opts = {'vars': {'iden': ddef0['iden']}}
+            self.true(await core.callStorm('return($lib.dmon.stop($iden))', opts=opts))
+
+            await core.setUserLocked(visi.iden, False)
+            await core.setUserLocked(visi.iden, True)
+            await core.setUserLocked(visi.iden, False)
+
+            dmon = core.stormdmons.getDmon(ddef0['iden'])
+            self.none(dmon.task)
+            self.false(dmon.enabled)
+            self.eq('stopped', dmon.status)
+            self.false(await core.callStorm('return($lib.dmon.get($iden).enabled)', opts=opts))
+            self.false(await core.callStorm('return($lib.dmon.stop($iden))', opts=opts))
+
+            self.true(await core.callStorm('return($lib.dmon.start($iden))', opts=opts))
+            self.nn(dmon.task)
+            self.true(await core.callStorm('return($lib.dmon.stop($iden))', opts=opts))
+            self.none(dmon.task)
 
     async def test_storm_dmon_user_autobump(self):
         async with self.getTestCore() as core:
@@ -2612,6 +2684,13 @@ class StormTest(s_t_utils.SynTest):
 
                     await core.setUserLocked(visi.iden, False)
                     await stream.expect('Dmon query exited', timeout=2)
+
+                    dmon = list(core.stormdmons.dmons.values())[0]
+                    self.eq('sleeping', dmon.status)
+
+                    self.true(await core.disableStormDmon(dmon.iden))
+                    self.none(dmon.task)
+                    self.eq('stopped', dmon.status)
 
     async def test_storm_dmon_caching(self):
 
@@ -2770,6 +2849,14 @@ class StormTest(s_t_utils.SynTest):
             self.false(any([m for m in msgs if m[0] == 'err']))
 
             self.eq(0, await core.callStorm('return($lib.pipe.gen(${}).size())'))
+
+            # the repr shows the pipe's size, never a Python object address
+            q = '''
+                $pipe = $lib.pipe.gen(${ $pipe.puts((foo, bar)) })
+                $pipe.slice(size=1)
+                return(`{$pipe}`)
+            '''
+            self.eq('pipe: size=1', await core.callStorm(q))
 
             with self.raises(s_exc.BadArg):
                 await core.nodes('''
@@ -5036,7 +5123,7 @@ class StormTest(s_t_utils.SynTest):
 
             with mock.patch('synapse.lib.stormtypes.registry.getLibDocs', forcedep):
                 msgs = await core.stormlist('help --verbose $lib.len')
-                self.stormIsInPrint('Warning', msgs)
+                self.stormIsInPrint('> [!WARNING]', msgs)
                 self.stormIsInPrint('`$lib.len` has been deprecated and will be removed in version v999.0.0', msgs)
 
             msgs = await core.stormlist('help $lib.inet')

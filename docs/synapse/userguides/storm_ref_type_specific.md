@@ -74,7 +74,7 @@ Because an array may contain multiple values, an `array` property must be set us
 Set the `:names` property of an organization (`ou:org`) node to a single value:
 
 ```mdstorm --hide
-[ ou:org=( { "name": "vertex"} ) :websites+=https://vertex.link/ ]
+[ ou:org=( { "name": "vertex" } ) :websites+=https://vertex.link/ ]
 ```
 
 ```mdstorm
@@ -109,13 +109,13 @@ ou:org:name='Monty Python' [ :names-='The Spanish Inquisition' ]
 Add multiple values to the array of names associated with an organization:
 
 ```mdstorm
-ou:org:name='Monty Python' [ :names ++= ('The Spanish Inquisition', 'Spamalot') ]
+ou:org:name='Monty Python' [ :names++=('The Spanish Inquisition', 'Spamalot') ]
 ```
 
 Remove multiple values from the array of names associated with an organization:
 
 ```mdstorm
-ou:org:name='Monty Python' [ :names --= ('The Spanish Inquisition', 'Spamalot') ]
+ou:org:name='Monty Python' [ :names--=('The Spanish Inquisition', 'Spamalot') ]
 ```
 
 > [!TIP]
@@ -181,7 +181,7 @@ crypto:x509:cert:identities:fqdns*[=microsoft.com]
 Filter a set of articles (`doc:report` nodes) by Proofpoint to include only those with a topic that starts with "cyber":
 
 ```mdstorm --hide
-[ ( doc:report=( { "title": "more things happened today", "publisher:name": "proofpoint" } ) :topics++=( cybersecurity, 'zero trust' ) ) ( doc:report=( { "title": "report about stuff", "publisher:name": "proofpoint" } ) :topics++=( cybercrime, ransomware ) ) ]
+[ ( doc:report=( { "title": "more things happened today", "publisher:name": "proofpoint" } ) :topics++=(cybersecurity, 'zero trust') ) ( doc:report=( { "title": "report about stuff", "publisher:name": "proofpoint" } ) :topics++=(cybercrime, ransomware) ) ]
 ```
 
 ```mdstorm
@@ -212,8 +212,8 @@ Pivot from a set of `entity:name` nodes to any nodes that reference those names 
 entity:name^=ministry <- *
 ```
 
-<a id="type-duration"></a>
 
+<a id="type-duration"></a>
 
 ## duration
 
@@ -225,28 +225,74 @@ You can view all secondary properties that include `duration` types using the fo
 syn:prop:type*[=duration]
 ```
 
-In addition, all properties that are interval ([ival](storm_ref_type_specific.md#type-ival)) types have a `.duration` virtual property.
+In addition, all properties that are interval (`ival`) types have a `.duration` virtual property. See the [ival](storm_ref_type_specific.md#type-ival) section for additional details.
+
+
+<a id="type-duration-index"></a>
 
 ### Indexing
 
 A `duration` is stored as an integer value representing the number of microseconds.
 
+
+<a id="type-duration-parse"></a>
+
 ### Parsing
 
 A `duration` is commonly specified using a string value (days / hours / minutes / seconds / microseconds as appropriate) with the following notation:
 
-`##D hh:mm:ss.mmmmmm`
+`<#>D hh:mm:ss.mmmmmm`
 
-The literal uppercase letter `D` is used to represent the number of days. When entering a duration value as a string, single or double quotes are required in accordance with the standard rules for using [Whitespace and Literals in Storm](storm_ref_intro.md#storm-whitespace-literals).
+The literal uppercase letter `D` is used to represent the number of days. Note that day values cannot start with a leading zero; `7D` is acceptable, but `07D` is not.
+
+When entering a duration value as a string, single or double quotes are required in accordance with the standard rules for using [Whitespace and Literals in Storm](storm_ref_intro.md#storm-whitespace-literals).
+
+You can specify a `duration` string at any level of granularity (`5D` is acceptable, as is `'5D 03:42:17.234861'`).
+
+In addition, the following formats and values are acceptable:
+
+- Seconds (`ss`). Numbers without parentheses are read as seconds: `[ :period.duration=42 ]` sets the `.duration` value to `00:00:42`.
+  - Fractional (decimal) seconds are allowed; `[ :period.duration=1.5 ]` sets the `.duration` value to `00:00:01.5`.
+
+- Minutes and seconds (`mm:ss`). For example, `[ :period.duration=17:00 ]` sets `.duration` to `00:17:00`.
+
+- Hours / minutes / seconds (`hh:mm:ss`).
+
+> [!TIP]
+> For `ss`, `mm:ss`, and `hh:mm:ss` formatted values, Synapse converts each value (seconds, minutes, and hours) to its microsecond equivalent, adds the values together, and stores the result. The result is then **displayed** in standard `<#>D hh:mm:ss.mmmmmm` format.
+>
+> This means that (while not recommended) you can enter a value representing 46 hours, 2000 minutes, and 342 seconds:
+>
+> `[ :period.duration=46:2000:342 ]`
+>
+> Synapse converts this to microseconds, adds the values, and displays duration as 3 days, 7 hours, 25 minutes, and 42 seconds: `:period.duration='3D 07:25:42'`.
 
 A `duration` can also be specified as the number of microseconds expressed as an integer value enclosed in parentheses:
 
 `(218262777)`
 
 > [!TIP]
-> Similar to [time](storm_ref_type_specific.md#type-time) types, Synapse expects users to enter duration values using human-friendly strings, and will attempt to parse the input as such. Using parentheses tells Synapse to interpret the value as a raw integer.
+> This parentheses syntax only applies when setting or updating a `duration` property using Storm. When setting or updating a property in the [Optic UI](/docs/synapse-enterprise-optic/latest/index.md) by editing a field, you must enter a duration string value.
+
+**Special time values**
+
+The following are also acceptable:
+
+- The special time values `?` ("unknown") and `*` ("ongoing") can be set for a property type of `duration` (e.g., `it:sec:c2:config:connect:delay`) or a `.duration` virtual property.
+  
+  - `?` results in a duration of `(?, ?)` (unknown start / unknown end).
+  - `*` results in a duration of `(?, *)` (unknown start, ongoing).
+
+See the [time](storm_ref_type_specific.md#type-time) section for additional details on these special values and their use.
+
+
+> [!NOTE]
+> The value of the `.duration` virtual property of an interval (`ival`) is directly related to the interval's start (`.min`) and end (`.max`) values. Your ability to set (or modify) `.duration` may depend on whether `.min` and `.max` already exist, as well as their current values.
 >
-> Note that this parentheses syntax only applies when setting or updating a `duration` property using Storm. When setting or updating a property in the [Optic UI](/docs/synapse-enterprise-optic/latest/index.md) by editing a field, you must enter a duration string value.
+> See the [ival](storm_ref_type_specific.md#type-ival) section for additional details on the `.duration` virtual property and its behavior.
+
+
+<a id="type-duration-insert"></a>
 
 ### Insertion
 
@@ -282,8 +328,10 @@ risk:compromise:name='example compromise' [ :period.duration=(542783000000) ]
 
 **Usage Notes:**
 
-- Duration values can be set at any level of granularity; e.g., `[ :duration=19D ]` is acceptable, as are values to microsecond resolution.
-- In the example above, `.duration` is a virtual property of `risk:compromise:period`, which is an interval (`ival`) type. See the [ival](storm_ref_type_specific.md#type-ival) section below for a detailed discussion of `ival` types, including their virtual properties (`.min`, `.max`, `.duration`, `.precision`) and related behaviors.
+- In the example above, `.duration` is a virtual property of `risk:compromise:period`, which is an interval (`ival`) type. See the [ival](storm_ref_type_specific.md#type-ival) section below for a detailed discussion of `ival` types, including their virtual properties and related behaviors.
+
+
+<a id="type-duration-operate"></a>
 
 ### Operations
 
@@ -297,12 +345,14 @@ As `duration` types are stored as integers, they support any operations suitable
 
 In addition, arithmetic on typed values preserves the `duration` type:
 
-- adding or subtracting two `duration` values yields a `duration`;
-- multiplying a `duration` by an integer yields a `duration`;
-- adding a `duration` to a `time` yields a new `time` (see [time](storm_ref_type_specific.md#type-time)).
+- Adding or subtracting two `duration` values yields a `duration`. Similarly, subtracting two `time` values yields a `duration` (see [time](storm_ref_type_specific.md#type-time)).
+  - If either operation results in a negative value, Synapse returns an error (`Duration value is outside of valid range.`) because a `duration` cannot be negative.
+- Multiplying a `duration` by an integer yields a `duration`.
+- Adding a `duration` to a `time` yields a new `time`.
+- When adding a string to a `duration` (e.g., `<duration> + '2020'`), Synapse attempts to parse (and add) the string as a `time`; if that fails, Synapse will attempt to parse (and add) the string as another `duration`.
+
 
 <a id="type-file"></a>
-
 
 ## file:bytes
 
@@ -331,7 +381,7 @@ Files can be ingested programmatically (such as via a Synapse [Power-Up](../glos
 - the **Upload File** menu option available from the [Optic UI](/docs/synapse-enterprise-optic/latest/index.md), which allows you to either upload a file from local disk, or download a file from a specified URL; or
 - the <span class="title-ref">[axon.put](syn_tools_axon_put.md#syn-tools-axon-put) tool, available from the CLI in the community version of Synapse, which loads a file into the Axon and optionally creates the corresponding </span><span class="title-ref">file:bytes</span>\` node.
 
-Similarly, Storm's HTTP library ([stormlibs-lib-inet-http](../stormtypes_libs.md#stormlibs-lib-inet-http)) could be leveraged to retrieve a web-based file and use the returned bytes as input (potentially using Storm variables - see [Storm Reference - Advanced - Variables](storm_adv_vars.md#storm-adv-vars)) to the `guid` generator. A detailed discussion of this method is beyond the scope of this section; see the [stormtypes-libs-header](../stormtypes_libs.md#stormtypes-libs-header) technical documentation for additional detail.
+Similarly, Storm's HTTP library ([`$lib.inet.http`](../stormtypes_libs.md#stormlibs-lib-inet-http)) could be leveraged to retrieve a web-based file and use the returned bytes as input (potentially using Storm variables - see [Storm Reference - Advanced - Variables](storm_adv_vars.md#storm-adv-vars)) to the `guid` generator. A detailed discussion of this method is beyond the scope of this section; see the [Storm Libraries](../stormtypes_libs.md#stormtypes-libs-header) technical documentation for additional detail.
 
 ### Operations
 
@@ -471,7 +521,7 @@ ou:org:name='the vertex project' | delnode
 $name='the vertex project' $email=info@vertex.link [ ou:org=( { "name": $name, "email": $email } ) ]
 ```
 
-- When creating a new node using dictionary syntax, Synapse uses an algorithm (the guid generator or "guid grinder") to generate a predictable guid using the dictionary content as input. The dictionary is converted to a sorted (alphabetical) list of `(<key>, <normalized value>)` tuples that are fed to the algorithm (the same algorithm is implemented by the `$lib.guid()` library (see [stormlibs-lib-guid](../stormtypes_libs.md#stormlibs-lib-guid)).
+- When creating a new node using dictionary syntax, Synapse uses an algorithm (the guid generator or "guid grinder") to generate a predictable guid using the dictionary content as input. The dictionary is converted to a sorted (alphabetical) list of `(<key>, <normalized value>)` tuples that are fed to the algorithm (the same algorithm is implemented by the `$lib.guid()` library (see [`$lib.guid()`](../stormtypes_libs.md#stormlibs-lib-guid)).
 
   Given the following query in dictionary syntax:
 
@@ -502,13 +552,13 @@ ou:org:name='the vertex project'
 The following dictionary syntax identifies and lifts the existing node (note the guid value), because **both** MX FQDNs in the JSON dictionary are present on the existing node:
 
 ```mdstorm
-[ ou:org=( { "name": "the vertex project", "dns:mx": [ "vtx.lk", "vertex.link" ] } ) ]
+[ ou:org=( { "name": "the vertex project", "dns:mx": ["vtx.lk", "vertex.link"] } ) ]
 ```
 
 In contrast, the following dictionary syntax only contains one of the `:dns:mx` values, so fails to deconflict and creates a new node with a different guid:
 
 ```mdstorm
-[ ou:org=( { "name": "vertex", "dns:mx": [ "vertex.link" ] } )  ]
+[ ou:org=( { "name": "vertex", "dns:mx": ["vertex.link"] } ) ]
 ```
 
 <a id="guid-dictionary-special-keys"></a>
@@ -562,7 +612,7 @@ Any dotted key that does not match this pattern is treated as an ordinary proper
 - For [ival](storm_ref_type_specific.md#type-ival)-typed properties (e.g., `:seen`), the virtual properties `min`, `max`, `duration`, and `precision` change the ival tuple itself, so two dictionaries with different `.min` values produce **different** guids and therefore different nodes.
 - For `econ:price`-typed properties (e.g., `:price`), `currency` and `adjusted` are stored as virt metadata alongside the numeric value. Two dictionaries with the same numeric price but different currencies resolve to the **same** node (the currency is applied to the node on first creation; on re-deconfliction the currency in the deconf dict is not re-applied).
 
-*\`\`\$props\`\` virtual keys* -- Virtual keys in `$props` are applied to the node as if they appeared in the explicit edit syntax (`:price.currency=USD`). The base property's value is seeded from the deconfliction dictionary when necessary (e.g., `$props: {"price.currency": "USD"}` with `price` in the deconfliction dict).
+*`$props` virtual keys* -- Virtual keys in `$props` are applied to the node as if they appeared in the explicit edit syntax (`:price.currency=USD`). The base property's value is seeded from the deconfliction dictionary when necessary (e.g., `$props: { "price.currency": "USD" }` with `price` in the deconfliction dict).
 
 > [!NOTE]
 > Virtual property keys are **not** accepted in `$unsets`.
@@ -662,7 +712,7 @@ Secondary property deconfliction (provided by dictionary syntax and described ab
 - The set of inputs must be sufficient to create a unique node. Be sure to choose inputs that will always be present in the data source.
 - If the nodes being created are event-based (e.g., include a unique timestamp), then the timestamp should be used as one of the inputs.
 - When using this method to deconflict data from a unique (single) data source, we recommend that you include the source (e.g., the name of the data source) as one of the inputs.
-- You can specify input values as literals or variables. The guid is generated using the algorithm implemented by the `$lib.guid()` library (see [stormlibs-lib-guid](../stormtypes_libs.md#stormlibs-lib-guid)). All of the following are valid:
+- You can specify input values as literals or variables. The guid is generated using the algorithm implemented by the `$lib.guid()` library (see [`$lib.guid()`](../stormtypes_libs.md#stormlibs-lib-guid)). All of the following are valid:
 
 ```mdstorm --hide
 ou:org:name='the vertex project' | delnode
@@ -1010,7 +1060,7 @@ inet:ip=2606:4700:3031::6815:1c70-2606:4700:3031::6815:1c79
 Filter a set of DNS A records to only include those whose IP value is within the 172.16.\* RFC1918 range:
 
 ```mdstorm --hide
-[ inet:dns:a=(woot.com,1.2.3.4) inet:dns:a=(woot.com,127.0.0.1) inet:dns:a=(woot.com,172.16.47.12) ]
+[ inet:dns:a=(woot.com, 1.2.3.4) inet:dns:a=(woot.com, 127.0.0.1) inet:dns:a=(woot.com, 172.16.47.12) ]
 ```
 
 ```mdstorm
@@ -1057,7 +1107,7 @@ inet:flow:server.ip=142.118.95.50 [ :ip:proto=0x06 ]
 Use the octal value 755 to set the POSIX permissions for a RAR archive entry:
 
 ```mdstorm --hide
-$parent={ [ file:bytes=( { "sha256": "1c2ee5a5bc16ba130a51de02f1fe1e6560750e16e63e65f4f27c5ee2e74288d3" } ) ] } $file={ [ file:bytes=( { "sha256": "9747fef49a3ce803631ada6161c1a4006f16c10e42d5739174cf9045f30c536d" } ) ] }  [ file:mime:rar:entry=( { "parent": $parent, "file": $file } ) :added='2023/08/11 11:33:00' ]
+$parent={ [ file:bytes=( { "sha256": "1c2ee5a5bc16ba130a51de02f1fe1e6560750e16e63e65f4f27c5ee2e74288d3" } ) ] } $file={ [ file:bytes=( { "sha256": "9747fef49a3ce803631ada6161c1a4006f16c10e42d5739174cf9045f30c536d" } ) ] } [ file:mime:rar:entry=( { "parent": $parent, "file": $file } ) :added='2023/08/11 11:33:00' ]
 ```
 
 ```mdstorm
@@ -1089,11 +1139,11 @@ risk:alert:priority>5
 Lift all `inet:flow` nodes tagged with `#my.tag` and filter to include only those where the `:ip:proto` property is set to the hex equivalent of 6:
 
 ```mdstorm --hide
-[ inet:flow=( { "server": "tcp://62.152.42.139:1234", "period": "(2026/03/19 01:37:42, 2026/03/19 01:38:09)" } ) :ip:proto=6 +#my.tag]
+[ inet:flow=( { "server": "tcp://62.152.42.139:1234", "period": "(2026/03/19 01:37:42, 2026/03/19 01:38:09)" } ) :ip:proto=6 +#my.tag ]
 ```
 
 ```mdstorm
-inet:flow#mytag +:ip:proto=0x06
+inet:flow#my.tag +:ip:proto=0x06
 ```
 
 Use an octal value to lift all the RAR entry nodes where the `:extra:posix:perms` are 755 (decimal 493):
@@ -1184,7 +1234,7 @@ When specifying minimum and maximum times for an `ival` type (or when specifying
 Lift the DNS A nodes whose observation window is **exactly** from 2018/12/13 01:05 to 2018/12/16 12:57:
 
 ```mdstorm --hide
-[ inet:dns:a=(yoyodyne.com,16.16.16.16) :seen=('2018/12/13 01:05', '2018/12/16 12:57') ]
+[ inet:dns:a=(yoyodyne.com, 16.16.16.16) :seen=('2018/12/13 01:05', '2018/12/16 12:57') ]
 ```
 
 ```mdstorm
@@ -1200,7 +1250,7 @@ inet:dns:a:seen=('2018/12/13 01:05', '2018/12/16 12:57')
 Lift all the DNS A nodes whose observation window overlaps with the interval of March 1, 2019 through April 1, 2019:
 
 ```mdstorm --hide
-[ ( inet:dns:a=(hurr.com, 4.4.4.4) :seen=('2019/01/05 09:38', '2019/03/12 18:17') ) ( inet:dns:a=(derp.net, 8.8.8.8) :seen=('2019/03/08 07:26','2019/03/22 10:14') ) ( inet:dns:a=(blergh.org, 2.2.2.2) :seen=('2019/03/28 22:22','2019/04/27 00:03') ) ]
+[ ( inet:dns:a=(hurr.com, 4.4.4.4) :seen=('2019/01/05 09:38', '2019/03/12 18:17') ) ( inet:dns:a=(derp.net, 8.8.8.8) :seen=('2019/03/08 07:26', '2019/03/22 10:14') ) ( inet:dns:a=(blergh.org, 2.2.2.2) :seen=('2019/03/28 22:22', '2019/04/27 00:03') ) ]
 ```
 
 ```mdstorm
@@ -1214,7 +1264,7 @@ inet:dns:a:seen@=(2019/03/01, 2019/04/01)
 >
 > You can access each date/time of an `ival` independently by assigning the value to a **pair** of variables as follows:
 >
-> `( $min, $max )=:seen`
+> `($min, $max)=:seen`
 >
 > `$min` will represent the value `2023/07/08 11:19:02` and `$max` will represent the value `2023/12/14 21:18:47`.
 
@@ -1266,7 +1316,7 @@ The use of the dot character ( `.` ) as a reserved boundary marker impacts prefi
 
 When **lifting** or **filtering** on `loc` property values using the prefix comparison operator ( `^=` ), the specified value must fall on a dot boundary.
 
-String and string-derived types are **prefix-indexed** to optimize lifting or filtering strings that start with a given substring. For standard strings, the prefix operator can be used with strings of arbitrary length. However, for `loc` types, the prefix operator works along dot boundaries. This is because it is generally more analytically meaningful to lift all locations within the US (`^= us`) or within Florida (`^= us.fl`) than it is to lift all locations in the US within states that start with `M` (`^= us.m`).
+String and string-derived types are **prefix-indexed** to optimize lifting or filtering strings that start with a given substring. For standard strings, the prefix operator can be used with strings of arbitrary length. However, for `loc` types, the prefix operator works along dot boundaries. This is because it is generally more analytically meaningful to lift all locations within the US (`^=us`) or within Florida (`^=us.fl`) than it is to lift all locations in the US within states that start with `M` (`^=us.m`).
 
 Prefix comparison for `loc` types is useful because it easily allows lifting or filtering at any appropriate level of resolution within the dotted hierarchy:
 
@@ -1302,7 +1352,7 @@ When **lifting** or **filtering** on `loc` property values using the equals oper
 Lift all places in the city of Seattle, Washington:
 
 ```mdstorm --hide
-[ ( geo:place=( { "name": "space needle", "loc": "us.wa.seattle" } ) :latlong=(47.6205099,-122.3514714) ) ( geo:place=( { "name": "seattle-tacoma international airport", "loc": "us.wa.seattle" } ) :latlong=(47.4502535,-122.3110105) ) ]
+[ ( geo:place=( { "name": "space needle", "loc": "us.wa.seattle" } ) :latlong=(47.6205099, -122.3514714) ) ( geo:place=( { "name": "seattle-tacoma international airport", "loc": "us.wa.seattle" } ) :latlong=(47.4502535, -122.3110105) ) ]
 ```
 
 ```mdstorm
@@ -1628,15 +1678,15 @@ N/A
 
   where *\<count\>* is a numeric value and *\<unit\>* is one of the following:
 
-  > - `minute(s)`
-  > - `hour(s)`
-  > - `day(s)`
+  - `minute(s)`
+  - `hour(s)`
+  - `day(s)`
 
   **Examples:**
 
-  > - `'+7 days'`
-  > - `'-15 minutes'`
-  > - `'+-1 hour'`
+  - `'+7 days'`
+  - `'-15 minutes'`
+  - `'+-1 hour'`
 
 - **Special** time values:
 
@@ -1791,7 +1841,7 @@ inet:dns:request +:time<2019/06/01
 Lift a set of `file:bytes` nodes whose PE compiled time is between January 1, 2019 and today:
 
 ```mdstorm --hide
-$file1={ [ file:bytes=( { "sha256": "9f9d96e99cef99cbfe8d02899919a7f7220f2273bb36a084642f492dd3e473da" } ) ] } $file2={ [ file:bytes=( { "sha256": "bd422f912affcf6d0830c13834251634c8b55b5a161c1084deae1f9b5d6830ce" } ) ] } $file3={ [ file:bytes=( { "sha256": "fac373a26a5f0458890deea7bc93d6ea6e769eeb6440d56c5adf9f3da8838c90" } ) ] }  [  file:mime:pe=( { "file": $file1, "compiled": "2019/10/07 12:42:45" } ) file:mime:pe=( { "file": $file2, "compiled": "2021/04/13 00:23:14" } ) file:mime:pe=( { "file": $file3, "compiled": "2023/10/30 05:34:22" } ) ]
+$file1={ [ file:bytes=( { "sha256": "9f9d96e99cef99cbfe8d02899919a7f7220f2273bb36a084642f492dd3e473da" } ) ] } $file2={ [ file:bytes=( { "sha256": "bd422f912affcf6d0830c13834251634c8b55b5a161c1084deae1f9b5d6830ce" } ) ] } $file3={ [ file:bytes=( { "sha256": "fac373a26a5f0458890deea7bc93d6ea6e769eeb6440d56c5adf9f3da8838c90" } ) ] } [ file:mime:pe=( { "file": $file1, "compiled": "2019/10/07 12:42:45" } ) file:mime:pe=( { "file": $file2, "compiled": "2021/04/13 00:23:14" } ) file:mime:pe=( { "file": $file3, "compiled": "2023/10/30 05:34:22" } ) ]
 ```
 
 ```mdstorm
@@ -1812,7 +1862,7 @@ See the Storm documents referenced above for additional examples using the range
 Lift a set of DNS A records whose window of observation includes March 16, 2019 at 13:00 UTC:
 
 ```mdstorm --hide
-[ ( inet:dns:a=(aaaa.org, 1.2.3.4) :seen=('2018/12/29 12:36:27','2019/06/03 18:14:33') ) ( inet:dns:a=(bbbb.edu,5.6.7.8) :seen=('2019/03/16 12:59:59','2019/03/16 13:01:01') ) ]
+[ ( inet:dns:a=(aaaa.org, 1.2.3.4) :seen=('2018/12/29 12:36:27', '2019/06/03 18:14:33') ) ( inet:dns:a=(bbbb.edu, 5.6.7.8) :seen=('2019/03/16 12:59:59', '2019/03/16 13:01:01') ) ]
 ```
 
 ```mdstorm

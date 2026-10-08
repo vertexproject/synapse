@@ -6,6 +6,7 @@ import regex
 import synapse
 
 import synapse.tests.utils as s_tests
+import synapse.lib.stormlib.modelext as s_modelext
 
 def getCmdSections(text):
     '''
@@ -82,3 +83,27 @@ class DocsStormRefTest(s_tests.SynTest):
         # entry links to an anchor which exists
         self.eq(getListedCmds(text), set(regex.findall(r'^## (\S+)$', text, regex.MULTILINE)))
         self.eq([], [a for a in getListedAnchors(text) if f'<a id="{a}">' not in text])
+
+    async def test_storm_lib_modelext_covers_every_function(self):
+
+        # Every $lib.model.ext function is shown in the Extended Model guide.
+        # Adding a function fails this until it is documented.
+        path = os.path.join(os.path.dirname(synapse.__file__),
+                            'assets', 'docs', 'storm_lib_modelext.md')
+
+        with open(path, 'r') as fd:
+            text = fd.read()
+
+        names = [lcl['name'] for lcl in s_modelext.LibModelExt._storm_locals]
+
+        self.gt(len(names), 10)
+        self.eq([], [n for n in names if f'$lib.model.ext.{n}(' not in text])
+
+        # The guide links the library and each function to an anchor in the library reference
+        path = os.path.join(os.path.dirname(path), 'stormtypes_libs.md')
+        with open(path, 'r') as fd:
+            libs = fd.read()
+
+        anchors = ['stormlibs-lib-model-ext'] + [f'stormlibs-lib-model-ext-{n}' for n in names]
+        self.eq([], [a for a in anchors if f'](stormtypes_libs.md#{a})' not in text])
+        self.eq([], [a for a in anchors if f'<a id="{a}"></a>' not in libs])

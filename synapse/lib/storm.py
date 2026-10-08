@@ -1236,7 +1236,9 @@ class DmonManager(s_base.Base):
             return
         logger.debug('Starting Dmons')
         for dmon in dmons:
-            await dmon.run()
+            if dmon.enabled:
+                await dmon.run()
+
         self.enabled = True
         logger.debug('Started Dmons')
 
@@ -1277,6 +1279,7 @@ class StormDmon(s_base.Base):
         if self.task is not None:
             self.task.cancel()
         self.task = None
+        self.status = 'stopped'
         logger.debug(f'Stopped Dmon {self.iden}', extra=self.core.getLogExtra(iden=self.iden))
 
     async def run(self):
@@ -1287,7 +1290,8 @@ class StormDmon(s_base.Base):
 
     async def bump(self):
         await self.stop()
-        await self.run()
+        if self.enabled:
+            await self.run()
 
     def pack(self):
         retn = dict(self.ddef)
@@ -1396,6 +1400,9 @@ class Runtime(s_base.Base):
     '''
     A Runtime represents the instance of a running query.
     '''
+    # the context of the Storm class method call whose body this runtime runs
+    methctx = None
+
     async def __anit__(self, query, view, opts=None, user=None, root=None, bus=None):
 
         await s_base.Base.__anit__(self)
@@ -1410,6 +1417,11 @@ class Runtime(s_base.Base):
 
         self.bus = bus
         self.vars = {}
+
+        # the Storm class instances which declare __storm_fini() and which this
+        # runtime finalizes when torn down, if it is the bus of a query.
+        self.stormobjs = {}
+
         self.ctors = {
             'lib': s_stormtypes.LibBase,
         }
@@ -1422,6 +1434,9 @@ class Runtime(s_base.Base):
 
         self.root = root
         self.funcscope = False
+
+        # the Storm module this runtime runs, set for a module import. See getModName().
+        self.modname = None
 
         self.query = query
 
@@ -1468,6 +1483,9 @@ class Runtime(s_base.Base):
         # all vars/ctors are de-facto runtsafe
         self.runtvars.update({k: True for k in self.vars.keys()})
         self.runtvars.update({k: True for k in self.ctors.keys()})
+
+        # per-runtime runtsafe classification within each exec block
+        self.execvars = {}
 
         self._loadRuntVars(query)
 
@@ -1532,6 +1550,71 @@ class Runtime(s_base.Base):
         self.emitevt.clear()
         await self.emitq.put((True, item))
         await self.emitevt.wait()
+
+    async def fini(self):
+
+        # finalize Storm class instances before we are marked fini, so that the
+        # messages their __storm_fini() methods produce still reach the caller.
+        # we are always torn down, even if their __storm_fini() code is cancelled.
+        try:
+            if not self.isfini and self._wouldfini():
+                await self.finiStormObjs()
+
+        finally:
+            retn = await s_base.Base.fini(self)
+
+        return retn
+
+    def getMethCtx(self, methnode):
+        '''
+        Return the context of the running call of the given Storm class method.
+
+        The context is found by walking up the runtime tree from this runtime, so
+        that it is only reachable from code written within the method body.
+        '''
+        runt = self
+        while runt is not None:
+
+            ctx = runt.methctx
+            if ctx is not None and ctx.methnode is methnode:
+
+                if not ctx.active:
+                    mesg = (f'{ctx.clss.name}.{methnode.name}() has returned, so its $self '
+                            'and $super may no longer be used.')
+                    raise s_exc.StormRuntimeError(mesg=mesg, name=methnode.name)
+
+                ctx.obj.reqLive()
+
+                return ctx
+
+            runt = runt.root
+
+        mesg = '$self and $super may only be used by a running Storm class method.'
+        raise s_exc.StormRuntimeError(mesg=mesg)
+
+    def addStormObj(self, obj):
+        '''
+        Track a Storm class instance to be finalized when this runtime is torn down.
+        '''
+        self.stormobjs[id(obj)] = obj
+
+    def popStormObj(self, obj):
+        '''
+        Stop tracking a Storm class instance which was explicitly finalized.
+        '''
+        self.stormobjs.pop(id(obj), None)
+
+    async def finiStormObjs(self):
+        '''
+        Finalize the tracked Storm class instances, most recently constructed first.
+
+        A command such as view.exec or runas calls this while its event
+        forwarding is still installed, so that __storm_fini() output reaches
+        the caller before the sub runtime is torn down.
+        '''
+        while self.stormobjs:
+            _, obj = self.stormobjs.popitem()
+            await obj.fini()
 
     async def _onRuntFini(self):
         # fini() any Base objects constructed by this runtime
@@ -1676,8 +1759,8 @@ class Runtime(s_base.Base):
 
     async def popVar(self, name):
 
-        if self._isRootScope(name):
-            return self.root.popVar(name)
+        if name not in self.vars and self._isRootScope(name):
+            return await self.root.popVar(name)
 
         oldv = self.vars.pop(name, s_common.novalu)
         if isinstance(oldv, s_base.Base):
@@ -1984,6 +2067,24 @@ class Runtime(s_base.Base):
             runt.asroot = self.asroot
             runt.readonly = self.readonly
             yield runt
+
+    def getModName(self, query):
+        '''
+        Return the module which declared query (a class's root AST), or None.
+
+        A module runtime whose own query is that root is the module the class
+        belongs to. Matching the declaring source, not the call chain, keeps
+        foreign Storm ( macro, storm.exec, $lib.storm.eval ) from being a module.
+        '''
+        runt = self
+        while runt is not None:
+
+            if runt.modname is not None and runt.query is query:
+                return runt.modname
+
+            runt = runt.root
+
+        return None
 
     async def getModRuntime(self, query, opts=None):
         '''
@@ -2870,7 +2971,7 @@ class HelpCmd(Cmd):
             if item._storm_typename in s_stormtypes.registry.known_types:
                 await self._handleTypeHelp(item._storm_typename, runt, verbose=self.opts.verbose)
                 return
-            raise s_exc.BadArg(mesg=f'Unknown storm type encountered: {s_stormtypes.totype(item, basetypes=True)}')
+            raise s_exc.BadArg(mesg=f'Unknown storm type encountered: {await s_stormtypes.totype(item, basetypes=True)}')
 
         if isinstance(item, s_node.Node):
             await self._handleTypeHelp('node', runt, verbose=self.opts.verbose)
@@ -5316,8 +5417,12 @@ class ViewExecCmd(Cmd):
                 subr.bus = subr
                 subr._warnonce_keys = runt.bus._warnonce_keys
                 with subr.onWithMulti(self.events, runt.bus.dist) as filtrunt:
-                    async for item in filtrunt.execute():
-                        await asyncio.sleep(0)
+                    try:
+                        async for item in filtrunt.execute():
+                            await asyncio.sleep(0)
+                    finally:
+                        # finalize while forwarding is still installed
+                        await subr.finiStormObjs()
 
             yield node, path
 
@@ -5331,8 +5436,12 @@ class ViewExecCmd(Cmd):
                 subr.bus = subr
                 subr._warnonce_keys = runt.bus._warnonce_keys
                 with subr.onWithMulti(self.events, runt.bus.dist) as filtrunt:
-                    async for item in filtrunt.execute():
-                        await asyncio.sleep(0)
+                    try:
+                        async for item in filtrunt.execute():
+                            await asyncio.sleep(0)
+                    finally:
+                        # finalize while forwarding is still installed
+                        await subr.finiStormObjs()
 
 class BackgroundCmd(Cmd):
     '''
@@ -6167,8 +6276,12 @@ class RunAsCmd(Cmd):
 
                 subr._warnonce_keys = runt.bus._warnonce_keys
                 with subr.onWithMulti(self.events, runt.bus.dist) as filtsubr:
-                    async for item in filtsubr.execute():
-                        await asyncio.sleep(0)
+                    try:
+                        async for item in filtsubr.execute():
+                            await asyncio.sleep(0)
+                    finally:
+                        # finalize while forwarding is still installed
+                        await subr.finiStormObjs()
 
             yield node, path
 
@@ -6190,8 +6303,12 @@ class RunAsCmd(Cmd):
 
                 subr._warnonce_keys = runt.bus._warnonce_keys
                 with subr.onWithMulti(self.events, runt.bus.dist) as filtsubr:
-                    async for item in filtsubr.execute():
-                        await asyncio.sleep(0)
+                    try:
+                        async for item in filtsubr.execute():
+                            await asyncio.sleep(0)
+                    finally:
+                        # finalize while forwarding is still installed
+                        await subr.finiStormObjs()
 
 class IntersectCmd(Cmd):
     '''

@@ -566,6 +566,30 @@ class NexusTest(s_t_utils.SynTest):
                     self.eq(0, (await cell00.nexsroot.nexslog.last())[0])
                     self.eq(0, (await cell01.nexsroot.nexslog.last())[0])
 
+                    # an exception from the mirror applying a forwarded write must not
+                    # carry the still running mirror loop frame back to the caller
+                    orig = cell01._nexshands['sync']
+
+                    async def badsync(self):
+                        raise s_exc.SynErr(mesg='mirror handler failed')
+
+                    cell01._nexshands['sync'] = (badsync, False)
+                    names = []
+                    try:
+                        await cell01.sync()
+                    except s_exc.SynErr as exc:
+                        tb = exc.__traceback__
+                        while tb is not None:
+                            names.append(tb.tb_frame.f_code.co_name)
+                            tb = tb.tb_next
+
+                    self.notin('runMirrorLoop', names)
+                    self.isin('_apply', names)
+                    self.isin('badsync', names)
+
+                    cell01._nexshands['sync'] = orig
+                    await cell01.sync()
+
     async def test_mirror_version_prerelease(self):
 
         with self.getTestDir() as dirn:

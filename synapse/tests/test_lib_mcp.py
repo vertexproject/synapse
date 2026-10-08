@@ -4,10 +4,12 @@ import asyncio
 import unittest.mock as mock
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.json as s_json
 import synapse.lib.mcp as s_mcp
+import synapse.lib.const as s_const
 import synapse.lib.jsrpc as s_jsrpc
 
 import synapse.tests.utils as s_tests
@@ -187,6 +189,11 @@ class McpTest(s_tests.SynTest):
                 # GET is not allowed (no server-initiated stream)
                 async with sess.get(url) as resp:
                     self.eq(resp.status, http.HTTPStatus.METHOD_NOT_ALLOWED)
+
+                # a session idle for well under SESSION_TIMEOUT seconds is still valid
+                cell._mcp_sessions[sid]['touched'] = s_common.now() - 10 * s_const.second
+                status, data = await self._rpc(sess, url, sid, 'tools/list')
+                self.eq(status, http.HTTPStatus.OK)
 
                 # idle expiry -> 404
                 cell._mcp_sessions[sid]['touched'] = 0

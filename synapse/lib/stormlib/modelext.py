@@ -24,7 +24,8 @@ class LibModelExt(s_stormtypes.Lib):
                   'args': (
                       {'name': 'formname', 'type': 'str', 'desc': 'The name of the form to add the property to.', },
                       {'name': 'propname', 'type': 'str', 'desc': 'The name of the extended property.', },
-                      {'name': 'typedef', 'type': 'list', 'desc': 'A Synapse type definition tuple.', },
+                      {'name': 'typedef', 'type': 'list',
+                       'desc': 'A Synapse type definition tuple of (typename, typeopts).', },
                       {'name': 'propinfo', 'type': 'dict', 'desc': 'A Synapse property definition dictionary.', },
                   ),
                   'returns': {'type': 'null', }}},
@@ -32,7 +33,8 @@ class LibModelExt(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': 'addTagProp',
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'The name of the tag property.', },
-                      {'name': 'typedef', 'type': 'list', 'desc': 'A Synapse type definition tuple.', },
+                      {'name': 'typedef', 'type': 'list',
+                       'desc': 'A Synapse type definition tuple of (typename, typeopts).', },
                       {'name': 'propinfo', 'type': 'dict', 'desc': 'A Synapse property definition dictionary.', },
                   ),
                   'returns': {'type': 'null', }}},

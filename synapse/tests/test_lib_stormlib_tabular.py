@@ -224,3 +224,10 @@ class TabularTest(s_test.SynTest):
                     $printer.row((too, many, items))
                 ''')
             self.eq('tabular:printer row() requires data length to equal column count', ecm.exception.errinfo['mesg'])
+
+            # the repr shows the configured columns, quoted
+            q = '''
+                $printer = $lib.tabular.printer(({"columns": [{"name": "Year"}, {"name": "Author"}]}))
+                return(`{$printer}`)
+            '''
+            self.eq('tabular:printer: columns="Year, Author"', await core.callStorm(q))

@@ -74,6 +74,13 @@ class StormLibRsaTest(s_test.SynTest):
             with self.raises(s_exc.BadArg):
                 await core.callStorm('return($lib.crypto.rsa.load($pubpem).sign($lib.hex.decode("ab")))', opts=opts)
 
+            # the repr never leaks key material, public or private
+            q = LOAD + 'return((`{$key}`, `{$pub}`))'
+            privrepr, pubrepr = await core.callStorm(q, opts=opts)
+            self.eq('crypto:rsa:key: private', privrepr)
+            self.eq('crypto:rsa:key: public', pubrepr)
+            self.notin('BEGIN', privrepr)
+
     async def test_stormlib_rsa_signverify(self):
 
         async with self.getTestCore() as core:

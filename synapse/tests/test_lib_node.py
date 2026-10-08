@@ -36,7 +36,7 @@ class NodeTest(s_t_utils.SynTest):
             self.eq(info.get('tags'), {'foo': ((None, None, None), {})})
             props = {k: v for (k, v) in info.get('props', {}).items() if not k.startswith('.')}
             self.eq(props, {'tick': (12345, {'t': 'test:time', 'r': '1970-01-01T00:00:00.012345Z'})})
-            self.eq(info.get('repr'), None)
+            self.none(info.get('valuinfo'))
 
             # the reprs sidecar is gone. reprs live in the prop envelope.
             self.none(info.get('reprs'))
@@ -150,8 +150,7 @@ class NodeTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ test:comp=(1234, haha) ]')
             iden, info = nodes[0].pack(virts=True)
             self.eq(iden, ('test:comp', (('test:int', 1234), ('test:lower', 'haha'))))
-            self.notin('_stortypes', info['virts'])
-            self.eq(info['virts'], {})
+            self.none(info.get('valuinfo'))
 
             q = '''[ crypto:currency:transaction=(btc, abcd)
                 :block=(({"symbol": "btc", "id": "foo", "$as": "crypto:currency:chain"}), 12) ]'''
@@ -164,6 +163,87 @@ class NodeTest(s_t_utils.SynTest):
             # the concrete type is hoisted out of the virts and onto the envelope
             self.eq(pinfo['t'], 'crypto:currency:block')
             self.notin('type', pinfo.get('v', {}))
+
+    async def test_pack_virt_reprs(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ test:str=cool :seen=(2021, 2022) ]')
+            iden, info = nodes[0].pack(virts=True)
+
+            # a virt carries no repr without dorepr
+            valu, pinfo = info['props']['seen']
+            self.eq(pinfo['v']['min'], (1609459200000000, {}))
+
+            iden, info = nodes[0].pack(dorepr=True, virts=True)
+            valu, pinfo = info['props']['seen']
+
+            # a virt envelope carries a repr but never a type
+            self.eq(pinfo['v'], {
+                'min': (1609459200000000, {'r': '2021-01-01T00:00:00Z'}),
+                'max': (1640995200000000, {'r': '2022-01-01T00:00:00Z'}),
+                'duration': (31536000000000, {'r': '365D 00:00:00'}),
+                'precision': (30, {'r': 'microsecond'}),
+            })
+
+            # a renamed virt reprs under the name the type declares
+            nodes = await core.nodes('[ entity:campaign=(campaign,) :period.began=2021 ]')
+            iden, info = nodes[0].pack(dorepr=True, virts=True)
+            valu, pinfo = info['props']['period']
+            self.eq(pinfo['v']['began'], (1609459200000000, {'r': '2021-01-01T00:00:00Z'}))
+            self.eq(pinfo['v']['ended'], (9223372036854775807, {'r': '?'}))
+
+            # an array's virts carry no repr
+            nodes = await core.nodes('[ test:arrayprop=(array,) :ints=(1, 2, 3) ]')
+            iden, info = nodes[0].pack(dorepr=True, virts=True)
+            valu, pinfo = info['props']['ints']
+            self.eq(pinfo['v'], {'size': (3, {})})
+
+            # a virt whose type reprs it as the value itself carries no repr
+            nodes = await core.nodes('[ it:exec:file:add=(add,) :path=c:/windows/system32/cmd.exe ]')
+            iden, info = nodes[0].pack(dorepr=True, virts=True)
+            valu, pinfo = info['props']['path']
+            self.eq(pinfo['v'], {
+                'base': ('cmd.exe', {}),
+                'dir': ('c:/windows/system32', {}),
+                'ext': ('exe', {}),
+            })
+
+            # the node's own value has its info dict in valuinfo
+            nodes = await core.nodes('[ inet:net=10.0.0.0/24 ]')
+            iden, info = nodes[0].pack(dorepr=True, virts=True)
+            self.eq(iden, ('inet:net', ((4, 167772160), (4, 167772415))))
+            self.eq(info['valuinfo'], {
+                'r': '10.0.0.0/24',
+                'v': {'mask': (24, {'r': '24'}), 'size': (256, {'r': '256'})},
+            })
+
+            # each half is packed by its own option, and neither implies the other
+            iden, info = nodes[0].pack(virts=True)
+            self.eq(info['valuinfo'], {'v': {'mask': (24, {}), 'size': (256, {})}})
+
+            iden, info = nodes[0].pack(dorepr=True)
+            self.eq(info['valuinfo'], {'r': '10.0.0.0/24'})
+
+            iden, info = nodes[0].pack()
+            self.none(info.get('valuinfo'))
+
+            # a repr which matches the value leaves r out, as it does on a prop
+            nodes = await core.nodes('[ inet:server=tcp://1.2.3.4:80 ]')
+            iden, info = nodes[0].pack(dorepr=True, virts=True)
+            self.eq(info['valuinfo'], {
+                'v': {
+                    'ip': ((4, 16909060), {'r': '1.2.3.4'}),
+                    'port': (80, {'r': '80'}),
+                },
+            })
+
+            # a name the type does not declare has no type, and so no repr
+            valu, stortype, vprops = nodes[0].sodes[0]['valu']
+            nodes[0].sodes[0]['valu'] = (valu, stortype, dict(vprops) | {'newp': (99, 0)})
+
+            iden, info = nodes[0].pack(dorepr=True, virts=True)
+            self.eq(info['valuinfo']['v'].get('newp'), (99, {}))
 
     async def test_get_has_pop_repr_set(self):
 
@@ -274,6 +354,11 @@ class NodeTest(s_t_utils.SynTest):
             self.eq(s_node.reprProp(strpode, 'tick'), '1970-01-01T00:00:00.012345Z')
             self.none(s_node.reprProp(strpode, 'newp'))
 
+            # an absent property carries no virts, and a pack without virts has none
+            self.eq(s_node.reprPropVirts(strpode, 'newp'), {})
+            self.eq(s_node.reprPropVirts(strpode, 'tick'), {})
+            self.eq(s_node.reprVirts(strpode), {})
+
             self.eq(s_node.reprTagProps(strpode, 'test'),
                     [('_note', 'words'), ('_score', '0')])
             self.eq(s_node.reprTagProps(strpode, 'newp'), [])
@@ -317,8 +402,8 @@ class NodeTest(s_t_utils.SynTest):
             self.eq(runtpode[1]['props']['doc'][0], 'The base string type.')
             self.eq(runtpode[1]['props']['doc'][1]['t'], 'str')
 
-            # a syn:form repr matches its value, so no ndef repr is packed
-            self.none(runtpode[1].get('repr'))
+            # a syn:form reprs to itself and a runt has no virts, so no valuinfo
+            self.none(runtpode[1].get('valuinfo'))
 
             # Now get those packed nodes via Telepath
             async with core.getLocalProxy() as prox:

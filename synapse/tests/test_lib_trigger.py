@@ -961,6 +961,14 @@ class TrigTest(s_t_utils.SynTest):
             opts = {'vars': {'tdef': tdef}}
             node = await core.callStorm(q, opts=opts)
 
+            tdef = {'cond': 'prop:set', 'storm': '[ test:str=`iface:{$lib.guid()}` ]', 'prop': 'test:interface:size'}
+            opts = {'vars': {'tdef': tdef}}
+            node = await core.callStorm(q, opts=opts)
+
+            tdef = {'cond': 'prop:set', 'storm': '[ test:str=`prop:{$lib.guid()}` ]', 'prop': 'test:hasiface:size'}
+            opts = {'vars': {'tdef': tdef}}
+            node = await core.callStorm(q, opts=opts)
+
             self.len(0, await core.nodes('test:int'))
 
             await core.nodes('[ test:hasiface=iface1 :size=10 ]')
@@ -972,6 +980,13 @@ class TrigTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:int')
             self.len(2, nodes)
             self.eq(2, nodes[1].valu())
+
+            self.len(1, await core.nodes('test:str^=iface:'))
+            self.len(1, await core.nodes('test:str^=prop:'))
+
+            await core.nodes('test:hasiface=iface1 [ :size=20 ]')
+            self.len(2, await core.nodes('test:str^=iface:'))
+            self.len(2, await core.nodes('test:str^=prop:'))
 
     async def test_trigger_feed_data(self):
         podes = []

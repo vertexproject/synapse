@@ -1241,10 +1241,13 @@ class AgendaTest(s_t_utils.SynTest):
                 conf = {'aha:provision': await aha.addAhaSvcProv('01.cortex')}
                 core01 = await aha.enter_context(self.getTestCore(conf=conf, dirn=dirn01))
 
-                msgs = await core00.stormlist('cron.at --minute +1 { $lib.log.info(cronran) }')
-                await core01.sync()
-
+                # cron.at truncates to the minute, so a job added just before a minute
+                # boundary may run on the real clock before the tick offset is applied.
+                # Attach the log stream first so that early run is not missed.
                 with self.getLoggerStream('synapse.storm.log') as stream:
+                    msgs = await core00.stormlist('cron.at --minute +1 { $lib.log.info(cronran) }')
+                    await core01.sync()
+
                     core00.agenda._addTickOff(60 * s_time.onesec)
                     await stream.expect('cronran', timeout=12)
 

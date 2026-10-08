@@ -280,6 +280,18 @@ class MdStormTest(s_test.SynTest):
             '[ inet:fqdn=vertex.link ]',
             '```',
             '',
+            '```mdstorm',
+            '$lib.print(trailing) $lib.print(\'\')',
+            '```',
+            '',
+            '```mdstorm --hide-query',
+            '$x = (1)',
+            '```',
+            '',
+            '```mdstorm --hide-query',
+            '$lib.print(\'\')',
+            '```',
+            '',
         ))
         with self.getTestDir() as dirn:
             path = s_common.genpath(dirn, 'noindent.md')
@@ -294,6 +306,13 @@ class MdStormTest(s_test.SynTest):
             self.isin('\ninet:fqdn=vertex.link\n', text)
             self.notin('    storm>', text)
             self.notin('```stormdoc\n\n', text)
+
+            # trailing blank lines are trimmed before the closing fence
+            self.isin("```stormdoc\nstorm> $lib.print(trailing) $lib.print('')\ntrailing\n```\n", text)
+            self.notin('\n\n```\n', text)
+
+            # a block with no output stays empty
+            self.eq(2, text.count('```stormdoc\n```\n'))
 
     async def test_mdstorm_storm_flags_on_fence_line_and_body(self):
         # Fence-line and body flags combine -- one flag on the fence line,
@@ -488,6 +507,99 @@ class MdStormTest(s_test.SynTest):
                 nodes = await mdstorm.core.nodes('inet:fqdn=vertex.link')
                 self.len(1, nodes)
 
+    async def test_mdstorm_storm_split_flag(self):
+        md = '\n'.join((
+            '```mdstorm-setup',
+            '```',
+            '',
+            '```mdstorm --split',
+            'function hehe() {',
+            '    return(haha)',
+            '}',
+            '$lib.print($hehe())',
+            '```',
+            '',
+            '```mdstorm --split',
+            '$x = (1)',
+            '```',
+            '',
+            '```mdstorm --split --hide-output',
+            '[ inet:fqdn=vertex.link ]',
+            '```',
+            '',
+            '```mdstorm --split --hide-query',
+            '$lib.print(onlyoutput)',
+            '```',
+            '',
+            '```mdstorm --split',
+            '$lib.print(trailing) $lib.print(\'\')',
+            '```',
+            '',
+            '```mdstorm --split',
+            '$lib.print(\'\')',
+            '```',
+            '',
+            '```mdstorm --split --fail',
+            '$lib.raise(FooBar, "boom")',
+            '```',
+            '',
+        ))
+        with self.getTestDir() as dirn:
+            path = s_common.genpath(dirn, 'split.md')
+            with open(path, 'w') as fd:
+                fd.write(md)
+
+            async with await s_mdstorm.MdStorm.anit(path) as mdstorm:
+                text = ''.join(await mdstorm.run())
+
+                # the query is its own storm block, without the prompt, and
+                # the output follows in a separate block labeled "Output:"
+                self.isin('```storm\nfunction hehe() {\n    return(haha)\n}\n$lib.print($hehe())\n```\n\n'
+                          'Output:\n\n```stormdoc\nhaha\n```\n', text)
+                self.notin('storm> ', text)
+
+                # a query with no output renders no output block
+                self.isin('```storm\n$x = (1)\n```\n\n```storm\n[ inet:fqdn=vertex.link ]\n```\n', text)
+
+                # --hide-output still executes the query
+                self.len(1, await mdstorm.core.nodes('inet:fqdn=vertex.link'))
+
+                # --hide-query renders only the output block, with no label
+                self.isin('\n\n```stormdoc\nonlyoutput\n```\n', text)
+                self.notin('Output:\n\n```stormdoc\nonlyoutput', text)
+                self.notin('$lib.print(onlyoutput)', text)
+
+                # trailing blank lines are trimmed before the closing fence
+                self.isin("Output:\n\n```stormdoc\ntrailing\n```\n", text)
+                self.notin('\n\n```\n', text)
+
+                # a query which only prints blank lines renders no output block
+                self.isin("```storm\n$lib.print('')\n```\n\n```storm\n$lib.raise", text)
+
+                # a query with no output renders no label
+                self.eq(3, text.count('Output:\n'))
+
+                self.isin('```storm\n$lib.raise(FooBar, "boom")\n```\n\nOutput:\n\n```stormdoc\nERROR: boom\n```\n',
+                          text)
+
+        md = '\n'.join((
+            '```mdstorm-setup',
+            '```',
+            '',
+            '```mdstorm --split --fail',
+            '$lib.print(fine)',
+            '```',
+            '',
+        ))
+        with self.getTestDir() as dirn:
+            path = s_common.genpath(dirn, 'splitfail.md')
+            with open(path, 'w') as fd:
+                fd.write(md)
+
+            async with await s_mdstorm.MdStorm.anit(path) as mdstorm:
+                with self.raises(s_exc.StormRuntimeError):
+                    await mdstorm.run()
+
     async def test_mdstorm_storm_hide_output_flag_still_raises_on_bad_query(self):
         md = '\n'.join((
             '```mdstorm-setup',
@@ -581,6 +693,42 @@ class MdStormTest(s_test.SynTest):
             text = ''.join(lines)
             self.notin('storm>', text)
             self.isin('inet:fqdn=vertex.link', text)
+
+    async def test_mdstorm_storm_node_output(self):
+        md = '\n'.join((
+            '```mdstorm-setup',
+            '```',
+            '',
+            '```mdstorm',
+            '[ inet:ip=1.2.3.4 :seen=(2012, 2013) +(refs)> { [ inet:fqdn=vertex.link ] } ]',
+            '```',
+            '',
+            '```mdstorm',
+            '--hide-edges',
+            '--',
+            'inet:ip=1.2.3.4',
+            '```',
+            '',
+        ))
+        with self.getTestDir() as dirn:
+            path = s_common.genpath(dirn, 'nodes.md')
+            with open(path, 'w') as fd:
+                fd.write(md)
+
+            async with await s_mdstorm.MdStorm.anit(path) as mdstorm:
+                lines = await mdstorm.run()
+
+            text = ''.join(lines)
+
+            # the virts, meta props, and edge counts all render in the doc
+            self.isin(':seen.min = 2012-01-01T00:00:00Z', text)
+            self.isin('.created = ', text)
+            self.isin('-(refs)> inet:fqdn = 1', text)
+
+            # --hide-edges suppresses the edge counts of the second query
+            head, tail = text.split('storm> inet:ip=1.2.3.4')
+            self.isin(':seen.min = 2012-01-01T00:00:00Z', tail)
+            self.notin('-(refs)>', tail)
 
     async def test_mdstorm_storm_no_cortex_set(self):
         with self.getTestDir() as dirn:

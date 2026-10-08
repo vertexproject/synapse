@@ -160,6 +160,10 @@ class StormlibModelTest(s_test.SynTest):
                 self.stormIsInPrint('test:deprprop: true', mesgs)
                 self.stormIsInPrint('test:deprform2: false', mesgs)
 
+                visi = await core.auth.addUser('visi')
+                with self.raises(s_exc.AuthDeny):
+                    await core.nodes('model.deprecated.lock test:deprform2', opts={'user': visi.iden})
+
                 await core.nodes('model.deprecated.lock --unlock test:deprform:deprprop2')
                 await core.nodes('test:deprform [ :deprprop2=bar ]')
                 await core.nodes('model.deprecated.lock test:deprform:deprprop2')

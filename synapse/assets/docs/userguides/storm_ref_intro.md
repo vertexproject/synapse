@@ -146,8 +146,8 @@ In our experience, the more analysts use Storm, the more they want even greater 
 - [Methods](storm_adv_methods.md)
 - [Control Flow](storm_adv_control.md)
 - [Functions](storm_adv_functions.md)
-- [stormtypes-libs-header](../stormtypes_libs.md#stormtypes-libs-header)
-- [stormtypes-prim-header](../stormtypes_prims.md#stormtypes-prim-header)
+- [Storm Libraries](../stormtypes_libs.md#stormtypes-libs-header)
+- [Storm Types](../stormtypes_prims.md#stormtypes-prim-header)
 
 **Analysts do not need to use or understand these more advanced concepts in order to use Storm or Synapse.** Basic Storm functions are sufficient for a wide range of analytical needs and workflows. However, these additional features are available to Storm power users and developers as needed:
 
@@ -259,11 +259,15 @@ Examples:
 storm> file:base='windows update.exe'
 file:base=windows update.exe
         :ext = exe
+        .created = 2026-10-05T18:01:47.969445Z
+        .updated = 2026-10-05T18:01:47.969445Z
 ```
 
 ```stormdoc
 storm> entity:name='The Vertex Project, LLC'
 entity:name=The Vertex Project, LLC
+        .created = 2026-10-05T18:01:47.971517Z
+        .updated = 2026-10-05T18:01:47.971517Z
 ```
 
 If a literal (such as a string) **includes** a single quotation mark, it must be enclosed in double quotes.
@@ -274,7 +278,7 @@ Wrong:
 storm> it:dev:str='Storm's intuitive syntax makes it easy to learn and use.'
 it:dev:str='Storm's intuitive syntax makes it ea...
                   ^
-Syntax Error: Unexpected token 'unquoted list value' at line 1, column 19, expecting one of: #, $, (, ), )+, )-, )>, *, +, +(, ,, -, -(, -+>, --+>, -->, ->, ., :$, :(, <(, <+(, <+-, <+--, <-, [, ], absolute property name, absolute property name with embed properties, and, as, break, command name, continue, emit, empty, fini, for, function, if, init, or, property name potentially with wildcards, relative property name, return, reverse, stop, switch, try, while, yield, {, |, }
+Syntax Error: Unexpected token 'unquoted list value' at line 1, column 19, expecting one of: #, $, (, ), )+, )-, )>, *, +, +(, ,, -, -(, -+>, --+>, -->, ->, ., :$, :(, <(, <+(, <+-, <+--, <-, [, ], absolute property name, absolute property name with embed properties, and, as, break, class, command name, continue, emit, empty, fini, for, function, if, init, or, property name potentially with wildcards, relative property name, return, reverse, stop, switch, try, while, yield, {, |, }
 ```
 
 Right:
@@ -282,6 +286,8 @@ Right:
 ```stormdoc
 storm> it:dev:str="Storm's intuitive syntax makes it easy to learn and use."
 it:dev:str=Storm's intuitive syntax makes it easy to learn and use.
+        .created = 2026-10-05T18:01:47.973535Z
+        .updated = 2026-10-05T18:01:47.973535Z
 ```
 
 **Double Quotes**
@@ -295,6 +301,11 @@ Wrong:
 ```stormdoc
 storm> [ file:path="C:\Program Files\Mozilla Firefox\firefox.exe" ]
 file:path=C:/Program Files/Mozilla Firefoxirefox.exe
+        .dir = C:/Program Files
+        .base = Mozilla Firefoxirefox.exe
+        .ext = exe
+        .created = 2026-10-05T18:01:47.989872Z
+        .updated = 2026-10-05T18:01:47.989872Z
 ```
 
 In the output above Synapse interpreted the `\f` within the double quotes as the form feed character, which resulted in an incorrectly constructed file path.
@@ -304,6 +315,11 @@ Right:
 ```stormdoc
 storm> [ file:path="C:\\Program Files\\Mozilla Firefox\\firefox.exe" ]
 file:path=C:/Program Files/Mozilla Firefox/firefox.exe
+        .dir = C:/Program Files/Mozilla Firefox
+        .base = firefox.exe
+        .ext = exe
+        .created = 2026-10-05T18:01:47.991454Z
+        .updated = 2026-10-05T18:01:47.991454Z
 ```
 
 Note that if a literal containing backslashes does not include a single quote, you can simply enclose the file path in single quotes:
@@ -313,6 +329,11 @@ Also right:
 ```stormdoc
 storm> [ file:path='C:\Program Files\Mozilla Firefox\firefox.exe' ]
 file:path=C:/Program Files/Mozilla Firefox/firefox.exe
+        .dir = C:/Program Files/Mozilla Firefox
+        .base = firefox.exe
+        .ext = exe
+        .created = 2026-10-05T18:01:47.991454Z
+        .updated = 2026-10-05T18:01:47.991454Z
 ```
 
 <a id="storm-backtick-format-strings"></a>
@@ -332,7 +353,11 @@ storm> $ip='1.2.3.4' $str=`The IP is {$ip}`
 ```stormdoc
 storm> $ip=1.2.3.4 $port=22 inet:client=`tcp://{$ip}:{$port}`
 inet:client=tcp://1.2.3.4:22
+        .ip = 1.2.3.4
+        .port = 22
         :proto = tcp
+        .created = 2026-10-05T18:01:47.995042Z
+        .updated = 2026-10-05T18:01:47.995042Z
 ```
 
 - Use node properties in a string:

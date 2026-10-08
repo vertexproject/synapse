@@ -27,6 +27,14 @@ The base type for the form can be found at [`auth:apikey`](datamodel_types.md#dm
 | `:value` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:dev:str',)` | The value of the API key. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The API key was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -41,10 +49,15 @@ The base type for the form can be found at [`auth:apikey`](datamodel_types.md#dm
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -68,6 +81,14 @@ The base type for the form can be found at [`auth:passwd`](datamodel_types.md#dm
 | `:sha256` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('crypto:hash:sha256',)` | The SHA256 hash of the password. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The password was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -82,10 +103,15 @@ The base type for the form can be found at [`auth:passwd`](datamodel_types.md#dm
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -117,18 +143,20 @@ The base type for the form can be found at [`belief:system`](datamodel_types.md#
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `belief:system` | `-(has)>` | `belief:tenet` | The belief system includes the tenet. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -202,6 +230,14 @@ The base type for the form can be found at [`belief:tenet`](datamodel_types.md#d
 | `:period` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('activity',)` | The period over which the tenet was active. | virts: `(('began', ('time', {}), {'doc': 'The starting time of the interval.'}), ('ended', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this tenet. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -215,6 +251,7 @@ The base type for the form can be found at [`belief:tenet`](datamodel_types.md#d
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -261,19 +298,21 @@ The base type for the form can be found at [`biz:deal`](datamodel_types.md#dm-ty
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `biz:deal` | `-(has)>` | `econ:lineitem` | The deal includes the line item. |
 | `biz:deal` | `-(ledto)>` | `econ:purchase` | The deal led to the purchase. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `biz:rfp` | `-(ledto)>` | `biz:deal` | The RFP led to the deal being proposed. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -359,18 +398,24 @@ The base type for the form can be found at [`biz:listing`](datamodel_types.md#dm
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `biz:listing` | `-(has)>` | `econ:lineitem` | The listing offers the line item. |
 | `biz:listing` | `-(ledto)>` | `econ:purchase` | The listing led to the purchase. |
+| `biz:listing` | `-(used)>` | `inet:service:platform` | The listing was posted on the platform. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:activity` | `-(supported)>` | `entity:goal` | The activity supported the goal. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -450,8 +495,10 @@ The base type for the form can be found at [`biz:product`](datamodel_types.md#dm
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `biz:product` | `-(has)>` | `meta:havable` | The product includes the item. |
+| `econ:purchase` | `-(purchased)>` | `meta:havable` | The purchase was used to acquire the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -534,6 +581,7 @@ The base type for the form can be found at [`biz:rfp`](datamodel_types.md#dm-typ
 | `:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The file containing the RFP contents. |  |
 | `:file:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:base',)` | The name of the file containing the RFP contents. |  |
 | `:file:captured` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The time when the file content was captured. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
+| `:deprecated` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The time that the RFP was retired. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
 | `:id` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('base:id',)` | The RFP ID. | alts: `('ids',)` |
 | `:ids` | array of [`base:id`](datamodel_types.md#dm-type-base-id) | An array of alternate IDs for the RFP. |  |
 | `:url` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:url',)` | The URL where the RFP is available. |  |
@@ -563,8 +611,8 @@ The base type for the form can be found at [`biz:rfp`](datamodel_types.md#dm-typ
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -646,6 +694,17 @@ The base type for the form can be found at [`biz:service`](datamodel_types.md#dm
 | `:actor` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The actor who provided the service offering. |  |
 | `:actor:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the actor who provided the service offering. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:activity` | `-(supported)>` | `entity:goal` | The activity supported the goal. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -657,6 +716,7 @@ The base type for the form can be found at [`biz:service`](datamodel_types.md#dm
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -733,6 +793,14 @@ The base type for the form can be found at [`crypto:currency:address`](datamodel
 | `:account` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('econ:account',)` | The account that contains the funds used by the crypto currency address. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The crypto currency address was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -747,10 +815,15 @@ The base type for the form can be found at [`crypto:currency:address`](datamodel
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -907,6 +980,14 @@ An example of `crypto:currency:client`:
 | `:coinaddr` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('crypto:currency:address',)` | The crypto currency address observed in use by the Internet client. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The crypto currency address and Internet client was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -921,10 +1002,15 @@ An example of `crypto:currency:client`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -1003,12 +1089,23 @@ An example of `crypto:hash:md5`:
 |---|---|---|---|
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The MD5 was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -1017,10 +1114,18 @@ An example of `crypto:hash:md5`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -1046,12 +1151,23 @@ An example of `crypto:hash:sha1`:
 |---|---|---|---|
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The SHA1 was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -1060,10 +1176,18 @@ An example of `crypto:hash:sha1`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -1089,12 +1213,23 @@ An example of `crypto:hash:sha256`:
 |---|---|---|---|
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The SHA256 was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -1103,10 +1238,18 @@ An example of `crypto:hash:sha256`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -1132,12 +1275,23 @@ An example of `crypto:hash:sha384`:
 |---|---|---|---|
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The SHA384 was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -1146,10 +1300,18 @@ An example of `crypto:hash:sha384`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -1175,12 +1337,23 @@ An example of `crypto:hash:sha512`:
 |---|---|---|---|
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The SHA512 was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -1189,10 +1362,18 @@ An example of `crypto:hash:sha512`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -1218,6 +1399,14 @@ An example of `crypto:hash:ssdeep`:
 |---|---|---|---|
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The ssdeep was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -1232,10 +1421,15 @@ An example of `crypto:hash:ssdeep`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -1260,6 +1454,14 @@ The base type for the form can be found at [`crypto:key:base`](datamodel_types.m
 | `:algorithm` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('meta:algorithm',)` | The algorithm which uses the key material. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The key was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -1274,10 +1476,15 @@ The base type for the form can be found at [`crypto:key:base`](datamodel_types.m
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -1307,6 +1514,14 @@ The base type for the form can be found at [`crypto:key:dsa`](datamodel_types.md
 | `:algorithm` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('meta:algorithm',)` | The algorithm which uses the key material. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The DSA key pair was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -1321,10 +1536,15 @@ The base type for the form can be found at [`crypto:key:dsa`](datamodel_types.md
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -1361,6 +1581,14 @@ The base type for the form can be found at [`crypto:key:ecdsa`](datamodel_types.
 | `:algorithm` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('meta:algorithm',)` | The algorithm which uses the key material. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The ECDSA key pair was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -1375,10 +1603,15 @@ The base type for the form can be found at [`crypto:key:ecdsa`](datamodel_types.
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -1408,6 +1641,14 @@ The base type for the form can be found at [`crypto:key:rsa`](datamodel_types.md
 | `:algorithm` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('meta:algorithm',)` | The algorithm which uses the key material. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The RSA key pair was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -1422,10 +1663,15 @@ The base type for the form can be found at [`crypto:key:rsa`](datamodel_types.md
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -1499,13 +1745,14 @@ The base type for the form can be found at [`crypto:key:secret`](datamodel_types
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `crypto:key:secret` | `-(decrypts)>` | `file:bytes` | The key is used to decrypt the file. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -1514,10 +1761,15 @@ The base type for the form can be found at [`crypto:key:secret`](datamodel_types
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -1663,6 +1915,14 @@ The base type for the form can be found at [`crypto:salthash`](datamodel_types.m
 | `:value` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('crypto:hashable',)` | The value that was used to compute the salted hash. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The salted hash was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -1677,10 +1937,15 @@ The base type for the form can be found at [`crypto:salthash`](datamodel_types.m
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -2277,6 +2542,14 @@ The base type for the form can be found at [`crypto:x509:cert`](datamodel_types.
 | `:selfsigned` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('bool',)` | Set to true if the certificate is self-signed. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The X.509 certificate was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -2291,10 +2564,15 @@ The base type for the form can be found at [`crypto:x509:cert`](datamodel_types.
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -2475,6 +2753,7 @@ The base type for the form can be found at [`doc:contract`](datamodel_types.md#d
 | `:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The file containing the contract contents. |  |
 | `:file:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:base',)` | The name of the file containing the contract contents. |  |
 | `:file:captured` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The time when the file content was captured. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
+| `:deprecated` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The time that the contract was retired. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
 | `:id` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('base:id',)` | The contract ID. | alts: `('ids',)` |
 | `:ids` | array of [`base:id`](datamodel_types.md#dm-type-base-id) | An array of alternate IDs for the contract. |  |
 | `:url` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:url',)` | The URL where the contract is available. |  |
@@ -2498,18 +2777,23 @@ The base type for the form can be found at [`doc:contract`](datamodel_types.md#d
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `doc:contract` | `-(has)>` | `doc:requirement` | The contract contains the requirement. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:activity` | `-(supported)>` | `entity:goal` | The activity supported the goal. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -2584,6 +2868,7 @@ The base type for the form can be found at [`doc:policy`](datamodel_types.md#dm-
 | `:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The file containing the policy contents. |  |
 | `:file:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:base',)` | The name of the file containing the policy contents. |  |
 | `:file:captured` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The time when the file content was captured. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
+| `:deprecated` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The time that the policy was retired. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
 | `:id` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('base:id',)` | The policy ID. | alts: `('ids',)` |
 | `:ids` | array of [`base:id`](datamodel_types.md#dm-type-base-id) | An array of alternate IDs for the policy. |  |
 | `:url` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:url',)` | The URL where the policy is available. |  |
@@ -2721,6 +3006,7 @@ The base type for the form can be found at [`doc:report`](datamodel_types.md#dm-
 | `:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The file containing the report contents. |  |
 | `:file:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:base',)` | The name of the file containing the report contents. |  |
 | `:file:captured` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The time when the file content was captured. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
+| `:deprecated` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The time that the report was retired. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
 | `:id` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('base:id',)` | The report ID. | alts: `('ids',)` |
 | `:ids` | array of [`base:id`](datamodel_types.md#dm-type-base-id) | An array of alternate IDs for the report. |  |
 | `:url` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:url',)` | The URL where the report is available. |  |
@@ -2882,6 +3168,7 @@ The base type for the form can be found at [`doc:resume`](datamodel_types.md#dm-
 | `:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The file containing the resume contents. |  |
 | `:file:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:base',)` | The name of the file containing the resume contents. |  |
 | `:file:captured` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The time when the file content was captured. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
+| `:deprecated` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The time that the resume was retired. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
 | `:id` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('base:id',)` | The resume ID. | alts: `('ids',)` |
 | `:ids` | array of [`base:id`](datamodel_types.md#dm-type-base-id) | An array of alternate IDs for the resume. |  |
 | `:url` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:url',)` | The URL where the resume is available. |  |
@@ -2979,6 +3266,7 @@ The base type for the form can be found at [`doc:standard`](datamodel_types.md#d
 | `:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The file containing the standard contents. |  |
 | `:file:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:base',)` | The name of the file containing the standard contents. |  |
 | `:file:captured` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The time when the file content was captured. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
+| `:deprecated` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The time that the standard was retired. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
 | `:id` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('base:id',)` | The standard ID. | alts: `('ids',)` |
 | `:ids` | array of [`base:id`](datamodel_types.md#dm-type-base-id) | An array of alternate IDs for the standard. |  |
 | `:url` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:url',)` | The URL where the standard is available. |  |
@@ -3078,12 +3366,23 @@ The base type for the form can be found at [`econ:account`](datamodel_types.md#d
 | `:ids` | array of [`base:id`](datamodel_types.md#dm-type-base-id) | An array of IDs or account numbers for the account. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The financial account was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -3092,10 +3391,18 @@ The base type for the form can be found at [`econ:account`](datamodel_types.md#d
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -3242,12 +3549,22 @@ The base type for the form can be found at [`econ:bank:account`](datamodel_types
 | `:id` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('base:id',)` | The account identifier within the routing system. | Computed: `True` |
 | `:account` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('econ:account',)` | The account that contains the funds used by the bank account. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -3258,6 +3575,9 @@ The base type for the form can be found at [`econ:bank:account`](datamodel_types
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
@@ -3284,6 +3604,14 @@ The base type for the form can be found at [`econ:bank:check`](datamodel_types.m
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The check was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 | `:account` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('econ:account',)` | The account that contains the funds used by the check. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -3298,10 +3626,15 @@ The base type for the form can be found at [`econ:bank:check`](datamodel_types.m
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -3497,18 +3830,23 @@ The base type for the form can be found at [`econ:budget`](datamodel_types.md#dm
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `econ:budget` | `-(had)>` | `econ:purchase` | The purchase was included as spent during the budget period. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:activity` | `-(supported)>` | `entity:goal` | The activity supported the goal. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -3577,6 +3915,7 @@ The base type for the form can be found at [`econ:exchange`](datamodel_types.md#
 
 | name | type | doc | opts |
 |---|---|---|---|
+| `:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('base:name',)` | The name of the exchange. | Example: `NASDAQ` |
 | `:operator` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The entity which operates the exchange. |  |
 | `:operator:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the entity which operates the exchange. |  |
 | `:currency` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('econ:currency',)` | The currency used for all transactions in the exchange. | Example: `usd` |
@@ -3717,6 +4056,14 @@ The base type for the form can be found at [`econ:pay:card`](datamodel_types.md#
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The payment card was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 | `:account` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('econ:account',)` | The account that contains the funds used by the payment card. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -3731,10 +4078,15 @@ The base type for the form can be found at [`econ:pay:card`](datamodel_types.md#
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -3858,6 +4210,16 @@ The base type for the form can be found at [`econ:payment`](datamodel_types.md#d
 | `:place:country` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('pol:country',)` | The country where the payment event was located. |  |
 | `:place:country:code` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('iso:3166:alpha2',)` | The country code where the payment event was located. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -3872,6 +4234,7 @@ The base type for the form can be found at [`econ:payment`](datamodel_types.md#d
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -3969,13 +4332,16 @@ The base type for the form can be found at [`econ:purchase`](datamodel_types.md#
 | `econ:purchase` | `-(had)>` | `econ:lineitem` | The purchase included the line item. |
 | `econ:purchase` | `-(ledto)>` | `econ:payment` | The purchase led to the payment. |
 | `econ:purchase` | `-(purchased)>` | `meta:havable` | The purchase was used to acquire the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `biz:deal` | `-(ledto)>` | `econ:purchase` | The deal led to the purchase. |
 | `biz:listing` | `-(ledto)>` | `econ:purchase` | The listing led to the purchase. |
 | `econ:budget` | `-(had)>` | `econ:purchase` | The purchase was included as spent during the budget period. |
@@ -3985,6 +4351,7 @@ The base type for the form can be found at [`econ:purchase`](datamodel_types.md#
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -4028,8 +4395,8 @@ The base type for the form can be found at [`econ:receipt`](datamodel_types.md#d
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -4249,8 +4616,8 @@ The base type for the form can be found at [`econ:statement`](datamodel_types.md
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -4308,6 +4675,14 @@ The base type for the form can be found at [`edu:class`](datamodel_types.md#dm-t
 | `:recording:offset` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('duration',)` | The time offset of the activity within the recording. |  |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this class. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -4320,6 +4695,7 @@ The base type for the form can be found at [`edu:class`](datamodel_types.md#dm-t
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -4444,6 +4820,16 @@ The base type for the form can be found at [`entity:achieved`](datamodel_types.m
 | `:actor` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The actor who earned the achievement. |  |
 | `:actor:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the actor who earned the achievement. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -4455,6 +4841,7 @@ The base type for the form can be found at [`entity:achieved`](datamodel_types.m
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -4487,6 +4874,16 @@ The base type for the form can be found at [`entity:asked`](datamodel_types.md#d
 | `:actor` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The actor who made the ask. |  |
 | `:actor:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the actor who made the ask. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -4498,6 +4895,7 @@ The base type for the form can be found at [`entity:asked`](datamodel_types.md#d
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -4530,6 +4928,17 @@ The base type for the form can be found at [`entity:attended`](datamodel_types.m
 | `:actor` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The actor who carried out the action. |  |
 | `:actor:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the actor who carried out the action. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:activity` | `-(supported)>` | `entity:goal` | The activity supported the goal. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -4541,6 +4950,7 @@ The base type for the form can be found at [`entity:attended`](datamodel_types.m
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -4578,19 +4988,24 @@ The base type for the form can be found at [`entity:believed`](datamodel_types.m
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:activity` | `-(supported)>` | `entity:goal` | The activity supported the goal. |
 | `entity:believed` | `-(followed)>` | `belief:tenet` | The actor followed the tenet during the period. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -4649,27 +5064,38 @@ The base type for the form can be found at [`entity:campaign`](datamodel_types.m
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:activity` | `-(supported)>` | `entity:goal` | The activity supported the goal. |
 | `entity:campaign` | `-(ledto)>` | `econ:purchase` | The campaign led to the purchase. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `entity:campaign` | The STIX indicator detects the campaign. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -4736,6 +5162,14 @@ The base type for the form can be found at [`entity:conflict`](datamodel_types.m
 | `:period` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('activity',)` | The period over which the conflict occurred. | virts: `(('began', ('time', {}), {'doc': 'The starting time of the interval.'}), ('ended', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this conflict. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -4747,6 +5181,7 @@ The base type for the form can be found at [`entity:conflict`](datamodel_types.m
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -4834,12 +5269,24 @@ The base type for the form can be found at [`entity:contact`](datamodel_types.md
 | `:place:country:code` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('iso:3166:alpha2',)` | The country code where the contact was located. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The contact was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:actor` | `-(targeted)>` | `risk:targetable` | The actor targets based on the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:actor` | `-(targeted)>` | `risk:targetable` | The actor targets based on the target node. |
 | `entity:contactlist` | `-(has)>` | `entity:contact` | The contact list contains the contact. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
@@ -4850,10 +5297,16 @@ The base type for the form can be found at [`entity:contact`](datamodel_types.md
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
+| `risk:loss:life` | `-(had)>` | `entity:singular` | The loss of life included the entity. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -4931,8 +5384,8 @@ The base type for the form can be found at [`entity:contactlist`](datamodel_type
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -5016,20 +5469,24 @@ The base type for the form can be found at [`entity:contributed`](datamodel_type
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
 | `entity:contributed` | `-(had)>` | `econ:lineitem` | The contribution includes the line item. |
 | `entity:contributed` | `-(had)>` | `econ:payment` | The contribution includes the payment. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -5062,6 +5519,17 @@ The base type for the form can be found at [`entity:created`](datamodel_types.md
 | `:actor` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The actor who carried out the action. |  |
 | `:actor:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the actor who carried out the action. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:activity` | `-(supported)>` | `entity:goal` | The activity supported the goal. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -5073,6 +5541,7 @@ The base type for the form can be found at [`entity:created`](datamodel_types.md
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -5104,6 +5573,16 @@ The base type for the form can be found at [`entity:destroyed`](datamodel_types.
 | `:actor` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The actor who carried out the destruction. |  |
 | `:actor:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the actor who carried out the destruction. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -5115,6 +5594,7 @@ The base type for the form can be found at [`entity:destroyed`](datamodel_types.
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -5146,6 +5626,16 @@ The base type for the form can be found at [`entity:discovered`](datamodel_types
 | `:actor` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The actor who made the discovery. |  |
 | `:actor:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the actor who made the discovery. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -5157,6 +5647,7 @@ The base type for the form can be found at [`entity:discovered`](datamodel_types
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -5285,6 +5776,17 @@ The base type for the form can be found at [`entity:had`](datamodel_types.md#dm-
 | `:type` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:had:type:taxonomy',)` | A taxonomy for different types of possession. |  |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this possession. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:activity` | `-(supported)>` | `entity:goal` | The activity supported the goal. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -5296,6 +5798,7 @@ The base type for the form can be found at [`entity:had`](datamodel_types.md#dm-
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -5440,6 +5943,17 @@ The base type for the form can be found at [`entity:motive`](datamodel_types.md#
 | `:actor` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The actor who carried out the action. |  |
 | `:actor:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the actor who carried out the action. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:activity` | `-(supported)>` | `entity:goal` | The activity supported the goal. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -5451,6 +5965,7 @@ The base type for the form can be found at [`entity:motive`](datamodel_types.md#
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -5478,12 +5993,23 @@ The base type for the form can be found at [`entity:name`](datamodel_types.md#dm
 |---|---|---|---|
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The entity name was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -5492,10 +6018,18 @@ The base type for the form can be found at [`entity:name`](datamodel_types.md#dm
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -5521,6 +6055,16 @@ The base type for the form can be found at [`entity:offered`](datamodel_types.md
 | `:actor` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The actor who made the offer. |  |
 | `:actor:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the actor who made the offer. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -5532,6 +6076,7 @@ The base type for the form can be found at [`entity:offered`](datamodel_types.md
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -5565,6 +6110,17 @@ The base type for the form can be found at [`entity:owned`](datamodel_types.md#d
 | `:period` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('activity',)` | The period over which the ownership occurred. | virts: `(('began', ('time', {}), {'doc': 'The starting time of the interval.'}), ('ended', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this ownership. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:activity` | `-(supported)>` | `entity:goal` | The activity supported the goal. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -5576,6 +6132,7 @@ The base type for the form can be found at [`entity:owned`](datamodel_types.md#d
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -5607,6 +6164,17 @@ The base type for the form can be found at [`entity:participated`](datamodel_typ
 | `:role` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:title',)` | The role which the actor played in the activity. | Example: `organizer` |
 | `:period` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('activity',)` | The period over which the participation occurred. | virts: `(('began', ('time', {}), {'doc': 'The starting time of the interval.'}), ('ended', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:activity` | `-(supported)>` | `entity:goal` | The activity supported the goal. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -5618,6 +6186,7 @@ The base type for the form can be found at [`entity:participated`](datamodel_typ
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -5650,6 +6219,17 @@ The base type for the form can be found at [`entity:proficiency`](datamodel_type
 | `:actor` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The actor who carried out the action. |  |
 | `:actor:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the actor who carried out the action. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:activity` | `-(supported)>` | `entity:goal` | The activity supported the goal. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -5661,6 +6241,7 @@ The base type for the form can be found at [`entity:proficiency`](datamodel_type
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -5693,6 +6274,16 @@ The base type for the form can be found at [`entity:registered`](datamodel_types
 | `:actor` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The actor who carried out the action. |  |
 | `:actor:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the actor who carried out the action. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -5704,6 +6295,7 @@ The base type for the form can be found at [`entity:registered`](datamodel_types
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -5836,6 +6428,17 @@ The base type for the form can be found at [`entity:said`](datamodel_types.md#dm
 | `:recording:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | A file containing a recording of the statement. |  |
 | `:recording:offset` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('duration',)` | The time offset of the activity within the recording. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:activity` | `-(supported)>` | `entity:goal` | The activity supported the goal. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -5847,6 +6450,7 @@ The base type for the form can be found at [`entity:said`](datamodel_types.md#dm
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -5878,6 +6482,16 @@ The base type for the form can be found at [`entity:signed`](datamodel_types.md#
 | `:actor` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The actor who carried out the signing. |  |
 | `:actor:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the actor who carried out the signing. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -5889,6 +6503,7 @@ The base type for the form can be found at [`entity:signed`](datamodel_types.md#
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -5926,20 +6541,25 @@ The base type for the form can be found at [`entity:studied`](datamodel_types.md
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:activity` | `-(supported)>` | `entity:goal` | The activity supported the goal. |
 | `entity:studied` | `-(included)>` | `edu:class` | The class was taken by the student as part of their studies. |
 | `entity:studied` | `-(included)>` | `edu:learnable` | The target node was included by the actor as part of their studies. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -5973,6 +6593,17 @@ The base type for the form can be found at [`entity:supported`](datamodel_types.
 | `:actor` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The actor who carried out the action. |  |
 | `:actor:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the actor who carried out the action. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:activity` | `-(supported)>` | `entity:goal` | The activity supported the goal. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -5984,6 +6615,7 @@ The base type for the form can be found at [`entity:supported`](datamodel_types.
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -6011,6 +6643,8 @@ The base type for the form can be found at [`entity:title`](datamodel_types.md#d
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:actor` | `-(targeted)>` | `risk:targetable` | The actor targets based on the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -6052,6 +6686,14 @@ The base type for the form can be found at [`file:archive:entry`](datamodel_type
 | `:parent` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The parent file which contains the archive file entry. |  |
 | `:offset` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('size',)` | The offset to the beginning of the file within the parent file. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -6066,10 +6708,15 @@ The base type for the form can be found at [`file:archive:entry`](datamodel_type
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -6093,12 +6740,23 @@ The base type for the form can be found at [`file:attachment`](datamodel_types.m
 | `:path` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:path',)` | The path of the file associated with the file attachment. | virts: `(('dir', ('file:path', {}), {'computed': True, 'doc': 'The directory from the path.'}), ('base', ('file:base', {}), {'computed': True, 'doc': 'The file base name from the path.'}), ('ext', ('text', {}), {'computed': True, 'doc': 'The file extension from the path.'}))` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The file attachment was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -6108,12 +6766,20 @@ The base type for the form can be found at [`file:attachment`](datamodel_types.m
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
 | `meta:note` | `-(has)>` | `file:attachment` | The note includes the file attachment. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `meta:task` | `-(has)>` | `file:attachment` | The task includes the file attachment. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:loss:data` | `-(had)>` | `file:attachment` | The loss of data included the file. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -6140,12 +6806,23 @@ An example of `file:base`:
 | `:ext` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('text',)` | The file extension (if any). | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The file name was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -6154,10 +6831,18 @@ An example of `file:base`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -6196,14 +6881,18 @@ The base type for the form can be found at [`file:bytes`](datamodel_types.md#dm-
 | `file:bytes` | `-(refs)>` | `it:dev:str` | The source file contains the target string. |
 | `file:bytes` | `-(uses)>` | `meta:algorithm` | The file uses the algorithm. |
 | `file:bytes` | `-(uses)>` | `meta:technique` | The source file uses the target technique. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `crypto:key:secret` | `-(decrypts)>` | `file:bytes` | The key is used to decrypt the file. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -6212,10 +6901,18 @@ The base type for the form can be found at [`file:bytes`](datamodel_types.md#dm-
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -6238,6 +6935,14 @@ The base type for the form can be found at [`file:exemplar:entry`](datamodel_typ
 | `:path` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:path',)` | The path of the file associated with the exemplar file entry. | virts: `(('dir', ('file:path', {}), {'computed': True, 'doc': 'The directory from the path.'}), ('base', ('file:base', {}), {'computed': True, 'doc': 'The file base name from the path.'}), ('ext', ('text', {}), {'computed': True, 'doc': 'The file extension from the path.'}))` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The exemplar file entry was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -6253,10 +6958,15 @@ The base type for the form can be found at [`file:exemplar:entry`](datamodel_typ
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -7264,6 +7974,14 @@ The base type for the form can be found at [`file:mime:rar:entry`](datamodel_typ
 | `:parent` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The parent file which contains the RAR archive file entry. |  |
 | `:offset` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('size',)` | The offset to the beginning of the file within the parent file. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -7278,10 +7996,15 @@ The base type for the form can be found at [`file:mime:rar:entry`](datamodel_typ
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -7406,6 +8129,14 @@ The base type for the form can be found at [`file:mime:zip:entry`](datamodel_typ
 | `:parent` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The parent file which contains the ZIP archive file entry. |  |
 | `:offset` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('size',)` | The offset to the beginning of the file within the parent file. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -7420,10 +8151,15 @@ The base type for the form can be found at [`file:mime:zip:entry`](datamodel_typ
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -7449,6 +8185,14 @@ An example of `file:path`:
 |---|---|---|---|
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The file path was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -7463,10 +8207,15 @@ An example of `file:path`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -7493,6 +8242,14 @@ The base type for the form can be found at [`file:stored:entry`](datamodel_types
 | `:path` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:path',)` | The path of the file associated with the stored file entry. | virts: `(('dir', ('file:path', {}), {'computed': True, 'doc': 'The directory from the path.'}), ('base', ('file:base', {}), {'computed': True, 'doc': 'The file base name from the path.'}), ('ext', ('text', {}), {'computed': True, 'doc': 'The file extension from the path.'}))` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The stored file entry was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -7507,10 +8264,15 @@ The base type for the form can be found at [`file:stored:entry`](datamodel_types
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -7535,6 +8297,14 @@ The base type for the form can be found at [`file:subfile:entry`](datamodel_type
 | `:offset` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('size',)` | The offset to the beginning of the file within the parent file. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The subfile entry was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -7549,10 +8319,15 @@ The base type for the form can be found at [`file:subfile:entry`](datamodel_type
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -7582,6 +8357,14 @@ The base type for the form can be found at [`file:system:entry`](datamodel_types
 | `:path` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:path',)` | The path of the file associated with the stored file entry. | virts: `(('dir', ('file:path', {}), {'computed': True, 'doc': 'The directory from the path.'}), ('base', ('file:base', {}), {'computed': True, 'doc': 'The file base name from the path.'}), ('ext', ('text', {}), {'computed': True, 'doc': 'The file extension from the path.'}))` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The stored file entry was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -7596,10 +8379,15 @@ The base type for the form can be found at [`file:system:entry`](datamodel_types
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -7620,6 +8408,14 @@ The base type for the form can be found at [`geo:name`](datamodel_types.md#dm-ty
 |---|---|---|---|
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The place name was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -7634,10 +8430,15 @@ The base type for the form can be found at [`geo:name`](datamodel_types.md#dm-ty
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -7687,9 +8488,11 @@ The base type for the form can be found at [`geo:place`](datamodel_types.md#dm-t
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
-| `geo:place` | `-(contains)>` | `geo:place` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:actor` | `-(targeted)>` | `risk:targetable` | The actor targets based on the target node. |
+| `geo:place` | `-(contains)>` | `geo:place` | The source place completely contains the target place. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -8001,6 +8804,8 @@ The base type for the form can be found at [`ind:industry`](datamodel_types.md#d
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:actor` | `-(targeted)>` | `risk:targetable` | The actor targets based on the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -8110,6 +8915,14 @@ The base type for the form can be found at [`inet:asn`](datamodel_types.md#dm-ty
 | `:registrant:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the entity which registered the ASN. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The ASN was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -8124,10 +8937,15 @@ The base type for the form can be found at [`inet:asn`](datamodel_types.md#dm-ty
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -8157,6 +8975,14 @@ An example of `inet:asnet`:
 | `:net:max` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:ip',)` | The last IP in the range assigned to the ASN. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The address range was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -8171,10 +8997,15 @@ An example of `inet:asnet`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -8202,6 +9033,14 @@ An example of `inet:asnip`:
 | `:ip` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:ip',)` | The IP that was assigned to the ASN. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The IP ASN assignment was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -8216,10 +9055,15 @@ An example of `inet:asnip`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -8243,6 +9087,14 @@ The base type for the form can be found at [`inet:banner`](datamodel_types.md#dm
 | `:certificate` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('crypto:x509:cert',)` | The x509 certificate presented by the server along with the banner. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The banner was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -8257,10 +9109,15 @@ The base type for the form can be found at [`inet:banner`](datamodel_types.md#dm
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -8287,6 +9144,14 @@ An example of `inet:client`:
 | `:proto` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('str:lower',)` | The network protocol of the client. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The network client was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -8301,10 +9166,15 @@ An example of `inet:client`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -8334,6 +9204,14 @@ The base type for the form can be found at [`inet:data:link`](datamodel_types.md
 | `:period` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('activity',)` | The period over which the link occurred. | virts: `(('began', ('time', {}), {'doc': 'The starting time of the interval.'}), ('ended', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this link. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -8345,6 +9223,7 @@ The base type for the form can be found at [`inet:data:link`](datamodel_types.md
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -8379,6 +9258,14 @@ An example of `inet:dns:a`:
 | `:ip` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:ip',)` | The IPv4 address returned in the A record. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The DNS A record was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -8393,10 +9280,15 @@ An example of `inet:dns:a`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -8424,6 +9316,14 @@ An example of `inet:dns:aaaa`:
 | `:ip` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:ip',)` | The IPv6 address returned in the AAAA record. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The DNS AAAA record was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -8438,10 +9338,15 @@ An example of `inet:dns:aaaa`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -8508,6 +9413,14 @@ An example of `inet:dns:cname`:
 | `:cname` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:fqdn',)` | The domain returned in the CNAME record. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The DNS CNAME record was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -8522,10 +9435,15 @@ An example of `inet:dns:cname`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -8553,6 +9471,14 @@ The base type for the form can be found at [`inet:dns:dynreg`](datamodel_types.m
 | `:client` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:client',)` | The network client address used to register the dynamic FQDN. | virts: `(('ip', ('inet:ip', {}), {'computed': True, 'doc': 'The IP address of the client.'}), ('port', ('inet:port', {}), {'computed': True, 'doc': 'The port the client connected from.'}))` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The dynamic DNS registration was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -8567,10 +9493,15 @@ The base type for the form can be found at [`inet:dns:dynreg`](datamodel_types.m
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -8598,6 +9529,14 @@ An example of `inet:dns:mx`:
 | `:mx` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:fqdn',)` | The domain returned in the MX record. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The DNS MX record was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -8612,10 +9551,15 @@ An example of `inet:dns:mx`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -8683,6 +9627,14 @@ An example of `inet:dns:ns`:
 | `:ns` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:fqdn',)` | The domain returned in the NS record. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The DNS NS record was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -8697,10 +9649,15 @@ An example of `inet:dns:ns`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -8729,6 +9686,14 @@ An example of `inet:dns:query`:
 | `:type` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:dns:query:type',)` | The type of record that was queried. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The DNS query was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -8743,10 +9708,15 @@ An example of `inet:dns:query`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -8781,6 +9751,15 @@ The base type for the form can be found at [`inet:dns:request`](datamodel_types.
 | `:server:exe` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The server executable which received the link. |  |
 | `:sandbox:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The initial sample given to a sandbox environment to analyze. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `inet:proto:link` | `-(shows)>` | `risk:vulnerable` | The network activity shows that the vulnerability was present. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -8792,6 +9771,7 @@ The base type for the form can be found at [`inet:dns:request`](datamodel_types.
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -8832,6 +9812,15 @@ The base type for the form can be found at [`inet:dns:response`](datamodel_types
 | `:server:exe` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The server executable which received the link. |  |
 | `:sandbox:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The initial sample given to a sandbox environment to analyze. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `inet:proto:link` | `-(shows)>` | `risk:vulnerable` | The network activity shows that the vulnerability was present. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -8843,6 +9832,7 @@ The base type for the form can be found at [`inet:dns:response`](datamodel_types
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -8877,6 +9867,14 @@ An example of `inet:dns:rev`:
 | `:fqdn` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:fqdn',)` | The domain returned in the PTR record. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The Reverse DNS record was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -8891,10 +9889,15 @@ An example of `inet:dns:rev`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -8918,6 +9921,14 @@ The base type for the form can be found at [`inet:dns:soa`](datamodel_types.md#d
 | `:email` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:email',)` | The email address (RNAME) returned in the SOA record. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The DNS SOA record was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -8932,10 +9943,15 @@ The base type for the form can be found at [`inet:dns:soa`](datamodel_types.md#d
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -8963,6 +9979,14 @@ An example of `inet:dns:txt`:
 | `:text` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('text',)` | The string returned in the TXT record. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The DNS TXT record was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -8977,10 +10001,15 @@ An example of `inet:dns:txt`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -9003,6 +10032,14 @@ The base type for the form can be found at [`inet:dns:wild:a`](datamodel_types.m
 | `:ip` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:ip',)` | The IPv4 address returned by wild card resolutions. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The DNS wildcard A record was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -9017,10 +10054,15 @@ The base type for the form can be found at [`inet:dns:wild:a`](datamodel_types.m
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -9043,6 +10085,14 @@ The base type for the form can be found at [`inet:dns:wild:aaaa`](datamodel_type
 | `:ip` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:ip',)` | The IPv6 address returned by wild card resolutions. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The DNS wildcard AAAA record was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -9057,10 +10107,15 @@ The base type for the form can be found at [`inet:dns:wild:aaaa`](datamodel_type
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -9085,6 +10140,14 @@ The base type for the form can be found at [`inet:egress`](datamodel_types.md#dm
 | `:client` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:client',)` | The client address the host used as a network egress. | virts: `(('ip', ('inet:ip', {}), {'computed': True, 'doc': 'The IP address of the client.'}), ('port', ('inet:port', {}), {'computed': True, 'doc': 'The port the client connected from.'}))` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The egress client was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -9099,10 +10162,15 @@ The base type for the form can be found at [`inet:egress`](datamodel_types.md#dm
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -9127,12 +10195,23 @@ The base type for the form can be found at [`inet:email`](datamodel_types.md#dm-
 | `:base` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:email',)` | The base email address which is populated if the email address contains a user with a +<tag>. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The email address was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -9141,10 +10220,18 @@ The base type for the form can be found at [`inet:email`](datamodel_types.md#dm-
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -9167,12 +10254,23 @@ The base type for the form can be found at [`inet:email:header`](datamodel_types
 | `:value` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('str',)` | The value of the email header. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The email header was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -9181,10 +10279,18 @@ The base type for the form can be found at [`inet:email:header`](datamodel_types
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -9219,12 +10325,22 @@ The base type for the form can be found at [`inet:email:message`](datamodel_type
 | `:links` | array of [`inet:hyperlink`](datamodel_types.md#dm-type-inet-hyperlink) | An array of links embedded in the email message. |  |
 | `:attachments` | array of [`file:attachment`](datamodel_types.md#dm-type-file-attachment) | An array of files attached to the email message. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -9235,6 +10351,9 @@ The base type for the form can be found at [`inet:email:message`](datamodel_type
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
@@ -9284,6 +10403,15 @@ The base type for the form can be found at [`inet:flow`](datamodel_types.md#dm-t
 | `:server:exe` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The server executable which received the network flow. |  |
 | `:sandbox:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The initial sample given to a sandbox environment to analyze. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `inet:proto:link` | `-(shows)>` | `risk:vulnerable` | The network activity shows that the vulnerability was present. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -9295,6 +10423,7 @@ The base type for the form can be found at [`inet:flow`](datamodel_types.md#dm-t
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -9339,13 +10468,17 @@ An example of `inet:fqdn`:
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:fqdn` | `-(uses)>` | `meta:technique` | The source FQDN was selected or created using the target technique. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -9354,10 +10487,18 @@ An example of `inet:fqdn`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -9384,12 +10525,22 @@ An example of `inet:http:cookie`:
 | `:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('str',)` | The name of the cookie preceding the equal sign. |
 | `:value` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('str',)` | The value of the cookie after the equal sign if present. |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -9400,6 +10551,9 @@ An example of `inet:http:cookie`:
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
@@ -9484,6 +10638,15 @@ The base type for the form can be found at [`inet:http:request`](datamodel_types
 | `:server:exe` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The server executable which received the HTTP request. |  |
 | `:sandbox:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The initial sample given to a sandbox environment to analyze. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `inet:proto:link` | `-(shows)>` | `risk:vulnerable` | The network activity shows that the vulnerability was present. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -9495,6 +10658,7 @@ The base type for the form can be found at [`inet:http:request`](datamodel_types
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -9524,6 +10688,14 @@ The base type for the form can be found at [`inet:http:request:header`](datamode
 | `:value` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('str',)` | The value of the HTTP request header. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The HTTP request header was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -9538,10 +10710,15 @@ The base type for the form can be found at [`inet:http:request:header`](datamode
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -9578,6 +10755,15 @@ The base type for the form can be found at [`inet:http:response`](datamodel_type
 | `:server:exe` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The server executable which received the HTTP response. |  |
 | `:sandbox:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The initial sample given to a sandbox environment to analyze. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `inet:proto:link` | `-(shows)>` | `risk:vulnerable` | The network activity shows that the vulnerability was present. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -9589,6 +10775,7 @@ The base type for the form can be found at [`inet:http:response`](datamodel_type
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -9618,6 +10805,14 @@ The base type for the form can be found at [`inet:http:response:header`](datamod
 | `:value` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('str',)` | The value of the HTTP response header. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The HTTP response header was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -9632,10 +10827,15 @@ The base type for the form can be found at [`inet:http:response:header`](datamod
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -9663,6 +10863,14 @@ The base type for the form can be found at [`inet:http:session`](datamodel_types
 | `:period` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('activity',)` | The period over which the activity occurred. | virts: `(('began', ('time', {}), {'doc': 'The starting time of the interval.'}), ('ended', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this activity. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -9674,6 +10882,7 @@ The base type for the form can be found at [`inet:http:session`](datamodel_types
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -9761,12 +10970,23 @@ An example of `inet:ip`:
 | `:place:country` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('pol:country',)` | The country where the IP address was located. |  |
 | `:place:country:code` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('iso:3166:alpha2',)` | The country code where the IP address was located. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:net` | `-(has)>` | `inet:ip` | The IP address range contains the IP address. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `inet:whois:iprecord` | `-(has)>` | `inet:ip` | The IP whois record describes the IP address. |
@@ -9777,10 +10997,18 @@ An example of `inet:ip`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -9808,6 +11036,14 @@ An example of `inet:mac`:
 | `:vendor:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the vendor associated with the 24-bit prefix of a MAC address. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The MAC address was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -9822,10 +11058,15 @@ An example of `inet:mac`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -9864,8 +11105,8 @@ An example of `inet:net`:
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -9949,6 +11190,15 @@ The base type for the form can be found at [`inet:rdp:handshake`](datamodel_type
 | `:server:exe` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The server executable which received the link. |  |
 | `:sandbox:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The initial sample given to a sandbox environment to analyze. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `inet:proto:link` | `-(shows)>` | `risk:vulnerable` | The network activity shows that the vulnerability was present. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -9960,6 +11210,7 @@ The base type for the form can be found at [`inet:rdp:handshake`](datamodel_type
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -9994,6 +11245,14 @@ An example of `inet:rfc2822:addr`:
 | `:email` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:email',)` | The email field parsed from an RFC 2822 address string. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The RFC 2822 address was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -10008,10 +11267,15 @@ An example of `inet:rfc2822:addr`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -10047,6 +11311,16 @@ The base type for the form can be found at [`inet:search:query`](datamodel_types
 | `:actor:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the actor who carried out the action. |  |
 | `:id` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('base:id',)` | A platform specific ID which identifies the node. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -10058,6 +11332,7 @@ The base type for the form can be found at [`inet:search:query`](datamodel_types
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -10133,6 +11408,14 @@ An example of `inet:server`:
 | `:proto` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('str:lower',)` | The network protocol of the server. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The network server was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -10147,10 +11430,15 @@ An example of `inet:server`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -10173,6 +11461,14 @@ The base type for the form can be found at [`inet:serverfile`](datamodel_types.m
 | `:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The file that was hosted on the server. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The host server and file was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -10187,10 +11483,15 @@ The base type for the form can be found at [`inet:serverfile`](datamodel_types.m
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -10229,6 +11530,16 @@ The base type for the form can be found at [`inet:service:access`](datamodel_typ
 | `:actor:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the actor who carried out the action. |  |
 | `:id` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('base:id',)` | A platform specific ID which identifies the node. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -10240,6 +11551,7 @@ The base type for the form can be found at [`inet:service:access`](datamodel_typ
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -10284,12 +11596,27 @@ The base type for the form can be found at [`inet:service:account`](datamodel_ty
 | `:platform` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:service:platform',)` | The platform which defines the account. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The account was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:actor` | `-(targeted)>` | `risk:targetable` | The actor targets based on the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(targeted)>` | `risk:targetable` | The actor targets based on the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -10298,10 +11625,18 @@ The base type for the form can be found at [`inet:service:account`](datamodel_ty
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -10333,6 +11668,16 @@ The base type for the form can be found at [`inet:service:agent`](datamodel_type
 | `:platform` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:service:platform',)` | The platform which defines the node. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The node was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:actor` | `-(targeted)>` | `risk:targetable` | The actor targets based on the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -10347,10 +11692,15 @@ The base type for the form can be found at [`inet:service:agent`](datamodel_type
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -10381,6 +11731,14 @@ The base type for the form can be found at [`inet:service:bucket`](datamodel_typ
 | `:platform` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:service:platform',)` | The platform which defines the bucket. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The bucket was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -10395,10 +11753,15 @@ The base type for the form can be found at [`inet:service:bucket`](datamodel_typ
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -10432,6 +11795,14 @@ The base type for the form can be found at [`inet:service:bucket:item`](datamode
 | `:platform` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:service:platform',)` | The platform which defines the bucket item. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The bucket item was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -10446,10 +11817,15 @@ The base type for the form can be found at [`inet:service:bucket:item`](datamode
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -10480,6 +11856,14 @@ The base type for the form can be found at [`inet:service:channel`](datamodel_ty
 | `:platform` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:service:platform',)` | The platform which defines the channel. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The channel was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -10494,10 +11878,15 @@ The base type for the form can be found at [`inet:service:channel`](datamodel_ty
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -10536,6 +11925,14 @@ The base type for the form can be found at [`inet:service:comment`](datamodel_ty
 | `:platform` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:service:platform',)` | The platform which defines the comment. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The comment was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -10550,10 +11947,15 @@ The base type for the form can be found at [`inet:service:comment`](datamodel_ty
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -10587,6 +11989,16 @@ The base type for the form can be found at [`inet:service:emote`](datamodel_type
 | `:actor:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the actor who posted the emote. |  |
 | `:id` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('base:id',)` | A platform specific ID which identifies the emote. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -10598,6 +12010,7 @@ The base type for the form can be found at [`inet:service:emote`](datamodel_type
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -10675,6 +12088,14 @@ The base type for the form can be found at [`inet:service:label`](datamodel_type
 | `:platform` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:service:platform',)` | The platform which defines the label. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The label was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -10689,10 +12110,15 @@ The base type for the form can be found at [`inet:service:label`](datamodel_type
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -10722,6 +12148,14 @@ The base type for the form can be found at [`inet:service:labeled`](datamodel_ty
 | `:platform` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:service:platform',)` | The platform which defines the label application. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The label application was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -10736,10 +12170,15 @@ The base type for the form can be found at [`inet:service:labeled`](datamodel_ty
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -10784,6 +12223,17 @@ The base type for the form can be found at [`inet:service:login`](datamodel_type
 | `:actor:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the actor who carried out the action. |  |
 | `:id` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('base:id',)` | A platform specific ID which identifies the node. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `inet:proto:link` | `-(shows)>` | `risk:vulnerable` | The network activity shows that the vulnerability was present. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -10795,6 +12245,7 @@ The base type for the form can be found at [`inet:service:login`](datamodel_type
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -10874,6 +12325,14 @@ The base type for the form can be found at [`inet:service:member`](datamodel_typ
 | `:platform` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:service:platform',)` | The platform which defines the membership. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The membership was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -10888,10 +12347,15 @@ The base type for the form can be found at [`inet:service:member`](datamodel_typ
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -10946,23 +12410,33 @@ The base type for the form can be found at [`inet:service:message`](datamodel_ty
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
@@ -11037,6 +12511,14 @@ The base type for the form can be found at [`inet:service:permission`](datamodel
 | `:platform` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:service:platform',)` | The platform which defines the permission. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The permission was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -11051,10 +12533,15 @@ The base type for the form can be found at [`inet:service:permission`](datamodel
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -11137,12 +12624,26 @@ The base type for the form can be found at [`inet:service:platform`](datamodel_t
 | `:software` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:software',)` | The latest known software version that the platform is running. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The platform was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `biz:listing` | `-(used)>` | `inet:service:platform` | The listing was posted on the platform. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(targeted)>` | `risk:targetable` | The actor targets based on the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -11152,10 +12653,18 @@ The base type for the form can be found at [`inet:service:platform`](datamodel_t
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -11229,6 +12738,14 @@ The base type for the form can be found at [`inet:service:relationship`](datamod
 | `:platform` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:service:platform',)` | The platform which defines the relationship. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The relationship was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -11243,10 +12760,15 @@ The base type for the form can be found at [`inet:service:relationship`](datamod
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -11320,6 +12842,14 @@ The base type for the form can be found at [`inet:service:resource`](datamodel_t
 | `:platform` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:service:platform',)` | The platform which defines the resource. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The resource was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -11334,10 +12864,15 @@ The base type for the form can be found at [`inet:service:resource`](datamodel_t
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -11411,6 +12946,14 @@ The base type for the form can be found at [`inet:service:role`](datamodel_types
 | `:platform` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:service:platform',)` | The platform which defines the service role. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The service role was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -11425,10 +12968,15 @@ The base type for the form can be found at [`inet:service:role`](datamodel_types
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -11460,6 +13008,14 @@ The base type for the form can be found at [`inet:service:rule`](datamodel_types
 | `:platform` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:service:platform',)` | The platform which defines the rule. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The rule was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -11474,10 +13030,15 @@ The base type for the form can be found at [`inet:service:rule`](datamodel_types
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -11511,6 +13072,15 @@ The base type for the form can be found at [`inet:service:session`](datamodel_ty
 | `:platform` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:service:platform',)` | The platform which defines the session. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The session was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -11522,13 +13092,19 @@ The base type for the form can be found at [`inet:service:session`](datamodel_ty
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -11559,6 +13135,14 @@ The base type for the form can be found at [`inet:service:subscription`](datamod
 | `:platform` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:service:platform',)` | The platform which defines the subscription. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The subscription was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -11573,10 +13157,15 @@ The base type for the form can be found at [`inet:service:subscription`](datamod
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -11652,6 +13241,14 @@ The base type for the form can be found at [`inet:service:tenant`](datamodel_typ
 | `:platform` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:service:platform',)` | The platform which defines the tenant. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The tenant was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -11666,10 +13263,15 @@ The base type for the form can be found at [`inet:service:tenant`](datamodel_typ
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -11703,6 +13305,15 @@ The base type for the form can be found at [`inet:ssh:handshake`](datamodel_type
 | `:server:exe` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The server executable which received the link. |  |
 | `:sandbox:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The initial sample given to a sandbox environment to analyze. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `inet:proto:link` | `-(shows)>` | `risk:vulnerable` | The network activity shows that the vulnerability was present. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -11714,6 +13325,7 @@ The base type for the form can be found at [`inet:ssh:handshake`](datamodel_type
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -11748,6 +13360,14 @@ An example of `inet:tls:clientcert`:
 | `:cert` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('crypto:x509:cert',)` | The x509 certificate sent by the client. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The TLS client certificate was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -11762,10 +13382,15 @@ An example of `inet:tls:clientcert`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -11804,6 +13429,15 @@ The base type for the form can be found at [`inet:tls:handshake`](datamodel_type
 | `:server:exe` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The server executable which received the link. |  |
 | `:sandbox:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The initial sample given to a sandbox environment to analyze. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `inet:proto:link` | `-(shows)>` | `risk:vulnerable` | The network activity shows that the vulnerability was present. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -11815,6 +13449,7 @@ The base type for the form can be found at [`inet:tls:handshake`](datamodel_type
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -11844,6 +13479,14 @@ The base type for the form can be found at [`inet:tls:ja3:sample`](datamodel_typ
 | `:ja3` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('crypto:hash:md5',)` | The JA3 hash computed from the client's TLS hello packet. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The JA3 sample was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -11858,10 +13501,15 @@ The base type for the form can be found at [`inet:tls:ja3:sample`](datamodel_typ
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -11884,6 +13532,14 @@ The base type for the form can be found at [`inet:tls:ja3s:sample`](datamodel_ty
 | `:ja3s` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('crypto:hash:md5',)` | The JA3S hash computed from the server's TLS hello packet. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The JA3S sample was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -11898,10 +13554,15 @@ The base type for the form can be found at [`inet:tls:ja3s:sample`](datamodel_ty
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -11922,6 +13583,14 @@ The base type for the form can be found at [`inet:tls:ja4`](datamodel_types.md#d
 |---|---|---|---|
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The JA4 fingerprint was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -11936,10 +13605,15 @@ The base type for the form can be found at [`inet:tls:ja4`](datamodel_types.md#d
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -11962,6 +13636,14 @@ The base type for the form can be found at [`inet:tls:ja4:sample`](datamodel_typ
 | `:client` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:client',)` | The client which initiated the TLS handshake with a JA4 fingerprint. | Computed: `True`<br>virts: `(('ip', ('inet:ip', {}), {'computed': True, 'doc': 'The IP address of the client.'}), ('port', ('inet:port', {}), {'computed': True, 'doc': 'The port the client connected from.'}))` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The JA4 sample was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -11976,10 +13658,15 @@ The base type for the form can be found at [`inet:tls:ja4:sample`](datamodel_typ
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -12000,6 +13687,14 @@ The base type for the form can be found at [`inet:tls:ja4s`](datamodel_types.md#
 |---|---|---|---|
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The JA4S fingerprint was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -12014,10 +13709,15 @@ The base type for the form can be found at [`inet:tls:ja4s`](datamodel_types.md#
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -12040,6 +13740,14 @@ The base type for the form can be found at [`inet:tls:ja4s:sample`](datamodel_ty
 | `:server` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:server',)` | The server which responded to the TLS handshake with a JA4S fingerprint. | Computed: `True`<br>virts: `(('ip', ('inet:ip', {}), {'computed': True, 'doc': 'The IP address of the server.'}), ('port', ('inet:port', {}), {'computed': True, 'doc': 'The port the server is listening on.'}))` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The JA4S sample was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -12054,10 +13762,15 @@ The base type for the form can be found at [`inet:tls:ja4s:sample`](datamodel_ty
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -12080,6 +13793,14 @@ The base type for the form can be found at [`inet:tls:jarmhash`](datamodel_types
 | `:extensions` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:jarm:extensions',)` | The truncated SHA256 of the TLS server extensions. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The JARM fingerprint was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -12094,10 +13815,15 @@ The base type for the form can be found at [`inet:tls:jarmhash`](datamodel_types
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -12120,6 +13846,14 @@ The base type for the form can be found at [`inet:tls:jarmsample`](datamodel_typ
 | `:server` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:server',)` | The server that was sampled to compute the JARM hash. | Computed: `True`<br>virts: `(('ip', ('inet:ip', {}), {'computed': True, 'doc': 'The IP address of the server.'}), ('port', ('inet:port', {}), {'computed': True, 'doc': 'The port the server is listening on.'}))` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The JARM sample was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -12134,10 +13868,15 @@ The base type for the form can be found at [`inet:tls:jarmsample`](datamodel_typ
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -12165,6 +13904,14 @@ An example of `inet:tls:servercert`:
 | `:cert` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('crypto:x509:cert',)` | The x509 certificate sent by the server. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The TLS server certificate was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -12179,10 +13926,15 @@ An example of `inet:tls:servercert`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -12211,6 +13963,18 @@ The base type for the form can be found at [`inet:tunnel`](datamodel_types.md#dm
 | `:actor:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the actor who established the tunnel. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The tunnel was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:activity` | `-(supported)>` | `entity:goal` | The activity supported the goal. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -12222,13 +13986,19 @@ The base type for the form can be found at [`inet:tunnel`](datamodel_types.md#dm
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -12312,13 +14082,17 @@ An example of `inet:url`:
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:url` | `-(uses)>` | `meta:technique` | The source URL was created using the target technique. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:dev:repo` | `-(has)>` | `inet:url` | The repo has content hosted at the URL. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
@@ -12328,10 +14102,18 @@ An example of `inet:url`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -12354,6 +14136,14 @@ The base type for the form can be found at [`inet:url:mirror`](datamodel_types.m
 | `:at` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:url',)` | The URL of the mirror. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The URL mirror was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -12368,10 +14158,15 @@ The base type for the form can be found at [`inet:url:mirror`](datamodel_types.m
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -12399,12 +14194,23 @@ An example of `inet:url:redir`:
 | `:target` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:url',)` | The redirected/destination URL. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The URL redirection was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -12413,10 +14219,18 @@ An example of `inet:url:redir`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -12439,12 +14253,23 @@ The base type for the form can be found at [`inet:urlfile`](datamodel_types.md#d
 | `:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The file that was hosted at the URL. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The hosted file and URL was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -12453,10 +14278,18 @@ The base type for the form can be found at [`inet:urlfile`](datamodel_types.md#d
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -12545,13 +14378,14 @@ The base type for the form can be found at [`inet:whois:iprecord`](datamodel_typ
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:whois:iprecord` | `-(has)>` | `inet:ip` | The IP whois record describes the IP address. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -12560,10 +14394,15 @@ The base type for the form can be found at [`inet:whois:iprecord`](datamodel_typ
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -12595,6 +14434,14 @@ The base type for the form can be found at [`inet:whois:record`](datamodel_types
 | `:nameservers` | array of [`inet:fqdn`](datamodel_types.md#dm-type-inet-fqdn)<br>uniq: `False`<br>sorted: `False` | The DNS nameserver FQDNs for the registered FQDN. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The WHOIS record was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -12609,10 +14456,15 @@ The base type for the form can be found at [`inet:whois:record`](datamodel_types
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -12649,12 +14501,22 @@ The base type for the form can be found at [`inet:wifi:ap`](datamodel_types.md#d
 | `:place:country:code` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('iso:3166:alpha2',)` | The country code where the Wi-Fi access point was located. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The Wi-Fi access point was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `biz:product` | `-(has)>` | `meta:havable` | The product includes the item. |
+| `econ:purchase` | `-(purchased)>` | `meta:havable` | The purchase was used to acquire the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -12663,10 +14525,15 @@ The base type for the form can be found at [`inet:wifi:ap`](datamodel_types.md#d
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -12697,6 +14564,14 @@ The base type for the form can be found at [`inet:wifi:link`](datamodel_types.md
 | `:period` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('activity',)` | The period over which the Wi-Fi link occurred. | virts: `(('began', ('time', {}), {'doc': 'The starting time of the interval.'}), ('ended', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this Wi-Fi link. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -12708,6 +14583,7 @@ The base type for the form can be found at [`inet:wifi:link`](datamodel_types.md
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -12751,6 +14627,15 @@ The base type for the form can be found at [`inet:wifi:login`](datamodel_types.m
 | `:server:exe` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The server executable which received the Wi-Fi login. |  |
 | `:sandbox:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The initial sample given to a sandbox environment to analyze. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `inet:proto:link` | `-(shows)>` | `risk:vulnerable` | The network activity shows that the vulnerability was present. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -12762,6 +14647,7 @@ The base type for the form can be found at [`inet:wifi:login`](datamodel_types.m
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -12796,6 +14682,14 @@ The base type for the form can be found at [`inet:wifi:session`](datamodel_types
 | `:period` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('activity',)` | The period over which the Wi-Fi session occurred. | virts: `(('began', ('time', {}), {'doc': 'The starting time of the interval.'}), ('ended', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this Wi-Fi session. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -12807,6 +14701,7 @@ The base type for the form can be found at [`inet:wifi:session`](datamodel_types
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -12839,6 +14734,14 @@ An example of `inet:wifi:ssid`:
 |---|---|---|---|
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The Wi-Fi SSID was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -12853,10 +14756,15 @@ An example of `inet:wifi:ssid`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -13027,6 +14935,14 @@ The base type for the form can be found at [`it:adid`](datamodel_types.md#dm-typ
 |---|---|---|---|
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The advertising ID was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -13041,10 +14957,15 @@ The base type for the form can be found at [`it:adid`](datamodel_types.md#dm-typ
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -13070,6 +14991,14 @@ The base type for the form can be found at [`it:app:sigma:matched`](datamodel_ty
 | `:time` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The time that the match occurred. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this match. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -13081,6 +15010,7 @@ The base type for the form can be found at [`it:app:sigma:matched`](datamodel_ty
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -13133,13 +15063,22 @@ The base type for the form can be found at [`it:app:sigma:rule`](datamodel_types
 | `it:app:sigma:rule` | `-(detects)>` | `it:software` | The Sigma rule detects use of the software. |
 | `it:app:sigma:rule` | `-(detects)>` | `meta:technique` | The Sigma rule detects use of the technique. |
 | `it:app:sigma:rule` | `-(detects)>` | `it:softwarename` | The Sigma rule detects the named software. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
+| `meta:rule` | `-(generated)>` | `risk:alert` | The meta:rule generated the risk:alert node. |
+| `meta:rule` | `-(generated)>` | `it:log:event` | The meta:rule generated the it:log:event node. |
+| `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
+| `meta:rule` | `-(shows)>` | `ou:enacted` | The source rule shows the status of the enacted document. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -13148,10 +15087,18 @@ The base type for the form can be found at [`it:app:sigma:rule`](datamodel_types
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
-| `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
+| `meta:ruleset` | `-(has)>` | `meta:rule` | The ruleset includes the rule. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -13178,6 +15125,14 @@ The base type for the form can be found at [`it:app:snort:matched`](datamodel_ty
 | `:time` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The time that the match occurred. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this match. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -13189,6 +15144,7 @@ The base type for the form can be found at [`it:app:snort:matched`](datamodel_ty
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -13242,13 +15198,22 @@ The base type for the form can be found at [`it:app:snort:rule`](datamodel_types
 | `it:app:snort:rule` | `-(detects)>` | `it:software` | The snort rule detects use of the software. |
 | `it:app:snort:rule` | `-(detects)>` | `meta:technique` | The snort rule detects use of the technique. |
 | `it:app:snort:rule` | `-(detects)>` | `it:softwarename` | The snort rule detects the named software. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
+| `meta:rule` | `-(generated)>` | `risk:alert` | The meta:rule generated the risk:alert node. |
+| `meta:rule` | `-(generated)>` | `it:log:event` | The meta:rule generated the it:log:event node. |
+| `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
+| `meta:rule` | `-(shows)>` | `ou:enacted` | The source rule shows the status of the enacted document. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -13257,10 +15222,18 @@ The base type for the form can be found at [`it:app:snort:rule`](datamodel_types
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
-| `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
+| `meta:ruleset` | `-(has)>` | `meta:rule` | The ruleset includes the rule. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -13287,6 +15260,14 @@ The base type for the form can be found at [`it:app:suricata:matched`](datamodel
 | `:time` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The time that the match occurred. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this match. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -13298,6 +15279,7 @@ The base type for the form can be found at [`it:app:suricata:matched`](datamodel
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -13350,13 +15332,22 @@ The base type for the form can be found at [`it:app:suricata:rule`](datamodel_ty
 | `it:app:suricata:rule` | `-(detects)>` | `it:software` | The suricata rule detects use of the software. |
 | `it:app:suricata:rule` | `-(detects)>` | `meta:technique` | The suricata rule detects use of the technique. |
 | `it:app:suricata:rule` | `-(detects)>` | `it:softwarename` | The suricata rule detects the named software. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
+| `meta:rule` | `-(generated)>` | `risk:alert` | The meta:rule generated the risk:alert node. |
+| `meta:rule` | `-(generated)>` | `it:log:event` | The meta:rule generated the it:log:event node. |
+| `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
+| `meta:rule` | `-(shows)>` | `ou:enacted` | The source rule shows the status of the enacted document. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -13365,10 +15356,18 @@ The base type for the form can be found at [`it:app:suricata:rule`](datamodel_ty
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
-| `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
+| `meta:ruleset` | `-(has)>` | `meta:rule` | The ruleset includes the rule. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -13393,6 +15392,14 @@ The base type for the form can be found at [`it:app:yara:matched`](datamodel_typ
 | `:time` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The time that the match occurred. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this match. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -13404,6 +15411,7 @@ The base type for the form can be found at [`it:app:yara:matched`](datamodel_typ
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -13456,13 +15464,22 @@ The base type for the form can be found at [`it:app:yara:rule`](datamodel_types.
 | `it:app:yara:rule` | `-(detects)>` | `meta:technique` | The YARA rule detects the technique. |
 | `it:app:yara:rule` | `-(detects)>` | `risk:vuln` | The YARA rule detects the vulnerability. |
 | `it:app:yara:rule` | `-(detects)>` | `it:softwarename` | The YARA rule detects the named software. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
+| `meta:rule` | `-(generated)>` | `risk:alert` | The meta:rule generated the risk:alert node. |
+| `meta:rule` | `-(generated)>` | `it:log:event` | The meta:rule generated the it:log:event node. |
+| `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
+| `meta:rule` | `-(shows)>` | `ou:enacted` | The source rule shows the status of the enacted document. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -13471,10 +15488,18 @@ The base type for the form can be found at [`it:app:yara:rule`](datamodel_types.
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
-| `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
+| `meta:ruleset` | `-(has)>` | `meta:rule` | The ruleset includes the rule. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -13610,12 +15635,24 @@ The base type for the form can be found at [`it:cloud:host`](datamodel_types.md#
 | `:remover` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:service:account', 'inet:service:agent')` | The service account or agent which removed or decommissioned the cloud host. |  |
 | `:platform` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:service:platform',)` | The platform which defines the cloud host. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `biz:product` | `-(has)>` | `meta:havable` | The product includes the item. |
+| `econ:purchase` | `-(purchased)>` | `meta:havable` | The purchase was used to acquire the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:actor` | `-(targeted)>` | `risk:targetable` | The actor targets based on the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -13624,10 +15661,15 @@ The base type for the form can be found at [`it:cloud:host`](datamodel_types.md#
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -13647,12 +15689,22 @@ An example of `it:cmd`:
 - `foo.exe --dostuff bar`
 
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -13663,6 +15715,9 @@ An example of `it:cmd`:
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
@@ -13691,6 +15746,17 @@ The base type for the form can be found at [`it:cmd:session`](datamodel_types.md
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this command line session. |  |
 | `:actor:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the actor who ran the command line session. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:activity` | `-(supported)>` | `entity:goal` | The activity supported the goal. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -13702,6 +15768,7 @@ The base type for the form can be found at [`it:cmd:session`](datamodel_types.md
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -13866,13 +15933,14 @@ The base type for the form can be found at [`it:dev:repo`](datamodel_types.md#dm
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `it:dev:repo` | `-(has)>` | `inet:url` | The repo has content hosted at the URL. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -13881,10 +15949,15 @@ The base type for the form can be found at [`it:dev:repo`](datamodel_types.md#dm
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -13916,6 +15989,14 @@ The base type for the form can be found at [`it:dev:repo:branch`](datamodel_type
 | `:platform` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:service:platform',)` | The platform which defines the node. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The node was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -13930,10 +16011,15 @@ The base type for the form can be found at [`it:dev:repo:branch`](datamodel_type
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -13972,13 +16058,14 @@ The base type for the form can be found at [`it:dev:repo:commit`](datamodel_type
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `it:dev:repo:commit` | `-(has)>` | `it:dev:repo:entry` | The file entry is present in the commit version of the repository. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -13987,10 +16074,15 @@ The base type for the form can be found at [`it:dev:repo:commit`](datamodel_type
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -14111,6 +16203,16 @@ The base type for the form can be found at [`it:dev:repo:issue`](datamodel_types
 | `:assignee` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The actor who is assigned to complete the issue. |  |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this issue. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:task` | `-(has)>` | `file:attachment` | The task includes the file attachment. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -14122,13 +16224,20 @@ The base type for the form can be found at [`it:dev:repo:issue`](datamodel_types
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `proj:sprint` | `-(has)>` | `meta:task` | The task was worked on during the sprint. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -14233,12 +16342,23 @@ The base type for the form can be found at [`it:dev:str`](datamodel_types.md#dm-
 |---|---|---|---|
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The string was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `file:bytes` | `-(refs)>` | `it:dev:str` | The source file contains the target string. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
@@ -14248,10 +16368,18 @@ The base type for the form can be found at [`it:dev:str`](datamodel_types.md#dm-
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -14279,6 +16407,14 @@ The base type for the form can be found at [`it:exec:bind`](datamodel_types.md#d
 | `:thread` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:exec:thread',)` | The thread which caused the bind event. |  |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this bind event. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -14290,6 +16426,7 @@ The base type for the form can be found at [`it:exec:bind`](datamodel_types.md#d
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -14325,6 +16462,14 @@ The base type for the form can be found at [`it:exec:command`](datamodel_types.m
 | `:host` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:host',)` | The host on which the command execution occurred. |  |
 | `:sandbox:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The initial sample given to a sandbox environment to analyze. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -14336,6 +16481,7 @@ The base type for the form can be found at [`it:exec:command`](datamodel_types.m
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -14379,6 +16525,14 @@ The base type for the form can be found at [`it:exec:fetch`](datamodel_types.md#
 | `:thread` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:exec:thread',)` | The thread which caused the fetch event. |  |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this fetch event. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -14390,6 +16544,7 @@ The base type for the form can be found at [`it:exec:fetch`](datamodel_types.md#
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -14425,6 +16580,14 @@ The base type for the form can be found at [`it:exec:file:add`](datamodel_types.
 | `:thread` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:exec:thread',)` | The thread which caused the file add event. |  |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this file add event. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -14436,6 +16599,7 @@ The base type for the form can be found at [`it:exec:file:add`](datamodel_types.
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -14471,6 +16635,14 @@ The base type for the form can be found at [`it:exec:file:del`](datamodel_types.
 | `:thread` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:exec:thread',)` | The thread which caused the file delete event. |  |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this file delete event. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -14482,6 +16654,7 @@ The base type for the form can be found at [`it:exec:file:del`](datamodel_types.
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -14517,6 +16690,14 @@ The base type for the form can be found at [`it:exec:file:read`](datamodel_types
 | `:thread` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:exec:thread',)` | The thread which caused the file read event. |  |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this file read event. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -14528,6 +16709,7 @@ The base type for the form can be found at [`it:exec:file:read`](datamodel_types
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -14563,6 +16745,14 @@ The base type for the form can be found at [`it:exec:file:write`](datamodel_type
 | `:thread` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:exec:thread',)` | The thread which caused the file write event. |  |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this file write event. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -14574,6 +16764,7 @@ The base type for the form can be found at [`it:exec:file:write`](datamodel_type
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -14610,6 +16801,14 @@ The base type for the form can be found at [`it:exec:lib:load`](datamodel_types.
 | `:exe` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The executable file which caused the library load event. |  |
 | `:host` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:host',)` | The host on which the library load event occurred. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -14621,6 +16820,7 @@ The base type for the form can be found at [`it:exec:lib:load`](datamodel_types.
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -14657,6 +16857,14 @@ The base type for the form can be found at [`it:exec:lib:unload`](datamodel_type
 | `:exe` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The executable file which caused the library unload event. |  |
 | `:host` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:host',)` | The host on which the library unload event occurred. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -14668,6 +16876,7 @@ The base type for the form can be found at [`it:exec:lib:unload`](datamodel_type
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -14710,6 +16919,14 @@ The base type for the form can be found at [`it:exec:mmap:add`](datamodel_types.
 | `:exe` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The executable file which caused the memory map event. |  |
 | `:host` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:host',)` | The host on which the memory map event occurred. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -14721,6 +16938,7 @@ The base type for the form can be found at [`it:exec:mmap:add`](datamodel_types.
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -14755,6 +16973,14 @@ The base type for the form can be found at [`it:exec:mutex:add`](datamodel_types
 | `:thread` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:exec:thread',)` | The thread which caused the mutex creation event. |  |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this mutex creation event. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -14766,6 +16992,7 @@ The base type for the form can be found at [`it:exec:mutex:add`](datamodel_types
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -14800,6 +17027,14 @@ The base type for the form can be found at [`it:exec:pipe:add`](datamodel_types.
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this pipe creation event. |  |
 | `:sandbox:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The initial sample given to a sandbox environment to analyze. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -14811,6 +17046,7 @@ The base type for the form can be found at [`it:exec:pipe:add`](datamodel_types.
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -14845,6 +17081,14 @@ The base type for the form can be found at [`it:exec:pipe:del`](datamodel_types.
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this pipe deletion event. |  |
 | `:sandbox:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The initial sample given to a sandbox environment to analyze. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -14856,6 +17100,7 @@ The base type for the form can be found at [`it:exec:pipe:del`](datamodel_types.
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -14890,6 +17135,14 @@ The base type for the form can be found at [`it:exec:pipe:read`](datamodel_types
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this pipe read event. |  |
 | `:sandbox:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The initial sample given to a sandbox environment to analyze. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -14901,6 +17154,7 @@ The base type for the form can be found at [`it:exec:pipe:read`](datamodel_types
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -14935,6 +17189,14 @@ The base type for the form can be found at [`it:exec:pipe:write`](datamodel_type
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this pipe write event. |  |
 | `:sandbox:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The initial sample given to a sandbox environment to analyze. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -14946,6 +17208,7 @@ The base type for the form can be found at [`it:exec:pipe:write`](datamodel_type
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -14984,6 +17247,14 @@ The base type for the form can be found at [`it:exec:proc`](datamodel_types.md#d
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this process. |  |
 | `:sandbox:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The initial sample given to a sandbox environment to analyze. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -14996,6 +17267,7 @@ The base type for the form can be found at [`it:exec:proc`](datamodel_types.md#d
 | `it:os:windows:service` | `-(ledto)>` | `it:exec:proc` | The service configuration caused the process to be created. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -15030,6 +17302,14 @@ The base type for the form can be found at [`it:exec:proc:create`](datamodel_typ
 | `:host` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:host',)` | The host on which the process creation event occurred. |  |
 | `:sandbox:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The initial sample given to a sandbox environment to analyze. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -15041,6 +17321,7 @@ The base type for the form can be found at [`it:exec:proc:create`](datamodel_typ
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -15076,6 +17357,14 @@ The base type for the form can be found at [`it:exec:proc:signal`](datamodel_typ
 | `:host` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:host',)` | The host on which the process signal event occurred. |  |
 | `:sandbox:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The initial sample given to a sandbox environment to analyze. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -15087,6 +17376,7 @@ The base type for the form can be found at [`it:exec:proc:signal`](datamodel_typ
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -15121,6 +17411,14 @@ The base type for the form can be found at [`it:exec:proc:terminate`](datamodel_
 | `:host` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:host',)` | The host on which the process termination event occurred. |  |
 | `:sandbox:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The initial sample given to a sandbox environment to analyze. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -15132,6 +17430,7 @@ The base type for the form can be found at [`it:exec:proc:terminate`](datamodel_
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -15179,17 +17478,19 @@ The base type for the form can be found at [`it:exec:query`](datamodel_types.md#
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -15225,6 +17526,14 @@ The base type for the form can be found at [`it:exec:screenshot`](datamodel_type
 | `:host` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:host',)` | The host on which the screenshot event occurred. |  |
 | `:sandbox:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The initial sample given to a sandbox environment to analyze. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -15236,6 +17545,7 @@ The base type for the form can be found at [`it:exec:screenshot`](datamodel_type
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -15269,6 +17579,14 @@ The base type for the form can be found at [`it:exec:thread`](datamodel_types.md
 | `:host` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:host',)` | The host on which the thread occurred. |  |
 | `:sandbox:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The initial sample given to a sandbox environment to analyze. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -15280,6 +17598,7 @@ The base type for the form can be found at [`it:exec:thread`](datamodel_types.md
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -15314,6 +17633,14 @@ The base type for the form can be found at [`it:exec:thread:create`](datamodel_t
 | `:host` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:host',)` | The host on which the thread creation event occurred. |  |
 | `:sandbox:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The initial sample given to a sandbox environment to analyze. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -15325,6 +17652,7 @@ The base type for the form can be found at [`it:exec:thread:create`](datamodel_t
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -15359,6 +17687,14 @@ The base type for the form can be found at [`it:exec:thread:terminate`](datamode
 | `:host` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:host',)` | The host on which the thread termination event occurred. |  |
 | `:sandbox:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The initial sample given to a sandbox environment to analyze. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -15370,6 +17706,7 @@ The base type for the form can be found at [`it:exec:thread:terminate`](datamode
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -15404,6 +17741,14 @@ The base type for the form can be found at [`it:exec:windows:registry:del`](data
 | `:thread` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:exec:thread',)` | The thread which caused the registry delete event. |  |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this registry delete event. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -15415,6 +17760,7 @@ The base type for the form can be found at [`it:exec:windows:registry:del`](data
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -15449,6 +17795,14 @@ The base type for the form can be found at [`it:exec:windows:registry:get`](data
 | `:thread` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:exec:thread',)` | The thread which caused the registry get event. |  |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this registry get event. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -15460,6 +17814,7 @@ The base type for the form can be found at [`it:exec:windows:registry:get`](data
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -15494,6 +17849,14 @@ The base type for the form can be found at [`it:exec:windows:registry:set`](data
 | `:thread` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:exec:thread',)` | The thread which caused the registry set event. |  |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this registry set event. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -15505,6 +17868,7 @@ The base type for the form can be found at [`it:exec:windows:registry:set`](data
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -15539,6 +17903,14 @@ The base type for the form can be found at [`it:exec:windows:service:add`](datam
 | `:host` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:host',)` | The host on which the activity occurred. |  |
 | `:sandbox:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The initial sample given to a sandbox environment to analyze. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -15550,6 +17922,7 @@ The base type for the form can be found at [`it:exec:windows:service:add`](datam
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -15584,6 +17957,14 @@ The base type for the form can be found at [`it:exec:windows:service:del`](datam
 | `:host` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:host',)` | The host on which the activity occurred. |  |
 | `:sandbox:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The initial sample given to a sandbox environment to analyze. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -15595,6 +17976,7 @@ The base type for the form can be found at [`it:exec:windows:service:del`](datam
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -15628,9 +18010,30 @@ The base type for the form can be found at [`it:hardware`](datamodel_types.md#dm
 | `:version` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:version',)` | Version string associated with this hardware specification. | virts: `(('semver', ('it:semver', {}), {'computed': True, 'doc': 'The semver value if the version string is compatible.'}),)` |
 | `:released` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The initial release date for this hardware. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
 | `:parts` | array of [`it:hardware`](datamodel_types.md#dm-type-it-hardware) | An array of it:hardware parts included in this hardware specification. |  |
+| `:id` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('base:id',)` | A unique ID given to the hardware. | alts: `('ids',)` |
+| `:ids` | array of [`base:id`](datamodel_types.md#dm-type-base-id) | An array of alternate IDs given to the hardware. |  |
+| `:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('base:name',)` | The primary name of the hardware. | alts: `('names',)` |
+| `:names` | array of [`base:name`](datamodel_types.md#dm-type-base-name) | A list of alternate names for the hardware. |  |
+| `:resolved` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:hardware',)` | The authoritative hardware which this reporting is about. |  |
+| `:reporter` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The entity which reported on the hardware. |  |
+| `:reporter:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the entity which reported on the hardware. |  |
+| `:reporter:url` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:url',)` | The URL for the hardware provided by the reporter. |  |
+| `:reporter:period` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('reported',)` | The period when the hardware existed, according to the reporter. | virts: `(('created', ('time', {}), {'doc': 'The starting time of the interval.'}), ('removed', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
+| `:reporter:deprecated` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The time when the reporter retired the hardware. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
+| `:reporter:supersedes` | array of [`it:hardware`](datamodel_types.md#dm-type-it-hardware) | An array of hardware nodes which are superseded by this hardware. |  |
+| `:reporter:updated` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The time when the hardware was last updated. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
+| `:reporter:published` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The time when the reporter published the hardware. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The hardware was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
-| `:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('base:name',)` | The name of the hardware. |  |
 | `:model` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('biz:model',)` | The model number or name of the hardware. |  |
+
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
 
 **Target Edges:**
 
@@ -15638,6 +18041,8 @@ The base type for the form can be found at [`it:hardware`](datamodel_types.md#dm
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -15647,10 +18052,18 @@ The base type for the form can be found at [`it:hardware`](datamodel_types.md#dm
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -15743,12 +18156,24 @@ The base type for the form can be found at [`it:host`](datamodel_types.md#dm-typ
 | `:creator` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The primary actor which created the host. |  |
 | `:creator:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the primary actor which created the host. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `biz:product` | `-(has)>` | `meta:havable` | The product includes the item. |
+| `econ:purchase` | `-(purchased)>` | `meta:havable` | The purchase was used to acquire the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:actor` | `-(targeted)>` | `risk:targetable` | The actor targets based on the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -15757,10 +18182,15 @@ The base type for the form can be found at [`it:host`](datamodel_types.md#dm-typ
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -15950,6 +18380,14 @@ The base type for the form can be found at [`it:host:hosted:url`](datamodel_type
 | `:url` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:url',)` | URL available on the host. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The host at this URL was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -15964,10 +18402,15 @@ The base type for the form can be found at [`it:host:hosted:url`](datamodel_type
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -16003,6 +18446,15 @@ The base type for the form can be found at [`it:host:login`](datamodel_types.md#
 | `:server:exe` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The server executable which received the host login. |  |
 | `:sandbox:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The initial sample given to a sandbox environment to analyze. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `inet:proto:link` | `-(shows)>` | `risk:vulnerable` | The network activity shows that the vulnerability was present. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -16014,6 +18466,7 @@ The base type for the form can be found at [`it:host:login`](datamodel_types.md#
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -16136,6 +18589,14 @@ The base type for the form can be found at [`it:host:session`](datamodel_types.m
 | `:period` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('activity',)` | The period over which the host login session occurred. | virts: `(('began', ('time', {}), {'doc': 'The starting time of the interval.'}), ('ended', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this host login session. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -16147,6 +18608,7 @@ The base type for the form can be found at [`it:host:session`](datamodel_types.m
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -16203,6 +18665,14 @@ The base type for the form can be found at [`it:host:telem`](datamodel_types.md#
 | `:place:country` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('pol:country',)` | The country where the telemetry sample was located. |  |
 | `:place:country:code` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('iso:3166:alpha2',)` | The country code where the telemetry sample was located. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -16214,6 +18684,7 @@ The base type for the form can be found at [`it:host:telem`](datamodel_types.md#
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -16367,6 +18838,14 @@ The base type for the form can be found at [`it:hostname`](datamodel_types.md#dm
 |---|---|---|---|
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The hostname was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -16381,10 +18860,15 @@ The base type for the form can be found at [`it:hostname`](datamodel_types.md#dm
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -16410,6 +18894,17 @@ The base type for the form can be found at [`it:installed`](datamodel_types.md#d
 | `:actor` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The actor who performed the installation. |  |
 | `:actor:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the actor who performed the installation. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:activity` | `-(supported)>` | `entity:goal` | The activity supported the goal. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -16421,6 +18916,7 @@ The base type for the form can be found at [`it:installed`](datamodel_types.md#d
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -16470,17 +18966,19 @@ The base type for the form can be found at [`it:log:event`](datamodel_types.md#d
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -16785,6 +19283,8 @@ The base type for the form can be found at [`it:network`](datamodel_types.md#dm-
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `biz:product` | `-(has)>` | `meta:havable` | The product includes the item. |
+| `econ:purchase` | `-(purchased)>` | `meta:havable` | The purchase was used to acquire the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -16881,12 +19381,22 @@ The base type for the form can be found at [`it:nic`](datamodel_types.md#dm-type
 | `:creator` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The primary actor which created the NIC. |  |
 | `:creator:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the primary actor which created the NIC. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `biz:product` | `-(has)>` | `meta:havable` | The product includes the item. |
+| `econ:purchase` | `-(purchased)>` | `meta:havable` | The purchase was used to acquire the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -16895,10 +19405,15 @@ The base type for the form can be found at [`it:nic`](datamodel_types.md#dm-type
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -17108,22 +19623,37 @@ The base type for the form can be found at [`it:os:posix:cron`](datamodel_types.
 | `:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The cron file which contains the job definition. |  |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this cron job. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
@@ -17149,6 +19679,14 @@ The base type for the form can be found at [`it:os:windows:registry:entry`](data
 | `:value` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes', 'it:dev:int', 'it:dev:str')` | The value assigned to the name within the key. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The registry entry was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -17164,10 +19702,15 @@ The base type for the form can be found at [`it:os:windows:registry:entry`](data
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -17194,6 +19737,14 @@ An example of `it:os:windows:registry:key`:
 | `:parent` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:os:windows:registry:key',)` | The parent key. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The registry key was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -17208,10 +19759,15 @@ An example of `it:os:windows:registry:key`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -17250,19 +19806,21 @@ The base type for the form can be found at [`it:os:windows:service`](datamodel_t
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `it:os:windows:service` | `-(ledto)>` | `it:exec:proc` | The service configuration caused the process to be created. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `it:software` | `-(creates)>` | `it:os:windows:service` | The software creates the Microsoft Windows service. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -17298,22 +19856,37 @@ The base type for the form can be found at [`it:os:windows:task`](datamodel_type
 | `:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The file containing the task metadata. |  |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this task. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
@@ -17371,12 +19944,24 @@ The base type for the form can be found at [`it:physical:host`](datamodel_types.
 | `:phys:height` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('phys:distance',)` | The physical height of the host. |  |
 | `:model` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('biz:model',)` | The model number or name of the host. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `biz:product` | `-(has)>` | `meta:havable` | The product includes the item. |
+| `econ:purchase` | `-(purchased)>` | `meta:havable` | The purchase was used to acquire the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:actor` | `-(targeted)>` | `risk:targetable` | The actor targets based on the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -17385,10 +19970,16 @@ The base type for the form can be found at [`it:physical:host`](datamodel_types.
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
+| `risk:theft` | `-(stole)>` | `phys:object` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -17587,6 +20178,14 @@ An example of `it:sec:cwe`:
 | `:parents` | array of [`it:sec:cwe`](datamodel_types.md#dm-type-it-sec-cwe)<br>split: `,` | An array of ChildOf CWE Relationships. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The CWE was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -17601,10 +20200,15 @@ An example of `it:sec:cwe`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -17742,8 +20346,8 @@ The base type for the form can be found at [`it:sec:stix:indicator`](datamodel_t
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -17885,12 +20489,22 @@ The base type for the form can be found at [`it:sim:card`](datamodel_types.md#dm
 | `:creator` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The primary actor which created the SIM card. |  |
 | `:creator:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the primary actor which created the SIM card. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `biz:product` | `-(has)>` | `meta:havable` | The product includes the item. |
+| `econ:purchase` | `-(purchased)>` | `meta:havable` | The purchase was used to acquire the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -17899,10 +20513,15 @@ The base type for the form can be found at [`it:sim:card`](datamodel_types.md#dm
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -17941,12 +20560,22 @@ The base type for the form can be found at [`it:sim:slot`](datamodel_types.md#dm
 | `:creator` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The primary actor which created the SIM slot. |  |
 | `:creator:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the primary actor which created the SIM slot. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `biz:product` | `-(has)>` | `meta:havable` | The product includes the item. |
+| `econ:purchase` | `-(purchased)>` | `meta:havable` | The purchase was used to acquire the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -17955,10 +20584,15 @@ The base type for the form can be found at [`it:sim:slot`](datamodel_types.md#dm
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -17983,6 +20617,14 @@ The base type for the form can be found at [`it:softid`](datamodel_types.md#dm-t
 | `:software:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:softwarename',)` | The name of the software which issued the ID to the host. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The software identifier was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -17997,10 +20639,15 @@ The base type for the form can be found at [`it:softid`](datamodel_types.md#dm-t
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -18067,13 +20714,17 @@ The base type for the form can be found at [`it:software`](datamodel_types.md#dm
 | `it:software` | `-(uses)>` | `risk:vuln` | The software uses the vulnerability. |
 | `it:software` | `-(uses)>` | `inet:service:platform` | The software uses the platform. |
 | `it:software` | `-(uses)>` | `it:software` | The source software uses the target software. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:app:sigma:rule` | `-(detects)>` | `it:software` | The Sigma rule detects use of the software. |
 | `it:app:snort:rule` | `-(detects)>` | `it:software` | The snort rule detects use of the software. |
@@ -18083,17 +20734,25 @@ The base type for the form can be found at [`it:software`](datamodel_types.md#dm
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `it:software` | The STIX indicator detects the software. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
-| `it:software` | `-(has)>` | `it:software` | None |
-| `it:software` | `-(runson)>` | `it:software` | None |
-| `it:software` | `-(uses)>` | `it:software` | None |
+| `it:software` | `-(has)>` | `it:software` | The source software directly includes the target software. |
+| `it:software` | `-(runson)>` | `it:software` | The source software can be run within the target software. |
+| `it:software` | `-(uses)>` | `it:software` | The source software uses the target software. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -18126,6 +20785,14 @@ The base type for the form can be found at [`it:software:image`](datamodel_types
 | `:platform` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:service:platform',)` | The platform which defines the node. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The node was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -18140,10 +20807,15 @@ The base type for the form can be found at [`it:software:image`](datamodel_types
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -18444,12 +21116,24 @@ The base type for the form can be found at [`it:virtual:host`](datamodel_types.m
 | `:creator` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The primary actor which created the virtual host. |  |
 | `:creator:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the primary actor which created the virtual host. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `biz:product` | `-(has)>` | `meta:havable` | The product includes the item. |
+| `econ:purchase` | `-(purchased)>` | `meta:havable` | The purchase was used to acquire the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:actor` | `-(targeted)>` | `risk:targetable` | The actor targets based on the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -18458,10 +21142,15 @@ The base type for the form can be found at [`it:virtual:host`](datamodel_types.m
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -18504,12 +21193,22 @@ The base type for the form can be found at [`it:wifi:nic`](datamodel_types.md#dm
 | `:creator` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The primary actor which created the Wi-Fi NIC. |  |
 | `:creator:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the primary actor which created the Wi-Fi NIC. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `biz:product` | `-(has)>` | `meta:havable` | The product includes the item. |
+| `econ:purchase` | `-(purchased)>` | `meta:havable` | The purchase was used to acquire the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -18518,10 +21217,15 @@ The base type for the form can be found at [`it:wifi:nic`](datamodel_types.md#dm
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -18587,6 +21291,14 @@ The base type for the form can be found at [`lang:hashtag`](datamodel_types.md#d
 |---|---|---|---|
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The hashtag was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -18601,10 +21313,15 @@ The base type for the form can be found at [`lang:hashtag`](datamodel_types.md#d
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -18672,6 +21389,7 @@ The base type for the form can be found at [`lang:language`](datamodel_types.md#
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:studied` | `-(included)>` | `edu:learnable` | The target node was included by the actor as part of their studies. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -18838,6 +21556,8 @@ The base type for the form can be found at [`mat:item`](datamodel_types.md#dm-ty
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `biz:product` | `-(has)>` | `meta:havable` | The product includes the item. |
+| `econ:purchase` | `-(purchased)>` | `meta:havable` | The purchase was used to acquire the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -18850,6 +21570,7 @@ The base type for the form can be found at [`mat:item`](datamodel_types.md#dm-ty
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `phys:object` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -18956,6 +21677,14 @@ The base type for the form can be found at [`meta:activity`](datamodel_types.md#
 | `:period` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('activity',)` | The period over which the activity occurred. | virts: `(('began', ('time', {}), {'doc': 'The starting time of the interval.'}), ('ended', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this activity. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -18967,6 +21696,7 @@ The base type for the form can be found at [`meta:activity`](datamodel_types.md#
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -19088,13 +21818,17 @@ The base type for the form can be found at [`meta:algorithm`](datamodel_types.md
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `file:bytes` | `-(uses)>` | `meta:algorithm` | The file uses the algorithm. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
@@ -19104,10 +21838,18 @@ The base type for the form can be found at [`meta:algorithm`](datamodel_types.md
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -19174,6 +21916,7 @@ The base type for the form can be found at [`meta:award`](datamodel_types.md#dm-
 | `:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('base:name',)` | The name of the award. | alts: `('names',)`<br>Example: `Nobel Peace Prize` |
 | `:names` | array of [`base:name`](datamodel_types.md#dm-type-base-name) | An array of alternate names for the award. |  |
 | `:desc` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('text',)` | A description of the award. |  |
+| `:website` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:url',)` | The primary website that describes the award. |  |
 | `:period` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The period of time when the issuer gave out the award. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 | `:type` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('meta:award:type:taxonomy',)` | The type of award. | Example: `certification` |
 
@@ -19321,19 +22064,21 @@ The base type for the form can be found at [`meta:event`](datamodel_types.md#dm-
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
@@ -19426,8 +22171,8 @@ The base type for the form can be found at [`meta:feed`](datamodel_types.md#dm-t
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -19521,8 +22266,8 @@ The base type for the form can be found at [`meta:note`](datamodel_types.md#dm-t
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -19618,18 +22363,22 @@ The base type for the form can be found at [`meta:rule`](datamodel_types.md#dm-t
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
 | `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(generated)>` | `risk:alert` | The meta:rule generated the risk:alert node. |
 | `meta:rule` | `-(generated)>` | `it:log:event` | The meta:rule generated the it:log:event node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:rule` | `-(shows)>` | `ou:enacted` | The source rule shows the status of the enacted document. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -19638,10 +22387,18 @@ The base type for the form can be found at [`meta:rule`](datamodel_types.md#dm-t
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:ruleset` | `-(has)>` | `meta:rule` | The ruleset includes the rule. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -19728,8 +22485,8 @@ The base type for the form can be found at [`meta:ruleset`](datamodel_types.md#d
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -19779,8 +22536,8 @@ The base type for the form can be found at [`meta:source`](datamodel_types.md#dm
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -19860,6 +22617,7 @@ The base type for the form can be found at [`meta:story`](datamodel_types.md#dm-
 | `:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The file containing the story contents. |  |
 | `:file:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:base',)` | The name of the file containing the story contents. |  |
 | `:file:captured` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The time when the file content was captured. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
+| `:deprecated` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The time that the story was retired. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
 | `:id` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('base:id',)` | The story ID. | alts: `('ids',)` |
 | `:ids` | array of [`base:id`](datamodel_types.md#dm-type-base-id) | An array of alternate IDs for the story. |  |
 | `:url` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:url',)` | The URL where the story is available. |  |
@@ -19981,16 +22739,20 @@ The base type for the form can be found at [`meta:technique`](datamodel_types.md
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
 | `meta:technique` | `-(addresses)>` | `meta:technique` | The technique addresses the technique. |
 | `meta:technique` | `-(addresses)>` | `risk:vuln` | The technique addresses the vulnerability. |
 | `meta:technique` | `-(meets)>` | `doc:requirement` | Use of the source technique meets the target requirement. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `file:bytes` | `-(uses)>` | `meta:technique` | The source file uses the target technique. |
 | `inet:fqdn` | `-(uses)>` | `meta:technique` | The source FQDN was selected or created using the target technique. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
@@ -20008,11 +22770,19 @@ The base type for the form can be found at [`meta:technique`](datamodel_types.md
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
-| `meta:technique` | `-(addresses)>` | `meta:technique` | None |
+| `meta:technique` | `-(addresses)>` | `meta:technique` | The technique addresses the technique. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -20090,8 +22860,8 @@ The base type for the form can be found at [`meta:timeline`](datamodel_types.md#
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -20173,6 +22943,8 @@ The base type for the form can be found at [`meta:topic`](datamodel_types.md#dm-
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:actor` | `-(targeted)>` | `risk:targetable` | The actor targets based on the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -20451,6 +23223,14 @@ The base type for the form can be found at [`ou:conference`](datamodel_types.md#
 | `:period` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('activity',)` | The period over which the conference occurred. | virts: `(('began', ('time', {}), {'doc': 'The starting time of the interval.'}), ('ended', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this conference. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -20462,6 +23242,7 @@ The base type for the form can be found at [`ou:conference`](datamodel_types.md#
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -20510,6 +23291,14 @@ The base type for the form can be found at [`ou:contest`](datamodel_types.md#dm-
 | `:period` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('activity',)` | The period over which the contest occurred. | virts: `(('began', ('time', {}), {'doc': 'The starting time of the interval.'}), ('ended', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this contest. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -20521,6 +23310,7 @@ The base type for the form can be found at [`ou:contest`](datamodel_types.md#dm-
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -20696,6 +23486,15 @@ The base type for the form can be found at [`ou:enacted`](datamodel_types.md#dm-
 | `:assignee` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The actor who is assigned to complete the adoption task. |  |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this adoption task. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+| `meta:task` | `-(has)>` | `file:attachment` | The task includes the file attachment. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -20707,12 +23506,14 @@ The base type for the form can be found at [`ou:enacted`](datamodel_types.md#dm-
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:rule` | `-(shows)>` | `ou:enacted` | The source rule shows the status of the enacted document. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `proj:sprint` | `-(has)>` | `meta:task` | The task was worked on during the sprint. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
@@ -20756,6 +23557,14 @@ The base type for the form can be found at [`ou:event`](datamodel_types.md#dm-ty
 | `:period` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('activity',)` | The period over which the event occurred. | virts: `(('began', ('time', {}), {'doc': 'The starting time of the interval.'}), ('ended', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this event. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -20767,6 +23576,7 @@ The base type for the form can be found at [`ou:event`](datamodel_types.md#dm-ty
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -20846,6 +23656,14 @@ The base type for the form can be found at [`ou:id`](datamodel_types.md#dm-type-
 | `:recipient` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The entity which was issued the ID. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The ID was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -20860,10 +23678,15 @@ The base type for the form can be found at [`ou:id`](datamodel_types.md#dm-type-
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -21068,6 +23891,14 @@ The base type for the form can be found at [`ou:meeting`](datamodel_types.md#dm-
 | `:period` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('activity',)` | The period over which the meeting occurred. | virts: `(('began', ('time', {}), {'doc': 'The starting time of the interval.'}), ('ended', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this meeting. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -21079,6 +23910,7 @@ The base type for the form can be found at [`ou:meeting`](datamodel_types.md#dm-
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -21234,12 +24066,25 @@ The base type for the form can be found at [`ou:org`](datamodel_types.md#dm-type
 | `:place:country` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('pol:country',)` | The country where the organization was located. |  |
 | `:place:country:code` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('iso:3166:alpha2',)` | The country code where the organization was located. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:actor` | `-(targeted)>` | `risk:targetable` | The actor targets based on the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `biz:product` | `-(has)>` | `meta:havable` | The product includes the item. |
+| `econ:purchase` | `-(purchased)>` | `meta:havable` | The purchase was used to acquire the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:actor` | `-(targeted)>` | `risk:targetable` | The actor targets based on the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -21420,6 +24265,14 @@ The base type for the form can be found at [`ou:preso`](datamodel_types.md#dm-ty
 | `:period` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('activity',)` | The period over which the presentation occurred. | virts: `(('began', ('time', {}), {'doc': 'The starting time of the interval.'}), ('ended', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this presentation. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -21431,6 +24284,7 @@ The base type for the form can be found at [`ou:preso`](datamodel_types.md#dm-ty
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -21694,8 +24548,8 @@ The base type for the form can be found at [`plan:phase`](datamodel_types.md#dm-
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -21735,6 +24589,7 @@ The base type for the form can be found at [`plan:procedure`](datamodel_types.md
 | `:file` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The file containing the procedure contents. |  |
 | `:file:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:base',)` | The name of the file containing the procedure contents. |  |
 | `:file:captured` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The time when the file content was captured. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
+| `:deprecated` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The time that the procedure was retired. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
 | `:id` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('base:id',)` | The procedure ID. | alts: `('ids',)` |
 | `:ids` | array of [`base:id`](datamodel_types.md#dm-type-base-id) | An array of alternate IDs for the procedure. |  |
 | `:url` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:url',)` | The URL where the procedure is available. |  |
@@ -21841,8 +24696,8 @@ The base type for the form can be found at [`plan:procedure:step`](datamodel_typ
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -22017,6 +24872,17 @@ The base type for the form can be found at [`pol:candidate`](datamodel_types.md#
 | `:actor` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The actor who pursued the candidacy. |  |
 | `:actor:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the actor who pursued the candidacy. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:activity` | `-(supported)>` | `entity:goal` | The activity supported the goal. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -22028,6 +24894,7 @@ The base type for the form can be found at [`pol:candidate`](datamodel_types.md#
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -22071,6 +24938,8 @@ The base type for the form can be found at [`pol:country`](datamodel_types.md#dm
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:actor` | `-(targeted)>` | `risk:targetable` | The actor targets based on the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -22105,6 +24974,14 @@ The base type for the form can be found at [`pol:election`](datamodel_types.md#d
 | `:period` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('activity',)` | The period over which the election occurred. | virts: `(('began', ('time', {}), {'doc': 'The starting time of the interval.'}), ('ended', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this election. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -22116,6 +24993,7 @@ The base type for the form can be found at [`pol:election`](datamodel_types.md#d
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -22314,6 +25192,14 @@ The base type for the form can be found at [`pol:race`](datamodel_types.md#dm-ty
 | `:period` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('activity',)` | The period over which the political race occurred. | virts: `(('began', ('time', {}), {'doc': 'The starting time of the interval.'}), ('ended', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this political race. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -22325,6 +25211,7 @@ The base type for the form can be found at [`pol:race`](datamodel_types.md#dm-ty
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -22358,6 +25245,17 @@ The base type for the form can be found at [`pol:term`](datamodel_types.md#dm-ty
 | `:actor` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The actor who served the term. |  |
 | `:actor:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the actor who served the term. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:activity` | `-(supported)>` | `entity:goal` | The activity supported the goal. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -22369,6 +25267,7 @@ The base type for the form can be found at [`pol:term`](datamodel_types.md#dm-ty
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -22449,6 +25348,14 @@ The base type for the form can be found at [`proj:project`](datamodel_types.md#d
 | `:period` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('activity',)` | The period over which the project occurred. | virts: `(('began', ('time', {}), {'doc': 'The starting time of the interval.'}), ('ended', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this project. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -22460,6 +25367,7 @@ The base type for the form can be found at [`proj:project`](datamodel_types.md#d
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -22543,19 +25451,21 @@ The base type for the form can be found at [`proj:sprint`](datamodel_types.md#dm
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `proj:sprint` | `-(has)>` | `meta:task` | The task was worked on during the sprint. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -22599,6 +25509,15 @@ The base type for the form can be found at [`proj:ticket`](datamodel_types.md#dm
 | `:assignee` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The actor who is assigned to complete the ticket. |  |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this ticket. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+| `meta:task` | `-(has)>` | `file:attachment` | The task includes the file attachment. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -22610,11 +25529,13 @@ The base type for the form can be found at [`proj:ticket`](datamodel_types.md#dm
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `proj:sprint` | `-(has)>` | `meta:task` | The task was worked on during the sprint. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
@@ -22738,12 +25659,23 @@ The base type for the form can be found at [`ps:person`](datamodel_types.md#dm-t
 | `:place:country` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('pol:country',)` | The country where the person was located. |  |
 | `:place:country:code` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('iso:3166:alpha2',)` | The country code where the person was located. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:actor` | `-(targeted)>` | `risk:targetable` | The actor targets based on the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:actor` | `-(targeted)>` | `risk:targetable` | The actor targets based on the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -22755,6 +25687,7 @@ The base type for the form can be found at [`ps:person`](datamodel_types.md#dm-t
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:loss:life` | `-(had)>` | `entity:singular` | The loss of life included the entity. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
@@ -22783,6 +25716,7 @@ The base type for the form can be found at [`ps:skill`](datamodel_types.md#dm-ty
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:studied` | `-(included)>` | `edu:learnable` | The target node was included by the actor as part of their studies. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -22990,25 +25924,29 @@ The base type for the form can be found at [`risk:alert`](datamodel_types.md#dm-
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+| `meta:task` | `-(has)>` | `file:attachment` | The task includes the file attachment. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
 | `meta:rule` | `-(generated)>` | `risk:alert` | The meta:rule generated the risk:alert node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `proj:sprint` | `-(has)>` | `meta:task` | The task was worked on during the sprint. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
@@ -23149,19 +26087,24 @@ The base type for the form can be found at [`risk:attack`](datamodel_types.md#dm
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:activity` | `-(supported)>` | `entity:goal` | The activity supported the goal. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `risk:attack` | `-(ledto)>` | `risk:outage` | The attack led to the outage. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -23258,6 +26201,17 @@ The base type for the form can be found at [`risk:compromise`](datamodel_types.m
 | `:discoverer` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The earliest known actor which discovered the compromise. |  |
 | `:discovered` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The earliest known time when the compromise was discovered. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:activity` | `-(supported)>` | `entity:goal` | The activity supported the goal. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -23269,6 +26223,7 @@ The base type for the form can be found at [`risk:compromise`](datamodel_types.m
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -23375,6 +26330,10 @@ The base type for the form can be found at [`risk:extortion`](datamodel_types.md
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:activity` | `-(supported)>` | `entity:goal` | The activity supported the goal. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `risk:extortion` | `-(ledto)>` | `econ:payment` | The extortion led to the payment. |
 | `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
 
@@ -23382,13 +26341,14 @@ The base type for the form can be found at [`risk:extortion`](datamodel_types.md
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -23491,19 +26451,23 @@ The base type for the form can be found at [`risk:leak`](datamodel_types.md#dm-t
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -23582,19 +26546,21 @@ The base type for the form can be found at [`risk:loss:data`](datamodel_types.md
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `risk:loss:data` | `-(had)>` | `file:attachment` | The loss of data included the file. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -23630,19 +26596,21 @@ The base type for the form can be found at [`risk:loss:funds`](datamodel_types.m
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `risk:loss:funds` | `-(had)>` | `econ:payment` | The loss of funds included the payment. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -23678,19 +26646,21 @@ The base type for the form can be found at [`risk:loss:life`](datamodel_types.md
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `risk:loss:life` | `-(had)>` | `entity:singular` | The loss of life included the entity. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -23736,24 +26706,56 @@ The base type for the form can be found at [`risk:mitigation`](datamodel_types.m
 | `:reporter:published` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The time when the reporter published the mitigation. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The mitigation was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:technique` | `-(addresses)>` | `meta:technique` | The technique addresses the technique. |
+| `meta:technique` | `-(addresses)>` | `risk:vuln` | The technique addresses the vulnerability. |
+| `meta:technique` | `-(meets)>` | `doc:requirement` | Use of the source technique meets the target requirement. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
+| `file:bytes` | `-(uses)>` | `meta:technique` | The source file uses the target technique. |
+| `inet:fqdn` | `-(uses)>` | `meta:technique` | The source FQDN was selected or created using the target technique. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
+| `inet:url` | `-(uses)>` | `meta:technique` | The source URL was created using the target technique. |
+| `it:app:sigma:rule` | `-(detects)>` | `meta:technique` | The Sigma rule detects use of the technique. |
+| `it:app:snort:rule` | `-(detects)>` | `meta:technique` | The snort rule detects use of the technique. |
+| `it:app:suricata:rule` | `-(detects)>` | `meta:technique` | The suricata rule detects use of the technique. |
+| `it:app:yara:rule` | `-(detects)>` | `meta:technique` | The YARA rule detects the technique. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
+| `it:sec:stix:indicator` | `-(detects)>` | `meta:technique` | The STIX indicator detects the technique. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
+| `it:software` | `-(uses)>` | `meta:technique` | The software uses the technique. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:technique` | `-(addresses)>` | `meta:technique` | The technique addresses the technique. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -23799,19 +26801,21 @@ The base type for the form can be found at [`risk:outage`](datamodel_types.md#dm
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -23951,6 +26955,9 @@ The base type for the form can be found at [`risk:theft`](datamodel_types.md#dm-
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `risk:theft` | `-(stole)>` | `phys:object` | The target node was stolen during the theft. |
 
@@ -23958,13 +26965,14 @@ The base type for the form can be found at [`risk:theft`](datamodel_types.md#dm-
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -24040,6 +27048,16 @@ The base type for the form can be found at [`risk:threat`](datamodel_types.md#dm
 | `:place:country` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('pol:country',)` | The country where the threat was located. |  |
 | `:place:country:code` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('iso:3166:alpha2',)` | The country code where the threat was located. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:actor` | `-(targeted)>` | `risk:targetable` | The actor targets based on the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -24054,10 +27072,15 @@ The base type for the form can be found at [`risk:threat`](datamodel_types.md#dm
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -24154,12 +27177,25 @@ The base type for the form can be found at [`risk:vuln`](datamodel_types.md#dm-t
 | `:discoverer` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The earliest known actor which discovered the vulnerability. |  |
 | `:discovered` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The earliest known time when the vulnerability was discovered. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(targeted)>` | `risk:targetable` | The actor targets based on the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:app:sigma:rule` | `-(detects)>` | `risk:vuln` | The Sigma rule detects use of the vulnerability. |
 | `it:app:snort:rule` | `-(detects)>` | `risk:vuln` | The snort rule detects use of the vulnerability. |
@@ -24173,11 +27209,19 @@ The base type for the form can be found at [`risk:vuln`](datamodel_types.md#dm-t
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `meta:technique` | `-(addresses)>` | `risk:vuln` | The technique addresses the vulnerability. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -24255,6 +27299,15 @@ The base type for the form can be found at [`risk:vulnerable`](datamodel_types.m
 | `:assignee` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The actor who is assigned to complete the mitigation task. |  |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this mitigation task. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+| `meta:task` | `-(has)>` | `file:attachment` | The task includes the file attachment. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -24267,11 +27320,13 @@ The base type for the form can be found at [`risk:vulnerable`](datamodel_types.m
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `proj:sprint` | `-(has)>` | `meta:task` | The task was worked on during the sprint. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
@@ -24309,8 +27364,8 @@ The base type for the form can be found at [`sci:evidence`](datamodel_types.md#d
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -24348,6 +27403,17 @@ The base type for the form can be found at [`sci:experiment`](datamodel_types.md
 | `:actor` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The actor who carried out the action. |  |
 | `:actor:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the actor who carried out the action. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:activity` | `-(supported)>` | `entity:goal` | The activity supported the goal. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -24359,6 +27425,7 @@ The base type for the form can be found at [`sci:experiment`](datamodel_types.md
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -24523,19 +27590,23 @@ The base type for the form can be found at [`sci:observation`](datamodel_types.m
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
-| `*` | `-(linked)>` | `*` | None |
-| `*` | `-(refs)>` | `*` | None |
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -24895,6 +27966,15 @@ A Synapse user.
 The base type for the form can be found at [`syn:user`](datamodel_types.md#dm-type-syn-user).
 
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:actor` | `-(targeted)>` | `risk:targetable` | The actor targets based on the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -24941,6 +28021,14 @@ The base type for the form can be found at [`tel:call`](datamodel_types.md#dm-ty
 | `:text` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('text',)` | The text of the transcript. |  |
 | `:lang` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('lang:language',)` | The language of the transcript. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -24952,6 +28040,7 @@ The base type for the form can be found at [`tel:call`](datamodel_types.md#dm-ty
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -25125,6 +28214,14 @@ An example of `tel:mob:imei`:
 | `:serial` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('int',)` | The serial number within the IMEI. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The IMEI was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -25139,10 +28236,15 @@ An example of `tel:mob:imei`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -25170,6 +28272,14 @@ An example of `tel:mob:imid`:
 | `:imsi` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('tel:mob:imsi',)` | The IMSI for the phone subscriber. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The IMEI and IMSI was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -25184,10 +28294,15 @@ An example of `tel:mob:imid`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -25214,6 +28329,14 @@ An example of `tel:mob:imsi`:
 | `:mcc` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('tel:mob:mcc',)` | The Mobile Country Code. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The IMSI was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -25228,10 +28351,15 @@ An example of `tel:mob:imsi`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -25259,6 +28387,14 @@ An example of `tel:mob:imsiphone`:
 | `:imsi` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('tel:mob:imsi',)` | The IMSI with the assigned phone number. | Computed: `True` |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The IMSI and phone number was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -25273,10 +28409,15 @@ An example of `tel:mob:imsiphone`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -25346,6 +28487,8 @@ An example of `tel:mob:tac`:
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `biz:product` | `-(has)>` | `meta:havable` | The product includes the item. |
+| `econ:purchase` | `-(purchased)>` | `meta:havable` | The purchase was used to acquire the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -25417,12 +28560,23 @@ An example of `tel:phone`:
 | `:loc` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('loc',)` | The location associated with the number. |  |
 | `:seen` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('ival',)` | The phone number was observed during the time interval. | virts: `(('min', ('time', {}), {'doc': 'The starting time of the interval.'}), ('max', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -25431,10 +28585,18 @@ An example of `tel:phone`:
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
+| `meta:observable` | `-(resembles)>` | `meta:observable` | The source node resembles the target node. |
+| `meta:rule` | `-(detects)>` | `meta:observable` | The rule is designed to detect the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
+| `risk:extortion` | `-(leveraged)>` | `meta:observable` | The extortion event was based on attacker access to the target node. |
+| `risk:leak` | `-(leaked)>` | `meta:observable` | The leak included the disclosure of the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `meta:observable` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -25531,6 +28693,8 @@ The base type for the form can be found at [`transport:air:craft`](datamodel_typ
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `biz:product` | `-(has)>` | `meta:havable` | The product includes the item. |
+| `econ:purchase` | `-(purchased)>` | `meta:havable` | The purchase was used to acquire the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -25543,6 +28707,7 @@ The base type for the form can be found at [`transport:air:craft`](datamodel_typ
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `phys:object` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -25624,22 +28789,37 @@ The base type for the form can be found at [`transport:air:flight`](datamodel_ty
 | `:period` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('activity',)` | The period over which the flight occurred. | virts: `(('began', ('time', {}), {'doc': 'The starting time of the interval.'}), ('ended', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this flight. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
@@ -25832,6 +29012,7 @@ The base type for the form can be found at [`transport:air:telem`](datamodel_typ
 | name | type | doc | opts |
 |---|---|---|---|
 | `:flight` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('transport:air:flight',)` | The flight being measured. |  |
+| `:vehicle` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('transport:vehicle',)` | The aircraft being measured. |  |
 | `:course` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('transport:direction',)` | The direction, in degrees from true North, that the aircraft is traveling. |  |
 | `:heading` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('transport:direction',)` | The direction, in degrees from true North, that the nose of the aircraft is pointed. |  |
 | `:speed` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('velocity',)` | The ground speed of the aircraft at the time. |  |
@@ -25950,22 +29131,37 @@ The base type for the form can be found at [`transport:land:drive`](datamodel_ty
 | `:period` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('activity',)` | The period over which the drive occurred. | virts: `(('began', ('time', {}), {'doc': 'The starting time of the interval.'}), ('ended', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this drive. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
@@ -26110,6 +29306,8 @@ The base type for the form can be found at [`transport:land:vehicle`](datamodel_
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `biz:product` | `-(has)>` | `meta:havable` | The product includes the item. |
+| `econ:purchase` | `-(purchased)>` | `meta:havable` | The purchase was used to acquire the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -26122,6 +29320,7 @@ The base type for the form can be found at [`transport:land:vehicle`](datamodel_
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `phys:object` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -26197,6 +29396,17 @@ The base type for the form can be found at [`transport:occupant`](datamodel_type
 | `:actor` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('entity:actor',)` | The actor who carried out the action. |  |
 | `:actor:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('entity:name',)` | The name of the actor who carried out the action. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(targeted)>` | `risk:targetable` | The action represents the actor targeting based on the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:activity` | `-(supported)>` | `entity:goal` | The activity supported the goal. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -26208,6 +29418,7 @@ The base type for the form can be found at [`transport:occupant`](datamodel_type
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
@@ -26309,6 +29520,8 @@ The base type for the form can be found at [`transport:rail:car`](datamodel_type
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `biz:product` | `-(has)>` | `meta:havable` | The product includes the item. |
+| `econ:purchase` | `-(purchased)>` | `meta:havable` | The purchase was used to acquire the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -26321,6 +29534,7 @@ The base type for the form can be found at [`transport:rail:car`](datamodel_type
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `phys:object` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -26421,6 +29635,8 @@ The base type for the form can be found at [`transport:rail:consist`](datamodel_
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `biz:product` | `-(has)>` | `meta:havable` | The product includes the item. |
+| `econ:purchase` | `-(purchased)>` | `meta:havable` | The purchase was used to acquire the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -26433,6 +29649,7 @@ The base type for the form can be found at [`transport:rail:consist`](datamodel_
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `phys:object` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -26470,22 +29687,37 @@ The base type for the form can be found at [`transport:rail:train`](datamodel_ty
 | `:period` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('activity',)` | The period over which the train trip occurred. | virts: `(('began', ('time', {}), {'doc': 'The starting time of the interval.'}), ('ended', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this train trip. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `entity:action` | `-(used)>` | `meta:usable` | The action was taken using the target node. |
+| `entity:actor` | `-(used)>` | `meta:usable` | The actor used the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |
 | `meta:rule` | `-(matches)>` | `*` | The rule matched on the target node. |
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
+| `meta:usable` | `-(uses)>` | `meta:usable` | The source node uses the target node. |
+| `plan:phase` | `-(uses)>` | `meta:usable` | The plan phase makes use of the target node. |
+| `plan:procedure:step` | `-(uses)>` | `meta:usable` | The step in the procedure makes use of the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
@@ -26601,6 +29833,8 @@ The base type for the form can be found at [`transport:sea:vessel`](datamodel_ty
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `biz:product` | `-(has)>` | `meta:havable` | The product includes the item. |
+| `econ:purchase` | `-(purchased)>` | `meta:havable` | The purchase was used to acquire the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -26613,6 +29847,7 @@ The base type for the form can be found at [`transport:sea:vessel`](datamodel_ty
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `phys:object` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -26706,6 +29941,8 @@ The base type for the form can be found at [`transport:shipping:container`](data
 |---|---|---|---|
 | `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
 | `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `biz:product` | `-(has)>` | `meta:havable` | The product includes the item. |
+| `econ:purchase` | `-(purchased)>` | `meta:havable` | The purchase was used to acquire the target node. |
 | `inet:service:message` | `-(about)>` | `*` | The message is about the target node. |
 | `it:exec:query` | `-(found)>` | `*` | The target node was returned as a result of running the query. |
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
@@ -26718,6 +29955,7 @@ The base type for the form can be found at [`transport:shipping:container`](data
 | `meta:source` | `-(seen)>` | `*` | The meta:source observed the target node. |
 | `risk:alert` | `-(about)>` | `*` | The alert is about the target node. |
 | `risk:outage` | `-(impacted)>` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `-(stole)>` | `phys:object` | The target node was stolen during the theft. |
 | `sci:evidence` | `-(has)>` | `*` | The evidence includes observations from the target nodes. |
 | `sci:observation` | `-(has)>` | `*` | The observations are summarized from the target nodes. |
 
@@ -26749,6 +29987,14 @@ The base type for the form can be found at [`transport:stop`](datamodel_types.md
 | `:period` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('activity',)` | The period over which the stop occurred. | virts: `(('began', ('time', {}), {'doc': 'The starting time of the interval.'}), ('ended', ('time', {}), {'doc': 'The ending time of the interval.'}), ('duration', ('duration', {}), {'doc': 'The duration of the interval.'}), ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the times.'}))` |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this stop. |  |
 
+**Source Edges:**
+
+| source | verb | target | doc |
+|---|---|---|---|
+| `*` | `-(linked)>` | `*` | The source node is linked to the target node. |
+| `*` | `-(refs)>` | `*` | The source node contains a reference to the target node. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
+
 **Target Edges:**
 
 | source | verb | target | doc |
@@ -26760,6 +30006,7 @@ The base type for the form can be found at [`transport:stop`](datamodel_types.md
 | `it:log:event` | `-(about)>` | `*` | The it:log:event is about the target node. |
 | `it:sec:stix:indicator` | `-(detects)>` | `*` | The STIX indicator can detect evidence of the target node. |
 | `meta:algorithm` | `-(generated)>` | `*` | The target node was generated by the algorithm. |
+| `meta:causal` | `-(ledto)>` | `meta:causal` | The source event led to the target event. |
 | `meta:event` | `-(about)>` | `*` | The event is about the target node. |
 | `meta:feed` | `-(found)>` | `*` | The meta:feed produced the target node. |
 | `meta:note` | `-(about)>` | `*` | The meta:note is about the target node. |

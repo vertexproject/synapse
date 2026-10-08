@@ -150,6 +150,8 @@ inet:fqdn=www.google.com
         :_virustotal:reputation = 497
         :_virustotal:votes:harmless = 318
         :_virustotal:votes:malicious = 53
+        .created = 2026-10-05T18:01:19.947994Z
+        .updated = 2026-10-05T18:01:19.950008Z
         #rep.moz.500
 ```
 
@@ -311,6 +313,8 @@ syn:tag=cno.infra.dns.sink.holed
         :doc = A domain (zone) that has been sinkholed.
         :title = Sinkholed domain
         :up = cno.infra.dns.sink
+        .created = 2026-10-05T18:01:19.958143Z
+        .updated = 2026-10-05T18:01:19.958617Z
 ```
 
 The Storm query below displays the **tag** `cno.infra.dns.sink.holed` applied to the node `inet:fqdn=hugesoft.org`:
@@ -323,6 +327,8 @@ inet:fqdn=hugesoft.org
         :issuffix = false
         :iszone = true
         :zone = hugesoft.org
+        .created = 2026-10-05T18:01:19.960133Z
+        .updated = 2026-10-05T18:01:19.960941Z
         #cno.infra.dns.sink.holed
 ```
 
@@ -336,7 +342,7 @@ Synapse's data model is extensible by design, so the model can expand to encompa
 
 **The preferred method for extending the data model is for The Vertex Project to incorporate new model elements into the Synapse base model** (i.e., the existing data model / source code). This way, changes and expansions are available to **all** Synapse users (both Enterprise and open source), as opposed to organizations creating one-off modifications. We encourage community members to reach out to us to address model gaps or emergent needs.
 
-That said, users can extend the data model on their own using the [stormlibs-lib-model-ext](../stormtypes_libs.md#stormlibs-lib-model-ext) libraries (though see the caveats below).
+That said, users can extend the data model on their own using the [`$lib.model.ext`](../stormtypes_libs.md#stormlibs-lib-model-ext) libraries (though see the caveats below).
 
 You can create:
 
@@ -405,6 +411,8 @@ storm> inet:email=kilkys@yandex.ru
 inet:email=kilkys@yandex.ru
         :fqdn = yandex.ru
         :username = kilkys
+        .created = 2026-10-05T18:01:19.964436Z
+        .updated = 2026-10-05T18:01:19.964436Z
 ```
 
 <a id="node-relationship"></a>
@@ -420,6 +428,8 @@ storm> inet:dns:a=(google.com, 172.217.9.142)
 inet:dns:a=('google.com', '172.217.9.142')
         :fqdn = google.com
         :ip = 172.217.9.142
+        .created = 2026-10-05T18:01:19.967618Z
+        .updated = 2026-10-05T18:01:19.967618Z
 ```
 
 <a id="node-event"></a>
@@ -439,10 +449,14 @@ Many host- and network-based operations are **events** (e.g., `it:exec:file:add`
 storm> inet:dns:request:query:name=applemusic.itemdb.com
 inet:dns:request=87c46bee95e2e6a147241e226920c21e
         :client = tcp://199.68.196.162
+        :client.ip = 199.68.196.162
         :query:name = applemusic.itemdb.com
         :query:type = A
         :server = tcp://178.62.239.55
+        :server.ip = 178.62.239.55
         :time = 2024-09-30T16:01:27.506Z
+        .created = 2026-10-05T18:01:19.972234Z
+        .updated = 2026-10-05T18:01:19.972234Z
 ```
 
 Some network-based operations are **activities** (e.g., `inet:flow`, `inet:http:session`), as are most human occurrences (e.g., `ou:conference`, `proj:project`). For example:
@@ -452,7 +466,13 @@ storm> ou:conference:name='squeeecon 2026'
 ou:conference=782fcd10d3a0ba2a2312e3fed16d4c35
         :name = squeeecon 2026
         :period = 2026-02-18T00:00:00Z - 2026-02-23T00:00:00Z
+        :period.began = 2026-02-18T00:00:00Z
+        :period.ended = 2026-02-23T00:00:00Z
+        :period.duration = 5D 00:00:00
+        :period.precision = microsecond
         :place:country:code = cw
+        .created = 2026-10-05T18:01:19.976176Z
+        .updated = 2026-10-05T18:01:19.976565Z
 ```
 
 <a id="instance-fused"></a>

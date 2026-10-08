@@ -24,9 +24,16 @@ build-time error enforced by `synapse.lib.mddocs`. Inline code uses single backt
 the enclosed content itself contains one, as in `` ```python `` above. That rule is also a build-time
 error enforced by `synapse.lib.mddocs`.
 
+A link's visible text must be readable prose, not the raw anchor id it points at: `[stormlibs-lib-cron](x.md#stormlibs-lib-cron)`
+(or the same text in backticks) is a build-time error enforced by `synapse.lib.mddocs`, and should read
+`` [`$lib.cron`](x.md#stormlibs-lib-cron) `` instead. Only an id containing a hyphen is flagged, so a link like
+`[limit](storm_ref_cmd.md#limit)` is fine.
+
 - ` ```mdstorm ` -- run a Storm query and render its output. Recognizes `--hide-query`,
-  `--hide-tags`, `--hide-props`, `--vars`, `--opts`, `--fail`, `--hide-output`, `--hide`, and
-  `--mock-http`.
+  `--hide-tags`, `--hide-props`, `--hide-edges`, `--vars`, `--opts`, `--fail`, `--hide-output`,
+  `--hide`, `--split`, and `--mock-http`. By default the query is echoed after a `storm> ` prompt
+  in the same block as its output; `--split` instead renders the query as its own ` ```storm `
+  code block, with no prompt, followed by its output in a separate block labeled `Output:`.
 - ` ```mdstorm-setup ` -- one-time, whole-document setup: which Cortex to run against, packages/
   services to load, VCR options, and default envvars. Recognizes `--cortex`, `--vcr-opts`,
   `--envvar`, `--load-pkg`, and `--load-svc`.

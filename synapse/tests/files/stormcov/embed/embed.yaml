@@ -1,0 +1,47 @@
+# Storm embedded in yaml for the stormcov tests.
+name: foo
+commands:
+  - name: foo.bar
+    storm: |
+      $lib.print(foo)
+      if (true) {
+          [ inet:fqdn=vertex.link ]
+      }
+  - name: foo.baz
+    query: "inet:fqdn=vertex.link | limit 1"
+  - name: folded
+    query: >
+      inet:fqdn
+      | limit 1
+  - name: subs
+    storm: |
+      $a = ${
+          [ inet:fqdn=sub.link ]
+      }
+      $b = ${
+          [ inet:fqdn=sub.link ]
+      }
+      tee $a $b
+optic:
+  workflows:
+    - actions:
+        - type: storm
+          opts:
+            query: |
+              [ inet:fqdn=wf.link ]
+        - type: set
+          value: |
+            inet:fqdn=vertex.link
+  onload: &onl
+    - type: sendfocus
+  again: *onl
+anchored: &q
+  query: |
+    $lib.print(anchored)
+alias: *q
+number:
+  query: 1
+nocov:
+  query: |
+    [ inet:fqdn=nocov.link ] // pragma: no cover
+    $lib.print(nocov)

@@ -45,6 +45,9 @@ class XmlElement(s_stormtypes.Prim):
             'attrs': elem.attrib,
         })
 
+    async def stormrepr(self):
+        return f'{self._storm_typename}: {self.elem.tag}'
+
     async def iter(self):
         for elem in self.elem:
             yield XmlElement(self.runt, elem)

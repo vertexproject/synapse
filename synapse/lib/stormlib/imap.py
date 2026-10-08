@@ -759,6 +759,9 @@ class ImapServer(s_stormtypes.StormType):
             'markSeen': self.markSeen,
         }
 
+    async def stormrepr(self):
+        return f'{self._storm_typename}: {self.imap_cli.get("host")}:{self.imap_cli.get("port")}'
+
     async def login(self, user, passwd):
         user = await s_stormtypes.tostr(user)
         passwd = await s_stormtypes.tostr(passwd)

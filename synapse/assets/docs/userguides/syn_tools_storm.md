@@ -67,14 +67,14 @@ To view a list of available **Storm commands,** type `help` from the Storm CLI p
 
 `storm> help`
 
-> - Detailed help for any command can be viewed by entering `-h` or `--help` after the individual command.
-> - For additional detail on Storm commands, see [Storm Reference - Storm Commands](storm_ref_cmd.md#storm-ref-cmd).
+- Detailed help for any command can be viewed by entering `-h` or `--help` after the individual command.
+- For additional detail on Storm commands, see [Storm Reference - Storm Commands](storm_ref_cmd.md#storm-ref-cmd).
 
 To exit the Storm CLI, enter `!quit`:
 
 `storm> !quit`
 
-> - The `!quit` command is technically an "external" (to Storm) command, so must be preceded by the bang (exclamation point) symbol.
+- The `!quit` command is technically an "external" (to Storm) command, so must be preceded by the bang (exclamation point) symbol.
 
 ## Accessing External Commands
 

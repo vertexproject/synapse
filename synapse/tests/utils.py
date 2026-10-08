@@ -75,6 +75,7 @@ import synapse.lib.thishost as s_thishost
 import synapse.lib.version as s_version
 import synapse.lib.stormtypes as s_stormtypes
 
+import synapse.lib.crypto.rsa as s_rsa
 import synapse.lib.crypto.tinfoil as s_tinfoil
 
 import synapse.tools.storm.pkg.gen as s_genpkg
@@ -1958,6 +1959,47 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
                     self._tinFoilCopyFile(src, dst)
                     os.unlink(src)
 
+    def _decTinFoilFile(self, *names):
+        '''Return the decoded bytes of a tinfoil-encoded test file.'''
+        with open(self.getTestFilePath(*names), 'rb') as fd:
+            return _getSyntestTinfoil().dec(fd.read())
+
+    def addTestCodeCa(self, cell):
+        '''
+        Trust the static test code signing CA ( CN=test ) in the given cell's certdir.
+
+        Args:
+            cell (s_cell.Cell): The cell which verifies code signatures.
+        '''
+        cell.certdir.saveCaCertByts(self._decTinFoilFile('certdir', 'cas', 'ca.crt.tinfoil'))
+
+    def signTestPkgDef(self, pkgdef, name='codesign'):
+        '''
+        Sign a Storm package definition in place with a static test code signing identity.
+
+        The signature matches s_genpkg.signPkgDef(). The "codesign" identity chains to the
+        CA installed by addTestCodeCa(); the "untrusted" identity chains to an absent CA.
+
+        Args:
+            pkgdef (dict): The Storm package definition to sign.
+            name (str): The code signing identity to sign as.
+
+        Returns:
+            dict: The pkgdef which was signed.
+        '''
+        cert = self._decTinFoilFile('certdir', 'code', f'{name}.crt.tinfoil').decode()
+        pkey = s_rsa.PriKey.load(self._decTinFoilFile('certdir', 'code', f'{name}.key.tinfoil'), fmt='pem')
+
+        signdef = s_msgpack.deepcopy(pkgdef)
+        signdef.pop('metadata', None)
+
+        pkgdef.setdefault('metadata', {})['codesign'] = {
+            'cert': cert,
+            'sign': s_common.ehex(pkey.signitem(signdef)),
+        }
+
+        return pkgdef
+
     @contextlib.asynccontextmanager
     async def getTestAha(self, conf=None, dirn=None, ctor=None):
         '''
@@ -2638,6 +2680,23 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
 
         ft = self.sorteq if ptyp.isarray else self.eq
         ft(valu, pval, msg=msg)
+
+    def normDrift(self, text):
+        '''
+        Blank the values a rebuild is allowed to change from one run to the next
+        (sha256s, idens and timestamps), so a comparison reports real drift rather
+        than a fresh guid or build time.
+
+        Args:
+            text (str): The text to normalize.
+
+        Returns:
+            str: The text with each volatile value replaced by a placeholder.
+        '''
+        text = regex.sub(r'\b[0-9a-f]{64}\b', '<sha256>', text)
+        text = regex.sub(r'\b[0-9a-f]{32}\b', '<iden>', text)
+        text = regex.sub(r'\d{4}[-/]\d{2}[-/]\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d+)?', '<time>', text)
+        return text
 
     def eq(self, x, y, msg=None):
         '''

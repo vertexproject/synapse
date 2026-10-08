@@ -140,7 +140,7 @@ Users should keep the [Storm Operating Concepts](storm_ref_intro.md#storm-op-con
 Triggers and cron are similar in terms of how they are implemented and managed.
 
 - **Permissions.** Synapse uses permissions to determine who can create, modify, and delete triggers and cron jobs. These permissions must be explicitly granted to users and/or roles. See the [Cortex permissions](../adminguide.md#admin_cortex_perms) section of the [Synapse Admin Guide](../adminguide.md) for a list of `cron.*` and `trigger.*` permissions.
-- **Execution.** Both triggers and cron jobs execute with the permissions of a designated user associated with the individual trigger or cron job. By default, this is the user who creates the trigger or cron job. The user can be changed (e.g., for organizations that wish to use a dedicated account for automation tasks) using the `set()` method of the [stormprims-trigger-f527](../stormtypes_prims.md#stormprims-trigger-f527) or [stormprims-cronjob-f527](../stormtypes_prims.md#stormprims-cronjob-f527) primitives, respectively.
+- **Execution.** Both triggers and cron jobs execute with the permissions of a designated user associated with the individual trigger or cron job. By default, this is the user who creates the trigger or cron job. The user can be changed (e.g., for organizations that wish to use a dedicated account for automation tasks) using the `set()` method of the [`trigger`](../stormtypes_prims.md#stormprims-trigger-f527) or [`cronjob`](../stormtypes_prims.md#stormprims-cronjob-f527) primitives, respectively.
 - **Scope.** Both triggers and cron jobs run **within a specific view**; any changes made to Synapse's data by the trigger or cron job are made (written) to the topmost (writeable) layer of the view. This view-specific behavior is transparent when using a simple Synapse implementation consisting of a single Cortex with a single layer and a single view (Synapse's default configuration). Organizations using multiple views or that frequently fork views should consider the impact of your view architecture on automation deployment and behavior.
 
 > [!NOTE]
@@ -163,11 +163,11 @@ Cron in Synapse is similar to the well-known cron utility. Cron jobs execute the
 
 - **Storage.** Cron jobs are stored **globally** (within the Cortex). When **viewing** cron jobs, (e.g., with the [cron.list](storm_ref_cmd.md#storm-cron-list) command), Synapse returns all cron jobs in the Cortex, regardless of the view the `cron.list` command is executed in.
 
-- **Execution.** Cron jobs must be assigned to a specific **view** where they execute. By default, this is the view where the cron job is created. If the view that a cron job runs in is deleted, the cron job **remains** (within the Cortex) but is effectively orphaned until it is assigned to a new view (i.e., using the [stormlibs-lib-cron-mod](../stormtypes_libs.md#stormlibs-lib-cron-mod) library) or deleted if no longer needed.
+- **Execution.** Cron jobs must be assigned to a specific **view** where they execute. By default, this is the view where the cron job is created. If the view that a cron job runs in is deleted, the cron job **remains** (within the Cortex) but is effectively orphaned until it is assigned to a new view (i.e., using the [`$lib.cron.mod()`](../stormtypes_libs.md#stormlibs-lib-cron-mod) library) or deleted if no longer needed.
 
 - **Permissions.** Cron jobs execute with the privileges of a designated user (by default, the user who creates the cron job). We strongly encourage the use of least privilege; the cron job's account should have the permissions required to execute the associated Storm, but no more. One option is for organizations to create a dedicated account for use with automation in Synapse.
 
-  The owner (creator) of a cron job can be modified using the Storm [stormlibs-lib-cron-get](../stormtypes_libs.md#stormlibs-lib-cron-get) library and the `set()` method of the [stormprims-cronjob-f527](../stormtypes_prims.md#stormprims-cronjob-f527) primitive. For example:
+  The owner (creator) of a cron job can be modified using the Storm [`$lib.cron.get()`](../stormtypes_libs.md#stormlibs-lib-cron-get) library and the `set()` method of the [`cronjob`](../stormtypes_prims.md#stormprims-cronjob-f527) primitive. For example:
 
   ```text
   $mycron=$lib.cron.get(<cron_iden>) $mycron.set(creator, <new_creator_iden>)
@@ -178,7 +178,7 @@ Cron in Synapse is similar to the well-known cron utility. Cron jobs execute the
   > [!NOTE]
   > Where a user has **admin** privileges, all permissions checks are bypassed. This means that users can create and manage cron jobs in views that they fork.
 
-- **Managing Cron Jobs.** Cron jobs can be created, viewed, and managed using the various Storm [cron](storm_ref_cmd.md#storm-cron) commands, the [stormprims-cronjob-f527](../stormtypes_prims.md#stormprims-cronjob-f527) primitive, or the [stormlibs-lib-cron](../stormtypes_libs.md#stormlibs-lib-cron) libraries. In [Optic](../glossary.md#gloss-optic), cron jobs can also be created and managed using the [Admin Tool](../glossary.md#gloss-admin-tool).
+- **Managing Cron Jobs.** Cron jobs can be created, viewed, and managed using the various Storm [cron](storm_ref_cmd.md#storm-cron) commands, the [`cronjob`](../stormtypes_prims.md#stormprims-cronjob-f527) primitive, or the [`$lib.cron`](../stormtypes_libs.md#stormlibs-lib-cron) libraries. In [Optic](../glossary.md#gloss-optic), cron jobs can also be created and managed using the [Admin Tool](../glossary.md#gloss-admin-tool).
 
 <a id="auto-cron-use"></a>
 
@@ -337,7 +337,7 @@ Proper trigger execution may depend on the timing and order of events with respe
 
 #### Configuration and Management
 
-- **Storage.** Triggers are stored within a **view**. If the view that a trigger resides in is deleted, **the trigger is also deleted**. Triggers can be moved to another view using the `move()` method of the [stormprims-trigger-f527](../stormtypes_prims.md#stormprims-trigger-f527) primitive. (In [Optic](../glossary.md#gloss-optic), when using the [View Task Bar](/docs/synapse-enterprise-optic/latest/user_interface/userguides/quick_tour.md#view-task-bar) to merge a view, you are prompted to also merge any triggers in the view.)
+- **Storage.** Triggers are stored within a **view**. If the view that a trigger resides in is deleted, **the trigger is also deleted**. Triggers can be moved to another view using the `move()` method of the [`trigger`](../stormtypes_prims.md#stormprims-trigger-f527) primitive. (In [Optic](../glossary.md#gloss-optic), when using the [View Task Bar](/docs/synapse-enterprise-optic/latest/user_interface/userguides/quick_tour.md#view-task-bar) to merge a view, you are prompted to also merge any triggers in the view.)
 
   Because triggers are stored within individual views, when **viewing** triggers (e.g., with the [trigger.list](storm_ref_cmd.md#storm-trigger-list) command), Synapse returns only those triggers within the current view.
 
@@ -351,7 +351,7 @@ Proper trigger execution may depend on the timing and order of events with respe
 
 - **Permissions.** Triggers execute with the privileges of a designated user (by default, the user who creates the trigger). We strongly encourage the use of least privilege; the trigger's account should have the permissions required to execute the associated Storm, but no more. One option is for organizations to create a dedicated account for use with automation in Synapse.
 
-  The owner (user) of a trigger can be modified using the Storm [stormlibs-lib-trigger-get](../stormtypes_libs.md#stormlibs-lib-trigger-get) library and the `set()` method of the [stormprims-trigger-f527](../stormtypes_prims.md#stormprims-trigger-f527) primitive. For example:
+  The owner (user) of a trigger can be modified using the Storm [`$lib.trigger.get()`](../stormtypes_libs.md#stormlibs-lib-trigger-get) library and the `set()` method of the [`trigger`](../stormtypes_prims.md#stormprims-trigger-f527) primitive. For example:
 
   ```text
   $mytrigger=$lib.trigger.get(<trigger_iden>) $mytrigger.set(user, <new_user_iden>)
@@ -364,7 +364,7 @@ Proper trigger execution may depend on the timing and order of events with respe
   > [!NOTE]
   > Where a user has **admin** privileges, all permissions checks are bypassed. This means that users can create and manage triggers in views that they fork.
 
-- **Managing Triggers.** Triggers can be created, viewed, and managed using the various Storm [trigger](storm_ref_cmd.md#storm-trigger) commands, the [stormprims-trigger-f527](../stormtypes_prims.md#stormprims-trigger-f527) primitive, or the [stormlibs-lib-trigger](../stormtypes_libs.md#stormlibs-lib-trigger) libraries. In [Optic](../glossary.md#gloss-optic), triggers can be created and managed using the [Admin Tool](../glossary.md#gloss-admin-tool) or the VIEWS tab of the [Workspaces Tool](../glossary.md#gloss-workspaces-tool).
+- **Managing Triggers.** Triggers can be created, viewed, and managed using the various Storm [trigger](storm_ref_cmd.md#storm-trigger) commands, the [`trigger`](../stormtypes_prims.md#stormprims-trigger-f527) primitive, or the [`$lib.trigger`](../stormtypes_libs.md#stormlibs-lib-trigger) libraries. In [Optic](../glossary.md#gloss-optic), triggers can be created and managed using the [Admin Tool](../glossary.md#gloss-admin-tool) or the VIEWS tab of the [Workspaces Tool](../glossary.md#gloss-workspaces-tool).
 
 <a id="auto-trigger-use"></a>
 
@@ -434,7 +434,7 @@ Recall from the [Storm Operating Concepts](storm_ref_intro.md#storm-op-concepts)
 >
 > Executing the trigger asynchronously means that changes made by the trigger (e.g., such as data enrichment) will not be available to the user until the associated Storm finishes running. However, the user can continue working in the meantime because the Synapse interface will not block.
 >
-> To change whether or not an **existing** trigger runs asynchronously, use the Storm [stormlibs-lib-trigger-get](../stormtypes_libs.md#stormlibs-lib-trigger-get) library and the `set()` method of the [stormprims-trigger-f527](../stormtypes_prims.md#stormprims-trigger-f527) primitive. For example:
+> To change whether or not an **existing** trigger runs asynchronously, use the Storm [`$lib.trigger.get()`](../stormtypes_libs.md#stormlibs-lib-trigger-get) library and the `set()` method of the [`trigger`](../stormtypes_prims.md#stormprims-trigger-f527) primitive. For example:
 >
 > ```storm
 > $mytrigger=$lib.trigger.get(<trigger_iden>) $mytrigger.set(async, (true))
@@ -578,7 +578,7 @@ Similarly, if you execute additional Storm inline after the macro runs, that Sto
 
 ### Configuration and Management
 
-- **Storage.** Macros are stored within (global to) a Cortex. Macros are differentiated by **name** (as opposed to triggers and cron jobs, which are differentiated by a unique identifier (iden)). You can change the name of a macro using the [stormlibs-lib-macro-mod](../stormtypes_libs.md#stormlibs-lib-macro-mod) library:
+- **Storage.** Macros are stored within (global to) a Cortex. Macros are differentiated by **name** (as opposed to triggers and cron jobs, which are differentiated by a unique identifier (iden)). You can change the name of a macro using the [`$lib.macro.mod()`](../stormtypes_libs.md#stormlibs-lib-macro-mod) library:
 
   ```text
   $lib.macro.mod('my old poorly chosen macro name',({'name': 'new.name'}))
@@ -597,9 +597,9 @@ Similarly, if you execute additional Storm inline after the macro runs, that Sto
   - All users can see (read) and execute any macro. If a user attempts to execute a macro that performs actions for which the user does not have permissions, the macro will fail with an `AuthDeny` error.
 
   > [!TIP]
-  > Macro permissions can be modified / managed by using the [stormlibs-lib-macro-grant](../stormtypes_libs.md#stormlibs-lib-macro-grant) library. (In Optic, individual macro permissions can be managed through the [Storm Editor Tool](/docs/synapse-enterprise-optic/latest/user_interface/userguides/storm_editor_tool.md).) Macros support Synapse's [easy permissions](../adminguide.md#admin_bkd_easyperms) (easy perms) convention for setting simplified permissions on objects. You must be **admin** of a macro to modify its permissions. See the [Examples](storm_ref_automation.md#auto-macro-examples) section below for examples of modifying macro permissions.
+  > Macro permissions can be modified / managed by using the [`$lib.macro.grant()`](../stormtypes_libs.md#stormlibs-lib-macro-grant) library. (In Optic, individual macro permissions can be managed through the [Storm Editor Tool](/docs/synapse-enterprise-optic/latest/user_interface/userguides/storm_editor_tool.md).) Macros support Synapse's [easy permissions](../adminguide.md#admin_bkd_easyperms) (easy perms) convention for setting simplified permissions on objects. You must be **admin** of a macro to modify its permissions. See the [Examples](storm_ref_automation.md#auto-macro-examples) section below for examples of modifying macro permissions.
 
-- **Managing Macros.** Macros can be created, viewed, and managed using the various Storm [macro](storm_ref_cmd.md#storm-macro) commands or the [stormlibs-lib-macro](../stormtypes_libs.md#stormlibs-lib-macro) libraries. In [Optic](../glossary.md#gloss-optic), macros can be created and edited using the [Storm Editor Tool](/docs/synapse-enterprise-optic/latest/user_interface/userguides/storm_editor_tool.md).
+- **Managing Macros.** Macros can be created, viewed, and managed using the various Storm [macro](storm_ref_cmd.md#storm-macro) commands or the [`$lib.macro`](../stormtypes_libs.md#stormlibs-lib-macro) libraries. In [Optic](../glossary.md#gloss-optic), macros can be created and edited using the [Storm Editor Tool](/docs/synapse-enterprise-optic/latest/user_interface/userguides/storm_editor_tool.md).
 
 <a id="auto-macro-use"></a>
 
@@ -618,7 +618,7 @@ Macros are a convenient way to save and run frequently used Storm without having
 
 ### Syntax
 
-In Storm, macros are created, modified, viewed, and deleted using the Storm [macro](storm_ref_cmd.md#storm-macro) commands. Permissions for macros are managed using the [stormlibs-lib-macro-grant](../stormtypes_libs.md#stormlibs-lib-macro-grant) library.
+In Storm, macros are created, modified, viewed, and deleted using the Storm [macro](storm_ref_cmd.md#storm-macro) commands. Permissions for macros are managed using the [`$lib.macro.grant()`](../stormtypes_libs.md#stormlibs-lib-macro-grant) library.
 
 In [Optic](../glossary.md#gloss-optic), macros and their permissions can also be managed through the [Storm Editor Tool](/docs/synapse-enterprise-optic/latest/user_interface/userguides/storm_editor_tool.md).
 
@@ -759,7 +759,7 @@ Instead of running multiple Storm commands, an analyst can now run a single macr
 
 **Modify macro permissions - examples**
 
-You can modify permissions on a macro using the [stormlibs-lib-macro-grant](../stormtypes_libs.md#stormlibs-lib-macro-grant) library to grant (or revoke) access. (In [Optic](../glossary.md#gloss-optic), individual macro permissions can be managed through the [Storm Editor Tool](/docs/synapse-enterprise-optic/latest/user_interface/userguides/storm_editor_tool.md).) Use the [stormlibs-lib-auth-users-byname](../stormtypes_libs.md#stormlibs-lib-auth-users-byname) and [stormlibs-lib-auth-roles-byname](../stormtypes_libs.md#stormlibs-lib-auth-roles-byname) libraries to obtain a user or role object and retrieve the associated identifier (iden).
+You can modify permissions on a macro using the [`$lib.macro.grant()`](../stormtypes_libs.md#stormlibs-lib-macro-grant) library to grant (or revoke) access. (In [Optic](../glossary.md#gloss-optic), individual macro permissions can be managed through the [Storm Editor Tool](/docs/synapse-enterprise-optic/latest/user_interface/userguides/storm_editor_tool.md).) Use the [`$lib.auth.users.byname()`](../stormtypes_libs.md#stormlibs-lib-auth-users-byname) and [`$lib.auth.roles.byname()`](../stormtypes_libs.md#stormlibs-lib-auth-roles-byname) libraries to obtain a user or role object and retrieve the associated identifier (iden).
 
 ```mdstorm --hide
 auth.user.add 'ron the cat' --email ron@vertex.link
@@ -829,4 +829,4 @@ Dmons will have the storm variable `$auto` populated when they run. The `$auto` 
 
 ### Syntax
 
-Users can interact with dmons using the Storm [dmon](storm_ref_cmd.md#storm-dmon) commands and the [stormlibs-lib-dmon](../stormtypes_libs.md#stormlibs-lib-dmon) Storm libraries.
+Users can interact with dmons using the Storm [dmon](storm_ref_cmd.md#storm-dmon) commands and the [`$lib.dmon`](../stormtypes_libs.md#stormlibs-lib-dmon) Storm libraries.

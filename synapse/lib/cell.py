@@ -147,6 +147,18 @@ def from_leader(func):
     wrapper._from_leader = True
     return wrapper
 
+def nopoolapi(func):
+    '''
+    Decorator for CellApi methods which a cell must always serve itself.
+
+    A cell which provides a read pool hands its other CellApi methods off to a
+    read worker process. A method marked with this is never handed off: one which
+    returns a Share, reports on the cell process itself, or writes enough that
+    forwarding the writes from a worker would be slow.
+    '''
+    func._nopoolapi = True
+    return func
+
 # target size of each backup `('data', <bytes>)` message.
 BACKUP_CHUNKSIZE = 1024 * 1024
 
@@ -278,7 +290,7 @@ class CellApi(s_base.Base):
             s_exc.AuthDeny: If the permission is not allowed.
 
         '''
-        if not await self.allowed(perm):
+        if not self.user.allowed(perm):
             perm = '.'.join(perm)
             mesg = f'User must have permission {perm}'
             raise s_exc.AuthDeny(mesg=mesg, perm=perm, username=self.user.name, user=self.user.iden)
@@ -289,9 +301,11 @@ class CellApi(s_base.Base):
     def getCellIden(self):
         return self.cell.getCellIden()
 
+    @nopoolapi
     async def getCellRunId(self):
         return await self.cell.getCellRunId()
 
+    @nopoolapi
     async def isCellActive(self):
         '''
         Returns True if the cell is an active/leader cell.
@@ -402,6 +416,7 @@ class CellApi(s_base.Base):
     def getCellUser(self):
         return self.user.pack()
 
+    @nopoolapi
     async def getCellInfo(self):
         return await self.cell.getCellInfo()
 
@@ -447,21 +462,26 @@ class CellApi(s_base.Base):
         self.link.get('sess').user = user
         return True
 
+    @nopoolapi
     async def ps(self):
         return await self.cell.ps(self.user)
 
+    @nopoolapi
     async def kill(self, iden):
         return await self.cell.kill(self.user, iden)
 
+    @nopoolapi
     @adminapi()
     async def getTasks(self, *, peers=True, timeout=None):
         async for task in self.cell.getTasks(peers=peers, timeout=timeout):
             yield task
 
+    @nopoolapi
     @adminapi()
     async def getTask(self, iden, *, peers=True, timeout=None):
         return await self.cell.getTask(iden, peers=peers, timeout=timeout)
 
+    @nopoolapi
     @adminapi()
     async def killTask(self, iden, *, peers=True, timeout=None):
         return await self.cell.killTask(iden, peers=peers, timeout=timeout)
@@ -713,6 +733,7 @@ class CellApi(s_base.Base):
     async def checkUserApiKey(self, key):
         return await self.cell.checkUserApiKey(key)
 
+    @nopoolapi
     async def getHealthCheck(self):
         await self._reqUserAllowed(('health',))
         return await self.cell.getHealthCheck()
@@ -752,6 +773,15 @@ class CellApi(s_base.Base):
 
     @adminapi()
     async def getDiagInfo(self):
+        '''
+        Get diagnostic information about the Cell.
+
+        Returns:
+            dict: A dictionary with a ``slabs`` list containing a dict for each open LMDB slab. Each slab
+            dict includes the ``path``, map size settings, and a ``commitstats`` list of up to 1000
+            ``(starttime, xactopslen, delta)`` tuples for recent commits, oldest first. Times are in
+            microseconds.
+        '''
         return {
             'slabs': await s_lmdbslab.Slab.getSlabStats(),
         }
@@ -967,6 +997,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def __anit__(self, dirn, conf=None, readonly=False, parent=None):
 
         # phase 1
+        self.bootphase = s_const.BOOT_PHASE_EARLY
+
         if conf is None:
             conf = {}
 
@@ -995,6 +1027,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.activebase = None
         self.inaugural = False
         self.activecoros = {}
+        self.passivecoros = {}
         self.sockaddr = None  # Default value...
         self._localsockbound = False
         self.https_listeners = []
@@ -1213,6 +1246,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self._initAhaRegistry()
 
         # phase 2 - service storage
+        self.bootphase = s_const.BOOT_PHASE_STORAGE
         await self.initCellStorage()
         await self.initServiceStorage()
 
@@ -1228,8 +1262,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.configNexsVers()
 
         # phase 4 - service logic ( nexus-safe operations may run from here on )
+        self.bootphase = s_const.BOOT_PHASE_RUNTIME
         await self.initServiceRuntime()
+
         # phase 5 - service networking
+        self.bootphase = s_const.BOOT_PHASE_NETWORK
         await self.initServiceNetwork()
 
     def getPermDef(self, perm):
@@ -2029,6 +2066,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.nexsroot.startup()
             await self.setCellActive(active)
 
+            # the nexus phase begins once the boot role is applied. setCellActive()
+            # is a no-op when booting passive, so start any earlier passive coros.
+            self.bootphase = s_const.BOOT_PHASE_NEXUS
+            if not active:
+                self._fireCellCoros(self.passivecoros)
+
             if not self.readonly and self.minfree is not None:
                 self.schedCoro(self._runFreeSpaceLoop())
 
@@ -2765,22 +2808,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         NOTE:
             This will re-fire the coroutine if it exits and the Cell is still active.
         '''
-        if base and base.isfini:
-            raise s_exc.IsFini()
-
-        if iden is None:
-            iden = s_common.guid()
-
-        cdef = {'func': func, 'base': base}
-        self.activecoros[iden] = cdef
-
-        if base:
-            async def fini():
-                await self.delActiveCoro(iden)
-            base.onfini(fini)
+        iden = self._addCellCoro(self.activecoros, self.delActiveCoro, func, iden, base)
 
         if self.isactive:
-            self._fireActiveCoro(iden, cdef)
+            self._fireCellCoro(self.activecoros, iden)
 
         return iden
 
@@ -2795,18 +2826,77 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if cdef is None:
             return
 
-        await self._killActiveCoro(cdef)
+        await self._killCellCoro(cdef)
 
-    def _fireActiveCoros(self):
-        for iden, cdef in self.activecoros.items():
-            self._fireActiveCoro(iden, cdef)
+    def isPassiveCoro(self, iden):
+        return self.passivecoros.get(iden) is not None
 
-    def _fireActiveCoro(self, iden, cdef):
+    def addPassiveCoro(self, func, iden=None, base=None):
+        '''
+        Add a function callback to be run as a coroutine when the Cell is passive.
 
+        Args:
+            func (coroutine function): The function run as a coroutine.
+            iden (str): The iden to use for the coroutine.
+            base (Optional[Base]):  if present, this passive coro will be fini'd
+                                    when the base is fini'd
+
+        Returns:
+            str: A GUID string that identifies the coroutine for delPassiveCoro()
+
+        NOTE:
+            This will re-fire the coroutine if it exits and the Cell is still passive.
+            Passive coroutines are cancelled before any active coroutines start.
+            A coroutine added before the boot role is applied starts once it is.
+        '''
+        iden = self._addCellCoro(self.passivecoros, self.delPassiveCoro, func, iden, base)
+
+        if self.bootphase >= s_const.BOOT_PHASE_NEXUS and not self.isactive:
+            self._fireCellCoro(self.passivecoros, iden)
+
+        return iden
+
+    async def delPassiveCoro(self, iden):
+        '''
+        Remove a Passive coroutine previously added with addPassiveCoro().
+
+        Args:
+            iden (str): The iden returned by addPassiveCoro()
+        '''
+        cdef = self.passivecoros.pop(iden, None)
+        if cdef is None:
+            return
+
+        await self._killCellCoro(cdef)
+
+    def _addCellCoro(self, coros, delfunc, func, iden, base):
+
+        if base and base.isfini:
+            raise s_exc.IsFini()
+
+        if iden is None:
+            iden = s_common.guid()
+
+        coros[iden] = {'func': func, 'base': base}
+
+        if base:
+            async def fini():
+                await delfunc(iden)
+            base.onfini(fini)
+
+        return iden
+
+    def _fireCellCoros(self, coros):
+        for iden in coros.keys():
+            self._fireCellCoro(coros, iden)
+
+    def _fireCellCoro(self, coros, iden):
+
+        cdef = coros.get(iden)
         func = cdef.get('func')
 
         async def wrap():
-            while not self.isfini and self.isActiveCoro(iden):
+            while not self.isfini and coros.get(iden) is not None:
                 try:
                     await func()
                 except Exception:  # pragma no cover
@@ -2815,11 +2905,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         cdef['task'] = self.schedCoro(wrap())
 
-    async def _killActiveCoros(self):
-        coros = [self._killActiveCoro(cdef) for cdef in self.activecoros.values()]
-        await asyncio.gather(*coros, return_exceptions=True)
+    async def _killCellCoros(self, coros):
+        await asyncio.gather(*[self._killCellCoro(cdef) for cdef in coros.values()], return_exceptions=True)
 
-    async def _killActiveCoro(self, cdef):
+    async def _killCellCoro(self, cdef):
         task = cdef.pop('task', None)
         if task is not None:
             task.cancel()
@@ -2830,7 +2919,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             except asyncio.CancelledError:
                 pass
             except Exception:  # pragma: no cover
-                logger.exception(f'Error tearing down activecoro for {task}')
+                logger.exception(f'Error tearing down cell coro for {task}')
 
     async def isCellActive(self):
         return self.isactive
@@ -2843,17 +2932,22 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.isactive = active
 
         if self.isactive:
+            # passive coros are torn down before anything active starts.
+            await self._killCellCoros(self.passivecoros)
+
             self.activebase = await s_base.Base.anit()
             self.onfini(self.activebase)
-            self._fireActiveCoros()
+            self._fireCellCoros(self.activecoros)
             await self._execCellUpdates()
             await self.setNexsVers(NEXUS_VERSION)
             await self.initServiceActive()
         else:
-            await self._killActiveCoros()
+            await self._killCellCoros(self.activecoros)
             await self.activebase.fini()
             self.activebase = None
             await self.initServicePassive()
+
+            self._fireCellCoros(self.passivecoros)
 
         # wake the AHA registration loop to re-register with our updated
         # ( active/passive ) service info over the existing connection.
@@ -3570,6 +3664,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def dyniter(self, iden, todo, gatekeys=()):
 
+        s_common.deprdate('Cell.dyniter()', '2027-01-01')
+
         await self.reqGateKeys(gatekeys)
 
         item = self.dynitems.get(iden)
@@ -3583,6 +3679,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             yield item
 
     async def dyncall(self, iden, todo, gatekeys=()):
+
+        s_common.deprdate('Cell.dyncall()', '2027-01-01')
 
         await self.reqGateKeys(gatekeys)
 
@@ -4873,7 +4971,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # log warnmesg at warning level if at least PROV_FOLLOWER_WARN_TIMEOUT
         # seconds have elapsed since lastwarn, returning the new anchor time.
         now = s_common.now()
-        if now - lastwarn >= PROV_FOLLOWER_WARN_TIMEOUT * 1000:
+        if now - lastwarn >= PROV_FOLLOWER_WARN_TIMEOUT * s_const.second:
             logger.warning(warnmesg)
             return now
 

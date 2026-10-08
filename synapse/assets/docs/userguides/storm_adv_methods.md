@@ -4,13 +4,13 @@
 
 Some of Storm's [Built-In Variables](storm_adv_vars.md#vars-builtin) support **methods** used to perform various actions on the object represented by the variable.
 
-A **subset** of the built-in variables / objects that support methods, along with a few commonly used methods and examples, are listed below. For full detail, refer to the [stormtypes-prim-header](../stormtypes_prims.md#stormtypes-prim-header) technical reference.
+A **subset** of the built-in variables / objects that support methods, along with a few commonly used methods and examples, are listed below. For full detail, refer to the [Storm Types](../stormtypes_prims.md#stormtypes-prim-header) technical reference.
 
 <a id="meth-lib"></a>
 
 ## \$lib
 
-The built-in [$lib](storm_adv_vars.md#vars-global-lib) variable is used to access Storm libraries. See the [stormtypes-libs-header](../stormtypes_libs.md#stormtypes-libs-header) technical reference for additional detail on available libraries.
+The built-in [$lib](storm_adv_vars.md#vars-global-lib) variable is used to access Storm libraries. See the [Storm Libraries](../stormtypes_libs.md#stormtypes-libs-header) technical reference for additional detail on available libraries.
 
 [Optic](/docs/synapse-enterprise-optic/latest/index.md) users can use the **Library Explorer** (located in the Help Tool) to examine available libraries. Libraries are listed without their `$lib` prefix (e.g., `$lib.print()` is listed under `print(mesg)`).
 
@@ -25,7 +25,7 @@ In some instances we have included use-case examples, where the variable or meth
 
 ## \$node
 
-[$node](storm_adv_vars.md#vars-node-node) is a built-in Storm variable that references **the current node in the Storm query pipeline**. `$node` can be used as a variable on its own or with the example methods listed below. See the [stormprims-node-f527](../stormtypes_prims.md#stormprims-node-f527) section of the [stormtypes-prim-header](../stormtypes_prims.md#stormtypes-prim-header) technical documentation for a full list.
+[$node](storm_adv_vars.md#vars-node-node) is a built-in Storm variable that references **the current node in the Storm query pipeline**. `$node` can be used as a variable on its own or with the example methods listed below. See the [`node`](../stormtypes_prims.md#stormprims-node-f527) section of the [Storm Types](../stormtypes_prims.md#stormtypes-prim-header) technical documentation for a full list.
 
 > [!NOTE]
 > As the `$node` variable and related methods reference the current node in the Storm pipeline, any Storm logic referencing `$node` will fail to execute if the pipeline does not contain a node (i.e., based on previously executing Storm logic).
@@ -38,14 +38,14 @@ Print the value of `$node` for an `inet:dns:a` node:
 
 ```stormdoc
 storm> inet:dns:a=(woot.com, 54.173.9.236) $lib.print($node) | spin
-Node{(('inet:dns:a', (('inet:fqdn', 'woot.com'), ('inet:ipv4', (4, 917309932)))), {'nid': 0, 'meta': {'created': 1788964364954723, 'updated': 1788964364956136}, 'tags': {}, 'props': {'fqdn': ('woot.com', {'t': 'inet:fqdn'}), 'ip': ((4, 917309932), {'t': 'inet:ip'}), 'seen': ((1482957991000000, 1482957991001000, 1000), {'t': 'ival'})}, 'tagprops': {}, 'n1verbs': {}, 'n2verbs': {}})}
+Node{(('inet:dns:a', (('inet:fqdn', 'woot.com'), ('inet:ipv4', (4, 917309932)))), {'nid': 0, 'meta': {'created': 1791223287356602, 'updated': 1791223287399514}, 'tags': {}, 'props': {'fqdn': ('woot.com', {'t': 'inet:fqdn'}), 'ip': ((4, 917309932), {'t': 'inet:ip'}), 'seen': ((1482957991000000, 1482957991001000, 1000), {'t': 'ival'})}, 'tagprops': {}, 'n1verbs': {}, 'n2verbs': {}})}
 ```
 
 Print the value of `$node` for an `inet:fqdn` node with tags present:
 
 ```stormdoc
 storm> inet:fqdn=aunewsonline.com $lib.print($node) | spin
-Node{(('inet:fqdn', 'aunewsonline.com'), {'nid': 4, 'meta': {'created': 1788964364960640, 'updated': 1788964364962059}, 'tags': {'rep': ((None, None, None), {}), 'rep.mandiant': ((None, None, None), {}), 'rep.mandiant.apt1': ((None, None, None), {}), 'cno': ((None, None, None), {}), 'cno.infra': ((None, None, None), {}), 'cno.infra.dns': ((None, None, None), {}), 'cno.infra.dns.sink': ((None, None, None), {}), 'cno.infra.dns.sink.hole': ((None, None, None), {}), 'cno.infra.dns.sink.hole.kleissner': ((1385424000000000, 1480118400000000, 94694400000000), {})}, 'props': {'host': ('aunewsonline', {'t': 'str:lower'}), 'domain': ('com', {'t': 'inet:fqdn'}), 'issuffix': (0, {'t': 'bool'}), 'iszone': (1, {'t': 'bool'}), 'zone': ('aunewsonline.com', {'t': 'inet:fqdn'})}, 'tagprops': {}, 'n1verbs': {}, 'n2verbs': {}})}
+Node{(('inet:fqdn', 'aunewsonline.com'), {'nid': 4, 'meta': {'created': 1791223287411341, 'updated': 1791223287412730}, 'tags': {'rep': ((None, None, None), {}), 'rep.mandiant': ((None, None, None), {}), 'rep.mandiant.apt1': ((None, None, None), {}), 'cno': ((None, None, None), {}), 'cno.infra': ((None, None, None), {}), 'cno.infra.dns': ((None, None, None), {}), 'cno.infra.dns.sink': ((None, None, None), {}), 'cno.infra.dns.sink.hole': ((None, None, None), {}), 'cno.infra.dns.sink.hole.kleissner': ((1385424000000000, 1480118400000000, 94694400000000), {})}, 'props': {'host': ('aunewsonline', {'t': 'str:lower'}), 'domain': ('com', {'t': 'inet:fqdn'}), 'issuffix': (0, {'t': 'bool'}), 'iszone': (1, {'t': 'bool'}), 'zone': ('aunewsonline.com', {'t': 'inet:fqdn'})}, 'tagprops': {}, 'n1verbs': {}, 'n2verbs': {}})}
 ```
 
 > [!NOTE]
@@ -61,12 +61,18 @@ inet:whois:record=cba505c601a201eec02bebde19c031d5
         :created = 2024-03-27T03:00:00Z
         :fqdn = example.com
         :nameservers = ['ns1.example.com']
+        :nameservers.size = 1
         :updated = 2026-03-22T11:37:00Z
+        .created = 2026-10-05T18:01:27.417876Z
+        .updated = 2026-10-05T18:01:27.423625Z
 inet:whois:record=c7b669878864e9f66b2034e7c3cd3165
         :created = 2024-03-27T03:00:00Z
         :fqdn = example.com
         :nameservers = ['ns1.example.com']
+        :nameservers.size = 1
         :updated = 2024-09-18T22:46:00Z
+        .created = 2026-10-05T18:01:27.418522Z
+        .updated = 2026-10-05T18:01:27.423928Z
 ```
 
 In the example above, the [$node.value](storm_adv_methods.md#meth-node-value) method could have been used instead of `$node` to set the `:nameservers` property of the `inet:whois:record` nodes. In this case, the node constructor knows to use the primary property value from the `inet:fqdn` node to set the value.
@@ -78,10 +84,14 @@ storm> risk:threat:name='sparkling unicorn' $actor=$node [ ( risk:compromise=( {
 risk:threat=814fdc1e8fe2635386e776a372bb7ae2
         :name = sparkling unicorn
         :reporter:name = vertex
+        .created = 2026-10-05T18:01:27.425574Z
+        .updated = 2026-10-05T18:01:27.425574Z
 risk:compromise=0ba9429212d4740a132fb542aa210092
         :actor = 814fdc1e8fe2635386e776a372bb7ae2
         :name = very bad compromise
         :reporter:name = vertex
+        .created = 2026-10-05T18:01:27.429233Z
+        .updated = 2026-10-05T18:01:27.429446Z
 ```
 
 In the example above, `:actor` is a property that accepts multiple types (e.g., any form that implements the `entity:actor` interface). To ensure the property is set to correctly, Synapse needs to know both the value **and** type (form), for the property. Both are obtained from the full `$node` object.
@@ -253,7 +263,7 @@ Print the repr of the `.created` meta property of an `inet:dns:a` node:
 
 ```stormdoc
 storm> inet:dns:a=(woot.com, 54.173.9.236) $lib.print($node.repr('.created')) | spin
-2026-09-09T14:32:44.954723Z
+2026-10-05T18:01:27.356602Z
 ```
 
 <a id="meth-node-tags"></a>
@@ -338,7 +348,7 @@ storm> inet:dns:a=(woot.com, 54.173.9.236) $lib.print($node.value) | spin
 
 [$path](storm_adv_vars.md#vars-node-path) is a built-in Storm variable that **references the path of a node as it travels through the pipeline of a Storm query.**
 
-The `$path` variable is generally not used on its own, but in conjunction with its methods. See the [stormprims-node-path-f527](../stormtypes_prims.md#stormprims-node-path-f527) section of the [stormtypes-prim-header](../stormtypes_prims.md#stormtypes-prim-header) technical documentation for a full list.
+The `$path` variable is generally not used on its own, but in conjunction with its methods. See the [`node:path`](../stormtypes_prims.md#stormprims-node-path-f527) section of the [Storm Types](../stormtypes_prims.md#stormtypes-prim-header) technical documentation for a full list.
 
 <a id="meth-path-links"></a>
 
@@ -358,6 +368,8 @@ storm> inet:fqdn=aunewsonline.com -> inet:dns:a +:ip=67.215.66.149 -> inet:ip $l
 inet:ip=67.215.66.149
         :type = unicast
         :version = 4
+        .created = 2026-10-05T18:01:27.469678Z
+        .updated = 2026-10-05T18:01:27.469678Z
 ```
 
 The example above returns the node ids of the original `inet:fqdn` node and the `inet:dns:a` node with the specified IP, along with information about the pivot performed that linked the nodes.
@@ -370,14 +382,20 @@ storm> inet:fqdn=aunewsonline.com -> inet:dns:a -> inet:ip $lib.print($path.link
 inet:ip=67.215.66.149
         :type = unicast
         :version = 4
+        .created = 2026-10-05T18:01:27.469678Z
+        .updated = 2026-10-05T18:01:27.469678Z
 [(4, {'type': 'prop', 'prop': 'fqdn', 'reverse': True}), (50, {'type': 'prop', 'prop': 'ip'})]
 inet:ip=184.168.221.92
         :type = unicast
         :version = 4
+        .created = 2026-10-05T18:01:27.470261Z
+        .updated = 2026-10-05T18:01:27.470261Z
 [(4, {'type': 'prop', 'prop': 'fqdn', 'reverse': True}), (52, {'type': 'prop', 'prop': 'ip'})]
 inet:ip=104.239.213.7
         :type = unicast
         :version = 4
+        .created = 2026-10-05T18:01:27.470768Z
+        .updated = 2026-10-05T18:01:27.470768Z
 ```
 
 In the example above, the FQDN has three DNS A records, thus there are three different paths that the original node takes through the query.

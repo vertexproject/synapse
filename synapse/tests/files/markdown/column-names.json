@@ -1,0 +1,80 @@
+[
+    {
+        "name": "a form column is headed by the row form",
+        "form": "inet:fqdn",
+        "column": {"type": "form"},
+        "title": "inet:fqdn"
+    },
+    {
+        "name": "a prop keeps its leading colon",
+        "form": "inet:fqdn",
+        "column": {"type": "prop", "prop": "host"},
+        "title": ":host"
+    },
+    {
+        "name": "a virt of the row form leads with a dot",
+        "form": "inet:server",
+        "column": {"type": "virt", "virt": "port"},
+        "title": ".port"
+    },
+    {
+        "name": "a metadata property leads with a dot",
+        "form": "inet:fqdn",
+        "column": {"type": "meta", "meta": "created"},
+        "title": ".created"
+    },
+    {
+        "name": "a tag column names the tag",
+        "form": "inet:fqdn",
+        "column": {"type": "tag", "tag": "aka.apt1"},
+        "title": "#aka.apt1"
+    },
+    {
+        "name": "a tag column says which bound only when it picks one",
+        "form": "inet:fqdn",
+        "column": {"type": "tag", "tag": "aka.apt1", "index": 0},
+        "title": "#(aka.apt1).min"
+    },
+    {
+        "name": "a tag column picking the end bound",
+        "form": "inet:fqdn",
+        "column": {"type": "tag", "tag": "aka.apt1", "index": 1},
+        "title": "#(aka.apt1).max"
+    },
+    {
+        "name": "a tagglob names the glob",
+        "form": "inet:fqdn",
+        "column": {"type": "tagglob", "tagglob": "cno.**"},
+        "title": "#cno.**"
+    },
+    {
+        "name": "an embed reads as the prop path it is",
+        "form": "inet:fqdn",
+        "column": {"type": "embed", "embed": "org::name"},
+        "title": ":org::name"
+    },
+    {
+        "name": "a pathvar leads with a dollar",
+        "form": "inet:fqdn",
+        "column": {"type": "pathvar", "pathvar": "why"},
+        "title": "$why"
+    },
+    {
+        "name": "an edge carries its target",
+        "form": "inet:fqdn",
+        "column": {"type": "edge", "edge": ["refs", "inet:fqdn"]},
+        "title": "-(refs)> inet:fqdn"
+    },
+    {
+        "name": "an edge walked in reverse",
+        "form": "inet:fqdn",
+        "column": {"type": "edge", "edge": ["refs", "inet:fqdn", true]},
+        "title": "<(refs)- inet:fqdn"
+    },
+    {
+        "name": "an edge with no target counts every node",
+        "form": "inet:fqdn",
+        "column": {"type": "edge", "edge": ["refs"]},
+        "title": "-(refs)> *"
+    }
+]

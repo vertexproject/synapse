@@ -132,6 +132,9 @@ class SmtpMessage(s_stormtypes.StormType):
             'sender': self._setSenderEmail,
         })
 
+    async def stormrepr(self):
+        return f'{self._storm_typename}: sender={self.sender}'
+
     async def _setSenderEmail(self, valu):
         self.sender = await s_stormtypes.tostr(valu)
 

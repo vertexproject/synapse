@@ -216,6 +216,25 @@ class CellWithoutType(s_cell.Cell):
 
 class CellTest(s_t_utils.SynTest):
 
+    async def test_cell_nopoolapi(self):
+
+        async def meth(self):
+            return 1
+
+        self.true(s_cell.nopoolapi(meth) is meth)
+        self.true(meth._nopoolapi)
+
+        names = ('getCellInfo', 'getCellRunId', 'isCellActive', 'getHealthCheck', 'ps', 'kill',
+                 'getTasks', 'getTask', 'killTask')
+        for name in names:
+            self.true(getattr(s_cell.CellApi, name)._nopoolapi, msg=name)
+
+        for name in ('put', 'puts', 'del_', 'dels', 'wget', 'upload'):
+            self.true(getattr(s_axon.AxonApi, name)._nopoolapi, msg=name)
+
+        self.true(s_cortex.CoreApi.getAxonUpload._nopoolapi)
+        self.false(hasattr(s_axon.AxonApi.get, '_nopoolapi'))
+
     async def test_cell_fini_dmon_before_slab(self):
 
         # the dmon-drain fini is registered before _initCellSlab() boots the
@@ -282,7 +301,9 @@ class CellTest(s_t_utils.SynTest):
              mock.patch.object(s_provision, 'MCAST_ATTEMPTS', 1):
 
             # an error response from AHA is raised as the named exception
-            async with await s_provision.ProvCast.anit(key, port, group=group, join=True) as srv:
+            async with await s_provision.ProvCast.anit(key, port, group=group, listen=True) as srv:
+                # fake leader: join the group so it receives the discovery request.
+                srv.joinGroup()
 
                 async def serve():
                     while not srv.isfini:
@@ -310,7 +331,9 @@ class CellTest(s_t_utils.SynTest):
 
             # SYN_PROVISION_HOST unicasts the request directly to a specific AHA host;
             # an unknown error name falls back to a generic SynErr
-            async with await s_provision.ProvCast.anit(key, port, group=group, join=True) as srv:
+            async with await s_provision.ProvCast.anit(key, port, group=group, listen=True) as srv:
+                # fake leader: join the group so it receives the discovery request.
+                srv.joinGroup()
 
                 requests = []
 
@@ -370,6 +393,20 @@ class CellTest(s_t_utils.SynTest):
                         await stream.expect('waiting for the AHA service to appear')
                 self.eq('ssl://aha/deadb33f', cell.conf.get('aha:provision'))
                 self.gt(state['calls'], 1)
+
+    async def test_cell_log_follower_wait(self):
+        # PROV_FOLLOWER_WARN_TIMEOUT is in seconds; the anchor is a s_common.now() microsecond tick
+        async with self.getTestCell() as cell:
+
+            # a warning within the timeout is suppressed and the anchor is unchanged
+            lastwarn = s_common.now() - 10 * s_const.second
+            self.eq(lastwarn, cell._logFollowerWait(lastwarn, 'waiting'))
+
+            # once the timeout has elapsed the warning is logged and the anchor advances
+            lastwarn = s_common.now() - (s_cell.PROV_FOLLOWER_WARN_TIMEOUT + 1) * s_const.second
+            with self.getLoggerStream('synapse.lib.cell') as stream:
+                self.gt(cell._logFollowerWait(lastwarn, 'waiting'), lastwarn)
+                await stream.expect('waiting')
 
     async def test_cell_req_aha_servers(self):
 
@@ -1253,7 +1290,12 @@ class CellTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
             async with await EchoAuth.anit(dirn) as cell, cell.getLocalProxy() as prox:
                 cell.dynitems['self'] = cell
-                self.eq(42, await prox.dyncall('self', s_common.todo('answer')))
+
+                s_common.deprdate.cache_clear()
+                with self.getLoggerStream('synapse.common') as stream:
+                    self.eq(42, await prox.dyncall('self', s_common.todo('answer')))
+                    await stream.expect('Cell.dyncall() is deprecated and will be removed on 2027-01-01.')
+
                 await self.asyncraises(s_exc.BadArg, prox.dyncall('self', s_common.todo('badanswer')))
 
                 self.eq([1, 2], await s_t_utils.alist(await prox.dyncall('self', s_common.todo('stream'))))
@@ -1263,8 +1305,10 @@ class CellTest(s_t_utils.SynTest):
 
                 items = []
                 todo = s_common.todo('stream', doraise=False)
-                async for item in prox.dyniter('self', todo):
-                    items.append(item)
+                with self.getLoggerStream('synapse.common') as stream:
+                    async for item in prox.dyniter('self', todo):
+                        items.append(item)
+                    await stream.expect('Cell.dyniter() is deprecated and will be removed on 2027-01-01.')
                 self.eq(items, [1, 2])
 
                 # Sad path
@@ -1651,6 +1695,26 @@ class CellTest(s_t_utils.SynTest):
                 self.nn(slab['readahead'])
                 self.nn(slab['recovering'])
                 self.nn(slab['commitpulse'])
+                self.nn(slab['commitstats'])
+
+            path = s_common.genpath(core.dirn, 'slabs', 'diagtest.lmdb')
+            async with await s_lmdbslab.Slab.anit(path) as testslab:
+                db = testslab.initdb('test')
+                testslab.forcecommit()
+
+                for i in range(5):
+                    await testslab.put(s_common.int64en(i), b'asdf', db=db)
+
+                testslab.forcecommit()
+
+                async with core.getLocalProxy() as proxy:
+                    diag = await proxy.getDiagInfo()
+
+                stats = [s for s in diag['slabs'] if s['path'] == str(testslab.path)][0]['commitstats']
+                starttime, xactopslen, delta = stats[-1]
+                self.eq(5, xactopslen)
+                self.lt(0, starttime)
+                self.le(0, delta)
 
     async def test_cell_system_info(self):
         with self.getTestDir() as dirn:
@@ -2164,6 +2228,184 @@ class CellTest(s_t_utils.SynTest):
             await step()
 
             self.none(await cell.delActiveCoro(s_common.guid()))
+
+            # passive coros run only while the cell is passive
+            order = []
+            exits = []
+            pevt0 = asyncio.Event()
+            pevt1 = asyncio.Event()
+
+            async def pcoro():
+                order.append('passive')
+                try:
+                    # exit once to confirm a passive coro is re-fired
+                    if not exits:
+                        exits.append(True)
+                        return
+
+                    pevt0.set()
+                    await pevt1.wait()
+
+                except asyncio.CancelledError:
+                    order.append('passive:cancel')
+                    raise
+
+            aevt = asyncio.Event()
+
+            async def acoro():
+                order.append('active')
+                aevt.set()
+                await asyncio.Event().wait()
+
+            piden = cell.addPassiveCoro(pcoro)
+            self.true(cell.isPassiveCoro(piden))
+            self.none(cell.passivecoros[piden].get('task'))
+            self.eq([], order)
+
+            self.none(await cell.delPassiveCoro('notacoro'))
+
+            # Make sure a fini'd base takes its passivecoros with it
+            async with await s_base.Base.anit() as base:
+                cell.addPassiveCoro(pcoro, base=base)
+                self.len(2, cell.passivecoros)
+
+            self.len(1, cell.passivecoros)
+
+            self.raises(s_exc.IsFini, cell.addPassiveCoro, pcoro, base=base)
+
+            # demotion fires the passive coro, which is re-fired after it exits
+            await cell.setCellActive(False)
+            await asyncio.wait_for(pevt0.wait(), timeout=2)
+            self.eq(['passive', 'passive'], order)
+
+            # promotion cancels passive coros before the active coros start
+            aiden = cell.addActiveCoro(acoro)
+            order.clear()
+            pevt0.clear()
+
+            await cell.setCellActive(True)
+            self.none(cell.passivecoros[piden].get('task'))
+
+            await asyncio.wait_for(aevt.wait(), timeout=2)
+            self.eq(['passive:cancel', 'active'], order)
+
+            # demotion re-fires the passive coro once the active coros are cancelled
+            order.clear()
+            await cell.setCellActive(False)
+            self.none(cell.activecoros[aiden].get('task'))
+
+            await asyncio.wait_for(pevt0.wait(), timeout=2)
+            self.eq(['passive'], order)
+
+            # a passive coro added while passive starts immediately
+            pevt2 = asyncio.Event()
+
+            async def pcoro2():
+                pevt2.set()
+                await asyncio.Event().wait()
+
+            piden2 = cell.addPassiveCoro(pcoro2)
+            await asyncio.wait_for(pevt2.wait(), timeout=2)
+
+            # removing a running passive coro cancels it
+            task = cell.passivecoros[piden2].get('task')
+            await cell.delPassiveCoro(piden2)
+            self.false(cell.isPassiveCoro(piden2))
+            self.true(task.done())
+
+            await cell.delPassiveCoro(piden)
+            self.eq(['passive', 'passive:cancel'], order)
+
+            await cell.delActiveCoro(aiden)
+            await cell.setCellActive(True)
+
+            # fini of a passive cell cancels its running passive coros
+            await cell.setCellActive(False)
+
+            pevt3 = asyncio.Event()
+            pcanc = asyncio.Event()
+
+            async def pcoro3():
+                pevt3.set()
+                try:
+                    await asyncio.Event().wait()
+                except asyncio.CancelledError:
+                    pcanc.set()
+                    raise
+
+            piden3 = cell.addPassiveCoro(pcoro3)
+            await asyncio.wait_for(pevt3.wait(), timeout=2)
+
+            task = cell.passivecoros[piden3].get('task')
+            self.false(task.done())
+
+            await cell.fini()
+            self.true(pcanc.is_set())
+            self.true(task.done())
+
+        # a passive coro added before the boot role is set waits for it
+        bootruns = []
+        bootadds = []
+        phases = []
+        bootevt = asyncio.Event()
+
+        class BootCell(s_cell.Cell):
+
+            async def initServiceStorage(self):
+
+                async def bootcoro():
+                    bootruns.append(self.readonly)
+                    bootevt.set()
+                    await asyncio.Event().wait()
+
+                phases.append(self.bootphase)
+                self.piden = self.addPassiveCoro(bootcoro)
+                bootadds.append(self.passivecoros[self.piden].get('task'))
+
+            async def initNexusSubsystem(self):
+                phases.append(self.bootphase)
+                await super().initNexusSubsystem()
+                phases.append(self.bootphase)
+
+            async def initServiceRuntime(self):
+                phases.append(self.bootphase)
+                await super().initServiceRuntime()
+
+            async def initServiceNetwork(self):
+                phases.append(self.bootphase)
+                await super().initServiceNetwork()
+
+        bootphases = [
+            s_const.BOOT_PHASE_STORAGE,
+            s_const.BOOT_PHASE_STORAGE,
+            s_const.BOOT_PHASE_NEXUS,
+            s_const.BOOT_PHASE_RUNTIME,
+            s_const.BOOT_PHASE_NETWORK,
+        ]
+
+        with self.getTestDir() as dirn:
+
+            # booting active never starts it
+            async with await BootCell.anit(dirn) as cell:
+                self.eq(s_const.BOOT_PHASE_NETWORK, cell.bootphase)
+                self.true(cell.isactive)
+                self.none(cell.passivecoros[cell.piden].get('task'))
+
+            self.eq(bootphases, phases)
+            self.eq([None], bootadds)
+            self.eq([], bootruns)
+
+            # booting passive starts it once the boot role is set
+            phases.clear()
+            async with await BootCell.anit(dirn, readonly=True) as cell:
+                self.eq(s_const.BOOT_PHASE_NETWORK, cell.bootphase)
+                self.false(cell.isactive)
+                self.nn(cell.passivecoros[cell.piden].get('task'))
+
+                await asyncio.wait_for(bootevt.wait(), timeout=2)
+                self.eq(bootphases, phases)
+                self.eq([None, None], bootadds)
+                self.eq([True], bootruns)
 
     async def test_advisory_locking(self):
         # fcntl not supported on windows

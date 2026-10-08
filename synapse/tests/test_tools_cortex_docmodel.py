@@ -230,6 +230,24 @@ class DocModelTest(s_t_utils.SynTest):
         if '## Source Edges' in text or '## Target Edges' in text:
             self.isin('`-(', text)
 
+    async def test_tools_docmodel_form_iface_and_parent_edges(self):
+
+        outp = self.getTestOutp()
+        # it:host implements risk:targetable, which is the n2 of entity:actor -(targeted)>
+        self.eq(await s_docmodel.main(['--find', 'it:host'], outp=outp), 0)
+        text = str(outp)
+        self.isin('## Target Edges', text)
+        # edges declared against risk:targetable keep showing the edge as
+        # declared, not substituted with the matched form name
+        self.isin('| `entity:actor` | `-(targeted)>` | `risk:targetable` |', text)
+
+        outp = self.getTestOutp()
+        # it:app:yara:rule is a child of meta:rule, which is the n1 of meta:rule -(detects)>
+        self.eq(await s_docmodel.main(['--find', 'it:app:yara:rule'], outp=outp), 0)
+        text = str(outp)
+        self.isin('## Source Edges', text)
+        self.isin('| `meta:rule` | `-(detects)>` | `meta:observable` |', text)
+
     async def test_tools_docmodel_interface(self):
 
         outp = self.getTestOutp()
@@ -398,6 +416,31 @@ class DocModelTest(s_t_utils.SynTest):
         # src==formname, dst==formname -> both source and target (lines 223-224)
         self.isin(self_src_self_dst, result.get('source', []))
         self.isin(self_src_self_dst, result.get('target', []))
+
+    def test_tools_docmodel_lookupedges_names_unit(self):
+        # an edge declared against an interface or ancestor form matches when
+        # its name is in the given names set, not just the form name itself.
+        lookup = s_docmodel._lookupEdgesForForm
+
+        iface_edge = ((None, 'refs', 'test:iface'), {'doc': ''})
+        parent_edge = (('test:parent', 'refs', None), {'doc': ''})
+        unrelated = (('other:form', 'refs', 'other:form2'), {'doc': ''})
+
+        edges = [iface_edge, parent_edge, unrelated]
+        names = {'test:form', 'test:parent', 'test:iface'}
+
+        result = lookup('test:form', edges, names=names)
+
+        self.isin(iface_edge, result.get('target', []))
+        self.isin(parent_edge, result.get('source', []))
+        self.notin(unrelated, result.get('source', []))
+        self.notin(unrelated, result.get('target', []))
+
+        # names defaults to {formname} when omitted -- src/dst are then never
+        # in names, so the interface/parent-form edges no longer resolve to target
+        default = lookup('test:form', edges)
+        self.notin(iface_edge, default.get('target', []))
+        self.notin(parent_edge, default.get('source', []))
 
     async def test_tools_docmodel_form_array_props(self):
         # edu:class has array-type properties (e.g. :assistants, :names),

@@ -275,8 +275,19 @@ def _genTypeDetail(typename, types, interfaces, seen=None):
 
     return lines
 
-def _lookupEdgesForForm(formname, edges):
-    '''Classify edges as source, target, or generic relative to a form.'''
+def _lookupEdgesForForm(formname, edges, names=None):
+    '''Classify edges as source, target, or generic relative to a form.
+
+    Args:
+        formname (str): The form name.
+        edges (list): The model's edge defs.
+        names (set): The set of names an edge endpoint may use to reference the form
+            (the form itself, its ancestor forms, and its interfaces). Defaults to
+            just the form name.
+    '''
+    if names is None:
+        names = {formname}
+
     retn = {}
 
     for edge in edges:
@@ -284,19 +295,19 @@ def _lookupEdgesForForm(formname, edges):
 
         if src is None and dst is None:
             retn.setdefault('generic', []).append(edge)
-        elif src is None and dst != formname:
+        elif src is None and dst not in names:
             retn.setdefault('source', []).append(edge)
-        elif src is None and dst == formname:
+        elif src is None and dst in names:
             retn.setdefault('target', []).append(edge)
-        elif src != formname and dst is None:
+        elif src not in names and dst is None:
             retn.setdefault('target', []).append(edge)
-        elif src == formname and dst is None:
+        elif src in names and dst is None:
             retn.setdefault('source', []).append(edge)
-        elif src != formname and dst == formname:
+        elif src not in names and dst in names:
             retn.setdefault('target', []).append(edge)
-        elif src == formname and dst != formname:
+        elif src in names and dst not in names:
             retn.setdefault('source', []).append(edge)
-        elif src == formname and dst == formname:
+        elif src in names and dst in names:
             retn.setdefault('source', []).append(edge)
             retn.setdefault('target', []).append(edge)
 
@@ -333,10 +344,15 @@ async def genFormMarkdown(core, formname):
         lines.append('')
 
     # Interfaces
+    edgenames = {formname}
     formtype = types.get(formname)
     if formtype is not None:
-        directifaces = [name for name, _info in formtype.get('info', {}).get('interfaces', ())]
+        typeinfo = formtype.get('info', {})
+        edgenames.update(base for base in typeinfo.get('bases', ()) if base in forms)
+
+        directifaces = [name for name, _info in typeinfo.get('interfaces', ())]
         allifaces = _resolveIfaces(directifaces, interfaces)
+        edgenames.update(allifaces)
         if allifaces:
             lines.append('## Interfaces')
             lines.append('')
@@ -372,7 +388,7 @@ async def genFormMarkdown(core, formname):
         lines.extend(_genReferencedTypesSection(nestedtypes, types, interfaces, seen={formname}))
 
     # Edges
-    formedges = _lookupEdgesForForm(formname, edges)
+    formedges = _lookupEdgesForForm(formname, edges, names=edgenames)
 
     srcedges = formedges.get('source', [])
     dstedges = formedges.get('target', [])

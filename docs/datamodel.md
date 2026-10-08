@@ -219,6 +219,7 @@ An RFP (Request for Proposal) soliciting proposals.
 | `:created` | `time` | The time that the RFP was created. |
 | `:creator` | `entity:actor` | The primary actor which created the RFP. |
 | `:creator:name` | `entity:name` | The name of the primary actor which created the RFP. |
+| `:deprecated` | `time` | The time that the RFP was retired. |
 | `:desc` | `text` | A description of the RFP. |
 | `:due:proposal` | `time` | The date/time that proposals are due. |
 | `:due:questions` | `time` | The date/time that questions are due. |
@@ -942,6 +943,7 @@ A contract between multiple entities.
 | `:created` | `time` | The time that the contract was created. |
 | `:creator` | `entity:actor` | The primary actor which created the contract. |
 | `:creator:name` | `entity:name` | The name of the primary actor which created the contract. |
+| `:deprecated` | `time` | The time that the contract was retired. |
 | `:desc` | `text` | A description of the contract. |
 | `:file` | `file:bytes` | The file containing the contract contents. |
 | `:file:captured` | `time` | The time when the file content was captured. |
@@ -990,6 +992,7 @@ Guiding principles used to reach a set of goals.
 | `:created` | `time` | The time that the policy was created. |
 | `:creator` | `entity:actor` | The primary actor which created the policy. |
 | `:creator:name` | `entity:name` | The name of the primary actor which created the policy. |
+| `:deprecated` | `time` | The time that the policy was retired. |
 | `:desc` | `text` | A description of the policy. |
 | `:file` | `file:bytes` | The file containing the policy contents. |
 | `:file:captured` | `time` | The time when the file content was captured. |
@@ -1048,6 +1051,7 @@ A report.
 | `:created` | `time` | The time that the report was created. |
 | `:creator` | `entity:actor` | The primary actor which created the report. |
 | `:creator:name` | `entity:name` | The name of the primary actor which created the report. |
+| `:deprecated` | `time` | The time that the report was retired. |
 | `:desc` | `text` | A description of the report. |
 | `:file` | `file:bytes` | The file containing the report contents. |
 | `:file:captured` | `time` | The time when the file content was captured. |
@@ -1127,6 +1131,7 @@ A CV/resume document.
 | `:created` | `time` | The time that the resume was created. |
 | `:creator` | `entity:actor` | The primary actor which created the resume. |
 | `:creator:name` | `entity:name` | The name of the primary actor which created the resume. |
+| `:deprecated` | `time` | The time that the resume was retired. |
 | `:desc` | `text` | A description of the resume. |
 | `:education` | `array of entity:studied` | Education experience described in the resume. |
 | `:file` | `file:bytes` | The file containing the resume contents. |
@@ -1177,6 +1182,7 @@ A group of requirements which define how to implement a policy or goal.
 | `:created` | `time` | The time that the standard was created. |
 | `:creator` | `entity:actor` | The primary actor which created the standard. |
 | `:creator:name` | `entity:name` | The name of the primary actor which created the standard. |
+| `:deprecated` | `time` | The time that the standard was retired. |
 | `:desc` | `text` | A description of the standard. |
 | `:file` | `file:bytes` | The file containing the standard contents. |
 | `:file:captured` | `time` | The time when the file content was captured. |
@@ -1400,6 +1406,7 @@ A financial exchange where securities are traded.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:currency` | `econ:currency` | The currency used for all transactions in the exchange. |
+| `:name` | `base:name` | The name of the exchange. |
 | `:operator` | `entity:actor` | The entity which operates the exchange. |
 | `:operator:name` | `entity:name` | The name of the entity which operates the exchange. |
 
@@ -6626,6 +6633,7 @@ A specification for a piece of IT hardware.
 |-----------|
 | `biz:manufactured` |
 | `meta:observable` |
+| `meta:reported` |
 | `meta:usable` |
 | `risk:exploitable` |
 
@@ -6633,12 +6641,24 @@ A specification for a piece of IT hardware.
 |----------|------|-----|
 | `:cpe` | `it:sec:cpe` | The NIST CPE 2.3 string specifying this hardware. |
 | `:desc` | `text` | A brief description of the hardware. |
+| `:id` | `base:id` | A unique ID given to the hardware. |
+| `:ids` | `array of base:id` | An array of alternate IDs given to the hardware. |
 | `:manufacturer` | `entity:actor` | The organization that manufactures this hardware. |
 | `:manufacturer:name` | `entity:name` | The name of the organization that manufactures this hardware. |
 | `:model` | `biz:model` | The model number or name of the hardware. |
-| `:name` | `base:name` | The name of the hardware. |
+| `:name` | `base:name` | The primary name of the hardware. |
+| `:names` | `array of base:name` | A list of alternate names for the hardware. |
 | `:parts` | `array of it:hardware` | An array of it:hardware parts included in this hardware specification. |
 | `:released` | `time` | The initial release date for this hardware. |
+| `:reporter` | `entity:actor` | The entity which reported on the hardware. |
+| `:reporter:deprecated` | `time` | The time when the reporter retired the hardware. |
+| `:reporter:name` | `entity:name` | The name of the entity which reported on the hardware. |
+| `:reporter:period` | `reported` | The period when the hardware existed, according to the reporter. |
+| `:reporter:published` | `time` | The time when the reporter published the hardware. |
+| `:reporter:supersedes` | `array of it:hardware` | An array of hardware nodes which are superseded by this hardware. |
+| `:reporter:updated` | `time` | The time when the hardware was last updated. |
+| `:reporter:url` | `inet:url` | The URL for the hardware provided by the reporter. |
+| `:resolved` | `it:hardware` | The authoritative hardware which this reporting is about. |
 | `:seen` | `ival` | The hardware was observed during the time interval. |
 | `:type` | `it:hardware:type:taxonomy` | The type of hardware. |
 | `:version` | `it:version` | Version string associated with this hardware specification. |
@@ -7989,6 +8009,7 @@ An award.
 | `:names` | `array of base:name` | An array of alternate names for the award. |
 | `:period` | `ival` | The period of time when the issuer gave out the award. |
 | `:type` | `meta:award:type:taxonomy` | The type of award. |
+| `:website` | `inet:url` | The primary website that describes the award. |
 
 ### `meta:cluster`
 
@@ -8256,6 +8277,7 @@ A story document authored in markdown.
 | `:created` | `time` | The time that the story was created. |
 | `:creator` | `entity:actor` | The primary actor which created the story. |
 | `:creator:name` | `entity:name` | The name of the primary actor which created the story. |
+| `:deprecated` | `time` | The time that the story was retired. |
 | `:desc` | `text` | A description of the story. |
 | `:file` | `file:bytes` | The file containing the story contents. |
 | `:file:captured` | `time` | The time when the file content was captured. |
@@ -9054,6 +9076,7 @@ A procedure consisting of steps.
 | `:created` | `time` | The time that the procedure was created. |
 | `:creator` | `entity:actor` | The primary actor which created the procedure. |
 | `:creator:name` | `entity:name` | The name of the primary actor which created the procedure. |
+| `:deprecated` | `time` | The time that the procedure was retired. |
 | `:desc` | `text` | A description of the procedure. |
 | `:file` | `file:bytes` | The file containing the procedure contents. |
 | `:file:captured` | `time` | The time when the file content was captured. |
@@ -10823,6 +10846,7 @@ A telemetry sample from an aircraft in transit.
 | `:place:name` | `geo:name` | The name of the place where the telemetry sample was located. |
 | `:speed` | `velocity` | The ground speed of the aircraft at the time. |
 | `:time` | `time` | The time the telemetry sample was taken. |
+| `:vehicle` | `transport:vehicle` | The aircraft being measured. |
 | `:verticalspeed` | `velocity:relative` | The relative vertical speed of the aircraft at the time. |
 
 ### `transport:cargo`
@@ -11330,6 +11354,7 @@ A stop made by a vehicle on a trip.
 | `biz:deal` | `ledto` | `econ:purchase` | The deal led to the purchase. |
 | `biz:listing` | `has` | `econ:lineitem` | The listing offers the line item. |
 | `biz:listing` | `ledto` | `econ:purchase` | The listing led to the purchase. |
+| `biz:listing` | `used` | `inet:service:platform` | The listing was posted on the platform. |
 | `biz:product` | `has` | `econ:lineitem` | The product is offered via the line item. |
 | `biz:product` | `has` | `meta:havable` | The product includes the item. |
 | `biz:rfp` | `has` | `doc:requirement` | The RFP lists the requirement. |
@@ -11624,6 +11649,7 @@ A common interface for documents.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:body` | `text` | The text of the document. |
+| `:deprecated` | `time` | The time that the document was retired. |
 | `:file` | `file:bytes` | The file containing the document contents. |
 | `:file:captured` | `time` | The time when the file content was captured. |
 | `:file:name` | `file:base` | The name of the file containing the document contents. |
@@ -12698,6 +12724,7 @@ Properties common to forms which are created on a per-source basis.
 | `entity:goal` |
 | `entity:relationship` |
 | `ind:industry` |
+| `it:hardware` |
 | `it:software` |
 | `meta:cluster` |
 | `meta:technique` |

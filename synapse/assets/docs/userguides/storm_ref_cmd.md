@@ -134,7 +134,7 @@ syn:cmd=movetag
 
 ## help
 
-The `help` command displays the list of available commands within the current instance of Synapse and a brief message describing each command. Help for individual commands is available via `<command> --help`. The `help` command can also be used to inspect information about [stormtypes-libs-header](../stormtypes_libs.md#stormtypes-libs-header) and [stormtypes-prim-header](../stormtypes_prims.md#stormtypes-prim-header).
+The `help` command displays the list of available commands within the current instance of Synapse and a brief message describing each command. Help for individual commands is available via `<command> --help`. The `help` command can also be used to inspect information about [Storm Libraries](../stormtypes_libs.md#stormtypes-libs-header) and [Storm Types](../stormtypes_prims.md#stormtypes-prim-header).
 
 **Syntax:**
 
@@ -191,7 +191,7 @@ Storm includes `aha.*` commands that allow you to work with Synapse's [AHA servi
 
 Help for individual `aha.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-aha-svc-list"></a>
 
@@ -310,7 +310,7 @@ Storm includes `auth.*` commands that allow you create and manage users and role
 
 Help for individual `auth.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-auth-gate-show"></a>
 
@@ -1049,7 +1049,7 @@ Storm includes `cortex.httpapi.*` commands that allow a user to list and manage 
 
 Help for individual `cortex.httpapi.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-cortex-httpapi-index"></a>
 
@@ -1175,22 +1175,32 @@ storm> inet:ip#rep.trend.earth_preta | count --yield
 inet:ip=66.129.222.1
         :type = unicast
         :version = 4
+        .created = 2026-10-05T18:01:38.209484Z
+        .updated = 2026-10-05T18:01:38.209967Z
         #rep.trend.earth_preta
 inet:ip=184.82.164.104
         :type = unicast
         :version = 4
+        .created = 2026-10-05T18:01:38.210618Z
+        .updated = 2026-10-05T18:01:38.210814Z
         #rep.trend.earth_preta
 inet:ip=209.161.249.125
         :type = unicast
         :version = 4
+        .created = 2026-10-05T18:01:38.211151Z
+        .updated = 2026-10-05T18:01:38.211305Z
         #rep.trend.earth_preta
 inet:ip=69.90.65.240
         :type = unicast
         :version = 4
+        .created = 2026-10-05T18:01:38.211624Z
+        .updated = 2026-10-05T18:01:38.211789Z
         #rep.trend.earth_preta
 inet:ip=70.62.232.98
         :type = unicast
         :version = 4
+        .created = 2026-10-05T18:01:38.212103Z
+        .updated = 2026-10-05T18:01:38.212262Z
         #rep.trend.earth_preta
 Counted 5 nodes.
 ```
@@ -1221,7 +1231,7 @@ Storm includes `cron.*` commands that allow you to create and manage scheduled [
 
 Help for individual `cron.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-cron-add"></a>
 
@@ -1687,7 +1697,7 @@ Storm includes `dmon.*` commands that allow you to work with daemons (see [Daemo
 
 Help for individual `dmon.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-dmon-list"></a>
 
@@ -1719,7 +1729,7 @@ Storm includes `edges.*` commands that allow you to work with lightweight (light
 
 Help for individual `edge.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-edges-del"></a>
 
@@ -1783,7 +1793,7 @@ Nodes created using generate commands will have a limited subset of properties s
 
 Help for individual `gen.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 > [!NOTE]
 > New `gen.*` commands are added to Synapse on an ongoing basis as we identify new cases where such commands are helpful. Use the `help` command for the current list of `gen.*` commands available in your instance of Synapse.
@@ -2195,7 +2205,7 @@ Storm includes `layer.*` commands that allow you to work with layers (see [Layer
 
 Help for individual `layer.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-layer-add"></a>
 
@@ -2475,7 +2485,7 @@ Storm includes `lift.*` commands that allow you to perform specialized lift oper
 
 Help for individual `lift.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-lift-byverb"></a>
 
@@ -2555,6 +2565,8 @@ storm> inet:ip#rep.paloalto.stately_taurus | limit 1
 inet:ip=67.53.148.77
         :type = unicast
         :version = 4
+        .created = 2026-10-05T18:01:38.257202Z
+        .updated = 2026-10-05T18:01:38.257585Z
         #rep.paloalto.stately_taurus
 ```
 
@@ -2581,7 +2593,7 @@ Storm includes `macro.*` commands that allow you to work with macros (see [Macro
 
 Help for individual `macro.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-macro-list"></a>
 
@@ -2777,6 +2789,12 @@ inet:dns:a=('woot.com', '246.21.93.214')
         :fqdn = woot.com
         :ip = 246.21.93.214
         :seen = 2014-01-05T02:34:56Z - 2014-10-19T06:15:04Z
+        :seen.min = 2014-01-05T02:34:56Z
+        :seen.max = 2014-10-19T06:15:04Z
+        :seen.duration = 287D 03:40:08
+        :seen.precision = microsecond
+        .created = 2026-10-05T18:01:38.270911Z
+        .updated = 2026-10-05T18:01:38.271194Z
 ```
 
 Return the two most recent DNS A records for `woot.com`, in descending order by `:seen`
@@ -2787,10 +2805,22 @@ inet:dns:a=('woot.com', '246.21.93.214')
         :fqdn = woot.com
         :ip = 246.21.93.214
         :seen = 2014-01-05T02:34:56Z - 2014-10-19T06:15:04Z
+        :seen.min = 2014-01-05T02:34:56Z
+        :seen.max = 2014-10-19T06:15:04Z
+        :seen.duration = 287D 03:40:08
+        :seen.precision = microsecond
+        .created = 2026-10-05T18:01:38.270911Z
+        .updated = 2026-10-05T18:01:38.271194Z
 inet:dns:a=('woot.com', '107.21.53.159')
         :fqdn = woot.com
         :ip = 107.21.53.159
         :seen = 2014-08-13T00:00:00Z - 2014-08-14T00:00:00Z
+        :seen.min = 2014-08-13T00:00:00Z
+        :seen.max = 2014-08-14T00:00:00Z
+        :seen.duration = 1D 00:00:00
+        :seen.precision = microsecond
+        .created = 2026-10-05T18:01:38.268196Z
+        .updated = 2026-10-05T18:01:38.26922Z
 ```
 
 Return the DNS A record for `woot.com` with the longest duration:
@@ -2801,6 +2831,12 @@ inet:dns:a=('woot.com', '246.21.93.214')
         :fqdn = woot.com
         :ip = 246.21.93.214
         :seen = 2014-01-05T02:34:56Z - 2014-10-19T06:15:04Z
+        :seen.min = 2014-01-05T02:34:56Z
+        :seen.max = 2014-10-19T06:15:04Z
+        :seen.duration = 287D 03:40:08
+        :seen.precision = microsecond
+        .created = 2026-10-05T18:01:38.270911Z
+        .updated = 2026-10-05T18:01:38.271194Z
 ```
 
 Return a WHOIS record for the most recently registered (`:created`) FQDN associated with the threat cluster Sparkling Unicorn (`#cno.threat.sparkling_unicorn`):
@@ -2810,6 +2846,8 @@ storm> inet:fqdn#cno.threat.sparkling_unicorn -> inet:whois:record | max :create
 inet:whois:record=5200d9b0914e2bfe8bac590aa3f517fc
         :created = 2026-03-26T13:00:00Z
         :fqdn = derp.net
+        .created = 2026-10-05T18:01:38.282336Z
+        .updated = 2026-10-05T18:01:38.282336Z
 ```
 
 <a id="storm-merge"></a>
@@ -2949,6 +2987,12 @@ inet:dns:a=('woot.com', '75.101.146.4')
         :fqdn = woot.com
         :ip = 75.101.146.4
         :seen = 2013-09-21T00:00:00Z - 2013-09-22T00:00:00Z
+        :seen.min = 2013-09-21T00:00:00Z
+        :seen.max = 2013-09-22T00:00:00Z
+        :seen.duration = 1D 00:00:00
+        :seen.precision = microsecond
+        .created = 2026-10-05T18:01:38.269981Z
+        .updated = 2026-10-05T18:01:38.270301Z
 ```
 
 Return the two oldest DNS A records for `woot.com`, in ascending order by `:seen`:
@@ -2959,10 +3003,22 @@ inet:dns:a=('woot.com', '75.101.146.4')
         :fqdn = woot.com
         :ip = 75.101.146.4
         :seen = 2013-09-21T00:00:00Z - 2013-09-22T00:00:00Z
+        :seen.min = 2013-09-21T00:00:00Z
+        :seen.max = 2013-09-22T00:00:00Z
+        :seen.duration = 1D 00:00:00
+        :seen.precision = microsecond
+        .created = 2026-10-05T18:01:38.269981Z
+        .updated = 2026-10-05T18:01:38.270301Z
 inet:dns:a=('woot.com', '246.21.93.214')
         :fqdn = woot.com
         :ip = 246.21.93.214
         :seen = 2014-01-05T02:34:56Z - 2014-10-19T06:15:04Z
+        :seen.min = 2014-01-05T02:34:56Z
+        :seen.max = 2014-10-19T06:15:04Z
+        :seen.duration = 287D 03:40:08
+        :seen.precision = microsecond
+        .created = 2026-10-05T18:01:38.270911Z
+        .updated = 2026-10-05T18:01:38.271194Z
 ```
 
 Return the DNS A record for `woot.com` with the shortest duration:
@@ -2973,6 +3029,12 @@ inet:dns:a=('woot.com', '53.25.18.25')
         :fqdn = woot.com
         :ip = 53.25.18.25
         :seen = 2014-08-13T12:44:55Z - 2014-08-13T18:09:22Z
+        :seen.min = 2014-08-13T12:44:55Z
+        :seen.max = 2014-08-13T18:09:22Z
+        :seen.duration = 05:24:27
+        :seen.precision = microsecond
+        .created = 2026-10-05T18:01:38.271753Z
+        .updated = 2026-10-05T18:01:38.272014Z
 ```
 
 Return a WHOIS record for the earliest registered (`:created`) FQDN associated with the threat cluster Sparkling Unicorn (`#cno.threat.sparkling_unicorn`):
@@ -2982,6 +3044,8 @@ storm> inet:fqdn#cno.threat.sparkling_unicorn -> inet:whois:record | min :create
 inet:whois:record=b3f03e02c398aeeafe40b80c9fbed15c
         :created = 2025-10-23T09:00:00Z
         :fqdn = hurr.com
+        .created = 2026-10-05T18:01:38.281833Z
+        .updated = 2026-10-05T18:01:38.281833Z
 ```
 
 <a id="storm-model"></a>
@@ -2998,7 +3062,7 @@ Storm includes `model.*` commands that allow you to work with model elements.
 
 Help for individual `model.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-model-deprecated-check"></a>
 
@@ -3211,7 +3275,7 @@ Storm includes `nodes.*` commands that allow you to work with nodes and `.nodes`
 
 Help for individual `nodes.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-nodes-import"></a>
 
@@ -3248,7 +3312,7 @@ Storm includes `note.*` commands that allow you to work with free form text note
 
 Help for individual `note.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-note-add"></a>
 
@@ -3387,7 +3451,7 @@ Storm includes `pkg.*` commands that allow you to work with Storm packages (see 
 
 Help for individual `pkg.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 Packages typically contain Storm commands and Storm library code used to implement a Storm [Service](../glossary.md#gloss-service).
 
@@ -3526,7 +3590,7 @@ Storm includes `queue.*` commands that allow you to work with queues (see [Queue
 
 Help for individual `queue.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-queue-add"></a>
 
@@ -3724,6 +3788,8 @@ storm> inet:service:message | scrape :text
 inet:service:message=c7b00606bd374d4cd9d925d0696e325e
         :platform = 723636292813abbc9884384d3c0caa9f
         :text = IP address 8.8.8.8 and FQDN woot.com seen doing bad things
+        .created = 2026-10-05T18:01:38.321397Z
+        .updated = 2026-10-05T18:01:38.321397Z
 ```
 
 Scrape the text of a social media post for FQDNs and IP addresses, link the nodes to the original post, and return (yield) the created nodes:
@@ -3733,12 +3799,22 @@ storm> inet:service:message | scrape :text --forms (inet:fqdn, inet:ip) --refs -
 inet:ip=8.8.8.8
         :type = unicast
         :version = 4
+        .created = 2026-10-05T18:01:38.323353Z
+        .updated = 2026-10-05T18:01:38.323353Z
+        <(*)- * = 1
+         <(refs)- * = 1
+          <(refs)- inet:service:message = 1
 inet:fqdn=woot.com
         :domain = com
         :host = woot
         :issuffix = false
         :iszone = true
         :zone = woot.com
+        .created = 2026-10-05T18:01:38.268196Z
+        .updated = 2026-10-05T18:01:38.268755Z
+        <(*)- * = 1
+         <(refs)- * = 1
+          <(refs)- inet:service:message = 1
 ```
 
 **Usage Notes:**
@@ -3767,7 +3843,7 @@ Storm includes `service.*` commands that allow you to work with Storm services (
 
 Help for individual `service.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-service-add"></a>
 
@@ -3844,7 +3920,7 @@ Arguments:
 
 The `sleep` command adds a delay in returning each result for a given Storm query. By default, query results are streamed back and displayed as soon as they arrive for optimal performance. A `sleep` delay effectively slows the display of results.
 
-> `sleep` may be useful in cases such as querying rate-limited APIs.
+`sleep` may be useful in cases such as querying rate-limited APIs.
 
 **Syntax:**
 
@@ -3877,12 +3953,18 @@ storm> inet:email sleep 1.0
 inet:email=bar@gmail.com
         :fqdn = gmail.com
         :username = bar
+        .created = 2026-10-05T18:01:38.331502Z
+        .updated = 2026-10-05T18:01:38.331502Z
 inet:email=baz@gmail.com
         :fqdn = gmail.com
         :username = baz
+        .created = 2026-10-05T18:01:38.331938Z
+        .updated = 2026-10-05T18:01:38.331938Z
 inet:email=foo@gmail.com
         :fqdn = gmail.com
         :username = foo
+        .created = 2026-10-05T18:01:38.330611Z
+        .updated = 2026-10-05T18:01:38.330611Z
 ```
 
 <a id="storm-spin"></a>
@@ -3890,6 +3972,9 @@ inet:email=foo@gmail.com
 ## spin
 
 The `spin` command is used to suppress the output of a Storm query. `Spin` simply consumes all nodes sent to the command, so no nodes are output to the CLI. This allows you to execute a Storm query and view messages and results without displaying the associated nodes.
+
+> [!TIP]
+> To run Storm without the nodes it yields entering the Storm pipeline (for example, to create nodes or set up state within a larger Storm query), an [Exec Block](storm_adv_control.md#flow-exec) is preferred. The `spin` command remains useful for suppressing the nodes displayed when running a query interactively.
 
 **Syntax:**
 
@@ -3928,7 +4013,7 @@ Storm includes `stats.*` commands that allow you to query and work with statisti
 
 Help for individual `stats.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-stats-countby"></a>
 
@@ -4029,7 +4114,7 @@ Storm includes `tag.*` commands that allow you to work with tags (see [Tag](../g
 
 Help for individual `tag.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 See also the related [movetag](storm_ref_cmd.md#storm-movetag) command.
 
@@ -4093,7 +4178,7 @@ Storm includes `task.*` commands that allow you to work with Storm tasks.
 
 Help for individual `task.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-task-list"></a>
 
@@ -4192,27 +4277,42 @@ inet:fqdn=foo.mydomain.com
         :issuffix = false
         :iszone = false
         :zone = mydomain.com
+        .created = 2026-10-05T18:01:41.360445Z
+        .updated = 2026-10-05T18:01:41.361458Z
 inet:ip=8.8.8.8
         :type = unicast
         :version = 4
+        .created = 2026-10-05T18:01:38.323353Z
+        .updated = 2026-10-05T18:01:38.323353Z
+        <(*)- * = 1
+         <(refs)- * = 1
+          <(refs)- inet:service:message = 1
 inet:fqdn=bar.mydomain.com
         :domain = mydomain.com
         :host = bar
         :issuffix = false
         :iszone = false
         :zone = mydomain.com
+        .created = 2026-10-05T18:01:41.362175Z
+        .updated = 2026-10-05T18:01:41.362591Z
 inet:ip=34.56.78.90
         :type = unicast
         :version = 4
+        .created = 2026-10-05T18:01:41.362175Z
+        .updated = 2026-10-05T18:01:41.362175Z
 inet:fqdn=baz.mydomain.com
         :domain = mydomain.com
         :host = baz
         :issuffix = false
         :iszone = false
         :zone = mydomain.com
+        .created = 2026-10-05T18:01:41.363602Z
+        .updated = 2026-10-05T18:01:41.364019Z
 inet:ip=127.0.0.2
         :type = loopback
         :version = 4
+        .created = 2026-10-05T18:01:41.363602Z
+        .updated = 2026-10-05T18:01:41.363602Z
 ```
 
 Return the set of FQDNs and IP addresses associated with a set of DNS A records along with the original DNS A records:
@@ -4225,36 +4325,57 @@ inet:fqdn=foo.mydomain.com
         :issuffix = false
         :iszone = false
         :zone = mydomain.com
+        .created = 2026-10-05T18:01:41.360445Z
+        .updated = 2026-10-05T18:01:41.361458Z
 inet:ip=8.8.8.8
         :type = unicast
         :version = 4
+        .created = 2026-10-05T18:01:38.323353Z
+        .updated = 2026-10-05T18:01:38.323353Z
+        <(*)- * = 1
+         <(refs)- * = 1
+          <(refs)- inet:service:message = 1
 inet:dns:a=('foo.mydomain.com', '8.8.8.8')
         :fqdn = foo.mydomain.com
         :ip = 8.8.8.8
+        .created = 2026-10-05T18:01:41.360445Z
+        .updated = 2026-10-05T18:01:41.360445Z
 inet:fqdn=bar.mydomain.com
         :domain = mydomain.com
         :host = bar
         :issuffix = false
         :iszone = false
         :zone = mydomain.com
+        .created = 2026-10-05T18:01:41.362175Z
+        .updated = 2026-10-05T18:01:41.362591Z
 inet:ip=34.56.78.90
         :type = unicast
         :version = 4
+        .created = 2026-10-05T18:01:41.362175Z
+        .updated = 2026-10-05T18:01:41.362175Z
 inet:dns:a=('bar.mydomain.com', '34.56.78.90')
         :fqdn = bar.mydomain.com
         :ip = 34.56.78.90
+        .created = 2026-10-05T18:01:41.362175Z
+        .updated = 2026-10-05T18:01:41.362175Z
 inet:fqdn=baz.mydomain.com
         :domain = mydomain.com
         :host = baz
         :issuffix = false
         :iszone = false
         :zone = mydomain.com
+        .created = 2026-10-05T18:01:41.363602Z
+        .updated = 2026-10-05T18:01:41.364019Z
 inet:ip=127.0.0.2
         :type = loopback
         :version = 4
+        .created = 2026-10-05T18:01:41.363602Z
+        .updated = 2026-10-05T18:01:41.363602Z
 inet:dns:a=('baz.mydomain.com', '127.0.0.2')
         :fqdn = baz.mydomain.com
         :ip = 127.0.0.2
+        .created = 2026-10-05T18:01:41.363602Z
+        .updated = 2026-10-05T18:01:41.363602Z
 ```
 
 **Usage Notes:**
@@ -4299,30 +4420,44 @@ storm> syn:tag=cno | tree { $node.value -> syn:tag:up }
 syn:tag=cno
         :base = cno
         :depth = 0
+        .created = 2026-10-05T18:01:38.279985Z
+        .updated = 2026-10-05T18:01:38.279985Z
 syn:tag=cno.threat
         :base = threat
         :depth = 1
         :up = cno
+        .created = 2026-10-05T18:01:38.279985Z
+        .updated = 2026-10-05T18:01:38.279985Z
 syn:tag=cno.threat.sparkling_unicorn
         :base = sparkling_unicorn
         :depth = 2
         :up = cno.threat
+        .created = 2026-10-05T18:01:38.279985Z
+        .updated = 2026-10-05T18:01:38.279985Z
 syn:tag=cno.ttp
         :base = ttp
         :depth = 1
         :up = cno
+        .created = 2026-10-05T18:01:41.376709Z
+        .updated = 2026-10-05T18:01:41.376709Z
 syn:tag=cno.ttp.phish
         :base = phish
         :depth = 2
         :up = cno.ttp
+        .created = 2026-10-05T18:01:41.376709Z
+        .updated = 2026-10-05T18:01:41.376709Z
 syn:tag=cno.mal
         :base = mal
         :depth = 1
         :up = cno
+        .created = 2026-10-05T18:01:41.377487Z
+        .updated = 2026-10-05T18:01:41.377487Z
 syn:tag=cno.mal.redtree
         :base = redtree
         :depth = 2
         :up = cno.mal
+        .created = 2026-10-05T18:01:41.377487Z
+        .updated = 2026-10-05T18:01:41.377487Z
 ```
 
 **Usage Notes:**
@@ -4345,7 +4480,7 @@ Storm includes `trigger.*` commands that allow you to create automated event-dri
 
 Help for individual `trigger.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-trigger-add"></a>
 
@@ -4608,7 +4743,7 @@ Storm includes `vault.*` commands that allow you to create and manage vaults (se
 
 Help for individual `vault.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-vault-add"></a>
 
@@ -4862,7 +4997,7 @@ Storm includes `vertex.*` commands that allow you to register a deployment with 
 
 Help for individual `vertex.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-vertex-packages-install"></a>
 
@@ -4978,7 +5113,7 @@ Storm includes `view.*` commands that allow you to work with views (see [View](.
 
 Help for individual `view.*` commands can be displayed using:
 
-> `<command> --help`
+`<command> --help`
 
 <a id="storm-view-add"></a>
 

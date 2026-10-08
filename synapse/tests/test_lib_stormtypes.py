@@ -125,7 +125,7 @@ class StormTypesTest(s_test.SynTest):
                 msgs = await core.stormlist('help --verbose $lib.tstedhelp')
 
                 # the library's own note implies it for its members
-                self.stormIsInPrint('> **Note:** `$lib.tstedhelp` is only available in Test Edition.', msgs)
+                self.stormIsInPrint('> [!NOTE]\n> `$lib.tstedhelp` is only available in Test Edition.', msgs)
                 self.stormNotInPrint('`$lib.tstedhelp.thing` is only available', msgs)
 
                 # a library declaring no edition says nothing about one
@@ -441,7 +441,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(('valu', 'ival'), await core.callStorm('test:int=7 return(($lib.utils.type(:seen), :seen.type))'))
 
             # the generic valu exposes type/value like a noderef
-            self.eq(('loc', 'us'), await core.callStorm('test:int=7 $x=:loc return(($x.type, $x.value))'))
+            self.eq(('loc', 'us'), await core.callStorm('test:int=7 $x=:loc return(($x.type, $x))'))
 
             # a non-form scalar valu compares with raw-python equality semantics
             self.true(await core.callStorm('test:int=7 $x=:loc return(($x = "us"))'))
@@ -659,6 +659,14 @@ class StormTypesTest(s_test.SynTest):
 
         # Remove the modification from the global
         s_stormtypes.registry.undefined_types.discard('storm:type:newp')
+
+    async def test_stormtypes_stormrepr_default(self):
+
+        class NewpType(s_stormtypes.StormType):
+            _storm_locals = ()
+            _storm_typename = 'storm:type:newp:repr'
+
+        self.eq('storm:type:newp:repr', await NewpType().stormrepr())
 
     async def test_stormtypes_registry_defaults(self):
 
@@ -988,6 +996,26 @@ class StormTypesTest(s_test.SynTest):
 
             self.eq('1234', await core.callStorm('return($lib.repr(str, 1234))'))
             self.eq('1234', await core.callStorm('return($lib.repr(int, (1234)))'))
+
+            # typed prop values repr by a type name or by a (poly) prop name
+            await core.nodes('[ inet:fqdn=repr.com :seen=(2020, 2021) +#repr=(2020, 2021) ]')
+            await core.nodes('[ meta:feed=* :name=reprfeed :latest=2020 ]')
+
+            ival = '2020-01-01T00:00:00Z - 2021-01-01T00:00:00Z'
+            for q, valu in (
+                ('inet:fqdn=repr.com return($lib.repr(ival, :seen))', ival),
+                ('inet:fqdn=repr.com return($lib.repr(ival, $node.props.seen))', ival),
+                ('inet:fqdn=repr.com return($lib.repr(ival, #repr))', ival),
+                ('inet:fqdn=repr.com return($lib.repr(inet:fqdn:seen, :seen))', ival),
+                ('inet:fqdn=repr.com return($lib.repr(time, :seen.min))', '2020-01-01T00:00:00Z'),
+                ('meta:feed:name=reprfeed return($lib.repr(time, :latest))', '2020-01-01T00:00:00Z'),
+                ('meta:feed:name=reprfeed return($lib.repr(time, $node.props.latest))', '2020-01-01T00:00:00Z'),
+                ('meta:feed:name=reprfeed return($lib.repr(meta:feed:name, :name))', 'reprfeed'),
+                ('meta:feed:name=reprfeed return($lib.repr(meta:feed:name, $node.props.name))', 'reprfeed'),
+                ('inet:fqdn=repr.com return($lib.repr(inet:fqdn, $node))', 'repr.com'),
+                ('inet:fqdn=repr.com return($lib.repr(inet:dns:a:fqdn, $node))', 'repr.com'),
+            ):
+                self.eq(valu, await core.callStorm(q))
 
             self.eq(4, await core.callStorm('$x = asdf return($x.size())'))
             self.eq(2, await core.callStorm('$x = asdf return($x.find(d))'))
@@ -3121,7 +3149,7 @@ class StormTypesTest(s_test.SynTest):
 
             q = '''
                 $set = $lib.set()
-                inet:ip $set.add(:asn.value)
+                inet:ip $set.add(:asn)
                 [ it:log:event="*" ] +it:log:event [ :data=$set.list() ]
             '''
             nodes = await core.nodes(q)
@@ -3130,7 +3158,7 @@ class StormTypesTest(s_test.SynTest):
 
             q = '''
                 $set = $lib.set()
-                inet:ip $set.adds((:asn.value, :asn.value))
+                inet:ip $set.adds((:asn, :asn))
                 [ it:log:event="*" ] +it:log:event [ :data=$set.list() ]
             '''
             nodes = await core.nodes(q)
@@ -3139,8 +3167,8 @@ class StormTypesTest(s_test.SynTest):
 
             q = '''
                 $set = $lib.set()
-                inet:ip $set.adds((:asn.value, :asn.value))
-                { +:asn=20 $set.rem(:asn.value) }
+                inet:ip $set.adds((:asn, :asn))
+                { +:asn=20 $set.rem(:asn) }
                 [ it:log:event="*" ] +it:log:event [ :data=$set.list() ]
             '''
             nodes = await core.nodes(q)
@@ -3149,8 +3177,8 @@ class StormTypesTest(s_test.SynTest):
 
             q = '''
                 $set = $lib.set()
-                inet:ip $set.add(:asn.value)
-                $set.rems((:asn.value, :asn.value))
+                inet:ip $set.add(:asn)
+                $set.rems((:asn, :asn))
                 [ it:log:event="*" ] +it:log:event [ :data=$set.list() ]
             '''
             nodes = await core.nodes(q)
@@ -3932,6 +3960,31 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             self.eq(20000000, await core.callStorm('return($lib.time.fromunix(20))'))
+            self.eq(1500000, await core.callStorm("return($lib.time.fromunix('1.5'))"))
+            self.eq(1500000, await core.callStorm('return($lib.time.fromunix((1.5)))'))
+            self.eq(10000000, await core.callStorm("return($lib.time.fromunix('1e1'))"))
+
+            badvals = (
+                ("'newp'", 'newp'),
+                ('(null)', 'null'),
+                ('([])', '[]'),
+                ("'inf'", 'inf'),
+                ("'-inf'", '-inf'),
+                ("'nan'", 'nan'),
+                ("$lib.json.load('1e400')", 'inf'),
+                ('$lib.math.number(inf)', 'Infinity'),
+                ('$lib.math.number(nan)', 'NaN'),
+                ("'1e308'", '1e308'),
+                (f"$lib.json.load('1{'0' * 400}')", '1000'),
+            )
+            for text, valu in badvals:
+                with self.raises(s_exc.BadArg) as cm:
+                    await core.callStorm(f'return($lib.time.fromunix({text}))')
+                self.isin('Invalid unix epoch time', cm.exception.get('mesg'))
+                self.isin(valu, cm.exception.get('mesg'))
+
+            q = 'try { $lib.time.fromunix(newp) } catch BadArg as err { return($err.mesg) }'
+            self.eq("Invalid unix epoch time: 'newp'", await core.callStorm(q))
 
             query = '''$valu="10/1/2017 2:52"
             $parsed=$lib.time.parse($valu, "%m/%d/%Y %H:%M")
@@ -5438,7 +5491,15 @@ class StormTypesTest(s_test.SynTest):
             fork00 = await core.callStorm('return($lib.view.get().fork().iden)')
             self.eq(2, await core.callStorm('return($lib.view.get().layers.size())', opts={'view': fork00}))
 
+            await core.nodes('[ test:str=cached ]')
+            cached = (await core.nodes('test:str=cached', opts={'view': fork00}))[0]
+            self.len(2, await cached.getStorNodes())
+
             await core.callStorm('$lib.view.get().set(layers, $layers)', opts={'vars': {'layers': layrs0}})
+
+            # the fork drops its cached nodes, so a lift has a sode per new layer
+            nodes = await core.nodes('test:str=cached', opts={'view': fork00})
+            self.len(3, await nodes[0].getStorNodes())
             ldefs = await core.callStorm('return($lib.view.get().get(layers))')
             self.eq(layrs0, [x.get('iden') for x in ldefs])
 
@@ -5482,6 +5543,11 @@ class StormTypesTest(s_test.SynTest):
             asderp = {'user': derp.iden, 'vars': {'altlayr': altlayr}}
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return($lib.view.add(($altlayr,)))', opts=asderp)
+
+            # a user who may read the layer still requires view.add
+            noview = await core.auth.addUser('noview')
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.view.add(($lib.layer.get().iden,)))', opts={'user': noview.iden})
 
             asderp = {'user': derp.iden, 'vars': {'altview': altview}}
             # derp cannot read altview, so it is hidden the same as a missing one.
@@ -6683,6 +6749,9 @@ class StormTypesTest(s_test.SynTest):
                     mesgs = await asbond.storm('cron.add hourly@:15 {#bar}').list()
                     self.stormIsInErr('must have permission cron.add', mesgs)
 
+                    mesgs = await asbond.storm('cron.at --day +1 {#bar}').list()
+                    self.stormIsInErr('must have permission cron.add', mesgs)
+
                     # Give explicit perm
 
                     await prox.addUserRule(bond.iden, (True, ('cron', 'add')))
@@ -7089,6 +7158,19 @@ class StormTypesTest(s_test.SynTest):
         self.none(await s_stormtypes.toint(None, noneok=True))
         self.none(await s_stormtypes.tobool(None, noneok=True))
         self.none(await s_stormtypes.tonumber(None, noneok=True))
+        self.none(await s_stormtypes.tofloat(None, noneok=True))
+
+        self.eq(20.0, await s_stormtypes.tofloat(20))
+        self.eq(20.1, await s_stormtypes.tofloat(20.1))
+        self.eq(20.1, await s_stormtypes.tofloat('20.1'))
+        self.eq(20.1, await s_stormtypes.tofloat(numb))
+        self.eq(1.5, await s_stormtypes.tofloat(s_stormtypes.Str('1.5')))
+        self.eq(1.5, await s_stormtypes.tofloat(s_stormtypes.Bytes(b'1.5')))
+
+        for valu in ('newp', None, [], b'\xff', 10 ** 400, -10 ** 400):
+            with self.raises(s_exc.BadCast) as cm:
+                await s_stormtypes.tofloat(valu)
+            self.isin('Failed to make a float from', cm.exception.get('mesg'))
 
     async def test_stormtypes_view_tagcount(self):
         async with self.getTestCore() as core:

@@ -1297,6 +1297,7 @@ class InfotechModelTest(s_t_utils.SynTest):
     async def test_it_forms_hardware(self):
         async with self.getTestCore() as core:
             self.true(core.model.form('it:hardware').implements('biz:manufactured'))
+            self.true(core.model.form('it:hardware').implements('meta:reported'))
             nodes = await core.nodes('''[
                 it:hardware=*
                     :name=xps13
@@ -1310,6 +1311,11 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :cpe=cpe:2.3:h:dell:xps13:*:*:*:*:*:*:*:*
                     :parts={[ it:hardware=* it:hardware=* ]}
                     :seen=20220101
+                    :id=XPS-9315
+                    :ids=(XPS-9310,)
+                    :names=("xps 13",)
+                    :reporter:name=acme
+                    :reporter={[ ou:org=({"name": "acme"}) ]}
             ]''')
             self.propeq(nodes[0], 'name', 'xps13')
             self.propeq(nodes[0], 'desc', 'WootWoot')
@@ -1322,6 +1328,11 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:hardware :type -> it:hardware:type:taxonomy'))
             self.len(2, await core.nodes('it:hardware:model=XPS13 -> it:hardware'))
             self.propeq(nodes[0], 'manufacturer:name', 'dell')
+            self.propeq(nodes[0], 'id', 'XPS-9315')
+            self.propeq(nodes[0], 'ids', ('XPS-9310',))
+            self.propeq(nodes[0], 'names', ('xps 13',))
+            self.propeq(nodes[0], 'reporter:name', 'acme')
+            self.len(1, await core.nodes('it:hardware:id=XPS-9315 :reporter -> ou:org +:name=acme'))
             self.len(1, await core.nodes('it:hardware:version.semver >= 1.0.0'))
             self.len(1, await core.nodes('it:hardware:version +:version.semver >= 1.0.0'))
             self.len(1, await core.nodes('it:hardware -> ou:org +:name=dell'))

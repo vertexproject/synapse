@@ -89,3 +89,14 @@ class SmtpTest(s_test.SynTest):
                 ''')
                 self.false(isok)
                 self.eq(info.get('err'), 'BadArg')
+
+                # the message reprs with its sender, not a Python object address
+                q = 'return(`{$lib.inet.smtp.message()}`)'
+                self.eq('inet:smtp:message: sender=None', await core.callStorm(q))
+
+                q = '''
+                    $message = $lib.inet.smtp.message()
+                    $message.sender = visi@vertex.link
+                    return(`{$message}`)
+                '''
+                self.eq('inet:smtp:message: sender=visi@vertex.link', await core.callStorm(q))

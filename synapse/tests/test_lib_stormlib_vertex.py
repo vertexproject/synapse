@@ -62,7 +62,7 @@ class HubPkgdef(s_httpapi.Handler):
 
     async def get(self, iden, name, version):
         self.cell._vtxtest['pkgdef:version'] = version
-        return self.sendRestRetn(dict(TESTPKG))
+        return self.sendRestRetn(self.cell._vtxtest['pkgdef'])
 
 class HubError(s_httpapi.Handler):
 
@@ -76,6 +76,12 @@ class HubFilesPkgdef(s_httpapi.Handler):
     async def get(self, iden, name, version):
         pkgdef = dict(TESTPKG)
         pkgdef['files'] = self.cell._vtxtest['files']
+
+        # call the signing hook after the files are set, since the signature covers them
+        signfunc = self.cell._vtxtest.get('signfunc')
+        if signfunc is not None:
+            signfunc(pkgdef)
+
         return self.sendRestRetn(pkgdef)
 
 class HubFile(s_httpapi.Handler):
@@ -116,7 +122,8 @@ class VertexStormTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            core._vtxtest = {}
+            core._vtxtest = {'pkgdef': self.signTestPkgDef(dict(TESTPKG))}
+            self.addTestCodeCa(core)
 
             addr, port = await core.addHttpsPort(0)
             await self._addHubApis(core)
@@ -248,7 +255,7 @@ class VertexStormTest(s_t_utils.SynTest):
 
             # get returns the pkgdef without adding it to the cortex
             pkgdef = await core.callStorm('return($lib.vertex.packages.get(testpkg, version="1.0.0"))')
-            self.eq(TESTPKG, pkgdef)
+            self.eq(core._vtxtest['pkgdef'], pkgdef)
             self.eq(core._vtxtest.get('pkgdef:version'), '1.0.0')
             self.none(await core.getStormPkg('testpkg'))
 
@@ -268,6 +275,82 @@ class VertexStormTest(s_t_utils.SynTest):
             await core.callStorm('return($lib.vertex.packages.install(testpkg))')
             self.eq(core._vtxtest.get('pkgdef:version'), 'latest')
 
+            # a package which fails signature verification is not added
+            await core.delStormPkg('testpkg')
+
+            core._vtxtest['pkgdef'] = dict(TESTPKG)
+            with self.raises(s_exc.BadPkgDef) as exc:
+                await core.callStorm('$lib.vertex.packages.install(testpkg)')
+            self.eq('Storm package is not signed!', exc.exception.get('mesg'))
+            self.none(await core.getStormPkg('testpkg'))
+
+            # the dev-only nosign envar skips the signature check but not the name check
+            with self.setTstEnvars(SYNDEV_VERTEX_HUB_PACKAGE_NOSIGN='1'):
+
+                with self.getLoggerStream('synapse.lib.stormlib.vertex') as stream:
+                    pkgdef = await core.callStorm('return($lib.vertex.packages.install(testpkg))')
+                    self.eq('1.0.0', pkgdef.get('version'))
+                    self.nn(await core.getStormPkg('testpkg'))
+
+                self.isin('Skipping package verification for testpkg', stream.getvalue())
+                await core.delStormPkg('testpkg')
+
+                core._vtxtest['pkgdef'] = {'name': 'otherpkg', 'version': '1.0.0'}
+                with self.raises(s_exc.BadPkgDef) as exc:
+                    await core.callStorm('$lib.vertex.packages.install(testpkg)')
+                self.eq('Vertex Hub returned package otherpkg@1.0.0 for requested testpkg@latest.', exc.exception.get('mesg'))
+                self.none(await core.getStormPkg('testpkg'))
+                self.none(await core.getStormPkg('otherpkg'))
+
+            core._vtxtest['pkgdef'] = dict(TESTPKG)
+            with self.setTstEnvars(SYNDEV_VERTEX_HUB_PACKAGE_NOSIGN='0'):
+                with self.raises(s_exc.BadPkgDef) as exc:
+                    await core.callStorm('$lib.vertex.packages.install(testpkg)')
+                self.eq('Storm package is not signed!', exc.exception.get('mesg'))
+
+            core._vtxtest['pkgdef'] = self.signTestPkgDef(dict(TESTPKG))
+            core._vtxtest['pkgdef']['version'] = '6.6.6'
+            with self.raises(s_exc.BadPkgDef) as exc:
+                await core.callStorm('$lib.vertex.packages.install(testpkg)')
+            self.eq('Storm package signature does not match!', exc.exception.get('mesg'))
+            self.none(await core.getStormPkg('testpkg'))
+
+            core._vtxtest['pkgdef'] = self.signTestPkgDef(dict(TESTPKG), name='untrusted')
+            with self.raises(s_exc.BadPkgDef) as exc:
+                await core.callStorm('$lib.vertex.packages.install(testpkg)')
+            self.true(exc.exception.get('mesg').startswith('Storm package has invalid certificate'))
+            self.none(await core.getStormPkg('testpkg'))
+
+            # a validly signed package must also be the one which was requested
+            core._vtxtest['pkgdef'] = self.signTestPkgDef({'name': 'otherpkg', 'version': '1.0.0'})
+            with self.raises(s_exc.BadPkgDef) as exc:
+                await core.callStorm('$lib.vertex.packages.install(testpkg, version="1.0.0")')
+            self.eq('Vertex Hub returned package otherpkg@1.0.0 for requested testpkg@1.0.0.', exc.exception.get('mesg'))
+            self.eq('testpkg', exc.exception.get('name'))
+            self.eq('1.0.0', exc.exception.get('version'))
+            self.eq('otherpkg', exc.exception.get('gotname'))
+            self.eq('1.0.0', exc.exception.get('gotversion'))
+            self.none(await core.getStormPkg('testpkg'))
+            self.none(await core.getStormPkg('otherpkg'))
+
+            with self.raises(s_exc.BadPkgDef) as exc:
+                await core.callStorm('$lib.vertex.packages.install(testpkg)')
+            self.eq('Vertex Hub returned package otherpkg@1.0.0 for requested testpkg@latest.', exc.exception.get('mesg'))
+            self.none(exc.exception.get('version'))
+            self.none(await core.getStormPkg('otherpkg'))
+
+            core._vtxtest['pkgdef'] = self.signTestPkgDef({'name': 'testpkg', 'version': '1.1.0'})
+            with self.raises(s_exc.BadPkgDef) as exc:
+                await core.callStorm('$lib.vertex.packages.install(testpkg, version="1.0.0")')
+            self.eq('Vertex Hub returned package testpkg@1.1.0 for requested testpkg@1.0.0.', exc.exception.get('mesg'))
+            self.eq('1.1.0', exc.exception.get('gotversion'))
+            self.none(await core.getStormPkg('testpkg'))
+
+            # latest accepts whichever signed version the hub resolves it to
+            pkgdef = await core.callStorm('return($lib.vertex.packages.install(testpkg))')
+            self.eq('1.1.0', pkgdef.get('version'))
+            self.eq('1.1.0', (await core.getStormPkg('testpkg')).get('version'))
+
     async def test_stormlib_vertex_pkg_files(self):
 
         # a real axon is required to store the downloaded package files
@@ -275,7 +358,8 @@ class VertexStormTest(s_t_utils.SynTest):
 
             core = clus.cortex
 
-            core._vtxtest = {}
+            core._vtxtest = {'signfunc': self.signTestPkgDef}
+            self.addTestCodeCa(core)
 
             addr, port = await core.addHttpsPort(0)
             core.addHttpApi('/api/v3/hub/deployments/register', HubRegister, {'cell': core})
@@ -353,6 +437,40 @@ class VertexStormTest(s_t_utils.SynTest):
             self.stormHasNoWarnErr(msgs)
             self.eq([foosha256], core._vtxtest['fileurls'])
             self.eq('1.0.0', core._vtxtest['file:version'])
+
+            # no file is downloaded for a package which fails signature verification
+            await core.delStormPkg('testpkg')
+            await axon.del_(s_common.uhex(foosha256))
+            core._vtxtest['fileurls'] = []
+
+            def tamper(pkgdef):
+                self.signTestPkgDef(pkgdef)
+                pkgdef['files']['bar.dat'] = {'sha256': barsha256}
+
+            signers = (
+                (None, 'Storm package is not signed!'),
+                (tamper, 'Storm package signature does not match!'),
+                (lambda pkgdef: self.signTestPkgDef(pkgdef, name='untrusted'), 'Storm package has invalid certificate'),
+            )
+            for (signfunc, mesg) in signers:
+                core._vtxtest['signfunc'] = signfunc
+                msgs = await core.stormlist('vertex.packages.install testpkg --version 1.0.0')
+                self.stormIsInErr(mesg, msgs)
+                self.stormNotInPrint('Installed testpkg', msgs)
+                self.eq([], core._vtxtest['fileurls'])
+                self.false(await axon.has(s_common.uhex(foosha256)))
+                self.none(await core.getStormPkg('testpkg'))
+
+            # ...nor for a validly signed package other than the one requested
+            core._vtxtest['signfunc'] = self.signTestPkgDef
+            for text in ('vertex.packages.install otherpkg', 'vertex.packages.install testpkg --version 2.0.0'):
+                msgs = await core.stormlist(text)
+                self.stormIsInErr('Vertex Hub returned package testpkg@1.0.0 for requested', msgs)
+                self.stormNotInPrint('Installed', msgs)
+                self.eq([], core._vtxtest['fileurls'])
+                self.false(await axon.has(s_common.uhex(foosha256)))
+                self.none(await core.getStormPkg('testpkg'))
+                self.none(await core.getStormPkg('otherpkg'))
 
     async def test_stormlib_vertex_deploy_seed(self):
 

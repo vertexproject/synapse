@@ -11,33 +11,33 @@ There are several images provided by the Synapse repository. These are built fro
 
 The images provided include the following:
 
-> vertexproject/synapse
->
-> :   This container contains Synapse, but does not start any services.
->
-> vertexproject/synapse-aha
->
-> :   This container starts the AHA service.
->
-> vertexproject/synapse-axon
->
-> :   This container starts the Axon service.
->
-> vertexproject/synapse-cortex
->
-> :   This container starts the Cortex service.
->
-> vertexproject/synapse-jsonstor
->
-> :   This container starts the JSONStor service.
+vertexproject/synapse
+
+:   This container contains Synapse, but does not start any services.
+
+vertexproject/synapse-aha
+
+:   This container starts the AHA service.
+
+vertexproject/synapse-axon
+
+:   This container starts the Axon service.
+
+vertexproject/synapse-cortex
+
+:   This container starts the Cortex service.
+
+vertexproject/synapse-jsonstor
+
+:   This container starts the JSONStor service.
 
 ## Building Images
 
 Images are built using Bash scripts. All of the images can be built directly with a single command:
 
-> ```text
-> $ ./docker/scripts/build.sh <optional_image_tag>
-> ```
+```text
+$ ./docker/scripts/build.sh <optional_image_tag>
+```
 
 If the image tag is not provided, it will tag the images with `:3.x.x-dev`.
 

@@ -260,6 +260,9 @@ modeldefs = (
                     ('flight', ('transport:air:flight', {}), {
                         'doc': 'The flight being measured.'}),
 
+                    ('vehicle', ('transport:vehicle', {}), {
+                        'doc': 'The aircraft being measured.'}),
+
                     ('course', ('transport:direction', {}), {
                         'doc': 'The direction, in degrees from true North, that the aircraft is traveling.'}),
 

@@ -94,6 +94,26 @@ class AhaStormSvc2Cell(s_cell.Cell):
     celltype = 'ahastormsvc2'
     cellapi = AhaStormSvc2Api
 
+async def waitAhaTopo(aha, name, check, timeout=10):
+    # consume the AHA topology stream until the named service satisfies check
+    async def wait():
+        genr = aha.getAhaTopo()
+        try:
+            async for mesg, info in genr:
+                entry = info.get('entry')
+                if entry is not None and entry.get('name') == name and check(entry):
+                    return await aha.getAhaSvc(name)
+
+        finally:
+            await genr.aclose()
+
+    return await asyncio.wait_for(wait(), timeout=timeout)
+
+def isAhaSvcHeld(aha, name):
+    # the service is held online by a session on this AHA
+    sessions = {s_common.guid(iden) for iden in aha.dmon.sessions.keys()}
+    return aha._getSvcSess(name) in sessions
+
 class AhaTest(s_test.SynTest):
 
     async def test_lib_aha_clone(self):
@@ -127,11 +147,51 @@ class AhaTest(s_test.SynTest):
                     self.eq(aha0.iden, aha1.iden)
                     self.nn(aha1.conf.get('parent'))
 
-                    # the clone is assigned the next sequential aha:name but is
-                    # not separately registered while it is following the leader.
+                    # the clone is assigned the next sequential aha:name and
+                    # registers itself as a mirror with the leader.
                     self.eq('001.aha', aha1.conf.get('aha:name'))
                     self.false(aha1.isactive)
-                    self.none(await aha0.getAhaSvc('001.aha...'))
+
+                    svc = await waitAhaTopo(aha0, '001.aha.synapse', lambda e: e['online'] and e['info'].get('ready'))
+                    self.false(svc.get('leader'))
+                    self.eq('aha', svc['info'].get('type'))
+                    self.eq(aha0.iden, svc['info'].get('iden'))
+                    self.eq(zoinks, svc['info']['urlinfo'].get('hostname'))
+                    self.nn(svc['info']['urlinfo'].get('host'))
+
+                    names = [s['name'] async for s in aha0.getAhaSvcs()]
+                    self.isin('000.aha.synapse', names)
+                    self.isin('001.aha.synapse', names)
+
+                    mirrors = await aha0.getAhaSvcMirrors(aha0.iden)
+                    self.eq(['001.aha.synapse'], [m['name'] for m in mirrors])
+
+                    mirror = await aha0.getAhaSvc('aha...', filters={'mirror': True})
+                    self.eq('001.aha.synapse', mirror.get('name'))
+
+                    # the mirror can be resolved and connected to by its aha:name.
+                    proxy = await aha0.getAhaSvcProxy(svc)
+                    cellinfo = await proxy.getCellInfo()
+                    self.eq(aha1.runid, cellinfo['cell']['run'])
+
+                    await aha1.sync()
+                    svc = await aha1.getAhaSvc('001.aha...')
+                    self.true(svc.get('online'))
+                    self.false(svc.get('leader'))
+
+                    # the follower registration runs as a passive coro.
+                    self.len(1, aha1.passivecoros)
+                    self.true(all(c.get('task') is not None for c in aha1.passivecoros.values()))
+
+                    # a mirror re-registers when its link drops and reports ready
+                    # once its nexus enters the real-time window.
+                    aha1.nexsroot.ready.clear()
+                    await aha0.setAhaSvcDown('001.aha...', aha0._getSvcSess('001.aha.synapse'))
+
+                    await waitAhaTopo(aha0, '001.aha.synapse', lambda e: e['online'] and not e['info'].get('ready'))
+
+                    aha1.nexsroot.ready.set()
+                    await waitAhaTopo(aha0, '001.aha.synapse', lambda e: e['online'] and e['info'].get('ready'))
 
                     serv0 = await aha0.getAhaServers()
                     serv1 = await aha1.getAhaServers()
@@ -176,16 +236,32 @@ class AhaTest(s_test.SynTest):
                     self.true(aha1.isactive)
 
                     # the promoted clone now registers itself as the leader AHA.
-                    svc = await aha1._waitAhaSvcOnline('001.aha...', timeout=10)
+                    svc = await waitAhaTopo(aha1, '001.aha.synapse',
+                                            lambda e: e['online'] and isAhaSvcHeld(aha1, '001.aha.synapse'))
                     self.eq('001.aha.synapse', svc.get('name'))
                     self.true(svc.get('leader'))
+
+                    # the demoted leader re-registers as a mirror with the new leader.
+                    svc = await waitAhaTopo(aha1, '000.aha.synapse', lambda e: e['online'] and e['info'].get('ready') and
+                                            isAhaSvcHeld(aha1, '000.aha.synapse'))
+                    self.false(svc.get('leader'))
+
+                    mirrors = await aha1.getAhaSvcMirrors(aha1.iden)
+                    self.eq(['000.aha.synapse'], [m['name'] for m in mirrors])
 
                     # we connect to the promoted clone using the dns:name it
                     # advertises rather than the 001.aha.synapse name we filed it
                     # under, which is the only name it presents a cert for.
+                    svc = await aha1.getAhaSvc('001.aha...')
                     proxy = await aha1.getAhaSvcProxy(svc)
                     cellinfo = await proxy.getCellInfo()
                     self.eq(aha1.iden, cellinfo['cell']['iden'])
+
+                    # a mirror shutting down is marked offline on the leader.
+                    await aha0.fini()
+                    svc = await aha1._waitAhaSvcDown('000.aha...', timeout=10)
+                    self.false(svc.get('online'))
+                    self.false(svc['info'].get('ready'))
 
             # Remove 000.aha.loop.vertex.link since we're done with him + coverage
             async with self.getTestAha(conf={'dns:name': zoinks}, dirn=dir1) as aha1:
@@ -739,6 +815,15 @@ class AhaTest(s_test.SynTest):
 
     async def test_lib_aha_selfreg(self):
 
+        followregs = []
+        followreg = s_aha.AhaCell._runAhaFollowReg
+
+        async def countFollowReg(cell):
+            followregs.append(cell)
+            return await followreg(cell)
+
+        self.enterContext(mock.patch.object(s_aha.AhaCell, '_runAhaFollowReg', countFollowReg))
+
         with self.getTestDir() as dirn:
 
             async with self.getTestAha(dirn=dirn) as aha:
@@ -825,12 +910,44 @@ class AhaTest(s_test.SynTest):
                           'info': {'urlinfo': {'host': '127.0.0.1', 'port': 27492}}}
                 self.isin('hostname=00.nohost.synapse', aha.getAhaSvcUrl(nohost))
 
+                # the leader re-registers when its link drops.
+                selfsess = aha._getSvcSess('000.aha.synapse')
+                self.nn(selfsess)
+
+                await aha.setAhaSvcDown('000.aha...', selfsess)
+
+                def reregd(entry):
+                    return (entry['online'] and entry['info'].get('ready') and
+                            aha._getSvcSess('000.aha.synapse') not in (None, selfsess))
+
+                svc = await waitAhaTopo(aha, '000.aha.synapse', reregd)
+                self.true(isAhaSvcHeld(aha, '000.aha.synapse'))
+                self.true(svc.get('leader'))
+
+                # the leader never runs its follower registration, even at boot;
+                # a following AHA logs and retries when it cannot reach its parent.
+                self.len(1, aha.passivecoros)
+                self.true(all(c.get('task') is None for c in aha.passivecoros.values()))
+                self.len(0, followregs)
+
+                with self.getLoggerStream('synapse.lib.aha') as stream:
+                    aha.isfollower = True
+                    aha.conf['parent'] = 'tcp://127.0.0.1:1/'
+                    task = aha.schedCoro(aha._runAhaFollowReg())
+                    await stream.expect('Error registering AHA mirror 000.aha with tcp://127.0.0.1:1/', timeout=12)
+
+                task.cancel()
+                aha.isfollower = False
+                aha.conf.pop('parent')
+
                 # a legacy AHA with no minted aha:name does not self-register:
                 # inaugural-only naming leaves an already-deployed AHA out of the
                 # registry until it is redeployed. clearing the name in-memory and
-                # invoking the coro exercises that early-return guard.
+                # invoking the coros exercises their early-return guards.
                 aha.conf.pop('aha:name')
                 await aha._runAhaSelfReg()
+                await aha._runAhaFollowReg()
+                self.len(2, followregs)
 
             # on reboot the minted name persists and the type index is not
             # re-consumed ( the leader keeps 000.aha rather than taking 001.aha ).
@@ -1053,14 +1170,6 @@ class AhaTest(s_test.SynTest):
                     cli.send({'type': 'service', 'data': {}})
                     self.none(await cli.recv(timeout=1))
 
-                    # a non-leader AHA does not respond to discovery requests
-                    aha.isactive = False
-                    try:
-                        cli.send({'type': 'service', 'data': {'type': 'testcell00'}})
-                        self.none(await cli.recv(timeout=1))
-                    finally:
-                        aha.isactive = True
-
                 # a request encrypted with the wrong secret is dropped by AHA
                 async with await s_provision.ProvCast.anit(s_provision.deriveKey('nope'), port, group=group) as bad:
                     bad.send({'type': 'service', 'data': {'type': 'cortex'}})
@@ -1097,6 +1206,197 @@ class AhaTest(s_test.SynTest):
                     clone = await aha.getAhaClone(iden)
                     self.eq('aha01.synapse', clone.get('host'))
                     self.eq(aha.getMyUrl(), clone.get('conf').get('parent'))
+
+    async def test_lib_aha_provision_mcast_unicast_follower(self):
+
+        zoinks = 'zoinks.aha.loop.vertex.link'
+        secret = 'test-provision-secret'
+        group = '239.192.10.4'
+
+        # both discovery listeners bind the wildcard address, so give the two AHA
+        # instances separate ports. A unicast datagram to a port they shared would
+        # be delivered to only one of them, and which one is the kernel's choice.
+        port0 = self._freeUdpPort()
+        port1 = self._freeUdpPort()
+
+        with self.getTestDir() as dirn:
+
+            dir0 = s_common.gendir(dirn, 'aha0')
+            dir1 = s_common.gendir(dirn, 'aha1')
+
+            with mock.patch.object(s_provision, 'DEFAULT_MCAST_PORT', port0), \
+                 mock.patch.object(s_provision, 'DEFAULT_MCAST_GROUP', group), \
+                 mock.patch.dict(os.environ, {'SYN_PROVISION_SECRET': secret}):
+
+                async with self.getTestAha(dirn=dir0) as aha0:
+
+                    async with aha0.getLocalProxy() as proxy0:
+                        purl = await proxy0.addAhaClone(zoinks, port=0)
+
+                    # see test_lib_aha_clone for why the clone is given its real
+                    # dns:name here.
+                    conf1 = {'clone': purl, 'dns:name': zoinks}
+
+                    with mock.patch.object(s_provision, 'DEFAULT_MCAST_PORT', port1):
+
+                        async with self.getTestAha(conf=conf1, dirn=dir1) as aha1:
+
+                            await aha1.sync()
+
+                            async with aha1.getLocalProxy() as proxy1:
+                                await proxy1.promote()
+
+                            # aha0 is now a follower and aha1 is the leader.
+                            self.false(aha0.isactive)
+                            self.true(aha1.isactive)
+
+                            key = s_provision.deriveKey(secret)
+
+                            async with await s_provision.ProvCast.anit(key, port0, group=group) as cli:
+
+                                # a request addressed directly to the demoted aha0 is
+                                # serviced, with the mint forwarded to the leader aha1.
+                                cli.send({'type': 'service', 'data': {'type': 'testcell00'}},
+                                         ('127.0.0.1', port0))
+
+                                item = await cli.recv(timeout=10)
+                                self.nn(item)
+                                self.true(item[0]['data'][0])
+
+                                url = item[0]['data'][1].get('url')
+
+                            # the URL names the leader, not the follower which
+                            # answered, so it is redeemed against aha1's ProvDmon.
+                            urlinfo = s_telepath.chopurl(url)
+                            self.eq(zoinks, urlinfo.get('host'))
+                            self.eq(aha1.provaddr[1], urlinfo.get('port'))
+                            self.ne(aha0.conf.req('dns:name'), urlinfo.get('host'))
+
+                            # and the provisioning entry it names is real
+                            iden = urlinfo.get('path').strip('/')
+                            self.nn(await aha1.getAhaSvcProv(iden))
+
+                            # only the one request consumed a name
+                            self.eq(1, aha1._getSvcTypeIndex('testcell00'))
+
+    async def test_lib_aha_provision_mcast_unicast_follower_clone(self):
+
+        zoinks = 'zoinks.aha.loop.vertex.link'
+        secret = 'test-provision-secret'
+        group = '239.192.10.7'
+
+        # separate ports so a unicast datagram reaches a known instance; see
+        # test_lib_aha_provision_mcast_unicast_follower.
+        port0 = self._freeUdpPort()
+        port1 = self._freeUdpPort()
+
+        with self.getTestDir() as dirn:
+
+            dir0 = s_common.gendir(dirn, 'aha0')
+            dir1 = s_common.gendir(dirn, 'aha1')
+
+            with mock.patch.object(s_provision, 'DEFAULT_MCAST_PORT', port0), \
+                 mock.patch.object(s_provision, 'DEFAULT_MCAST_GROUP', group), \
+                 mock.patch.dict(os.environ, {'SYN_PROVISION_SECRET': secret}):
+
+                async with self.getTestAha(dirn=dir0) as aha0:
+
+                    async with aha0.getLocalProxy() as proxy0:
+                        purl = await proxy0.addAhaClone(zoinks, port=0)
+
+                    conf1 = {'clone': purl, 'dns:name': zoinks}
+
+                    with mock.patch.object(s_provision, 'DEFAULT_MCAST_PORT', port1):
+
+                        async with self.getTestAha(conf=conf1, dirn=dir1) as aha1:
+
+                            await aha1.sync()
+
+                            async with aha1.getLocalProxy() as proxy1:
+                                await proxy1.promote()
+
+                            # aha0 is now a follower and aha1 is the leader.
+                            self.false(aha0.isactive)
+                            self.true(aha1.isactive)
+
+                            key = s_provision.deriveKey(secret)
+
+                            async with await s_provision.ProvCast.anit(key, port0, group=group) as cli:
+
+                                # a clone enrollment addressed directly to the demoted
+                                # aha0 is serviced, forwarded to the leader aha1.
+                                cli.send({'type': 'aha', 'data': {'host': 'aha02.synapse'}},
+                                         ('127.0.0.1', port0))
+
+                                item = await cli.recv(timeout=10)
+                                self.nn(item)
+                                self.true(item[0]['data'][0])
+                                url = item[0]['data'][1].get('url')
+
+                            # the URL names the leader, not the follower which answered
+                            urlinfo = s_telepath.chopurl(url)
+                            self.eq(zoinks, urlinfo.get('host'))
+                            self.eq(aha1.provaddr[1], urlinfo.get('port'))
+                            self.ne(aha0.conf.req('dns:name'), urlinfo.get('host'))
+
+                            # the enrolled clone parents off the leader, not the
+                            # follower which received the request.
+                            iden = urlinfo.get('path').strip('/')
+                            clone = await aha1.getAhaClone(iden)
+                            self.eq('aha02.synapse', clone.get('host'))
+                            self.eq(aha1.getMyUrl(), clone.get('conf').get('parent'))
+                            self.ne(aha0.getMyUrl(), clone.get('conf').get('parent'))
+
+    async def test_lib_aha_provision_mcast_membership(self):
+
+        # membership follows leadership: the leader has joined the discovery group
+        # and a follower has dropped it. In shared network namespaces ( the test
+        # environment ) the kernel still delivers group traffic to a non-member
+        # socket on the same port, so the emergent "only the leader answers a group
+        # request" behaviour is validated on a real cluster; this asserts the
+        # mechanism that produces it.
+        zoinks = 'zoinks.aha.loop.vertex.link'
+        secret = 'test-provision-secret'
+        group = '239.192.10.5'
+
+        port = self._freeUdpPort()
+
+        with self.getTestDir() as dirn:
+
+            dir0 = s_common.gendir(dirn, 'aha0')
+            dir1 = s_common.gendir(dirn, 'aha1')
+
+            with mock.patch.object(s_provision, 'DEFAULT_MCAST_PORT', port), \
+                 mock.patch.object(s_provision, 'DEFAULT_MCAST_GROUP', group), \
+                 mock.patch.dict(os.environ, {'SYN_PROVISION_SECRET': secret}):
+
+                async with self.getTestAha(dirn=dir0) as aha0:
+
+                    # a lone leader has joined the group.
+                    self.true(aha0.isactive)
+                    self.true(aha0.provmcast.joined)
+
+                    async with aha0.getLocalProxy() as proxy0:
+                        purl = await proxy0.addAhaClone(zoinks, port=0)
+
+                    conf1 = {'clone': purl, 'dns:name': zoinks}
+
+                    async with self.getTestAha(conf=conf1, dirn=dir1) as aha1:
+
+                        await aha1.sync()
+
+                        # the clone boots as a follower and has not joined.
+                        self.false(aha1.isactive)
+                        self.false(aha1.provmcast.joined)
+
+                        async with aha1.getLocalProxy() as proxy1:
+                            await proxy1.promote()
+
+                        # promotion flips membership: aha1 joins, aha0 drops.
+                        self.true(aha1.isactive)
+                        self.true(aha1.provmcast.joined)
+                        self.false(aha0.isactive)
+                        self.false(aha0.provmcast.joined)
 
     async def test_aha_boot_clone_mcast(self):
 
@@ -1153,7 +1453,9 @@ class AhaTest(s_test.SynTest):
                 aha.conf['dns:name'] = 'aha01.synapse'
 
                 # a fake leader AHA replies with a clone provisioning url
-                async with await s_provision.ProvCast.anit(key, port, group=group, join=True) as srv:
+                async with await s_provision.ProvCast.anit(key, port, group=group, listen=True) as srv:
+                    # fake leader: join the group so it receives the discovery request.
+                    srv.joinGroup()
 
                     requests = []
 
@@ -1177,7 +1479,9 @@ class AhaTest(s_test.SynTest):
 
                 # follower env + dns:name set: discovery is retried until the leader
                 # AHA responds, logging a warning while it remains unresolved
-                async with await s_provision.ProvCast.anit(key, port, group=group, join=True) as srv:
+                async with await s_provision.ProvCast.anit(key, port, group=group, listen=True) as srv:
+                    # fake leader: join the group so it receives the discovery request.
+                    srv.joinGroup()
 
                     reqs = []
 
@@ -2295,8 +2599,9 @@ class AhaTest(s_test.SynTest):
 
             # test active AHA peer
             todo = s_common.todo('getCellInfo')
-            items = dict([item async for item in aha0.callAhaPeerApi(cell00.iden, todo, timeout=3)])
-            self.sorteq(items.keys(), ('00.cell.synapse', '01.cell.synapse'))
+            items = [item async for item in aha0.callAhaPeerApi(cell00.iden, todo, timeout=3)]
+            self.len(2, items)
+            self.sorteq([item[0] for item in items], ('00.cell.synapse', '01.cell.synapse'))
 
             todo = s_common.todo('getNexusChanges', 0, wait=False)
             items = dict([item async for item in aha0.callAhaPeerGenr(cell00.iden, todo, timeout=3)])
@@ -2318,12 +2623,16 @@ class AhaTest(s_test.SynTest):
 
                 # test non-active AHA peer
                 todo = s_common.todo('getCellInfo')
-                items = dict([item async for item in aha1.callAhaPeerApi(cell00.iden, todo, timeout=3)])
-                self.sorteq(items.keys(), ('00.cell.synapse', '01.cell.synapse'))
+                items = [item async for item in aha1.callAhaPeerApi(cell00.iden, todo, timeout=3)]
+                self.len(2, items)
+                self.sorteq([item[0] for item in items], ('00.cell.synapse', '01.cell.synapse'))
 
+                # the follower forwards to the leader and must not also fan out locally
                 todo = s_common.todo('getNexusChanges', 0, wait=False)
-                items = dict([item async for item in aha1.callAhaPeerGenr(cell00.iden, todo, timeout=3)])
-                self.sorteq(items.keys(), ('00.cell.synapse', '01.cell.synapse'))
+                names0 = [n async for n, i in aha0.callAhaPeerGenr(cell00.iden, todo, timeout=3)]
+                names1 = [n async for n, i in aha1.callAhaPeerGenr(cell00.iden, todo, timeout=3)]
+                self.sorteq(set(names1), ('00.cell.synapse', '01.cell.synapse'))
+                self.sorteq(names0, names1)
 
     async def test_aha_storm_svc_discovery(self):
 

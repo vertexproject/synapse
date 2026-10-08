@@ -41,6 +41,8 @@ class LibSpooled(s_stormtypes.Lib):
 
         valu = list(vals)
         for item in valu:
+            item = await s_stormtypes.toprim(item)
+
             if s_stormtypes.ismutable(item):
                 mesg = f'{await s_stormtypes.torepr(item)} is mutable and cannot be used in a {self._storm_typename}.'
                 raise s_exc.BadArg(mesg=mesg)
@@ -71,8 +73,14 @@ class SpooledSet(s_stormtypes.Set):
             yield item
 
     @s_stormtypes.stormfunc(readonly=True)
+    async def _methSetHas(self, item):
+        return await s_stormtypes.toprim(item) in self.valu
+
+    @s_stormtypes.stormfunc(readonly=True)
     async def _methSetAdd(self, *items):
         for i in items:
+            i = await s_stormtypes.toprim(i)
+
             if s_stormtypes.ismutable(i):
                 mesg = f'{await s_stormtypes.torepr(i)} is mutable and cannot be used in a {self._storm_typename}'
                 raise s_exc.BadArg(mesg=mesg)
@@ -87,6 +95,8 @@ class SpooledSet(s_stormtypes.Set):
     async def _methSetAdds(self, *items):
         for item in items:
             async for i in s_stormtypes.toiter(item):
+                i = await s_stormtypes.toprim(i)
+
                 if s_stormtypes.ismutable(i):
                     mesg = f'{await s_stormtypes.torepr(i)} is mutable and cannot be used in a {self._storm_typename}.'
                     raise s_exc.BadArg(mesg=mesg)
@@ -96,6 +106,15 @@ class SpooledSet(s_stormtypes.Set):
                     raise s_exc.BadArg(mesg=mesg)
 
                 await self.valu.add(i)
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _methSetRem(self, *items):
+        [self.valu.discard(await s_stormtypes.toprim(i)) for i in items]
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _methSetRems(self, *items):
+        for item in items:
+            [self.valu.discard(await s_stormtypes.toprim(i)) async for i in s_stormtypes.toiter(item)]
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methSetList(self):

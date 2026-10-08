@@ -36,8 +36,8 @@ There are two subtle but important aspects of function behavior to keep in mind:
 
 - Nodes are not "sent inbound" to a function to "cause" it to execute; a function runs when it is **invoked** as part of a Storm query (i.e., by an invoking Storm pipeline). This means that:
 
-  > - an invoked function can execute even if there are no nodes in the invoking pipeline, as long as the associated Storm logic executes; and
-  > - a function within an invoking pipeline will run once each time that pipeline executes; and an invoking pipeline may execute multiple times (for example, if multiple nodes are passing through the invoking pipeline). In this case the nodes themselves don't "cause" the function to execute; the pipeline runs once per node, and the function invoked by the pipeline runs once each time the pipeline runs.
+  - an invoked function can execute even if there are no nodes in the invoking pipeline, as long as the associated Storm logic executes; and
+  - a function within an invoking pipeline will run once each time that pipeline executes; and an invoking pipeline may execute multiple times (for example, if multiple nodes are passing through the invoking pipeline). In this case the nodes themselves don't "cause" the function to execute; the pipeline runs once per node, and the function invoked by the pipeline runs once each time the pipeline runs.
 
 - Nodes do not "pass into" functions by default, as the function and the invoking Storm logic are two separate pipelines. It is possible to **invoke** a function so that it operates on a node or nodes; but the function will not "automatically" do so.
 
@@ -64,6 +64,50 @@ All functions are **declared** in the same way, using the `function` keyword.
 - `function myFunction() { <do stuff> }`
 - `function myFunction(foo) { <do stuff> }`
 - `function myFunction(bar, baz=(null)) { <do stuff> }`
+
+<a id="storm-func-paramtypes"></a>
+
+
+#### Typed Parameters
+
+A parameter may declare a type using the `as` keyword. Storm normalizes the value the caller
+provides using that type before the function body runs, which both coerces a valid value into
+its normalized form and rejects an invalid one.
+
+```mdstorm --split
+function addPort(fqdn as inet:fqdn, port as int=(443)) {
+    return(`{$fqdn}:{$port}`)
+}
+
+$lib.print($addPort(VERTEX.link))
+$lib.print($addPort(vertex.link, port="80"))
+```
+
+Any type in the data model may be used, including the base types such as `int`, `str`, and
+`bool`. Calling the function above with the string `"80"` produces the integer `80`, while
+calling it with `notaport` raises an error naming the function and the parameter:
+
+```mdstorm --split --fail
+function addPort(fqdn as inet:fqdn, port as int=(443)) {
+    return(`{$fqdn}:{$port}`)
+}
+
+$addPort(vertex.link, port=notaport)
+```
+
+A parameter whose default is `(null)` may be given `(null)`, which is passed through without being
+normalized, so a typed parameter may still be optional. Any other typed parameter given `(null)`
+raises an error:
+
+```mdstorm --split
+function maybePort(port as int=(null)) {
+    if ($port = (null)) { return((null)) }
+    return(`port {$port}`)
+}
+
+$lib.print($maybePort())
+$lib.print($maybePort(port="80"))
+```
 
 <a id="storm-func-invoke"></a>
 
@@ -182,7 +226,7 @@ When executed, the function produces the following output. Note that the `$count
 [ inet:ip=1.1.1.1 inet:ip=2.2.2.2 inet:ip=3.3.3.3 inet:ip=4.4.4.4 inet:ip=5.5.5.5 inet:ip=6.6.6.6 inet:ip=7.7.7.7 inet:ip=8.8.8.8 inet:ip=9.9.9.9 inet:ip=10.10.10.10 ]
 ```
 
-```mdstorm
+```mdstorm --split
 
 function getIPs() { 
     inet:ip | limit 10 

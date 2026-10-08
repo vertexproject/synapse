@@ -109,7 +109,7 @@ file:bytes=sha256:229cdde419ba9549023de39c6a0ca8af74b45fade2d7a22cdc4105a75cd40a
     #anothertag
     #athirdtag
     #sometag
-complete. 1 nodes in 3 ms (333/sec).
+complete. 1 nodes in 0.003 sec (333/sec).
 ```
 
 Viewing the node's properties, we see that Synapse has set the `:name` property and has calculated and set the MD5, SHA1, and SHA256 hash secondary property values, as well as the file's size in bytes. Similarly the two tags from our two example `axon.put` commands have been added to the node.

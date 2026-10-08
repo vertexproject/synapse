@@ -39,11 +39,12 @@ class PsModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ps:person <(targeted)- entity:contact'))
 
             nodes = await core.nodes('''
-                [ meta:award=* :name="Bachelors of Science" :type=degree :issuer={[ ou:org=* ]} ]
+                [ meta:award=* :name="Bachelors of Science" :type=degree :issuer={[ ou:org=* ]} :website=https://award.example.com ]
             ''')
             self.nn(nodes[0].get('issuer'))
             self.propeq(nodes[0], 'name', 'Bachelors of Science')
             self.propeq(nodes[0], 'type', 'degree.')
+            self.propeq(nodes[0], 'website', 'https://award.example.com')
 
             nodes = await core.nodes('''
                 [

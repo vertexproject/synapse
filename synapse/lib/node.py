@@ -204,8 +204,13 @@ class NodeBase:
     def _addPodeRepr(self, pode):
 
         rval = self.repr()
-        if rval is not None and rval != self.ndef[1]:
-            pode[1]['repr'] = rval
+        if rval is None or rval == self.ndef[1]:
+            return
+
+        if (valuinfo := pode[1].get('valuinfo')) is None:
+            pode[1]['valuinfo'] = {'r': rval}
+        else:
+            valuinfo['r'] = rval
 
     def _packTags(self, tags, dorepr=False):
         '''
@@ -225,6 +230,41 @@ class NodeBase:
                 info['r'] = ivaltype.repr(valu)
 
             retn[name] = (valu, info)
+
+        return retn
+
+    def _packVirts(self, typeitem, virts, dorepr=False):
+        '''
+        Return the packed virtual property envelopes.
+
+        A virt envelope carries no `t`, since the declaring type names the virt's type.
+
+        Args:
+            typeitem (synapse.lib.types.Type): The type which declares the virts.
+            virts (dict): Virtual property values by name.
+            dorepr (bool): Include repr values.
+
+        Returns:
+            (dict): A (valu, info) envelope by virtual property name.
+        '''
+        if not dorepr:
+            return {name: (valu, {}) for (name, valu) in virts.items()}
+
+        retn = {}
+
+        for name, valu in virts.items():
+
+            info = {}
+            retn[name] = (valu, info)
+
+            try:
+                virttype = typeitem.getVirtType(name)
+            except s_exc.NoSuchVirt:
+                continue
+
+            rval = virttype.repr(valu)
+            if rval is not None and rval != valu:
+                info['r'] = rval
 
         return retn
 
@@ -251,7 +291,8 @@ class NodeBase:
                 prop = self.form.modl.tagprop(name)
 
                 if dovirts and prop is not None and valt[2] is not None:
-                    info['v'] = {vname: (vvalu, {}) for (vname, (vvalu, _)) in valt[2].items()}
+                    pvirts = {vname: vvalu for (vname, (vvalu, _)) in valt[2].items()}
+                    info['v'] = self._packVirts(prop.type, pvirts, dorepr=dorepr)
 
                 if dorepr and prop is not None:
 
@@ -323,7 +364,9 @@ class NodeBase:
                 pvirts.pop('type', None)
 
                 if pvirts:
-                    info['v'] = {vname: (vval, {}) for (vname, vval) in pvirts.items()}
+                    # an array's virts are a size or (valu, count) pairs, which have no repr
+                    virtrepr = dorepr and not prop.type.isarray
+                    info['v'] = self._packVirts(prop.type, pvirts, dorepr=virtrepr)
 
             retn[name] = (pvalu, info)
 
@@ -577,8 +620,11 @@ class Node(NodeBase):
         `t` is present only where the concrete type is carried by the data
         rather than derivable from the model. It is present on a scalar property
         and on each array element, whose types vary per value, and absent on an
-        array container, a tag, a tag property, and a property which is not in
-        the model.
+        array container, a tag, a tag property, a virtual property, and a
+        property which is not in the model.
+
+        `valuinfo` is the info dict for the node's own value, whose value half
+        is in the ndef. Like `r` and `v`, it is omitted when empty.
 
         Envelope nesting is bounded at one level: an array member is a scalar
         envelope, never another array. Array of array is rejected at type
@@ -597,7 +643,7 @@ class Node(NodeBase):
         pode[1]['n2verbs'] = self.getEdgeCounts(n2=True)
 
         if virts:
-            pode[1]['virts'] = vvals = {}
+            vvals = {}
 
             for sode in self.sodes:
                 if sode.get('antivalu') is not None:
@@ -613,6 +659,9 @@ class Node(NodeBase):
 
                             vvals[vname] = vval[0]
                     break
+
+            if vvals:
+                pode[1]['valuinfo'] = {'v': self._packVirts(self.form.type, vvals, dorepr=dorepr)}
 
         if dorepr:
             self._addPodeRepr(pode)
@@ -1956,10 +2005,10 @@ def reprNdef(pode):
 
     '''
     ((form, valu), info) = pode
-    formvalu = info.get('repr')
-    if formvalu is None:
-        formvalu = str(valu)
-    return form, formvalu
+    if (valuinfo := info.get('valuinfo')) is None:
+        return form, str(valu)
+
+    return form, _reprEnvl(valu, valuinfo)
 
 def reprProp(pode, prop):
     '''
@@ -1980,12 +2029,85 @@ def reprProp(pode, prop):
     if (envl := pode[1]['props'].get(prop)) is None:
         return None
 
-    valu, info = envl
+    return _reprEnvl(*envl)
 
+def reprVirts(pode):
+    '''
+    Get the human readable values for the primary property's virtual properties.
+
+    Args:
+        pode (tuple): A packed node.
+
+    Returns:
+        dict: A dictionary of human readable virtual property values by name.
+    '''
+    if (valuinfo := pode[1].get('valuinfo')) is None:
+        return {}
+
+    if (virts := valuinfo.get('v')) is None:
+        return {}
+
+    return {virt: _reprEnvl(valu, info) for (virt, (valu, info)) in virts.items()}
+
+def reprPropVirts(pode, prop):
+    '''
+    Get the human readable values for a secondary property's virtual properties.
+
+    Args:
+        pode (tuple): A packed node.
+        prop (str): Relative property name, without a leading colon.
+
+    Returns:
+        dict: A dictionary of human readable virtual property values by name. A
+              property which is not on the node has none.
+    '''
+    if (envl := pode[1]['props'].get(prop)) is None:
+        return {}
+
+    if (pvirts := envl[1].get('v')) is None:
+        return {}
+
+    return {virt: _reprEnvl(valu, info) for (virt, (valu, info)) in pvirts.items()}
+
+def reprMetas(pode):
+    '''
+    Get the human readable values for the node's meta properties.
+
+    Args:
+        pode (tuple): A packed node.
+
+    Returns:
+        dict: A dictionary of human readable meta property values by name,
+              without a leading dot.
+    '''
+    if (meta := pode[1].get('meta')) is None:
+        return {}
+
+    return {name: s_time.repr(valu) for (name, valu) in meta.items()}
+
+def _reprEnvl(valu, info):
     if (rval := info.get('r')) is not None:
         return rval
 
     return str(valu)
+
+def edgeCounts(pode, n2=False):
+    '''
+    Get the light edge verb counts from the node.
+
+    Args:
+        pode (tuple): A packed node.
+        n2 (bool): Return the counts for edges where the node is n2.
+
+    Returns:
+        dict: A dictionary of counts by verb and form.
+    '''
+    key = 'n2verbs' if n2 else 'n1verbs'
+
+    if (counts := pode[1].get(key)) is None:
+        return {}
+
+    return counts.copy()
 
 def reprTag(pode, tag):
     '''

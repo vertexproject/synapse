@@ -351,6 +351,13 @@ class OAuthTest(s_test.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm(q)
 
+            # the repr shows only the signature type, never the keys/secrets
+            q = '''
+            $client = $lib.inet.http.oauth.v1.client(foo, bar, biz, baz, $lib.inet.http.oauth.v1.SIG_HEADER)
+            return(`{$client}`)
+            '''
+            self.eq('inet:http:oauth:v1:client: AUTH_HEADER', await core.callStorm(q))
+
     async def test_storm_oauth_v2_clientsecret(self):
 
         with self.getTestDir() as dirn:

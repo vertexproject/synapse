@@ -267,7 +267,7 @@ What you need to do
 
 What changed
 
-:   The packed node (pode) info dict is now keyed by an integer `nid` (Node ID) instead of the 2.x hex `iden`, gains a `meta` dictionary (e.g. created/updated time), and always includes `n1verbs` and `n2verbs` light-edge verb count dictionaries. The `links` trail entries are now `(nid, info)` tuples whose first element is an integer NID. Virtual property values appear under a `virts` key when `node:opts` `virts` is set.
+:   The packed node (pode) info dict is now keyed by an integer `nid` (Node ID) instead of the 2.x hex `iden`, gains a `meta` dictionary (e.g. created/updated time), and always includes `n1verbs` and `n2verbs` light-edge verb count dictionaries. The `links` trail entries are now `(nid, info)` tuples whose first element is an integer NID. The node's own repr and virtual properties are in a `valuinfo` info dict, which replaces the 2.x `repr` key.
 
 Why
 
@@ -275,13 +275,13 @@ Why
 
 What you need to do
 
-:   Update any code that reads `pode[1]['iden']` to use `pode[1]['nid']` (an integer), and parse link trails as integer-NID-keyed tuples.
+:   Update any code that reads `pode[1]['iden']` to use `pode[1]['nid']` (an integer), and parse link trails as integer-NID-keyed tuples. Read the node's own repr from `pode[1]['valuinfo']['r']` rather than `pode[1]['repr']`, and its virtual property envelopes from `valuinfo['v']`.
 
 ## Packed node values are envelopes
 
 What changed
 
-:   Each value within a packed node's `props`, `tags` and `tagprops` is now a two element envelope, `[<valu>, <info>]`, rather than a bare value or a `(typename, valu)` pair. The info dict carries a `t` type name, an `r` repr and a `v` dict of virtual property envelopes.
+:   Each value within a packed node's `props`, `tags` and `tagprops` is now a two element envelope, `[<valu>, <info>]`, rather than a bare value or a `(typename, valu)` pair. The info dict carries a `t` type name, an `r` repr and a `v` dict of virtual property envelopes. The node's own value has its info dict in `valuinfo`.
 
     This replaces four things at once. The top level `reprs` and `tagpropreprs`
     dictionaries are gone, and so are the flattened `<name>.type`,

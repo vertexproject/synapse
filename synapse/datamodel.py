@@ -1925,10 +1925,8 @@ class Model:
         if form is None:
             return
 
-        ifaceprops = set()
-        for iface in form.ifaces.values():
-            for prop in iface.get('props', ()):
-                ifaceprops.add(prop[0])
+        # form.ifaces keeps one entry per name, so read the props instead
+        ifaceprops = {name for name, prop in form.props.items() if prop.ifaces}
 
         parentform = None
         parentprops = set()
@@ -2219,18 +2217,26 @@ class Model:
             if (prop := form.prop(propname)) is None:
                 prop = self._addFormProp(form, propname, typedef, propinfo)
 
+            # an interface may be reached by more than one path
             iprop = f'{name}:{propname}'
-            prop.ifaces.append(iprop)
-            self.ifaceprops[iprop].append(prop.full)
+            if iprop not in prop.ifaces:
+                prop.ifaces.append(iprop)
+
+            if prop.full not in (fulls := self.ifaceprops[iprop]):
+                fulls.append(prop.full)
 
             if ifaceparents is not None:
                 for iname in ifaceparents:
                     subiprop = f'{iname}:{propname}'
-                    prop.ifaces.append(subiprop)
-                    self.ifaceprops[subiprop].append(prop.full)
+                    if subiprop not in prop.ifaces:
+                        prop.ifaces.append(subiprop)
+
+                    if prop.full not in (fulls := self.ifaceprops[subiprop]):
+                        fulls.append(prop.full)
 
         form.ifaces[name] = iface
-        self.formsbyiface[name].append(form.name)
+        if form.name not in (forms := self.formsbyiface[name]):
+            forms.append(form.name)
 
         for subname, subinfo in iface.get('interfaces', ()):
 
@@ -2248,17 +2254,23 @@ class Model:
 
         iface = self._prepFormIface(form, iface, ifinfo)
 
+        # an interface may be reached by more than one path
         for propname, typedef, propinfo in iface.get('props', ()):
             fullprop = f'{form.name}:{propname}'
-            self.delFormProp(form.name, propname)
-            self.ifaceprops[f'{name}:{propname}'].remove(fullprop)
+            if form.prop(propname) is not None:
+                self.delFormProp(form.name, propname)
+
+            if fullprop in (fulls := self.ifaceprops[f'{name}:{propname}']):
+                fulls.remove(fullprop)
 
             if ifaceparents is not None:
                 for iname in ifaceparents:
-                    self.ifaceprops[f'{iname}:{propname}'].remove(fullprop)
+                    if fullprop in (fulls := self.ifaceprops[f'{iname}:{propname}']):
+                        fulls.remove(fullprop)
 
         form.ifaces.pop(name, None)
-        self.formsbyiface[name].remove(form.name)
+        if form.name in (forms := self.formsbyiface[name]):
+            forms.remove(form.name)
 
         for subname, subinfo in iface.get('interfaces', ()):
 

@@ -83,7 +83,7 @@ class Triggers:
             [await trig.execute(node, vars=vars) for trig in self.nodedel.get(node.form.name, ())]
 
     async def runPropSet(self, node, prop, useriden):
-        trigs = self.propset.get(prop.full, [])
+        trigs = list(self.propset.get(prop.full, ()))
         for iface in prop.ifaces:
             if (itrigs := self.propset.get(iface)) is not None:
                 trigs.extend(itrigs)

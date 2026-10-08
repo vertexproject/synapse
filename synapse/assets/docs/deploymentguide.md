@@ -155,6 +155,9 @@ docker compose --file /srv/syn/001.aha/docker-compose.yaml up -d
 > [!NOTE]
 > An AHA clone assumes a leader already exists: it waits indefinitely for the leader to become reachable rather than ever starting empty, logging a warning roughly once a minute while the leader remains unresolved. Ensure the leader AHA is deployed so the clone can complete its bootstrap.
 
+> [!NOTE]
+> Each AHA clone registers itself with the leader under its automatically assigned AHA name (`001.aha`, `002.aha`, and so on), so it appears in the AHA service registry alongside the leader and can be targeted by name, such as `aha://001.aha...`.
+
 <a id="deploy_provisioning"></a>
 
 
@@ -178,7 +181,7 @@ environment:
 > Discovery requests are encrypted and authenticated with a key derived from `SYN_PROVISION_SECRET`; requests which fail to decrypt are silently ignored. Discovery uses multicast with a TTL of `1`, so services must share a subnet with the AHA server.
 
 > [!NOTE]
-> If a service does not share a broadcast domain (subnet) with the AHA server, set the optional environment variable `SYN_PROVISION_HOST` on the service to the AHA host name or address. The discovery request is then sent directly to that host rather than to the multicast group.
+> If a service does not share a broadcast domain (subnet) with the AHA server, set the optional environment variable `SYN_PROVISION_HOST` on the service to the AHA host name or address. The discovery request is then sent directly to that host rather than to the multicast group. A directly addressed request is serviced by that AHA server whether it currently leads or mirrors, so a promotion does not change where services point. The provisioning URL it returns names the current leader, which the service must also be able to reach. A request sent to the multicast group is serviced only by the leader.
 
 > [!NOTE]
 > By default a fresh service of a type which has no registered leader boots as the first leader. Set the optional environment variable `SYN_PROVISION_FOLLOWER` on a service to instead assume a leader of its type already exists and deploy (clone) from it. Rather than ever booting fresh, the service waits indefinitely for a leader to register (logging a warning roughly once a minute until one does). This removes the ambiguity of the first-boot leadership race when a follower may start before the leader has registered.

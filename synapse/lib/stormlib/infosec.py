@@ -524,13 +524,73 @@ class CvssLib(s_stormtypes.Lib):
 
                               '''}
         }},
+        {'name': 'metricsToVect',
+         'desc': '''
+            Build a normalized CVSS vector string from a dictionary of metrics.
+
+            The version is detected from the metrics provided. A dictionary containing
+            the CVSS2 `Au` metric is treated as CVSS2, otherwise it is treated as
+            CVSS3. CVSS3.0 and CVSS3.1 share the same metrics and values, so the
+            resulting vector string is the same for both.
+
+            Raises:
+                - BadArg: The metrics are not a dictionary, or a metric name or
+                  value is not a string.
+                - BadDataValu: The metrics are invalid in some way. Possible
+                  reasons are invalid metrics, missing mandatory metrics, and
+                  invalid metric values.''',
+         'type': {'type': 'function', '_funcname': 'metricsToVect',
+                  'args': (
+                      {'name': 'metrics', 'type': 'dict',
+                       'desc': '''
+                            A dictionary of CVSS metric abbreviations to metric values.
+
+                            The following examples are valid:
+
+                                - CVSS 2: `({"AV": "N", "AC": "L", "Au": "N", "C": "N", "I": "N", "A": "P"})`
+                                - CVSS 3.x: `({"AV": "N", "AC": "L", "PR": "N", "UI": "N", "S": "U", "C": "N", "I": "N", "A": "H"})`'''},
+                  ),
+                  'returns': {'type': 'str',
+                              'desc': '''
+                                The normalized vector string. The metrics are ordered in
+                                specification order and metrics with undefined values are
+                                removed. Example: `AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H`'''}
+        }},
     )
     _storm_lib_path = ('infosec', 'cvss',)
 
     def getObjLocals(self):
         return {
             'vectToScore': self.vectToScore,
+            'metricsToVect': self.metricsToVect,
         }
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def metricsToVect(self, metrics):
+        metrics = await s_stormtypes.toprim(metrics)
+
+        if not isinstance(metrics, dict):
+            mesg = f'metricsToVect requires a dictionary, got {await s_stormtypes.totype(metrics)}.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        vers = s_cvss.cvss2 if 'Au' in metrics else s_cvss.cvss3_1
+
+        parts = []
+        for name, valu in metrics.items():
+            if not isinstance(name, str) or not isinstance(valu, str):
+                mesg = f'metricsToVect requires string metric names and values, got {name!r}: {valu!r}.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            if any(c in item for c in '/:' for item in (name, valu)):
+                mesg = f'Metric {name}:{valu} contains an invalid character.'
+                raise s_exc.BadDataValu(mesg=mesg)
+
+            parts.append(f'{name}:{valu}')
+
+        vect = '/'.join(parts)
+
+        vdict = s_chop.cvss_validate(vect, vers)
+        return s_chop.cvss_normalize(vdict, vers)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def vectToScore(self, vect, vers=None):

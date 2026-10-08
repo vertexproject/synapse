@@ -1,7 +1,6 @@
 import unittest.mock as mock
 
 import synapse.exc as s_exc
-import synapse.common as s_common
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.json as s_json
@@ -272,6 +271,59 @@ class DataModelTest(s_t_utils.SynTest):
             modl.addForm('foo:bar', {}, ())
 
         self.isin('Form foo:bar depends on deprecated interface depr:iface', stream.getvalue())
+
+        # interfaces reached by more than one path register the form once
+        modl.addIface('test:dmd:base', {'props': (('size', ('int', {}), {}),)})
+        modl.addIface('test:dmd:left', {'interfaces': (('test:dmd:base', {}),)})
+        modl.addIface('test:dmd:right', {'interfaces': (('test:dmd:base', {}),)})
+        modl.addIface('test:dmd:twice', {'props': (('val', ('int', {}), {}),)})
+        modl.addIface('test:dmd:single', {'interfaces': (
+            ('test:dmd:twice', {'prefix': 'a'}),
+            ('test:dmd:twice', {'prefix': 'b'}),
+        )})
+
+        modl.addType('test:dmd', 'guid', {}, {'interfaces': (
+            ('test:dmd:left', {}),
+            ('test:dmd:right', {}),
+            ('test:dmd:single', {}),
+        )})
+        modl.addForm('test:dmd', {}, ())
+
+        self.eq(modl.formsbyiface['test:dmd:base'], ['test:dmd'])
+        self.eq(modl.formsbyiface['test:dmd:twice'], ['test:dmd'])
+
+        self.eq(modl.ifaceprops['test:dmd:base:size'], ['test:dmd:size'])
+        self.eq(modl.ifaceprops['test:dmd:left:size'], ['test:dmd:size'])
+        self.eq(modl.ifaceprops['test:dmd:right:size'], ['test:dmd:size'])
+        self.eq(modl.ifaceprops['test:dmd:twice:a:val'], ['test:dmd:a:val'])
+        self.eq(modl.ifaceprops['test:dmd:twice:b:val'], ['test:dmd:b:val'])
+        self.eq(modl.ifaceprops['test:dmd:single:b:val'], ['test:dmd:b:val'])
+
+        self.eq(modl.prop('test:dmd:size').ifaces, ['test:dmd:base:size', 'test:dmd:left:size', 'test:dmd:right:size'])
+        self.eq(modl.prop('test:dmd:a:val').ifaces, ['test:dmd:twice:a:val', 'test:dmd:single:a:val'])
+
+        for name, fulls in modl.ifaceprops.items():
+            self.eq(len(fulls), len(set(fulls)), msg=name)
+
+        for name, forms in modl.formsbyiface.items():
+            self.eq(len(forms), len(set(forms)), msg=name)
+
+        for prop in modl.props.values():
+            self.eq(len(prop.ifaces), len(set(prop.ifaces)), msg=prop.full)
+
+        modl.delForm('test:dmd')
+
+        self.none(modl.form('test:dmd'))
+        self.none(modl.prop('test:dmd:size'))
+        self.none(modl.prop('test:dmd:a:val'))
+
+        for name in ('test:dmd:base', 'test:dmd:left', 'test:dmd:right', 'test:dmd:twice', 'test:dmd:single'):
+            self.eq(modl.formsbyiface[name], [])
+
+        for name in ('test:dmd:base:size', 'test:dmd:left:size', 'test:dmd:right:size',
+                     'test:dmd:twice:a:val', 'test:dmd:twice:b:val',
+                     'test:dmd:single:a:val', 'test:dmd:single:b:val'):
+            self.eq(modl.ifaceprops[name], [])
 
     async def test_datamodel_del_prop(self):
 
@@ -1050,6 +1102,25 @@ class DataModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await comptype.normFromTypedValu(((('test:int', 1),),))
 
+            # interfaces reached by more than one path lift each node once
+            await core.nodes('[ ps:person=(x,) ]')
+            self.len(1, await core.nodes('geo:locatable +ps:person=(x,)'))
+
+            await core.nodes('[ entity:campaign=(c,) :period=(2024, 2025) ]')
+            self.len(1, await core.nodes('base:activity +entity:campaign=(c,)'))
+            self.len(1, await core.nodes('base:activity:period +entity:campaign=(c,)'))
+
+            await core.addForm('_test:diamond', 'guid', {}, {'interfaces': (
+                ('base:activity', {}),
+                ('entity:activity', {}),
+            )})
+            self.eq(1, core.model.formsbyiface['base:activity'].count('_test:diamond'))
+
+            await core.delForm('_test:diamond')
+            self.none(core.model.form('_test:diamond'))
+            self.notin('_test:diamond', core.model.formsbyiface['base:activity'])
+            self.notin('_test:diamond:period', core.model.ifaceprops['base:activity:period'])
+
     async def test_datamodel_edges(self):
 
         async with self.getTestCore() as core:
@@ -1582,7 +1653,7 @@ class DataModelTest(s_t_utils.SynTest):
             test:str:poly^=P
             $foo=:poly
             $lib.print($foo.type)
-            $lib.print($foo.value)
+            $lib.print($foo)
             yield $foo
             '''
             msgs = await core.stormlist(q)
@@ -1814,37 +1885,6 @@ class DataModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[test:str=foo :bar=vertex.link]')
             node = nodes[0]
             self.isinstance(node.get('bar.type'), str)
-            self.isinstance(node.get('bar.value'), str)
-
-            # the .value virtual property is deprecated and logs when it is used.
-            # s_common.deprdate() is memoized, so each case clears it first.
-            deprmesg = '.value is deprecated and will be removed on 2026-09-24.'
-
-            # a prop read and a filter reach Poly._getValue()
-            s_common.deprdate.cache_clear()
-            with self.getLoggerStream('synapse.common') as stream:
-                msgs = await core.stormlist('test:str=foo $lib.print(:bar.value)')
-            self.stormIsInPrint('vertex.link', msgs)
-            self.isin(deprmesg, stream.getvalue())
-
-            s_common.deprdate.cache_clear()
-            with self.getLoggerStream('synapse.common') as stream:
-                self.len(1, await core.nodes('test:str=foo +:bar.value=vertex.link'))
-            self.isin(deprmesg, stream.getvalue())
-
-            # ...while a Valu resolves .value from its own tuple
-            s_common.deprdate.cache_clear()
-            with self.getLoggerStream('synapse.common') as stream:
-                msgs = await core.stormlist('test:str=foo $valu=:bar $lib.print($valu.value)')
-            self.stormIsInPrint('vertex.link', msgs)
-            self.isin(deprmesg, stream.getvalue())
-
-            # ...and the other virtual properties are unaffected
-            s_common.deprdate.cache_clear()
-            with self.getLoggerStream('synapse.common') as stream:
-                msgs = await core.stormlist('test:str=foo $lib.print(:bar.type)')
-            self.stormIsInPrint('test:str', msgs)
-            self.notin(deprmesg, stream.getvalue())
 
             # NodeRef.exists optimization works when reusing the same ref
             await core.nodes('[test:str=src :bar=vertex.link]')

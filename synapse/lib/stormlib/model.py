@@ -1,5 +1,4 @@
 import synapse.exc as s_exc
-import synapse.common as s_common
 
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
@@ -590,16 +589,14 @@ class LibModelDeprecated(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _locks(self):
-        todo = s_common.todo('getDeprLocks')
-        locks = await self.runt.dyncall('cortex', todo)
+        locks = await self.runt.view.core.getDeprLocks()
         return s_stormtypes.Dict(locks)
 
     async def _lock(self, name, locked):
         name = await s_stormtypes.tostr(name)
         locked = await s_stormtypes.tobool(locked)
-        todo = s_common.todo('setDeprLock', name, locked)
-        gatekeys = ((self.runt.user.iden, ('model', 'deprecated', 'lock'), None),)
-        await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        self.runt.confirm(('model', 'deprecated', 'lock'))
+        await self.runt.view.core.setDeprLock(name, locked)
 
 class MigrationEditorMixin:
     '''

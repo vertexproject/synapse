@@ -2626,7 +2626,7 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'StormRuntimeError')
-            self.isin('missing required argument arg3', erfo[1][1].get('mesg'))
+            self.isin('missing required argument "arg3"', erfo[1][1].get('mesg'))
 
             # Too few args are problematic - kwargs edition
             q = '''
@@ -2636,7 +2636,7 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'StormRuntimeError')
-            self.isin('missing required argument arg3', erfo[1][1].get('mesg'))
+            self.isin('missing required argument "arg3"', erfo[1][1].get('mesg'))
 
             # too many arguments
             q = '''
@@ -2654,7 +2654,7 @@ class AstTest(s_test.SynTest):
             '''
             msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
-            self.isin('got unexpected keyword argument: arg99', erfo[1][1].get('mesg'))
+            self.isin('got unexpected keyword argument: "arg99"', erfo[1][1].get('mesg'))
 
             # Bad: kwargs which duplicate a positional arg
             q = '''
@@ -2664,7 +2664,7 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'StormRuntimeError')
-            self.isin('got multiple values for parameter', erfo[1][1].get('mesg'))
+            self.isin('got multiple values for parameter "arg1"', erfo[1][1].get('mesg'))
 
             # Repeated kwargs are fatal
             q = '''
@@ -2986,6 +2986,165 @@ class AstTest(s_test.SynTest):
             '''
             msgs = await core.stormlist(q)
             self.eq(['1', '1', '1', '2', '2', '2'], [m[1]['mesg'] for m in msgs if m[0] == 'print'])
+
+            # exec blocks run once like init but drop the nodes they yield
+            q = '''
+            function doit() {
+                $lib.print(funcprint)
+                $lib.warn(funcwarn)
+                $lib.fire(funcfire)
+                $lib.view.get().addNode(test:int, 101)
+                return()
+            }
+            exec {
+                $lib.print(execprint)
+                $lib.warn(execwarn)
+                $lib.fire(execfire)
+                $doit()
+                [ test:int=100 ]
+                tee { $lib.warn(teewarn) [ test:int=102 ] } | count --yield
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.len(0, [m for m in msgs if m[0] == 'node'])
+            self.len(0, [m for m in msgs if m[0] == 'err'])
+
+            evts = []
+            for mesg in msgs:
+                if mesg[0] in ('print', 'warn'):
+                    evts.append((mesg[0], mesg[1]['mesg']))
+
+                elif mesg[0] == 'storm:fire':
+                    evts.append((mesg[0], mesg[1]['type']))
+
+                elif mesg[0] == 'edits':
+                    evts.append((mesg[0], mesg[1]['edits'][0][1]))
+
+            self.eq(evts, (
+                ('print', 'execprint'),
+                ('warn', 'execwarn'),
+                ('storm:fire', 'execfire'),
+                ('print', 'funcprint'),
+                ('warn', 'funcwarn'),
+                ('storm:fire', 'funcfire'),
+                ('edits', ('test:int', 101)),
+                ('edits', ('test:int', 100)),
+                ('warn', 'teewarn'),
+                ('edits', ('test:int', 102)),
+                ('print', 'Counted 2 nodes.'),
+            ))
+
+            self.len(3, await core.nodes('test:int=100 test:int=101 test:int=102'))
+
+            nodes = await core.nodes('exec { [ test:int=103 ] } test:int=103')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:int', 103))
+
+            nodes = await core.nodes('exec { [ test:int=104 ] }')
+            self.len(0, nodes)
+            self.len(1, await core.nodes('test:int=104'))
+
+            # inbound nodes pass through and see vars set in exec, including the first node
+            q = '''
+            test:str^=init
+            exec {
+                [ test:str=exec1 :hehe=execvar ]
+                $hehe=:hehe
+                $lib.print(`exec {$hehe}`)
+            }
+            $lib.print(`{$node.repr()} {$hehe}`)
+            '''
+            msgs = await core.stormlist(q)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.eq([n[0] for n in nodes], (('test:str', 'init1'), ('test:str', 'init2')))
+            prints = [m[1]['mesg'] for m in msgs if m[0] == 'print']
+            self.eq(prints, ('exec execvar', 'init1 execvar', 'init2 execvar'))
+            self.len(1, await core.nodes('test:str=exec1 +:hehe=execvar'))
+
+            q = '''
+            exec { $x = $(10) }
+            $lib.print(`x={$x}`)
+            [ test:int=$x ]
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('x=10', msgs)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.eq([n[0] for n in nodes], (('test:int', 10),))
+
+            # per-node vars set in exec are runtsafe after it, without inbound nodes
+            msgs = await core.stormlist('exec { [ inet:asn=1 ] $z=$node.value } $lib.print(`z={$z}`)')
+            self.stormIsInPrint('z=1', msgs)
+
+            nodes = await core.nodes('exec { [ inet:asn=1 ] $z=$node.value } [ inet:asn=($z + 40) ]')
+            self.eq([n.ndef for n in nodes], [('inet:asn', 41)])
+
+            q = 'exec { inet:asn=1 $z=$node.value } if ($z) { $lib.print(yes) } else { $lib.print(no) }'
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('yes', msgs)
+            self.stormNotInPrint('no', msgs)
+
+            q = '''
+            function getz() {
+                exec { inet:asn=1 $z=$node.value }
+                return($z)
+            }
+            return($getz())
+            '''
+            self.eq(1, await core.callStorm(q))
+
+            # within exec they stay per-node and the last value set wins
+            q = '''
+            exec { inet:asn=1 inet:asn=41 $z=$node.value [ inet:asn=($z + 100) ] }
+            $lib.print(`z={$z}`)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('z=41', msgs)
+            self.len(2, await core.nodes('inet:asn=101 inet:asn=141'))
+
+            q = '''
+            exec {
+                exec { inet:asn=101 $y=$node.value }
+                $z=($y + 1)
+            }
+            return($z)
+            '''
+            self.eq(102, await core.callStorm(q))
+
+            # vars first assigned after the block in a loop body stay runtsafe within it
+            q = '''
+            $i=(0)
+            while ($i < 3) {
+                exec { if ($i > 0) { $lib.print(`last={$last}`) } }
+                $last=$i
+                $i=($i + 1)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(msgs)
+            self.eq(['last=0', 'last=1'], [m[1]['mesg'] for m in msgs if m[0] == 'print'])
+
+            q = '''
+            $i=(0)
+            while ($i < 3) {
+                exec { exec { if ($i > 0) { $lib.print(`last={$last}`) } } }
+                $last=$i
+                $i=($i + 1)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(msgs)
+            self.eq(['last=0', 'last=1'], [m[1]['mesg'] for m in msgs if m[0] == 'print'])
+
+            with self.raises(s_exc.NoSuchVar) as cm:
+                await core.nodes('exec { inet:asn=999 $z=$node.value } $lib.print($z)')
+            self.true(cm.exception.get('runtsafe'))
+
+            # exec is a reserved keyword
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('exec --help')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('test:int | exec')
 
     async def test_ast_emptyblock(self):
 
@@ -3721,7 +3880,7 @@ class AstTest(s_test.SynTest):
 
             # time - time -> duration
             q = '''$a=$lib.cast(time, '2020-01-02') $b=$lib.cast(time, '2020-01-01')
-                   $r=($a - $b) return(($r.type, $r.value))'''
+                   $r=($a - $b) return(($r.type, $r))'''
             self.eq(('duration', oneday), await core.callStorm(q))
 
             # operand order via subtraction must stay correct (negative -> raise)
@@ -3732,40 +3891,40 @@ class AstTest(s_test.SynTest):
 
             # time + duration -> time
             q = '''$a=$lib.cast(time, '2020-01-01') $d=$lib.cast(duration, '1D')
-                   $r=($a + $d) return(($r.type, $lib.repr(time, $r.value)))'''
+                   $r=($a + $d) return(($r.type, $lib.repr(time, $r)))'''
             typ, rep = await core.callStorm(q)
             self.eq('time', typ)
             self.eq('2020-01-02T00:00:00Z', rep)
 
             # time - duration -> time
             q = '''$a=$lib.cast(time, '2020-01-02') $d=$lib.cast(duration, '1D')
-                   $r=($a - $d) return(($r.type, $lib.repr(time, $r.value)))'''
+                   $r=($a - $d) return(($r.type, $lib.repr(time, $r)))'''
             typ, rep = await core.callStorm(q)
             self.eq('time', typ)
             self.eq('2020-01-01T00:00:00Z', rep)
 
             # duration + duration -> duration
             q = '''$a=$lib.cast(duration, '1D') $b=$lib.cast(duration, '12:00:00')
-                   $r=($a + $b) return(($r.type, $r.value))'''
+                   $r=($a + $b) return(($r.type, $r))'''
             self.eq(('duration', oneday + (oneday // 2)), await core.callStorm(q))
 
             # duration - duration -> duration
             q = '''$a=$lib.cast(duration, '2D') $b=$lib.cast(duration, '1D')
-                   $r=($a - $b) return(($r.type, $r.value))'''
+                   $r=($a - $b) return(($r.type, $r))'''
             self.eq(('duration', oneday), await core.callStorm(q))
 
             # duration + time -> time (commutative add, duration on the left)
             q = '''$d=$lib.cast(duration, '1D') $a=$lib.cast(time, '2020-01-01')
-                   $r=($d + $a) return(($r.type, $lib.repr(time, $r.value)))'''
+                   $r=($d + $a) return(($r.type, $lib.repr(time, $r)))'''
             typ, rep = await core.callStorm(q)
             self.eq('time', typ)
             self.eq('2020-01-02T00:00:00Z', rep)
 
             # duration * scalar -> duration (both operand orders)
-            q = '''$a=$lib.cast(duration, '1D') $r=($a * 3) return(($r.type, $r.value))'''
+            q = '''$a=$lib.cast(duration, '1D') $r=($a * 3) return(($r.type, $r))'''
             self.eq(('duration', oneday * 3), await core.callStorm(q))
 
-            q = '''$a=$lib.cast(duration, '1D') $r=(3 * $a) return(($r.type, $r.value))'''
+            q = '''$a=$lib.cast(duration, '1D') $r=(3 * $a) return(($r.type, $r))'''
             self.eq(('duration', oneday * 3), await core.callStorm(q))
 
             # directional operators are not silently swapped: duration - time has
@@ -3778,35 +3937,35 @@ class AstTest(s_test.SynTest):
 
             # a string operand on a time norms as a duration in either order
             q = '''$a=$lib.cast(time, '2020-01-01')
-                   $r=($a + '1D') return(($r.type, $lib.repr(time, $r.value)))'''
+                   $r=($a + '1D') return(($r.type, $lib.repr(time, $r)))'''
             self.eq(('time', '2020-01-02T00:00:00Z'), await core.callStorm(q))
 
             q = '''$a=$lib.cast(time, '2020-01-01')
-                   $r=('1D' + $a) return(($r.type, $lib.repr(time, $r.value)))'''
+                   $r=('1D' + $a) return(($r.type, $lib.repr(time, $r)))'''
             self.eq(('time', '2020-01-02T00:00:00Z'), await core.callStorm(q))
 
             q = '''$a=$lib.cast(time, '2020-01-02')
-                   $r=($a - '1D') return(($r.type, $lib.repr(time, $r.value)))'''
+                   $r=($a - '1D') return(($r.type, $lib.repr(time, $r)))'''
             self.eq(('time', '2020-01-01T00:00:00Z'), await core.callStorm(q))
 
             # ...but a time minus a time-string yields a duration
             q = '''$a=$lib.cast(time, '2020-01-02')
-                   $r=($a - '2020-01-01') return(($r.type, $r.value))'''
+                   $r=($a - '2020-01-01') return(($r.type, $r))'''
             self.eq(('duration', oneday), await core.callStorm(q))
 
             # a string operand on a duration norms as a duration in either order
-            q = '''$a=$lib.cast(duration, '1D') $r=($a + '1D') return(($r.type, $r.value))'''
+            q = '''$a=$lib.cast(duration, '1D') $r=($a + '1D') return(($r.type, $r))'''
             self.eq(('duration', oneday * 2), await core.callStorm(q))
 
-            q = '''$a=$lib.cast(duration, '1D') $r=('1D' + $a) return(($r.type, $r.value))'''
+            q = '''$a=$lib.cast(duration, '1D') $r=('1D' + $a) return(($r.type, $r))'''
             self.eq(('duration', oneday * 2), await core.callStorm(q))
 
-            q = '''$a=$lib.cast(duration, '2D') $r=($a - '1D') return(($r.type, $r.value))'''
+            q = '''$a=$lib.cast(duration, '2D') $r=($a - '1D') return(($r.type, $r))'''
             self.eq(('duration', oneday), await core.callStorm(q))
 
             # ...but a duration plus a time-string yields a time
             q = '''$a=$lib.cast(duration, '1D')
-                   $r=($a + '2020-01-01') return(($r.type, $lib.repr(time, $r.value)))'''
+                   $r=($a + '2020-01-01') return(($r.type, $lib.repr(time, $r)))'''
             self.eq(('time', '2020-01-02T00:00:00Z'), await core.callStorm(q))
 
             # subtracting a time from a duration is not meaningful
@@ -3821,7 +3980,7 @@ class AstTest(s_test.SynTest):
 
             # stormrepr of a typed result dispatches through the result type
             q = '''$a=$lib.cast(time, '2020-01-02') $b=$lib.cast(time, '2020-01-01')
-                   return($lib.repr(duration, ($a - $b).value))'''
+                   return($lib.repr(duration, ($a - $b)))'''
             self.eq('1D 00:00:00', await core.callStorm(q))
 
             # regression: unsupported typed combos fall back to numeric math on
@@ -3849,24 +4008,24 @@ class AstTest(s_test.SynTest):
             opers = ('/', '*', '%', '**', '>', '<', '>=', '<=')
 
             casts = (
-                "$v=2020 as time",
-                "$v=1D as duration",
-                "$v=5 as int",
-                "$v=5 as str",
-                "$v=1 as bool",
+                ("$v=2020 as time", "$r=(1577836800000000)"),
+                ("$v=1D as duration", "$r=(86400000000)"),
+                ("$v=5 as int", "$r=(5)"),
+                ("$v=5 as str", "$r='5'"),
+                ("$v=1 as bool", "$r=(true)"),
             )
 
-            for cast in casts:
+            for cast, raw in casts:
                 for oper in opers:
                     q = f'{cast} return(($v {oper} 3))'
                     valu = await core.callStorm(q)
 
-                    q = f'{cast} $r=$v.value return(($r {oper} 3))'
+                    q = f'{raw} return(($r {oper} 3))'
                     self.eq(valu, await core.callStorm(q))
                     self.eq(type(valu), type(await core.callStorm(q)))
 
                 q = f'{cast} return((-$v))'
-                self.eq(await core.callStorm(f'{cast} $r=$v.value return((-$r))'),
+                self.eq(await core.callStorm(f'{raw} return((-$r))'),
                         await core.callStorm(q))
 
             # integer division stays floor division for an integer typed value
@@ -5183,6 +5342,41 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('test:virtiface=(v1,) +:server.newp')
 
+            # HasAbsPropCond on a form with a meta prop
+            self.len(1, await core.nodes('test:str=piv1 +test:str.created'))
+            self.len(1, await core.nodes('test:str=piv1 +test:str.updated'))
+            self.len(0, await core.nodes('test:str=piv1 -test:str.updated'))
+            self.len(0, await core.nodes('test:virtiface=(v1,) +test:str.updated'))
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('test:str=piv1 +test:str.newp')
+
+            # AbsVirtPropCond with the poly's own virt on a secondary prop
+            await core.nodes('''[
+                (test:str=polyint :poly=5 as test:int)
+                (test:str=polysrv :poly=tcp://1.2.3.4:80 as inet:server)
+                (test:str=polynone)
+            ]''')
+            inbound = 'test:str=polyint test:str=polysrv test:str=polynone'
+
+            nodes = await core.nodes(f'{inbound} +test:str:poly.type=test:int')
+            self.eq(['polyint'], [n.ndef[1] for n in nodes])
+            self.len(1, await core.nodes(f'{inbound} +:poly.type=test:int'))
+
+            nodes = await core.nodes(f'{inbound} -test:str:poly.type=test:int')
+            self.eq(['polysrv', 'polynone'], [n.ndef[1] for n in nodes])
+
+            nodes = await core.nodes('test:str=polysrv +test:str:poly.port=80')
+            self.eq(['polysrv'], [n.ndef[1] for n in nodes])
+
+            # the reported shape against the real model
+            await core.nodes('''
+                $org = { [ ou:org=* :name="Military Unit 26165"] }
+                $thr = { [ risk:threat=* :name="FANCY BEAR" :reporter:name=CrowdStrike ] }
+                [ (risk:compromise=* :name=bad :actor=$org) (risk:compromise=* :name=lessbad :actor=$thr) ]
+            ''')
+            nodes = await core.nodes('risk:compromise -risk:compromise:actor.type=ou:org')
+            self.eq([('base:name', 'lessbad')], [n.get('name') for n in nodes])
+
             # PropPivot non-poly dest form with virt
             self.ge(1, len(await core.nodes('inet:http:request :server.ip -> inet:server.ip')))
 
@@ -5266,7 +5460,7 @@ class AstTest(s_test.SynTest):
             # the tag value carries its type and normalized value like a prop value
             self.eq('ival', await core.callStorm('inet:fqdn=evil.com $time=#foo return($time.type)'))
             self.eq((1567900800000000, 1631059200000000, 63158400000000),
-                    await core.callStorm('inet:fqdn=evil.com $time=#foo return($time.value)'))
+                    await core.callStorm('inet:fqdn=evil.com $time=#foo return($time)'))
 
             # the min/max/duration virts are reachable off the tag value
             self.eq(1567900800000000, await core.callStorm('inet:fqdn=evil.com $time=#foo return($time.min)'))
@@ -5325,12 +5519,12 @@ class AstTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             # Create node with data prop, assign data prop to var, update var
-            q = '[ it:exec:query=(test1,) :opts=({"foo": "bar"}) ] $opts=:opts.value $opts.bar = "baz"'
+            q = '[ it:exec:query=(test1,) :opts=({"foo": "bar"}) ] $opts=:opts $opts.bar = "baz"'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.propeq(nodes[0], 'opts', {'foo': 'bar'})
 
-            q = '[ it:exec:query=(test1,) :opts=({"foo": "bar"}) ] $opts=:opts.value $opts.bar = "baz" [ :opts=$opts ]'
+            q = '[ it:exec:query=(test1,) :opts=({"foo": "bar"}) ] $opts=:opts $opts.bar = "baz" [ :opts=$opts ]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.propeq(nodes[0], 'opts', {'foo': 'bar', 'bar': 'baz'})
@@ -5339,12 +5533,12 @@ class AstTest(s_test.SynTest):
             self.stormHasNoWarnErr(msgs)
 
             # Lift node with data prop, assign data prop to var, update var
-            q = 'it:exec:query=(test2,) $opts=:opts.value $opts.bar = "baz"'
+            q = 'it:exec:query=(test2,) $opts=:opts $opts.bar = "baz"'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.propeq(nodes[0], 'opts', {'foo': 'bar'})
 
-            q = 'it:exec:query=(test2,) $opts=:opts.value $opts.bar = "baz" [ :opts=$opts ]'
+            q = 'it:exec:query=(test2,) $opts=:opts $opts.bar = "baz" [ :opts=$opts ]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.propeq(nodes[0], 'opts', {'foo': 'bar', 'bar': 'baz'})
@@ -5360,14 +5554,14 @@ class AstTest(s_test.SynTest):
 
             # Lift node, get prop via implicit pivot, assign data prop to var, update var
             nodes = await core.nodes('''
-                test:str $raw = :gprop::raw.value $raw.baz="box" | spin | test:guid
+                test:str $raw = :gprop::raw $raw.baz="box" | spin | test:guid
             ''')
             self.len(1, nodes)
             self.propeq(nodes[0], 'raw', {'foo': 'bar'})
 
             nodes = await core.nodes('''
                 test:str
-                $raw = :gprop::raw.value
+                $raw = :gprop::raw
                 $raw.baz="box" | spin |
                 test:guid [ :raw=$raw ]
             ''')
@@ -5922,3 +6116,1555 @@ class AstTest(s_test.SynTest):
             self.stormIsInPrint('yep', msgs)
             self.len(1, [m for m in msgs if m[0] == 'node'])
             self.stormHasNoErr(msgs)
+
+    async def test_ast_class(self):
+
+        async with self.getTestCore() as core:
+
+            # construction, instance state and method dispatch
+            q = '''
+            class Animal {
+                method __storm_init(name as str, legs as int=(4)) {
+                    $self.name = $name
+                    $self.legs = $legs
+                }
+                method describe() { return(`{$self.name} has {$self.legs} legs`) }
+            }
+            $cat = $Animal(felix)
+            $lib.print($cat.describe())
+            $lib.print(`legs={$cat.legs} name={$cat.name}`)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoErr(msgs)
+            self.stormIsInPrint('felix has 4 legs', msgs)
+            self.stormIsInPrint('legs=4 name=felix', msgs)
+
+            # each call produces a distinct instance
+            q = '''
+            class Counter {
+                method __storm_init() { $self.n = (0) }
+                method bump() { $self.n = ($self.n + 1) return($self.n) }
+            }
+            $one = $Counter()
+            $two = $Counter()
+            $one.bump()
+            $one.bump()
+            $two.bump()
+            $lib.print(`one={$one.n} two={$two.n}`)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('one=2 two=1', msgs)
+
+            # a class which declares no __storm_init() takes no arguments
+            q = '''
+            class Bare { method hello() { return(hi) } }
+            $bare = $Bare()
+            $lib.print($bare.hello())
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('hi', msgs)
+
+            q = 'class Bare { method hello() { return(hi) } } $bare = $Bare(newp)'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Bare() takes no arguments because it declares no __storm_init() method.', msgs)
+
+            # an instance is truthy and has a repr
+            q = '''
+            class Foo {
+                method __storm_init() { $self.x = (1) }
+                method me() { return(`self repr is {$self}`) }
+            }
+            $foo = $Foo()
+            if ($foo) { $lib.print(truthy) }
+            $lib.print(`repr={$foo}`)
+            $lib.print($foo.me())
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('truthy', msgs)
+            self.stormIsInPrint('repr=Foo object', msgs)
+            self.stormIsInPrint('self repr is Foo object', msgs)
+
+            # an unknown member
+            q = 'class Foo { method bar() { return(x) } } $foo = $Foo() $foo.newp'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Cannot find name [newp] on object of type Foo.', msgs)
+
+            # a method may yield nodes into the caller pipeline
+            await core.nodes('[ it:dev:str=hehe ]')
+
+            q = '''
+            class Lifter { method lift() { it:dev:str=hehe } }
+            $obj = $Lifter()
+            yield $obj.lift()
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+    async def test_ast_class_runtsafe(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ it:dev:str=one ]')
+            await core.nodes('[ it:dev:str=two ]')
+
+            # a class declared in a pipeline with inbound nodes binds once and
+            # passes the nodes through
+            q = '''
+            it:dev:str
+            class Tagger { method tag() { return(tagged) } }
+            $obj = $Tagger()
+            $lib.print($obj.tag())
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoErr(msgs)
+            self.len(2, [m for m in msgs if m[0] == 'node'])
+            self.len(2, [m for m in msgs if m[0] == 'print'])
+
+            # a class is runtsafe even inside a non-runtsafe pipeline
+            q = '''
+            it:dev:str
+            if $node { class Inner { method hi() { return(hi) } } $o = $Inner() $lib.print($o.hi()) }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoErr(msgs)
+            self.stormIsInPrint('hi', msgs)
+
+            # a non-runtsafe default parameter value is rejected
+            q = 'class Foo { method a(x=$node.value) { return($x) } }'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Non-runtsafe default parameter value not allowed', msgs)
+
+    async def test_ast_class_inherit(self):
+
+        async with self.getTestCore() as core:
+
+            q = '''
+            class Animal {
+                method __storm_init(name as str) { $self.name = $name }
+                method speak() { return(`{$self.name} makes a noise`) }
+                method describe() { return(`i am {$self.name}`) }
+            }
+            class Dog extends Animal {
+                method __storm_init(name as str) {
+                    $super.__storm_init($name)
+                    $self.kind = dog
+                }
+                method speak() { return(`{$self.name} says woof`) }
+                method parent() { return($super.speak()) }
+            }
+            $dog = $Dog(rex)
+            $lib.print($dog.speak())
+            $lib.print($dog.describe())
+            $lib.print($dog.parent())
+            $lib.print(`kind={$dog.kind}`)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoErr(msgs)
+            # the override wins
+            self.stormIsInPrint('rex says woof', msgs)
+            # the inherited method is reachable
+            self.stormIsInPrint('i am rex', msgs)
+            # $super reaches the overridden implementation
+            self.stormIsInPrint('rex makes a noise', msgs)
+            self.stormIsInPrint('kind=dog', msgs)
+
+            # a subclass which declares no __storm_init() inherits the one from its base
+            q = '''
+            class Animal { method __storm_init(name as str) { $self.name = $name } }
+            class Dog extends Animal { method speak() { return(`{$self.name} woofs`) } }
+            $dog = $Dog(fido)
+            $lib.print($dog.speak())
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('fido woofs', msgs)
+
+            # three levels deep
+            q = '''
+            class A { method who() { return(a) } }
+            class B extends A { method who() { return(`b->{$super.who()}`) } }
+            class C extends B { method who() { return(`c->{$super.who()}`) } }
+            $obj = $C()
+            $lib.print($obj.who())
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('c->b->a', msgs)
+
+    async def test_ast_class_lifecycle_calls(self):
+
+        async with self.getTestCore() as core:
+
+            # lifecycle methods which return() are called like any other method
+            q = '''
+            class Animal {
+                method __storm_init(name as str) {
+                    $self.name = $name
+                    return()
+                }
+                method __storm_fini() {
+                    $lib.print(`fini {$self.name}`)
+                    return()
+                }
+            }
+            class Dog extends Animal {
+                method __storm_init(name as str) {
+                    $super.__storm_init($name)
+                    $self.kind = dog
+                    return()
+                }
+            }
+            $dog = $Dog(rex)
+            $lib.print(`{$dog.name} {$dog.kind}`)
+            $dog = (null)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoErr(msgs)
+            self.stormIsInPrint('rex dog', msgs)
+            self.stormIsInPrint('fini rex', msgs)
+
+            initmesg = ('Foo.__storm_init() is invoked by the runtime and may not be called directly. '
+                        'Use $super.__storm_init() from within an __storm_init() method to run the base constructor.')
+            finimesg = 'Foo.__storm_fini() is invoked by the runtime and may not be called directly.'
+
+            # $self may not re-run the constructor, even from within __storm_init()
+            q = '''
+            class Foo {
+                method __storm_init() { return() }
+                method reset() { return($self.__storm_init()) }
+            }
+            $foo = $Foo()
+            $foo.reset()
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr(initmesg, msgs)
+
+            q = 'class Foo { method __storm_init() { $self.__storm_init() return() } } $foo = $Foo()'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr(initmesg, msgs)
+
+            q = '''
+            class Foo {
+                method __storm_fini() { return() }
+                method close() { return($self.__storm_fini()) }
+            }
+            $foo = $Foo()
+            $foo.close()
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr(finimesg, msgs)
+
+            # $super.__storm_init() is only allowed from within an __storm_init() method
+            q = '''
+            class Base { method __storm_init() { return() } }
+            class Foo extends Base {
+                method reset() { return($super.__storm_init()) }
+            }
+            $foo = $Foo()
+            $foo.reset()
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('$super.__storm_init() may only be called from within the __storm_init() method of Foo.', msgs)
+
+            # __storm_fini() chains automatically so $super.__storm_fini() is never allowed
+            q = '''
+            class Base { method __storm_fini() { return() } }
+            class Foo extends Base {
+                method close() { return($super.__storm_fini()) }
+            }
+            $foo = $Foo()
+            $foo.close()
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr(finimesg, msgs)
+
+            # a lifecycle method may not be taken by reference either
+            q = '''
+            class Foo {
+                method __storm_init() { return() }
+                method grab() { $func = $self.__storm_init return($func) }
+            }
+            $foo = $Foo()
+            $foo.grab()
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr(initmesg, msgs)
+
+            # each __storm_init() runs at most once for an instance
+            q = '''
+            class Base { method __storm_init() { $lib.print(base) return() } }
+            class Kid extends Base {
+                method __storm_init() {
+                    $super.__storm_init()
+                    $super.__storm_init()
+                    return()
+                }
+            }
+            $kid = $Kid()
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Base.__storm_init() has already run for this Kid object.', msgs)
+            self.len(1, [m for m in msgs if m[0] == 'print'])
+
+            # a base __storm_init() failure may not be suppressed by a subclass, and
+            # the instance is never finalized
+            q = '''
+            class Base {
+                method __storm_init() { $lib.raise(Nope, 'base refused') }
+                method __storm_fini() { $lib.print('base fini') return() }
+            }
+            class Kid extends Base {
+                method __storm_init() {
+                    try { $super.__storm_init() } catch * as err { $lib.print(caught) }
+                    return()
+                }
+                method __storm_fini() { $lib.print('kid fini') return() }
+            }
+            $kid = $Kid()
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Kid() could not be constructed because an error occurred in __storm_init() of: Base.', msgs)
+
+            prints = [m[1].get('mesg') for m in msgs if m[0] == 'print']
+            self.eq(prints, ['caught'])
+
+            # nor retried
+            q = '''
+            class Base { method __storm_init() { $lib.raise(Nope, 'base refused') } }
+            class Kid extends Base {
+                method __storm_init() {
+                    try { $super.__storm_init() } catch * as err { }
+                    $super.__storm_init()
+                    return()
+                }
+            }
+            $kid = $Kid()
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Base.__storm_init() failed for this Kid object and may not be retried.', msgs)
+
+            # a subclass __storm_init() must run the one of the class it extends,
+            # or the instance is not constructed and nothing in the chain is finalized
+            q = '''
+            class Base {
+                method __storm_init() { $self.__ready = (true) return() }
+                method __storm_fini() { $lib.print('base fini') return() }
+            }
+            class Kid extends Base {
+                method __storm_init() { return() }
+                method __storm_fini() { $lib.print('kid fini') return() }
+            }
+            $kid = $Kid()
+            '''
+            msgs = await core.stormlist(q)
+            mesg = 'Kid() could not be constructed because Kid.__storm_init() did not call $super.__storm_init() to run Base.__storm_init().'
+            self.stormIsInErr(mesg, msgs)
+            self.len(0, [m for m in msgs if m[0] == 'print'])
+
+            # the offending class is named, even between two which do call it
+            q = '''
+            class Root { method __storm_init() { return() } }
+            class Base extends Root { method __storm_init() { return() } }
+            class Kid extends Base {
+                method __storm_init() { $super.__storm_init() return() }
+            }
+            $kid = $Kid()
+            '''
+            msgs = await core.stormlist(q)
+            mesg = 'Kid() could not be constructed because Base.__storm_init() did not call $super.__storm_init() to run Root.__storm_init().'
+            self.stormIsInErr(mesg, msgs)
+
+            # $super.__storm_init() reaches the nearest __storm_init() in the chain,
+            # past a class which declares none
+            q = '''
+            class Root { method __storm_init() { $lib.print('root init') return() } }
+            class Base extends Root { method who() { return(base) } }
+            class Kid extends Base {
+                method __storm_init() { $super.__storm_init() $lib.print('kid init') return() }
+            }
+            $kid = $Kid()
+            $lib.print($kid.who())
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoErr(msgs)
+            prints = [m[1].get('mesg') for m in msgs if m[0] == 'print']
+            self.eq(prints, ['root init', 'kid init', 'base'])
+
+            # an instance handed out by a __storm_init() which then fails construction
+            # may not be used or finalized
+            q = '''
+            class Base { method __storm_init() { return() } }
+            class Kid extends Base {
+                method __storm_init(escaped) { $escaped.append($self) return() }
+                method __storm_fini() { $lib.print('kid fini') return() }
+                method hello() { return(hello) }
+            }
+            $escaped = ([])
+            try { $Kid($escaped) } catch * as err { $lib.print(caught) }
+            $kid = $escaped.0
+            $kid.fini()
+            $kid.hello()
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('The Kid object could not be constructed and may not be used.', msgs)
+            prints = [m[1].get('mesg') for m in msgs if m[0] == 'print']
+            self.eq(prints, ['caught'])
+
+            # nor may an instance be finalized while it is being constructed
+            q = '''
+            class Foo {
+                method __storm_init() { $self.fini() return() }
+                method __storm_fini() { $lib.print('foo fini') return() }
+            }
+            $foo = $Foo()
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('The Foo object may not be finalized while it is being constructed.', msgs)
+            self.len(0, [m for m in msgs if m[0] == 'print'])
+
+            # a base with no __storm_init() in its chain is still finalized
+            q = '''
+            class Root { method __storm_fini() { $lib.print('root fini') return() } }
+            class Kid extends Root {
+                method __storm_init() { return() }
+                method __storm_fini() { $lib.print('kid fini') return() }
+            }
+            $kid = $Kid()
+            $kid.fini()
+            '''
+            msgs = await core.stormlist(q)
+            prints = [m[1].get('mesg') for m in msgs if m[0] == 'print']
+            self.eq(prints, ['kid fini', 'root fini'])
+
+            # without the reserved prefix, __init() and __fini() are ordinary
+            # private methods which the runtime never invokes
+            q = '''
+            class Foo {
+                method __init() { $lib.print(init) return() }
+                method __fini() { $lib.print(fini) return() }
+                method run() {
+                    $self.__init()
+                    $self.__fini()
+                    return()
+                }
+            }
+            $foo = $Foo()
+            $lib.print(made)
+            $foo.run()
+            $foo = (null)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoErr(msgs)
+
+            prints = [m[1].get('mesg') for m in msgs if m[0] == 'print']
+            self.eq(prints, ['made', 'init', 'fini'])
+
+            # an instance value may not use the reserved prefix either
+            q = 'class Foo { method __storm_init() { $self.__storm_newp = (1) return() } } $foo = $Foo()'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('The __storm_ prefix is reserved for Storm built-in methods: __storm_newp', msgs)
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('class Foo { method set() { $self.__storm_x = (1) return() } } $Foo().set()')
+
+            # the whole prefix is denied, including a name only known at runtime,
+            # which is also refused because a private name must be literal
+            for name in ('__storm_init', '__storm_fini', '__storm_'):
+                q = f'class Foo {{ method set(n) {{ $self.$n = (1) return() }} }} $Foo().set("{name}")'
+                msgs = await core.stormlist(q)
+                self.stormIsInErr(f'Private member [{name}] of Foo may only be used by a literal name', msgs)
+
+                q = f'class Foo {{ method set() {{ $self."{name}x" = (1) return() }} }} $Foo().set()'
+                msgs = await core.stormlist(q)
+                self.stormIsInErr(f'The __storm_ prefix is reserved for Storm built-in methods: {name}x', msgs)
+
+            # a literal built-in name is rejected when the query is parsed
+            q = 'class Foo { method set() { $self."__storm_init" = (1) return() } }'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Foo.__storm_init() is invoked by the runtime and may not be set.', msgs)
+
+    async def test_ast_class_private(self):
+
+        async with self.getTestCore() as core:
+
+            q = '''
+            class Foo {
+                method __storm_init() { $self.__hidden = secret }
+                method reveal() { return($self.__fmt()) }
+                method __fmt() { return(`hidden is {$self.__hidden}`) }
+            }
+            $foo = $Foo()
+            $lib.print($foo.reveal())
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoErr(msgs)
+            self.stormIsInPrint('hidden is secret', msgs)
+
+            # a private method may not be called from outside the class
+            q = 'class Foo { method __fmt() { return(x) } } $foo = $Foo() $foo.__fmt()'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Cannot dereference private value [__fmt] on object of type Foo.', msgs)
+
+            # a public value may be set from outside the class
+            q = '''
+            class Foo { method __storm_init() { $self.x = (1) } }
+            $foo = $Foo()
+            $foo.y = (2)
+            $lib.print(`x={$foo.x} y={$foo.y}`)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('x=1 y=2', msgs)
+
+            # a private value may not be set from outside the class
+            q = 'class Foo { method bar() { return(x) } } $foo = $Foo() $foo.__hidden = (1)'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Cannot set private value [__hidden] on object of type Foo.', msgs)
+
+            # a private method belongs to the class which declares it, so a
+            # subclass may not call one declared by its base
+            q = '''
+            class Base { method __secret() { return(shh) } }
+            class Kid extends Base { method tell() { return($self.__secret()) } }
+            $kid = $Kid()
+            $lib.print($kid.tell())
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Cannot find name [__secret] on object of type Kid.', msgs)
+
+            # each class in the chain has its own private values, so a subclass
+            # can not read those of its base
+            q = '''
+            class Base {
+                method __storm_init() { $self.__secret = shh return() }
+                method __helper() { return(helped) }
+                method help() { return($self.__helper()) }
+            }
+            class Kid extends Base {
+                method tell() {
+                    $self.__mine = kid
+                    return(`{$self.__mine} {$self.help()}`)
+                }
+                method peek() { return($self.__secret) }
+            }
+            $kid = $Kid()
+            $lib.print($kid.tell())
+            $lib.print($kid.peek())
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('kid helped', msgs)
+            self.stormIsInErr('Cannot find name [__secret] on object of type Kid.', msgs)
+
+            # nor can a base read those of a subclass
+            q = '''
+            class Base { method peek() { return($self.__mine) } }
+            class Kid extends Base {
+                method __storm_init() { $self.__mine = kid return() }
+            }
+            $kid = $Kid()
+            $lib.print($kid.peek())
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Cannot find name [__mine] on object of type Kid.', msgs)
+
+            # a subclass which sets a private value of the same name gets its own,
+            # leaving the one an inherited method uses untouched
+            q = '''
+            class Base {
+                method __storm_init() { $self.__authorized = (false) return() }
+                method check() { return($self.__authorized) }
+            }
+            class Kid extends Base {
+                method __storm_init() {
+                    $super.__storm_init()
+                    $self.__authorized = (true)
+                    return()
+                }
+                method mine() { return($self.__authorized) }
+            }
+            $kid = $Kid()
+            $lib.print(`check={$kid.check()} mine={$kid.mine()}`)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoErr(msgs)
+            self.stormIsInPrint('check=false mine=true', msgs)
+
+            # a private value may not take the name of a private method of the same class
+            q = '''
+            class Foo {
+                method __helper() { return(helped) }
+                method __storm_init() { $self.__helper = newp return() }
+            }
+            $foo = $Foo()
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Cannot set [__helper] on object of type Foo because it is a method.', msgs)
+
+            # a method which returns $self hands back the instance, not the facade
+            q = '''
+            class Foo {
+                method __storm_init() { $self.__hidden = nope }
+                method me() { return($self) }
+            }
+            $foo = $Foo()
+            $same = $foo.me()
+            $same.__hidden
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Cannot dereference private value [__hidden] on object of type Foo.', msgs)
+
+    async def test_ast_class_isolation(self):
+
+        async with self.getTestCore() as core:
+
+            vault = '''
+            class Vault {
+                method __storm_init() { $self.__secret = hunter2 return() }
+                method __reveal() { return($self.__secret) }
+                method reveal() { return($self.__reveal()) }
+                method leakList() { return(($self,)) }
+                method leakCallback(cb) { $cb($self) return() }
+                method leakClosure() {
+                    function peek() { return($self.__reveal()) }
+                    return($peek)
+                }
+                method leakEmit() { emit $self }
+                method leakPath() { [ it:dev:str=vault ] }
+            }
+            $v = $Vault()
+            '''
+
+            # $self is the plain public instance, so every way it leaves a method
+            # hands out nothing more than any holder of the instance already has
+            privmesg = 'Cannot dereference private value [__reveal] on object of type Vault.'
+            for tail in (
+                '$esc = $v.leakList().0 $esc.__reveal()',
+                '$box = ({}) function cb(s) { $box.s = $s return() } $v.leakCallback($cb) $box.s.__reveal()',
+                'for $esc in $v.leakEmit() { $esc.__reveal() }',
+            ):
+                msgs = await core.stormlist(vault + tail)
+                self.stormIsInErr(privmesg, msgs)
+
+            # the escaped instance is the same instance, and still works publicly
+            q = vault + '$esc = $v.leakList().0 $same = ($esc = $v) return(($same, $esc.reveal()))'
+            self.eq((True, 'hunter2'), await core.callStorm(q))
+
+            # a closure which outlives its method may no longer use $self
+            msgs = await core.stormlist(vault + '$peek = $v.leakClosure() $peek()')
+            self.stormIsInErr('Vault.leakClosure() has returned, so its $self and $super may no longer be used.', msgs)
+
+            # a node yielding method carries no $self variable in its node paths
+            q = vault + 'divert (true) $v.leakPath() | $lib.print($path.vars.self)'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('No var with name: self.', msgs)
+
+            # $self is not a variable, so an embedded query may not reach it
+            q = 'class Foo { method a() { return($lib.storm.eval("$self")) } } $foo = $Foo() $foo.a()'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('variable used before assignment: self', msgs)
+
+            # a method is found before a value, and no value may take a method's name
+            q = '''
+            class Foo {
+                method name() { return(method) }
+                method __helper() { return(helper) }
+                method set(n) { $self.$n = (1) return() }
+                method setHelper() { $self.__helper = (1) return() }
+            }
+            $foo = $Foo()
+            '''
+            methmesg = 'Cannot set [{name}] on object of type Foo because it is a method.'
+            for tail, name in (
+                ('$foo.name = value', 'name'),
+                ('$foo.set(name)', 'name'),
+                ('$foo.setHelper()', '__helper'),
+            ):
+                msgs = await core.stormlist(q + tail)
+                self.stormIsInErr(methmesg.format(name=name), msgs)
+
+            # nor the name of a public method which only a subclass declares
+            q = '''
+            class Base { method set() { $self.extra = (1) return() } }
+            class Kid extends Base { method extra() { return(kid) } }
+            $kid = $Kid()
+            $kid.set()
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Cannot set [extra] on object of type Kid because it is a method.', msgs)
+
+            # a private member needs a literal name, so a public method which
+            # forwards a caller's name may not expose one
+            q = '''
+            class Foo {
+                method __storm_init() { $self.__secret = shh $self.pub = ok return() }
+                method get(n) { return($self.$n) }
+            }
+            $foo = $Foo()
+            $lib.print($foo.get(pub))
+            $foo.get(__secret)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('ok', msgs)
+            self.stormIsInErr('Private member [__secret] of Foo may only be used by a literal name, such as $self.__secret.', msgs)
+
+            # a private method may only be called, not taken as a value
+            q = 'class Foo { method __p() { return(p) } method a() { $f = $self.__p return($f) } } $Foo().a()'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Private method Foo.__p() may only be called.', msgs)
+
+            # an unknown private name
+            q = 'class Foo { method a() { return($self.__newp) } } $Foo().a()'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Cannot find name [__newp] on object of type Foo.', msgs)
+
+            # $self.m() dispatches from the class which wrote the call, so a base
+            # method is not overridden by a subclass declaration
+            q = '''
+            class Base {
+                method who() { return(base) }
+                method ask() { return($self.who()) }
+            }
+            class Kid extends Base {
+                method who() { return(kid) }
+            }
+            $kid = $Kid()
+            return(($kid.who(), $kid.ask()))
+            '''
+            self.eq(('kid', 'base'), await core.callStorm(q))
+
+            # $super may call a base method by a dynamic name, but never a private one
+            q = '''
+            class Base { method greet() { return(hello) } method __p() { return(p) } }
+            class Kid extends Base { method call(n) { return($super.$n()) } }
+            $kid = $Kid()
+            $lib.print($kid.call(greet))
+            $kid.call(__p)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('hello', msgs)
+            self.stormIsInErr('Cannot dereference private value [__p] of Base through $super.', msgs)
+
+            q = 'class Base { } class Kid extends Base { method call(n) { return($super.$n()) } } $Kid().call(newp)'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Cannot find method [newp] on Base.', msgs)
+
+            # $super.__storm_init() needs a base which declares one
+            q = '''
+            class Base { method a() { return() } }
+            class Kid extends Base { method __storm_init() { $super.__storm_init() return() } }
+            $kid = $Kid()
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Base declares no __storm_init() method to call through $super.', msgs)
+
+            # a member name may be any value which makes a string, such as a node
+            await core.nodes('[ it:dev:str=nodename ]')
+            q = '''
+            class Foo { method set(n) { $self.$n = (1) return() } }
+            $foo = $Foo()
+            it:dev:str=nodename
+            $foo.set($node)
+            $foo.$node = (2)
+            fini { return($foo.nodename) }
+            '''
+            self.eq(2, await core.callStorm(q))
+
+            # a generator method created while the instance is live does not run
+            # its body once the instance is finalized
+            q = '''
+            class Foo { method gen() { emit (1) } }
+            $foo = $Foo()
+            $genr = $foo.gen()
+            $foo.fini()
+            for $x in $genr { $lib.print($x) }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('The Foo object has been finalized and may no longer be used.', msgs)
+
+            # a method which recurses resolves $self from its own call each time
+            q = '''
+            class Foo {
+                method __storm_init() { $self.n = (0) return() }
+                method count(x) {
+                    $self.n = ($self.n + 1)
+                    if ($x > 0) { $self.count(($x - 1)) }
+                    return($self.n)
+                }
+            }
+            return($Foo().count(3))
+            '''
+            self.eq(4, await core.callStorm(q))
+
+            # $self may be set per node within a method which has inbound nodes
+            await core.nodes('[ it:dev:str=one it:dev:str=two ]')
+            q = '''
+            class Foo {
+                method count() {
+                    $self.n = (0)
+                    it:dev:str=one it:dev:str=two
+                    $self.n = ($self.n + 1)
+                    fini { return($self.n) }
+                }
+            }
+            return($Foo().count())
+            '''
+            self.eq(2, await core.callStorm(q))
+
+            # a bare $self in a closure which outlives its method is refused
+            q = '''
+            class Foo {
+                method leak() {
+                    function me() { return($self) }
+                    return($me)
+                }
+            }
+            $me = $Foo().leak()
+            $me()
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Foo.leak() has returned, so its $self and $super may no longer be used.', msgs)
+
+            # the runtime refuses a lifecycle method or context the parser can not see
+            query = await core.getStormQuery('class Foo { method __storm_init() { return() } }')
+            async with core.getStormRuntime(query) as runt:
+                async for item in runt.execute():
+                    pass
+
+                clss = runt.getVar('Foo')._storm_class
+                self.none(clss.getPrivMeth('__storm_init'))
+                self.none(clss.getPrivMeth('__storm_fini'))
+
+                with self.raises(s_exc.StormRuntimeError) as cm:
+                    runt.getMethCtx(clss.meths['__storm_init'][0])
+                self.eq(cm.exception.get('mesg'), '$self and $super may only be used by a running Storm class method.')
+
+                # a $self reference is runtsafe, although no $self variable exists
+                meth = clss.meths['__storm_init'][0]
+                varv = s_ast.VarValue(meth.astinfo, kids=[s_ast.Const(meth.astinfo, 'self')])
+                varv.prepare()
+                self.false(varv.isRuntSafeAtom(runt))
+
+                varv.selfkind = 'self'
+                varv.methnode = meth
+                self.true(varv.isRuntSafe(runt))
+                self.true(varv.isRuntSafeAtom(runt))
+
+    async def test_ast_class_fini(self):
+
+        async with self.getTestCore() as core:
+
+            # the runtime is torn down even when __storm_fini() code is cancelled
+            query = await core.getStormQuery('''
+            class Slow {
+                method __storm_fini() {
+                    $lib.print(finalizing)
+                    $lib.time.sleep(30)
+                    return()
+                }
+            }
+            $slow = $Slow()
+            ''')
+            async with core.getStormRuntime(query) as runt:
+
+                async for item in runt.execute():
+                    pass
+
+                started = asyncio.Event()
+                runt.bus.on('print', lambda mesg: started.set())
+
+                task = core.schedCoro(runt.fini())
+                await asyncio.wait_for(started.wait(), timeout=10)
+
+                task.cancel()
+                with self.raises(asyncio.CancelledError):
+                    await task
+
+                self.true(runt.isfini)
+
+            # fini() runs the whole __storm_fini() chain once, most derived first
+            q = '''
+            class Animal {
+                method __storm_init(name as str) { $self.name = $name }
+                method __storm_fini() { $lib.print(`fini Animal {$self.name}`) }
+            }
+            class Dog extends Animal {
+                method __storm_fini() { $lib.print(`fini Dog {$self.name}`) }
+            }
+            $dog = $Dog(rex)
+            $lib.print(made)
+            $dog.fini()
+            $dog.fini()
+            $lib.print(finished)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoErr(msgs)
+
+            prints = [m[1].get('mesg') for m in msgs if m[0] == 'print']
+            self.eq(prints, ['made', 'fini Dog rex', 'fini Animal rex', 'finished'])
+
+            # dropping or reassigning a reference no longer finalizes the instance,
+            # so a factory, a loop over instances or passing one to a function all
+            # leave it live. anything not explicitly finalized is finalized when the
+            # query ends, the most recently constructed first, and its output
+            # still reaches the caller.
+            q = '''
+            class Foo {
+                method __storm_init(name as str) { $self.name = $name }
+                method __storm_fini() { $lib.print(`fini {$self.name}`) }
+            }
+            function make(name) {
+                $obj = $Foo($name)
+                return($obj)
+            }
+            function show(obj) { $lib.print(`show {$obj.name}`) return() }
+
+            $one = $make(one)
+            $objs = ($one, $Foo(two))
+            for $obj in $objs { $show($obj) }
+            $one = (null)
+            $objs = (null)
+            $lib.print(dropped)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoErr(msgs)
+
+            prints = [m[1].get('mesg') for m in msgs if m[0] == 'print']
+            self.eq(prints, ['show one', 'show two', 'dropped', 'fini two', 'fini one'])
+
+            # an explicitly finalized instance is not finalized again at teardown
+            q = '''
+            class Foo {
+                method __storm_init(name as str) { $self.name = $name }
+                method __storm_fini() { $lib.print(`fini {$self.name}`) }
+            }
+            $one = $Foo(one)
+            $two = $Foo(two)
+            $one.fini()
+            $lib.print(explicit)
+            '''
+            msgs = await core.stormlist(q)
+            prints = [m[1].get('mesg') for m in msgs if m[0] == 'print']
+            self.eq(prints, ['fini one', 'explicit', 'fini two'])
+
+            # a finalized instance may no longer be used, except to call fini()
+            q = '''
+            class Foo {
+                method __storm_init() { $self.x = (1) }
+                method get() { return($self.x) }
+            }
+            $foo = $Foo()
+            $get = $foo.get
+            $foo.fini()
+            $foo.fini()
+            '''
+            finimesg = 'The Foo object has been finalized and may no longer be used.'
+            for tail in ('$foo.x', '$foo.get()', '$get()', '$foo.x = (2)'):
+                msgs = await core.stormlist(f'{q} {tail}')
+                self.stormIsInErr(finimesg, msgs)
+
+            # a class without a __storm_fini() method may still be finalized
+            msgs = await core.stormlist('class Bare { method a() { return(a) } } $b = $Bare() $b.fini() $b.a()')
+            self.stormIsInErr('The Bare object has been finalized and may no longer be used.', msgs)
+
+            # a method may finalize its own instance, and fini() called again
+            # from within __storm_fini() does nothing
+            q = '''
+            class Foo {
+                method __storm_fini() {
+                    $lib.print(fini)
+                    $self.fini()
+                    return()
+                }
+                method close() {
+                    $self.fini()
+                    return()
+                }
+            }
+            $foo = $Foo()
+            $foo.close()
+            $lib.print(closed)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoErr(msgs)
+
+            prints = [m[1].get('mesg') for m in msgs if m[0] == 'print']
+            self.eq(prints, ['fini', 'closed'])
+
+            # an instance whose __storm_init() fails is never finalized
+            q = '''
+            class Foo {
+                method __storm_init() { $lib.raise(Oops, 'init failed') }
+                method __storm_fini() { $lib.print(fini) }
+            }
+            try { $foo = $Foo() } catch Oops as err { $lib.print(caught) }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoErr(msgs)
+
+            prints = [m[1].get('mesg') for m in msgs if m[0] == 'print']
+            self.eq(prints, ['caught'])
+
+            # fini is a reserved name for an instance value
+            q = 'class Foo { method a() { $self.fini = (1) return() } } $foo = $Foo() $foo.a()'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('The name fini is reserved for the Storm built-in fini() method.', msgs)
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('class Foo { method a() { return() } } $foo = $Foo() $foo.fini = (1)')
+
+            # a __storm_fini() which raises is reported as a storm warning and the rest
+            # of the chain still runs
+            q = '''
+            class Animal {
+                method __storm_fini() {
+                    $lib.print('fini Animal')
+                    return()
+                }
+            }
+            class Dog extends Animal {
+                method __storm_fini() {
+                    $lib.raise(Oops, 'dog fini failed')
+                    return()
+                }
+            }
+            $dog = $Dog()
+            $dog.fini()
+            $lib.print(finished)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoErr(msgs)
+
+            prints = [m[1].get('mesg') for m in msgs if m[0] == 'print']
+            self.eq(prints, ['fini Animal', 'finished'])
+
+            warns = [m[1] for m in msgs if m[0] == 'warn']
+            self.len(1, warns)
+            self.eq(warns[0]['mesg'], 'Dog.__storm_fini() failed for Dog object: dog fini failed')
+            self.eq(warns[0]['name'], 'Dog')
+            self.eq(warns[0]['err'], 'StormRaise')
+
+            # a non-SynErr failure is reported using its repr, including at teardown
+            with mock.patch('synapse.lib.stormtypes.StormObject.callMethod', side_effect=ValueError('newp')):
+                msgs = await core.stormlist('class Foo { method __storm_fini() { return() } } $foo = $Foo()')
+
+            self.stormIsInWarn("Foo.__storm_fini() failed for Foo object: ValueError('newp')", msgs)
+
+            # __storm_fini() also runs when the runtime tears down
+            q = '''
+            $que = $lib.queue.gen(finiq)
+            class Leaky {
+                method __storm_init(name as str) { $self.name = $name }
+                method __storm_fini() { $que.put($self.name) }
+            }
+            $kept = $Leaky(atexit)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoErr(msgs)
+
+            items = await core.callStorm('return($lib.queue.gen(finiq).pop(0))')
+            self.eq(items, (0, 'atexit'))
+
+            # an instance constructed within view.exec or runas is finalized when
+            # that command's runtime ends, and its output reaches the caller
+            fork = await core.callStorm('return($lib.view.get().fork().iden)')
+            defs = '''
+            class Foo {
+                method __storm_init(name as str) { $self.name = $name }
+                method __storm_fini() { $lib.print(`fini {$self.name}`) }
+            }
+            '''
+            for text in (
+                f'view.exec {fork} {{ {defs} $foo = $Foo(inner) }} | $lib.print(after)',
+                f'[ it:dev:str=hehe ] view.exec {fork} {{ {defs} $foo = $Foo(inner) }} | spin | $lib.print(after)',
+                f'runas root {{ {defs} $foo = $Foo(inner) }} | $lib.print(after)',
+                f'[ it:dev:str=hehe ] runas root {{ {defs} $foo = $Foo(inner) }} | spin | $lib.print(after)',
+            ):
+                msgs = await core.stormlist(text)
+                self.stormHasNoErr(msgs)
+
+                prints = [m[1].get('mesg') for m in msgs if m[0] == 'print']
+                self.eq(prints, ['fini inner', 'after'])
+
+            # while an instance of a class declared outside the block is finalized
+            # when the query which declared its class finishes
+            for text in (
+                f'{defs} view.exec {fork} {{ $foo = $Foo(inner) }} | $lib.print(after)',
+                f'{defs} runas root {{ $foo = $Foo(inner) }} | $lib.print(after)',
+            ):
+                msgs = await core.stormlist(text)
+                self.stormHasNoErr(msgs)
+
+                prints = [m[1].get('mesg') for m in msgs if m[0] == 'print']
+                self.eq(prints, ['after', 'fini inner'])
+
+    async def test_ast_class_errors(self):
+
+        async with self.getTestCore() as core:
+
+            # the parse time rejections are covered by
+            # GrammarTest.test_class_syntax_errors, which parses in process.
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('class Foo { method a() { $self = (1) } }')
+
+            # a nested class declares its own $self
+            q = '''
+            class Outer {
+                method make() {
+                    class Inner { method hi() { return(inner) } }
+                    $obj = $Inner()
+                    return($obj.hi())
+                }
+            }
+            $outer = $Outer()
+            $lib.print($outer.make())
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('inner', msgs)
+
+            # extends an unknown name
+            q = 'class Foo extends Newp { method a() { return(x) } }'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Class Foo extends unknown class Newp.', msgs)
+
+            # extends something which is not a class
+            q = '$Newp = (3) class Foo extends Newp { method a() { return(x) } }'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Class Foo may not extend $Newp which is not a class.', msgs)
+
+            # a mutable default is rejected the same way it is for a function
+            q = 'class Foo { method a(x=({})) { return($x) } }'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Mutable default parameter value not allowed', msgs)
+
+            # the usual function argument errors still apply to methods
+            q = 'class Foo { method a(x) { return($x) } } $foo = $Foo() $foo.a()'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Foo.a() missing required argument "x"', msgs)
+
+            q = 'class Foo { method a(x) { return($x) } } $foo = $Foo() $foo.a((1), (2))'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Foo.a() takes 1 arguments but 2 were provided', msgs)
+
+            q = 'class Foo { method a(x=(1)) { return($x) } } $foo = $Foo() $foo.a(newp=(1))'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Foo.a() got unexpected keyword argument: "newp"', msgs)
+
+            q = 'class Foo { method a(x=(1), y=(2)) { return($x) } } $foo = $Foo() $foo.a(newp=(1), nope=(2))'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Foo.a() got unexpected keyword arguments: "newp", "nope"', msgs)
+
+            q = 'class Foo { method a(x, y=(9)) { return($x) } } $foo = $Foo() $foo.a((1), x=(2))'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Foo.a() got multiple values for parameter "x"', msgs)
+
+    async def test_ast_class_import(self):
+
+        pkgdef = {
+            'name': 'clspkg',
+            'version': '0.0.1',
+            'modules': (
+                {
+                    'name': 'clspkg.mod',
+                    'storm': '''
+                        class Greeter {
+                            method __storm_init(name as str) { $self.name = $name }
+                            method greet() { return(`hello {$self.name}`) }
+                        }
+                    ''',
+                },
+            ),
+        }
+
+        async with self.getTestCore() as core:
+
+            await core.addStormPkg(pkgdef)
+
+            q = '''
+            $mod = $lib.import(clspkg.mod)
+            $obj = $mod.Greeter(world)
+            $lib.print($obj.greet())
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoErr(msgs)
+            self.stormIsInPrint('hello world', msgs)
+
+    async def test_ast_class_typename(self):
+
+        pkgdef = {
+            'name': 'acme',
+            'version': '0.0.1',
+            'modules': (
+                {
+                    'name': 'acme.intel.client',
+                    'storm': '''
+                        class Client { method hi() { return(hi) } }
+                        function make() { class Made { method hi() { return(hi) } } return($Made) }
+                        function runInlineCmd() { acme.showtype }
+                        function runMacro() { macro.exec typemac }
+                        function runExec() {
+                            storm.exec ${ class Ex { } $lib.print(`exectype={$lib.utils.type($Ex())}`) }
+                        }
+                        function runEval() {
+                            return($lib.storm.eval(${ { class Ev { } $lib.print(`evaltype={$lib.utils.type($Ev())}`) return((0)) } }))
+                        }
+                    ''',
+                },
+            ),
+            'commands': (
+                {
+                    'name': 'acme.showtype',
+                    'storm': 'class InCmd { } $lib.print(`cmdtype={$lib.utils.type($InCmd())}`)',
+                },
+            ),
+        }
+
+        async with self.getTestCore() as core:
+
+            await core.addStormPkg(pkgdef)
+
+            # a class declared in a module is named by the module, including one
+            # a module function builds and hands out
+            self.eq('acme.intel.client.Client',
+                    await core.callStorm('return($lib.utils.type($lib.import(acme.intel.client).Client()))'))
+
+            self.eq('acme.intel.client.Made',
+                    await core.callStorm('return($lib.utils.type($lib.import(acme.intel.client).make()()))'))
+
+            # a class declared in a query is named <query>
+            self.eq('<query>.Greeter',
+                    await core.callStorm('class Greeter { method hi() { return(hi) } } return($lib.utils.type($Greeter()))'))
+            self.eq('<query>.Made',
+                    await core.callStorm('function make() { class Made { } return($Made) } return($lib.utils.type($make()()))'))
+
+            # a class named like a built-in type does not take the built-in's name
+            self.eq('<query>.str',
+                    await core.callStorm('class str { method upper() { return(FAKE) } } return($lib.utils.type($str()))'))
+
+            # so help does not render the built-in's docs for such an instance
+            msgs = await core.stormlist('class str { method upper() { return(FAKE) } } $s = $str() help $s')
+            self.stormIsInErr('Unknown storm type encountered: <query>.str', msgs)
+
+            # while help on the built-in type name itself is unaffected
+            msgs = await core.stormlist('help str')
+            self.stormIsInPrint('# str', msgs)
+
+            # a command body is its own query, so its class is <query>, never the
+            # module: at the top level, after an import, and run by a module function
+            for text in (
+                'acme.showtype',
+                '$lib.import(acme.intel.client) | acme.showtype',
+                'yield $lib.import(acme.intel.client).runInlineCmd()',
+            ):
+                msgs = await core.stormlist(text)
+                self.stormIsInPrint('cmdtype=<query>.InCmd', msgs)
+
+            # a macro and storm.exec are their own queries too, so their classes
+            # are <query> even when a module runs them
+            await core.callStorm('$lib.macro.set(typemac, ${ class MacCls { } $lib.print(`mactype={$lib.utils.type($MacCls())}`) })')
+            for text in (
+                'macro.exec typemac',
+                'yield $lib.import(acme.intel.client).runMacro()',
+            ):
+                msgs = await core.stormlist(text)
+                self.stormIsInPrint('mactype=<query>.MacCls', msgs)
+
+            for text in (
+                'storm.exec ${ class Ex { } $lib.print(`exectype={$lib.utils.type($Ex())}`) }',
+                'yield $lib.import(acme.intel.client).runExec()',
+            ):
+                msgs = await core.stormlist(text)
+                self.stormIsInPrint('exectype=<query>.Ex', msgs)
+
+            # an eval'd subquery is its own query, so its class is <query> too
+            for text in (
+                '$x=$lib.storm.eval(${ { class Ev { } $lib.print(`evaltype={$lib.utils.type($Ev())}`) return((0)) } })',
+                '$x=$lib.import(acme.intel.client).runEval()',
+            ):
+                msgs = await core.stormlist(text)
+                self.stormIsInPrint('evaltype=<query>.Ev', msgs)
+
+    async def test_ast_class_privs(self):
+
+        pkgdef = {
+            'name': 'clspriv',
+            'version': '0.0.1',
+            'modules': (
+                {
+                    'name': 'clspriv.mod',
+                    'asroot:perms': (('clspriv', 'user'),),
+                    'storm': '''
+                        $modvar = "from the module"
+
+                        function __addstr(valu) {
+                            [ it:dev:str=$valu ]
+                            return($node.value)
+                        }
+
+                        class Writer {
+                            method __storm_init(valu as str) {
+                                $self.valu = $valu
+                                return()
+                            }
+                            method modvar() { return($modvar) }
+                            method direct() {
+                                [ it:dev:str=$self.valu ]
+                                return($node.value)
+                            }
+                            method elevated() { return($__addstr($self.valu)) }
+                        }
+
+                        class Maker {
+                            method __storm_init() {
+                                [ it:dev:str=init ]
+                                return()
+                            }
+                        }
+
+                        class Cleaner {
+                            method __storm_fini() {
+                                [ it:dev:str=fini ]
+                                return()
+                            }
+                        }
+
+                        function makeCleaner() { return($Cleaner()) }
+
+                        class Gate {
+                            method __storm_init() {
+                                if (not $lib.auth.users.get().allowed(clspriv.admin)) {
+                                    $lib.raise(AuthDeny, "gate says no")
+                                }
+                                return()
+                            }
+                            method run(valu) { return($__addstr($valu)) }
+                        }
+
+                        class Janitor {
+                            method __storm_init() { $self.target = safe return() }
+                            method __storm_fini() {
+                                [ it:dev:str=$self.target ]
+                                return()
+                            }
+                        }
+
+                        function mkJanitor() { return($Janitor()) }
+
+                        class SafeJanitor {
+                            method __storm_init() { $self.__target = safe return() }
+                            method __storm_fini() {
+                                [ it:dev:str=$self.__target ]
+                                return()
+                            }
+                        }
+
+                        function mkSafeJanitor() { return($SafeJanitor()) }
+
+                        class Describer {
+                            method describe() { return(base) }
+                            method viaHelper() { return($describe($self)) }
+                        }
+
+                        function describe(obj) { return($obj.describe()) }
+                        function make(cls) { $obj = $cls() return(ok) }
+                        function finish(obj) { $obj.fini() return(ok) }
+                    ''',
+                },
+            ),
+        }
+
+        async with self.getTestCore() as core:
+
+            await core.addStormPkg(pkgdef)
+
+            visi = await core.auth.addUser('visi')
+            await visi.addRule((True, ('clspriv', 'user')))
+            opts = {'user': visi.iden}
+
+            # a method resolves the variables of the module which declared it
+            q = 'return($lib.import(clspriv.mod).Writer(hehe).modvar())'
+            self.eq('from the module', await core.callStorm(q, opts=opts))
+
+            # like a function, a method runs with the privileges of the runtime which
+            # declared it, so a class in an elevated module runs its methods elevated
+            q = 'return($lib.import(clspriv.mod).Writer(hehe).direct())'
+            self.eq('hehe', await core.callStorm(q, opts=opts))
+            self.len(1, await core.nodes('it:dev:str=hehe'))
+
+            # which also holds for a method inherited by a subclass the caller declares
+            q = '''
+            $Writer = $lib.import(clspriv.mod).Writer
+            class Sub extends Writer { method other() { return(other) } }
+            return($Sub(haha).direct())
+            '''
+            self.eq('haha', await core.callStorm(q, opts=opts))
+            self.len(1, await core.nodes('it:dev:str=haha'))
+
+            # while a method the caller's subclass declares runs with the caller's privileges
+            q = '''
+            $Writer = $lib.import(clspriv.mod).Writer
+            class Sub extends Writer { method mine() { [ it:dev:str=mine ] return($node.value) } }
+            return($Sub(hoho).mine())
+            '''
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(q, opts=opts)
+
+            self.len(0, await core.nodes('it:dev:str=mine'))
+
+            # a method may still call the module's functions
+            q = 'return($lib.import(clspriv.mod).Writer(hihi).elevated())'
+            self.eq('hihi', await core.callStorm(q, opts=opts))
+            self.len(1, await core.nodes('it:dev:str=hihi'))
+
+            # __storm_init() runs with the privileges of the module which declared it
+            await core.callStorm('$lib.import(clspriv.mod).Maker()', opts=opts)
+            self.len(1, await core.nodes('it:dev:str=init'))
+
+            # as does __storm_fini(), when the query finishes
+            q = '$obj = $lib.import(clspriv.mod).Cleaner() $obj = (null)'
+            msgs = await core.stormlist(q, opts=opts)
+            self.stormHasNoErr(msgs)
+            self.len(0, [m for m in msgs if m[0] == 'warn'])
+
+            self.len(1, await core.nodes('it:dev:str=fini'))
+            await core.nodes('it:dev:str=fini | delnode')
+
+            # and whoever calls fini()
+            q = '$obj = $lib.import(clspriv.mod).makeCleaner() $obj.fini()'
+            msgs = await core.stormlist(q, opts=opts)
+            self.stormHasNoErr(msgs)
+
+            self.len(1, await core.nodes('it:dev:str=fini'))
+
+            # any holder may set a public value, so an elevated method which trusts one
+            # may be steered by the caller
+            q = '$j = $lib.import(clspriv.mod).mkJanitor() $j.target = attacker'
+            msgs = await core.stormlist(q, opts=opts)
+            self.stormHasNoErr(msgs)
+
+            self.len(1, await core.nodes('it:dev:str=attacker'))
+
+            # while state kept private can not be
+            q = '$j = $lib.import(clspriv.mod).mkSafeJanitor() $j.target = attacker2'
+            msgs = await core.stormlist(q, opts=opts)
+            self.stormHasNoErr(msgs)
+
+            self.len(1, await core.nodes('it:dev:str=safe'))
+            self.len(0, await core.nodes('it:dev:str=attacker2'))
+
+            # a base __storm_init() may gate construction, and a subclass may not
+            # skip it to reach the base's elevated methods
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.import(clspriv.mod).Gate().run(gated))', opts=opts)
+
+            q = '''
+            $Gate = $lib.import(clspriv.mod).Gate
+            class Sneak extends Gate { method __storm_init() { return() } }
+            return($Sneak().run(sneaked))
+            '''
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.callStorm(q, opts=opts)
+            self.isin('Sneak.__storm_init() did not call $super.__storm_init()', cm.exception.get('mesg'))
+
+            self.len(0, await core.nodes('it:dev:str=gated'))
+            self.len(0, await core.nodes('it:dev:str=sneaked'))
+
+            # elevated code which calls a method on, constructs, or finalizes an object or
+            # class the caller declared runs that code with the caller's privileges
+            q = '''
+            class Evil { method describe() { [ it:dev:str=viamethod ] return($node.value) } }
+            return($lib.import(clspriv.mod).describe($Evil()))
+            '''
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(q, opts=opts)
+
+            q = '''
+            class Evil { method __storm_init() { [ it:dev:str=viactor ] return() } }
+            return($lib.import(clspriv.mod).make($Evil))
+            '''
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(q, opts=opts)
+
+            q = '''
+            class Evil { method __storm_fini() { [ it:dev:str=viafini ] return() } }
+            return($lib.import(clspriv.mod).finish($Evil()))
+            '''
+            msgs = await core.stormlist(q, opts=opts)
+            self.stormIsInWarn('Evil.__storm_fini() failed for Evil object: ', msgs)
+
+            # including a subclass override reached by an elevated base method which
+            # passes $self to one of the module's functions
+            q = '''
+            $Describer = $lib.import(clspriv.mod).Describer
+            class Sub extends Describer {
+                method describe() { [ it:dev:str=viahelper ] return($node.value) }
+            }
+            return($Sub().viaHelper())
+            '''
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(q, opts=opts)
+
+            q = 'return($lib.import(clspriv.mod).Describer().viaHelper())'
+            self.eq('base', await core.callStorm(q, opts=opts))
+
+            self.len(0, await core.nodes('it:dev:str=viamethod it:dev:str=viactor it:dev:str=viafini it:dev:str=viahelper'))
+
+    async def test_ast_func_argtypes(self):
+
+        async with self.getTestCore() as core:
+
+            # a plain function coerces and enforces its annotated arguments
+            q = '''
+            function addem(x as int, y as int=(2)) { return(($x + $y)) }
+            $lib.print(`sum={$addem("3")}`)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('sum=5', msgs)
+
+            q = 'function addem(x as int) { return($x) } $addem(newp)'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('addem() parameter "x" requires a valid int', msgs)
+
+            # a model type works just as well as a base type
+            q = '''
+            function norm(ip as inet:ipv4) { return($ip) }
+            $lib.print(`ip={$norm("1.2.3.4")}`)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('ip=1.2.3.4', msgs)
+
+            # null is passed through so that an optional argument stays optional
+            q = '''
+            function maybe(x as int=(null)) {
+                if ($x = (null)) { return(nothing) }
+                return($x)
+            }
+            $lib.print(`got={$maybe()}`)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('got=nothing', msgs)
+
+            # but only for an argument whose default is (null)
+            q = 'function need(x as int) { return(($x + 1)) } $need((null))'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('need() parameter "x" requires a valid int, not (null).', msgs)
+
+            q = 'function port(x as int=(443)) { return($x) } $port(x=(null))'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('port() parameter "x" requires a valid int, not (null).', msgs)
+
+            # an unknown type name
+            q = 'function newp(x as newp:type) { return($x) } $newp((1))'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('newp() parameter "x" declares unknown type newp:type.', msgs)
+
+            # the annotation may be computed from a variable
+            q = '''
+            $tname = int
+            function addem(x as $tname) { return(($x + (1))) }
+            $lib.print(`sum={$addem("41")}`)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('sum=42', msgs)
+
+            with self.raises(s_exc.BadArg) as cm:
+                await core.callStorm('function f(x as int) { return($x) } return($f(newp))')
+
+            self.eq(cm.exception.get('name'), 'x')
+            self.eq(cm.exception.get('type'), 'int')

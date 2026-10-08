@@ -1,0 +1,17 @@
+interactions:
+- request:
+    body: null
+    headers: {}
+    method: GET
+    uri: https://acme.example.com/api/v1/fqdn/vertex.link
+  response:
+    body:
+      string: '{"fqdn": "vertex.link", "risk": "low", "categories": ["technology"]}'
+    headers:
+      Content-Type:
+      - application/json
+    status:
+      code: 200
+      message: OK
+    url: https://acme.example.com/api/v1/fqdn/vertex.link
+version: 1

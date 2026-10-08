@@ -111,6 +111,7 @@ class BizModelTest(s_t_utils.SynTest):
                 [ biz:listing=*
                     :actor={ entity:contact:name=visi | limit 1 }
                     +(has)> {[ econ:lineitem=* :item={[ biz:service=* :period=20250716 ]} ]}
+                    +(used)> {[ inet:service:platform=* :name=ebay ]}
                     :period=(20221221, 2023)
                     :price=1000000
                 ]
@@ -121,6 +122,7 @@ class BizModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'price', '1000000')
 
             self.len(1, await core.nodes('biz:listing -> entity:contact +:name=visi'))
+            self.len(1, await core.nodes('biz:listing -(used)> inet:service:platform +:name=ebay'))
 
             nodes = await core.nodes('biz:listing -(has)> econ:lineitem -> biz:service')
             self.len(1, nodes)

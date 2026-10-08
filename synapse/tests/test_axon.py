@@ -353,17 +353,25 @@ Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
         self.eq(names, enames)
 
         evt = asyncio.Event()
-        origlink = s_axon.Axon._sha256ToLink
-        async def fakelink(self, sha256_, link):
-            link.onfini(evt.set)
-            if sha256_ == pennhash:
-                sha256_ = b'newp'
-            await origlink(self, sha256_, link)
+        origget = s_axon.Axon.get
+        async def fakeget(self, sha256_, offs=None, size=None):
+            try:
+                if sha256_ == pennhash:
+                    yield b'penny\n'
+                    raise s_exc.NoSuchFile(mesg='newp')
+
+                async for byts in origget(self, sha256_, offs=offs, size=size):
+                    yield byts
+
+            finally:
+                evt.set()
 
         newdata = '\n'.join([data for i in range(500)])
         size, sha256 = await axon.put(newdata.encode())
 
-        with mock.patch('synapse.axon.Axon._sha256ToLink', fakelink):
+        with mock.patch('synapse.axon.Axon.get', fakeget):
+
+            # bailing out early closes the blob stream
             async for row in axon.csvrows(sha256):
                 break
             self.true(await s_coro.event_wait(evt, 5))
@@ -373,9 +381,12 @@ Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
                 break
             self.true(await s_coro.event_wait(evt, 5))
 
-            # make sure exceptions within sha256tolink get re-raised
-            await self.asyncraises(s_exc.NoSuchFile, s_t_utils.alist(axon.csvrows(pennhash)))
-            await self.asyncraises(s_exc.NoSuchFile, s_t_utils.alist(axon.readlines(s_common.ehex(pennhash))))
+            # make sure exceptions while reading the blob get re-raised
+            with self.raises(s_exc.NoSuchFile):
+                await s_t_utils.alist(axon.csvrows(pennhash))
+
+            with self.raises(s_exc.NoSuchFile):
+                await s_t_utils.alist(axon.readlines(s_common.ehex(pennhash)))
 
         # CSV with alternative delimiter
         data = '''foo|bar|baz
@@ -614,10 +625,21 @@ bar baz",vv
                 item = await resp.json()
                 self.eq('err', item.get('status'))
 
-            async with sess.post(url_ul, data=abuf) as resp:
-                self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
-                item = await resp.json()
-                self.eq('err', item.get('status'))
+            # a denied upload does not start an upload in the axon
+            uploads = []
+            anit = s_axon.UpLoad.__anit__
+
+            async def __anit__(self, *args, **kwargs):
+                uploads.append(self)
+                return await anit(self, *args, **kwargs)
+
+            with mock.patch.object(s_axon.UpLoad, '__anit__', __anit__):
+                async with sess.post(url_ul, data=abuf) as resp:
+                    self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+
+            self.len(0, uploads)
 
             # Stream file
             byts = io.BytesIO(bbuf)
@@ -1030,8 +1052,7 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
 
     async def test_axon_commitpulse(self):
         # both axon slabs are written only by nexus handlers, so they are committed per
-        # nexus transaction rather than on the timed pulse - which carries the axonmetrics
-        # counters with them, the slab flushing them ahead of each commit.
+        # nexus transaction rather than on the timed pulse, the metrics counters with them.
         async with self.getTestAxon() as axon:
 
             self.false(axon.axonslab.commitpulse)
@@ -1041,15 +1062,14 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
 
             # the counters are durable without any timer having run
             self.false(axon.axonslab.dirty)
-            self.len(0, axon.axonmetrics.dirty)
-            self.eq(1, axon.axonmetrics.getFresh('file:count'))
-            self.eq(size, axon.axonmetrics.getFresh('size:bytes'))
+            self.eq(1, axon._getAxonMetric('file:count'))
+            self.eq(size, axon._getAxonMetric('size:bytes'))
 
             # and the del path decrements them the same way
             self.true(await axon.del_(sha256))
-            self.len(0, axon.axonmetrics.dirty)
-            self.eq(0, axon.axonmetrics.getFresh('file:count'))
-            self.eq(0, axon.axonmetrics.getFresh('size:bytes'))
+            self.false(axon.axonslab.dirty)
+            self.eq(0, axon._getAxonMetric('file:count'))
+            self.eq(0, axon._getAxonMetric('size:bytes'))
 
     async def test_axon_base(self):
         async with self.getTestAxon() as axon:
@@ -1113,8 +1133,8 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
 
     async def test_axon_readgenr_bail(self):
 
-        # bailing out early on readlines()/csvrows() must tear the feed link and
-        # the spawned reader process down without logging any errors.
+        # bailing out early on readlines()/csvrows() must close the blob stream
+        # without logging any errors.
         data = ('a,b,c,d\n' * 200000).encode()
 
         async with self.getTestAxon() as axon:
@@ -1142,7 +1162,171 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
 
             # the partial read is still traced at debug level.
             debug.seek(0)
-            self.isin(f'Stopped feeding blob [{s_common.ehex(sha256)}]', debug.read())
+            self.isin(f'Stopped reading blob [{s_common.ehex(sha256)}]', debug.read())
+
+    async def test_axon_inline_readers(self):
+
+        # readlines() and csvrows() parse the blob within the Axon in slices, which
+        # must match the stdlib text reader for any slice boundary.
+        bufs = (
+            b'',
+            b'\n',
+            b'\n\n\n',
+            b'asdf',
+            b'asdf\nqwer',
+            b'asdf\nqwer\n',
+            b'crlf\r\nlines\r\n',
+            b'lone\rcr\rlines',
+            b'trailing cr\r',
+            b'split\r\r\n\n\r',
+            b'no \x0b vt \x0c ff \x1c fs splits',
+            'no \u2028 line sep split\n'.encode(),
+            '.\u0950words\n\u00e9\u00e9\u00e9\n'.encode(),
+            b'bad \xff\xfe bytes\nok\n',
+        )
+
+        async def checkRows(axon, buf, slicesizes=(1, 3, 7, 64), **fmtparams):
+
+            fd = io.TextIOWrapper(io.BytesIO(buf), 'utf8', errors='ignore')
+            erows = list(csv.reader(fd, 'excel', **fmtparams))
+
+            size, sha256 = await axon.put(buf)
+            for slicesize in slicesizes:
+                with mock.patch.object(s_axon, 'READ_SLICE_SIZE', slicesize):
+                    rows = await s_t_utils.alist(axon.csvrows(sha256, **fmtparams))
+                    self.eq(erows, rows)
+
+            return erows
+
+        with self.getTestDir() as dirn:
+            async with await s_axon.Axon.anit(dirn) as axon:
+                for buf in bufs:
+                    size, sha256 = await axon.put(buf)
+                    for slicesize in (1, 3, 7):
+                        with mock.patch.object(s_axon, 'READ_SLICE_SIZE', slicesize):
+                            for errors in ('ignore', 'replace'):
+                                fd = io.TextIOWrapper(io.BytesIO(buf), 'utf8', errors=errors)
+                                elines = [line.rstrip('\n') for line in fd]
+                                lines = [line async for line in axon.readlines(s_common.ehex(sha256), errors=errors)]
+                                self.eq(elines, lines)
+
+                size, sha256 = await axon.put(b'bad \xff bytes\n')
+
+                with self.raises(s_exc.BadDataValu):
+                    await s_t_utils.alist(axon.readlines(s_common.ehex(sha256), errors=None))
+
+                with self.raises(s_exc.BadArg):
+                    await s_t_utils.alist(axon.readlines(s_common.ehex(sha256), errors='newp'))
+
+                # an unknown errors value is only looked up when a bad byte is decoded
+                size, sha256 = await axon.put(b'good\nbytes\n')
+                lines = await s_t_utils.alist(axon.readlines(s_common.ehex(sha256), errors='newp'))
+                self.eq(['good', 'bytes'], lines)
+
+                # many lines in one slice periodically yield the ioloop
+                size, sha256 = await axon.put(b'x\n' * 2500)
+                with mock.patch.object(s_axon, 'READ_YIELD_COUNT', 10):
+                    lines = await s_t_utils.alist(axon.readlines(s_common.ehex(sha256)))
+                    self.len(2500, lines)
+
+                # a line is buffered only up to the maximum line length
+                size, sha256 = await axon.put(b'short\n' + b'x' * 20 + b'\nshort\n')
+                with mock.patch.object(s_axon, 'READ_SLICE_SIZE', 3):
+                    with mock.patch.object(s_axon, 'READ_MAX_LINE', 20):
+                        lines = await s_t_utils.alist(axon.readlines(s_common.ehex(sha256)))
+                        self.eq(['short', 'x' * 20, 'short'], lines)
+
+                    with mock.patch.object(s_axon, 'READ_MAX_LINE', 19):
+                        with self.raises(s_exc.BadDataValu) as cm:
+                            await s_t_utils.alist(axon.readlines(s_common.ehex(sha256)))
+                        self.isin('maximum length of 19 characters', cm.exception.get('mesg'))
+
+                        with self.raises(s_exc.BadDataValu):
+                            await s_t_utils.alist(axon.csvrows(sha256))
+
+                # only a bad errors value is reported as one, not an error from the blob store
+                async def badget(self, sha256_, offs=None, size=None):
+                    yield b'asdf\n'
+                    raise KeyError('newp')
+
+                with mock.patch('synapse.axon.Axon.get', badget):
+                    with self.raises(KeyError):
+                        await s_t_utils.alist(axon.readlines(s_common.ehex(sha256), errors='newp'))
+
+                self.eq([], await checkRows(axon, b''))
+
+                rows = await checkRows(axon, b'a,b,c\n1,2,3\n4,5,6')
+                self.eq([['a', 'b', 'c'], ['1', '2', '3'], ['4', '5', '6']], rows)
+
+                # quoted fields containing newlines span slices
+                buf = b'i,s\n0,"foo\nbar\r\nbaz"\n1,"x\ry"\r\n2,"",\n'
+                rows = await checkRows(axon, buf)
+                self.eq(['0', 'foo\nbar\nbaz'], rows[1])
+
+                # one record spanning many slices, surrounded by short ones
+                field = '\n'.join(f'line {i}' for i in range(200))
+                buf = f'head,er\n"{field}",tail\nlast,row\n'.encode()
+                rows = await checkRows(axon, buf, slicesizes=(1, 5))
+                self.eq([['head', 'er'], [field, 'tail'], ['last', 'row']], rows)
+
+                # many rows per slice
+                buf = b'a,b\n' * 3000
+                rows = await checkRows(axon, buf, slicesizes=(4096,))
+                self.len(3000, rows)
+
+                # format parameters
+                await checkRows(axon, b'a\\,b,c\n"d""e",f\n', escapechar='\\')
+                await checkRows(axon, b'"a\\"b",c\n', escapechar='\\', doublequote=False)
+                await checkRows(axon, b'a, "b, c", d\n', skipinitialspace=True)
+                await checkRows(axon, b'a|b|"c|d"\n', delimiter='|')
+
+                # strict mode rejects a quote left open at the end of the blob
+                size, sha256 = await axon.put(b'a,b\n"c,d\ne,f\n')
+                with mock.patch.object(s_axon, 'READ_SLICE_SIZE', 3):
+                    with self.raises(s_exc.BadDataValu) as cm:
+                        await s_t_utils.alist(axon.csvrows(sha256, strict=True))
+                    self.isin('unexpected end of data', cm.exception.get('mesg'))
+
+                # a field over the csv field size limit, even across slices
+                fslm = csv.field_size_limit()
+                size, sha256 = await axon.put(b'"' + b'v' * (fslm + 1) + b'"\n')
+                with mock.patch.object(s_axon, 'READ_SLICE_SIZE', 4096):
+                    with self.raises(s_exc.BadDataValu) as cm:
+                        await s_t_utils.alist(axon.csvrows(sha256))
+                    self.isin('field larger than field limit', cm.exception.get('mesg'))
+
+                # bad format parameters are rejected even for an empty blob
+                size, sha256 = await axon.put(b'')
+                with self.raises(s_exc.BadArg):
+                    await s_t_utils.alist(axon.csvrows(sha256, delimiter='newp'))
+
+                size, sha256 = await axon.put(b'x\n' * 2500)
+                with mock.patch.object(s_axon, 'READ_YIELD_COUNT', 10):
+                    rows = await s_t_utils.alist(axon.csvrows(sha256))
+                    self.len(2500, rows)
+
+                size, sha256 = await axon.put(b'a,b\nc,d\n')
+
+                metrics = await axon.metrics()
+                hashes = await s_t_utils.alist(axon.hashes(0))
+                history = await s_t_utils.alist(axon.history(0))
+
+            # the same storage opened readonly serves every read
+            async with await s_axon.Axon.anit(dirn, readonly=True) as axon:
+
+                self.true(axon.axonslab.readonly)
+                self.true(axon.blobslab.readonly)
+
+                self.true(await axon.has(sha256))
+                self.eq(b'a,b\nc,d\n', b''.join([byts async for byts in axon.get(sha256)]))
+                self.eq(['a,b', 'c,d'], await s_t_utils.alist(axon.readlines(s_common.ehex(sha256))))
+                self.eq([['a', 'b'], ['c', 'd']], await s_t_utils.alist(axon.csvrows(sha256)))
+                self.eq(metrics, await axon.metrics())
+                self.eq(hashes, await s_t_utils.alist(axon.hashes(0)))
+                self.eq(history, await s_t_utils.alist(axon.history(0)))
+
+                with self.raises(s_exc.IsReadOnly):
+                    await axon.put(b'newp')
 
     async def test_axon_limits(self):
 

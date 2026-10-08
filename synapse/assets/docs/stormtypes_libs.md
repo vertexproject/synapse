@@ -2504,7 +2504,7 @@ Restart the Dmon.
 
 
 **Returns:**
-True if the Dmon is restarted; False if the iden does not exist. The return type is [`boolean`](stormtypes_prims.md#stormprims-boolean-f527).
+True if the Dmon is restarted; False if the iden does not exist or the Dmon is disabled. The return type is [`boolean`](stormtypes_prims.md#stormprims-boolean-f527).
 
 <a id="stormlibs-lib-dmon-del"></a>
 
@@ -3562,6 +3562,41 @@ The newly constructed inet:smtp:message. The return type is [`inet:smtp:message`
 A Storm library which implements CVSS score calculations.
 
 
+<a id="stormlibs-lib-infosec-cvss-metricsToVect"></a>
+
+### $lib.infosec.cvss.metricsToVect(metrics)
+
+Build a normalized CVSS vector string from a dictionary of metrics.
+
+The version is detected from the metrics provided. A dictionary containing
+the CVSS2 `Au` metric is treated as CVSS2, otherwise it is treated as
+CVSS3. CVSS3.0 and CVSS3.1 share the same metrics and values, so the
+resulting vector string is the same for both.
+
+Raises:
+    - BadArg: The metrics are not a dictionary, or a metric name or
+      value is not a string.
+    - BadDataValu: The metrics are invalid in some way. Possible
+      reasons are invalid metrics, missing mandatory metrics, and
+      invalid metric values.
+
+**Args:**
+
+- `metrics` (`dict`): 
+                            A dictionary of CVSS metric abbreviations to metric values.
+
+                            The following examples are valid:
+
+                                - CVSS 2: `({"AV": "N", "AC": "L", "Au": "N", "C": "N", "I": "N", "A": "P"})`
+                                - CVSS 3.x: `({"AV": "N", "AC": "L", "PR": "N", "UI": "N", "S": "U", "C": "N", "I": "N", "A": "H"})`
+
+
+**Returns:**
+
+                                The normalized vector string. The metrics are ordered in
+                                specification order and metrics with undefined values are
+                                removed. Example: `AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H` The return type is [`str`](stormtypes_prims.md#stormprims-str-f527).
+
 <a id="stormlibs-lib-infosec-cvss-vectToScore"></a>
 
 ### $lib.infosec.cvss.vectToScore(vect, vers=(null))
@@ -4225,6 +4260,473 @@ Add or modify an existing Storm Macro in the Cortex.
 **Returns:**
 The return type is `null`.
 
+<a id="stormlibs-lib-markdown"></a>
+
+## $lib.markdown
+
+A Storm Library for building markdown documents.
+
+The block constructors here and the blocks in `$doc.blocks` are the same types of object, so a block
+can be built, adjusted and then added, or moved from one document to another.
+
+A storm block stores the query it was built from, so refreshing one re-runs that query as whoever
+asked for the refresh and with their permissions, in a read only runtime. It may call any library
+that runtime allows, and a table's `pathvar` column writes a runtime variable into the document, so
+a block's content is whatever its query could reach.
+
+
+<a id="stormlibs-lib-markdown-code"></a>
+
+### $lib.markdown.code(text, lang='')
+
+Construct a fenced markdown code block.
+
+**Args:**
+
+- `text` (`str`): The code text.
+- `lang` (`str`): The code language.
+
+
+**Returns:**
+The code block. The return type is [`markdown:code`](stormtypes_prims.md#stormprims-markdown-code-f527).
+
+<a id="stormlibs-lib-markdown-div"></a>
+
+### $lib.markdown.div(classes, attrs=(null), valu='')
+
+Construct a fenced div block.
+
+An `iden` in `attrs` makes it a `markdown:stormblock` instead, the same as it would be
+parsed out of a body. Use `stormprint()` for a block core rebuilds from what its query
+prints; this is what a type of your own is built from, with `$block.data` saying what it is.
+
+
+**Args:**
+
+- `classes` (`list`): The classes for the opening fence.
+- `attrs` (`dict`): key=value attributes for the opening fence.
+- `valu` (`str`): The markdown to contain.
+
+
+**Returns:**
+The div block, or a markdown:stormblock if attrs carry an iden. The return type is [`markdown:div`](stormtypes_prims.md#stormprims-markdown-div-f527).
+
+<a id="stormlibs-lib-markdown-doc"></a>
+
+### $lib.markdown.doc()
+
+Construct an empty markdown document.
+
+Blocks go in with `$doc.add()`; `$doc.text` is the markdown. There is nowhere to save it:
+see `load()` for a document attached to a node.
+
+Examples:
+    Build a document from nothing::
+
+        $doc = $lib.markdown.doc()
+        $doc.add($lib.markdown.heading('Findings', (2)))
+
+
+**Returns:**
+The document. The return type is [`markdown:doc`](stormtypes_prims.md#stormprims-markdown-doc-f527).
+
+<a id="stormlibs-lib-markdown-heading"></a>
+
+### $lib.markdown.heading(text, level=(1))
+
+Construct a markdown heading block.
+
+**Args:**
+
+- `text` (`str`): The heading text.
+- `level` (`int`): The heading level (1-6).
+
+
+**Returns:**
+The heading block. The return type is [`markdown:heading`](stormtypes_prims.md#stormprims-markdown-heading-f527).
+
+<a id="stormlibs-lib-markdown-image"></a>
+
+### $lib.markdown.image(url, alt='', title=(null), attrs=(null))
+
+Construct a markdown image block.
+
+A standalone image is a paragraph in markdown, which is what this returns.
+
+Examples:
+    An image with alt text and a sizing attribute::
+
+        $doc.add($lib.markdown.image($url, alt='Diagram', attrs='{width=50%}'))
+
+
+**Args:**
+
+- `url` (`str`): The image URL.
+- `alt` (`str`): The image alt text.
+- `title` (`str`): An optional link title, which readers show as a tooltip.
+- `attrs` (`str`): An optional attribute block (`{width=50%}`), appended as written.
+
+
+**Returns:**
+The image block. The return type is [`markdown:paragraph`](stormtypes_prims.md#stormprims-markdown-paragraph-f527).
+
+<a id="stormlibs-lib-markdown-list"></a>
+
+### $lib.markdown.list(items, ordered=(false))
+
+Construct a markdown list block.
+
+**Args:**
+
+- `items` (`list`): The list items.
+- `ordered` (`boolean`): Render an ordered (numbered) list.
+
+
+**Returns:**
+The list block. The return type is [`markdown:list`](stormtypes_prims.md#stormprims-markdown-list-f527).
+
+<a id="stormlibs-lib-markdown-load"></a>
+
+### $lib.markdown.load(node)
+
+Load the markdown document a node holds.
+
+The form must implement `doc:document`. The document comes back with each storm block's
+data attached, ready for `$doc.save()`, and saves back to the node it was loaded from.
+
+Examples:
+    Open a report, add to it, and save::
+
+        $doc = $lib.markdown.load($node)
+        $doc.add($lib.markdown.paragraph('One more finding.'))
+        $doc.save()
+
+
+**Args:**
+
+- `node` (`node`): A node holding a markdown document.
+
+
+**Returns:**
+The document. The return type is [`markdown:doc`](stormtypes_prims.md#stormprims-markdown-doc-f527).
+
+<a id="stormlibs-lib-markdown-paragraph"></a>
+
+### $lib.markdown.paragraph(text)
+
+Construct a markdown paragraph block (newlines collapsed to spaces).
+
+**Args:**
+
+- `text` (`str`): The paragraph text.
+
+
+**Returns:**
+The paragraph block. The return type is [`markdown:paragraph`](stormtypes_prims.md#stormprims-markdown-paragraph-f527).
+
+<a id="stormlibs-lib-markdown-parse"></a>
+
+### $lib.markdown.parse(text)
+
+Parse markdown source into a document.
+
+There is nowhere to read a storm block's data back from, so the blocks parse with empty
+data: still addressable by iden, but with nothing to rebuild themselves from until a caller
+assigns `$block.data`.
+
+Examples:
+    Take a document apart::
+
+        $doc = $lib.markdown.parse($text)
+        for $block in $doc.blocks { $lib.print($block.type) }
+
+
+**Args:**
+
+- `text` (`str`): Markdown source to parse into blocks.
+
+
+**Returns:**
+The document. The return type is [`markdown:doc`](stormtypes_prims.md#stormprims-markdown-doc-f527).
+
+<a id="stormlibs-lib-markdown-raw"></a>
+
+### $lib.markdown.raw(text)
+
+Construct a block from markdown source, as it is written.
+
+**Args:**
+
+- `text` (`str`): The markdown source.
+
+
+**Returns:**
+The block. The return type is [`markdown:block`](stormtypes_prims.md#stormprims-markdown-block-f527).
+
+<a id="stormlibs-lib-markdown-reqBlockData"></a>
+
+### $lib.markdown.reqBlockData(data)
+
+Validate a storm block's data, and hand it back.
+
+The check `$block.data =` and `$doc.save()` make, for a caller holding block data with no
+block to put it on. Raises rather than answering false, since a caller about to store the
+data wants the reason.
+
+Examples:
+    Validate data before storing it::
+
+        $lib.markdown.reqBlockData(({"type": "table", "query": "inet:fqdn"}))
+
+
+**Args:**
+
+- `data` (`dict`): The storm block's data.
+
+
+**Returns:**
+The data. The return type is [`dict`](stormtypes_prims.md#stormprims-dict-f527).
+
+<a id="stormlibs-lib-markdown-stormimage"></a>
+
+### $lib.markdown.stormimage(query, urltmpl, title=(null), alt=(null), attrs=(null), vars=(null), classes=(null), iden=(null))
+
+Construct a storm block whose content is the image a Storm query names.
+
+The query returns the sha256 of the file to show -- `return(:sha256)` -- and a refresh
+re-runs it, so the block follows whatever the query now names. `{valu}` in `urltmpl` is
+replaced by that sha256, since core has no idea what route serves a file.
+
+A query that returns nothing leaves the block empty rather than raising.
+
+Examples:
+    An image block over a route that serves files by sha256::
+
+        $url = "/api/v3/optic/files/by/sha256/{valu}"
+        $lib.markdown.stormimage(${
+            media:screenshot:host=$host +.created@=(-1 day, now)
+            return(:file:sha256)
+        }, urltmpl=$url, title='Latest screenshot', vars=({"host": $host}))
+
+
+**Args:**
+
+- `query`: The query returning the sha256 of the file to show. The input type may be one of the following: `str`, `storm:query`.
+- `urltmpl` (`str`): The URL template, where {valu} is filled with the sha256.
+- `title` (`str`): An optional `## Title` above the image.
+- `alt` (`str`): The alt text for the image.
+- `attrs` (`str`): An optional attribute block (`{width=50%}`), appended to the image.
+- `vars` (`dict`): The values the query was written against, bound again on a rebuild.
+
+                       Primitives only. A variable the query names but this does not carry raises
+                       `NoSuchVar` when the block rebuilds.
+- `classes` (`list`): The classes for the opening fence. Defaults to `storm-block`.
+- `iden` (`str`): The block iden. Defaults to a new guid.
+
+
+**Returns:**
+The storm block. The return type is [`markdown:stormblock`](stormtypes_prims.md#stormprims-markdown-stormblock-f527).
+
+<a id="stormlibs-lib-markdown-stormnode"></a>
+
+### $lib.markdown.stormnode(node, title=(null), classes=(null), iden=(null))
+
+Construct a storm block showing one node, as a flipped name/value table.
+
+What it is, its value, its secondary properties, its metadata and its tags, a row each. The
+block stores the lift that finds the node again, so `$block.refresh()` shows it as it is
+now.
+
+A form whose repr does not lift it back -- a comp form -- is refused rather than stored
+with a query that would raise on every refresh.
+
+Examples:
+    A node block for the domain a Story is about::
+
+        inet:fqdn=evil.com
+        $doc.add($lib.markdown.stormnode($node, title='The domain'))
+
+
+**Args:**
+
+- `node` (`node`): The node to show.
+- `title` (`str`): An editable `## Title` above the table.
+- `classes` (`list`): The classes for the opening fence. Defaults to `storm-block`.
+- `iden` (`str`): The block iden. Defaults to a new guid.
+
+
+**Returns:**
+The storm block. The return type is [`markdown:stormblock`](stormtypes_prims.md#stormprims-markdown-stormblock-f527).
+
+<a id="stormlibs-lib-markdown-stormprint"></a>
+
+### $lib.markdown.stormprint(query, vars=(null), title=(null), classes=(null), iden=(null))
+
+Construct a storm block whose content is whatever its query prints.
+
+The query writes the markdown itself, one `$lib.print()` per line, so content core has no
+projection for needs no renderer and no columns. Use `stormtable` or `stormimage` when the
+content is a table or an image.
+
+The query runs in a read only runtime, and its print messages become the content rather
+than reaching the caller.
+
+Examples:
+    A summary line that rebuilds itself::
+
+        $block = $lib.markdown.stormprint(${
+            $count = $lib.len($lib.list(...))
+            $lib.print(`**{$count}** domains carry #{$tag}.`)
+        }, vars=({"tag": $tag}))
+
+    A bullet list::
+
+        $block = $lib.markdown.stormprint(${
+            inet:fqdn#suspect $lib.print(`- {$node.repr()}`)
+        })
+
+
+**Args:**
+
+- `query`: The query whose print messages are the content. The input type may be one of the following: `str`, `storm:query`.
+- `vars` (`dict`): Values to bind when the query runs, now and on every refresh.
+- `title` (`str`): An editable `## Title` above the content.
+- `classes` (`list`): The classes for the opening fence. Defaults to `storm-block`.
+- `iden` (`str`): The block iden. Defaults to a new guid.
+
+
+**Returns:**
+The storm block. The return type is [`markdown:stormblock`](stormtypes_prims.md#stormprims-markdown-stormblock-f527).
+
+<a id="stormlibs-lib-markdown-stormtable"></a>
+
+### $lib.markdown.stormtable(query, columns=(null), title=(null), vars=(null), classes=(null), iden=(null), form=(null), sort=(null), filters=(null))
+
+Construct a storm block whose content is a table projected from a Storm query.
+
+The block keeps what it needs to rebuild itself: the query as written (which may name
+variables) and the values it was written against. `$block.refresh()` re-runs it.
+
+A column says which value of each node fills its cells, by type::
+
+    ({"name": "Domain", "type": "form"})                       // the primary value
+    ({"name": "Host", "type": "prop", "prop": "host"})         // a secondary property
+    ({"name": "Port", "type": "virt", "virt": "port"})         // a virt of the row's type
+    ({"name": "Added", "type": "meta", "meta": "created"})     // a metadata property
+    ({"name": "Since", "type": "tag", "tag": "aka.apt1"})      // a tag interval bound
+    ({"name": "Infra", "type": "tagglob", "tagglob": "cno.**"})  // the leaf tags matching
+    ({"name": "Org", "type": "embed", "embed": "org::name"})   // a prop it pivots to
+    ({"name": "Why", "type": "pathvar", "pathvar": "why"})     // a variable from the path
+
+A `prop` takes the property name with or without its leading `:`. A `tag` column takes an
+`index`, 0 for the interval's start and 1 for its end; a `pathvar` takes a `pathvartype`
+to repr the value with.
+
+Naming no columns takes the ones the row form declares in its `display`, resolved once at
+build and stored concrete.
+
+A table is of one form, and a rebuild keeps only the rows belonging to it. That form is
+taken from the rows, so a query yielding several -- or none -- is refused unless `form`
+names the one meant.
+
+An `edge` column counts light edges, and takes `(verb, form, n2)`: the verb, the target
+form to count, and whether to walk the edge in reverse. It is built as its own variable,
+since Storm has no inline tuple inside a dict::
+
+    $used = (used, it:software, (false))
+    ({"name": "Tools", "type": "edge", "edge": $used})     // tools it used
+
+    $usedby = (used, risk:threat, (true))
+    ({"name": "Threats", "type": "edge", "edge": $usedby}) // threats that used it
+
+A column of the first three types has a shorter spelling, as a prop path: `:name` (or a
+bare name) is a secondary property, `.name` a metadata property, and a dotted tail a
+virtual property of either. The primary value is `{"type": "form"}` and nothing else.
+
+A column is drawn by the same keys `table()` takes: `name` for the header, `justify`
+(`left`, `center` or `right`), and `width`, which trims a longer value to fit and stores
+it trimmed. A `width` is at least 4: a trimmed value ends in `...`.
+
+Examples:
+    A table of the software a threat used, able to rebuild itself later::
+
+        $query = ${ risk:threat=$threat -(used)> it:software }
+        $vars = ({"threat": $threat.repr()})
+
+        $name = ({"name": "Software", "prop": "name"})
+        $vers = ({"name": "Version", "prop": "version"})
+
+        $block = $lib.markdown.stormtable($query, columns=($name, $vers),
+                                          title="Known tools", vars=$vars)
+
+    The same table, newest software first, which a rebuild reproduces::
+
+        $sort = ({"name": "Version", "direction": "desc"})
+        $block = $lib.markdown.stormtable($query, columns=($name, $vers), sort=$sort)
+
+    ...without the rows whose version reads `0.0.0`, on the build and on every rebuild::
+
+        $hide = ({"name": "Version", "hide": ["0.0.0"]})
+        $block = $lib.markdown.stormtable($query, columns=($name, $vers),
+                                          filters=($hide,))
+
+
+**Args:**
+
+- `query`: The query whose nodes fill the table. The input type may be one of the following: `str`, `storm:query`.
+- `columns` (`list`): The columns to project.
+
+                       Defaults to the columns the row form itself declares, and to one column of
+                       primary values for a form that declares none.
+- `title` (`str`): A heading to put above the table, inside the block.
+- `vars` (`dict`): The values the query was written against, bound again on a rebuild.
+
+                       Primitives only. A variable the query names but this does not carry raises
+                       `NoSuchVar` when the block rebuilds.
+- `classes` (`list`): The fence classes. Defaults to (storm-block,).
+- `iden` (`str`): The block iden. Defaults to a new guid.
+- `form` (`str`): The form the table is of.
+
+                       The rows are filtered to it, on the build and on every rebuild. Omit it when
+                       the query yields one form and it is taken from the rows; required when it
+                       yields several, or none at all.
+- `sort`: The column the rows are in the order of.
+
+                       A column name to sort ascending, or `({"name": ..., "direction": "desc"})` to
+                       say which way. `({"index": (2)})` names a column by position instead. Stored
+                       with the columns, so a rebuild puts the rows back in the same order.
+
+                       The order is taken from the values rather than from the text of the cells. A
+                       row with nothing in the column sorts first ascending and last descending. The input type may be one of the following: `str`, `dict`, `list`.
+- `filters` (`list`): The values a column holds back, as `({"name": ..., "hide": (...)})`.
+
+                       `({"index": (2), "hide": (...)})` names a column by position instead. A row
+                       whose cell in that column is one of those values is left out of the table,
+                       here and on every rebuild.
+
+                       The values are the cell text a reader sees, which is all a markdown table
+                       holds. Values are hidden rather than kept so a rebuild still shows one the
+                       graph grew afterwards.
+
+
+**Returns:**
+The storm block. The return type is [`markdown:stormblock`](stormtypes_prims.md#stormprims-markdown-stormblock-f527).
+
+<a id="stormlibs-lib-markdown-table"></a>
+
+### $lib.markdown.table(columns, rows=(null))
+
+Construct a GFM markdown table block.
+
+**Args:**
+
+- `columns` (`list`): Column names (str) or coldef dicts ({"name", "justify", "width"}). A "width" (at least 4) trims a longer value to fit it.
+- `rows` (`list`): Rows to add, for a table whose rows are already in hand.
+
+
+**Returns:**
+The table block. The return type is [`markdown:table`](stormtypes_prims.md#stormprims-markdown-table-f527).
+
 <a id="stormlibs-lib-math"></a>
 
 ## $lib.math
@@ -4450,7 +4952,7 @@ Add an extended property definition to the data model.
 
 - `formname` (`str`): The name of the form to add the property to.
 - `propname` (`str`): The name of the extended property.
-- `typedef` (`list`): A Synapse type definition tuple.
+- `typedef` (`list`): A Synapse type definition tuple of (typename, typeopts).
 - `propinfo` (`dict`): A Synapse property definition dictionary.
 
 
@@ -4466,7 +4968,7 @@ Add an extended tag property definition to the data model.
 **Args:**
 
 - `propname` (`str`): The name of the tag property.
-- `typedef` (`list`): A Synapse type definition tuple.
+- `typedef` (`list`): A Synapse type definition tuple of (typename, typeopts).
 - `propinfo` (`dict`): A Synapse property definition dictionary.
 
 
@@ -6904,7 +7406,9 @@ The package definition. The return type is [`dict`](stormtypes_prims.md#stormpri
 Install a package from the Vertex Hub.
 
 Any files the package declares are downloaded into the Cortex Axon before the
-package is added, so a package is never installed without its files.
+package is added, so a package is never installed without its files. The package's
+code signature is verified before any of its files are downloaded or it is added,
+so an unsigned or tampered package is rejected.
 
 **Args:**
 

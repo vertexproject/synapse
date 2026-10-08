@@ -242,6 +242,20 @@ class StormLibJwtTest(s_test.SynTest):
             self.true(ok)
             self.eq(iss, 'not a uri: x')
 
+    async def test_stormlib_jwt_stormrepr(self):
+
+        async with self.getTestCore() as core:
+
+            # unsigned reprs plainly; signed reports its algorithm, never the payload
+            unsigned, signed = await core.callStorm('''
+                $t = $lib.crypto.jwt.generate(({"sub": "u"}))
+                $unsigned = `{$t}`
+                $t.sign($secret, "HS256")
+                return(($unsigned, `{$t}`))
+            ''', opts={'vars': {'secret': SECRET}})
+            self.eq('crypto:jwt: unsigned', unsigned)
+            self.eq('crypto:jwt: signed (HS256)', signed)
+
     async def test_stormlib_jwt_header(self):
 
         async with self.getTestCore() as core:

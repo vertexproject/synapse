@@ -73,7 +73,11 @@ storm> ou:org:name=vertex [ :names=('The Vertex Project',) ]
 ou:org=7918de6a997e984dbf966f8002df95ad
         :name = vertex
         :names = ['The Vertex Project']
+        :names.size = 1
         :websites = ['https://vertex.link/']
+        :websites.size = 1
+        .created = 2026-10-08T12:52:38.28728Z
+        .updated = 2026-10-08T12:52:38.311482Z
 ```
 
 Set the `:names` property of an organization (`ou:org`) node to contain multiple variations of the organization name:
@@ -83,7 +87,11 @@ storm> ou:org:name=vertex [ :names=('The Vertex Project', 'The Vertex Project, L
 ou:org=7918de6a997e984dbf966f8002df95ad
         :name = vertex
         :names = ['The Vertex Project', 'The Vertex Project, LLC']
+        :names.size = 2
         :websites = ['https://vertex.link/']
+        :websites.size = 1
+        .created = 2026-10-08T12:52:38.28728Z
+        .updated = 2026-10-08T12:52:38.315575Z
 ```
 
 > [!WARNING]
@@ -96,6 +104,9 @@ storm> ou:org:name='Monty Python' [ :names+='The Spanish Inquisition' ]
 ou:org=96df93d36ef3399ca05a49a3e8a3e3ad
         :name = Monty Python
         :names = ["Monty Python's Flying Circus", 'The Spanish Inquisition']
+        :names.size = 2
+        .created = 2026-10-08T12:52:38.319784Z
+        .updated = 2026-10-08T12:52:38.323526Z
 ```
 
 Remove a name from the array of names associated with an organization:
@@ -105,24 +116,33 @@ storm> ou:org:name='Monty Python' [ :names-='The Spanish Inquisition' ]
 ou:org=96df93d36ef3399ca05a49a3e8a3e3ad
         :name = Monty Python
         :names = ["Monty Python's Flying Circus"]
+        :names.size = 1
+        .created = 2026-10-08T12:52:38.319784Z
+        .updated = 2026-10-08T12:52:38.326877Z
 ```
 
 Add multiple values to the array of names associated with an organization:
 
 ```stormdoc
-storm> ou:org:name='Monty Python' [ :names ++= ('The Spanish Inquisition', 'Spamalot') ]
+storm> ou:org:name='Monty Python' [ :names++=('The Spanish Inquisition', 'Spamalot') ]
 ou:org=96df93d36ef3399ca05a49a3e8a3e3ad
         :name = Monty Python
         :names = ["Monty Python's Flying Circus", 'Spamalot', 'The Spanish Inquisition']
+        :names.size = 3
+        .created = 2026-10-08T12:52:38.319784Z
+        .updated = 2026-10-08T12:52:38.330274Z
 ```
 
 Remove multiple values from the array of names associated with an organization:
 
 ```stormdoc
-storm> ou:org:name='Monty Python' [ :names --= ('The Spanish Inquisition', 'Spamalot') ]
+storm> ou:org:name='Monty Python' [ :names--=('The Spanish Inquisition', 'Spamalot') ]
 ou:org=96df93d36ef3399ca05a49a3e8a3e3ad
         :name = Monty Python
         :names = ["Monty Python's Flying Circus"]
+        :names.size = 1
+        .created = 2026-10-08T12:52:38.319784Z
+        .updated = 2026-10-08T12:52:38.334043Z
 ```
 
 > [!TIP]
@@ -134,8 +154,11 @@ Use the edit try operator to attempt to add a single value to the `:emails` arra
 storm> entity:contact:name='ron the cat' [ :emails?+='ron[at]protonmail.com' ]
 entity:contact=eb141bade0f7833c7998d9871f7dd871
         :emails = ['ron@vertex.link']
+        :emails.size = 1
         :name = ron the cat
         :type = vertex.employee
+        .created = 2026-10-08T12:52:38.339941Z
+        .updated = 2026-10-08T12:52:38.340581Z
 ```
 
 **Usage Notes:**
@@ -154,7 +177,11 @@ storm> ou:org:names=('The Vertex Project', 'The Vertex Project, LLC')
 ou:org=7918de6a997e984dbf966f8002df95ad
         :name = vertex
         :names = ['The Vertex Project', 'The Vertex Project, LLC']
+        :names.size = 2
         :websites = ['https://vertex.link/']
+        :websites.size = 1
+        .created = 2026-10-08T12:52:38.28728Z
+        .updated = 2026-10-08T12:52:38.315575Z
 ```
 
 For this reason, Storm offers a special syntax for lifting and filtering with `array` types. The syntax consists of an asterisk ( `*` ) followed by a set of square brackets ( `[ ]` ), where the square brackets contain a comparison operator and a value that can match one or more elements in the array. This allows users to match elements in the array similarly to how they would match individual property values.
@@ -171,7 +198,11 @@ storm> ou:org:names*[='the vertex project']
 ou:org=7918de6a997e984dbf966f8002df95ad
         :name = vertex
         :names = ['The Vertex Project', 'The Vertex Project, LLC']
+        :names.size = 2
         :websites = ['https://vertex.link/']
+        :websites.size = 1
+        .created = 2026-10-08T12:52:38.28728Z
+        .updated = 2026-10-08T12:52:38.315575Z
 ```
 
 Lift the `ou:org` node(s) whose `:names` property contains a name that includes the string `vertex`:
@@ -181,11 +212,19 @@ storm> ou:org:names*[~=vertex]
 ou:org=7918de6a997e984dbf966f8002df95ad
         :name = vertex
         :names = ['The Vertex Project', 'The Vertex Project, LLC']
+        :names.size = 2
         :websites = ['https://vertex.link/']
+        :websites.size = 1
+        .created = 2026-10-08T12:52:38.28728Z
+        .updated = 2026-10-08T12:52:38.315575Z
 ou:org=7918de6a997e984dbf966f8002df95ad
         :name = vertex
         :names = ['The Vertex Project', 'The Vertex Project, LLC']
+        :names.size = 2
         :websites = ['https://vertex.link/']
+        :websites.size = 1
+        .created = 2026-10-08T12:52:38.28728Z
+        .updated = 2026-10-08T12:52:38.315575Z
 ```
 
 > [!TIP]
@@ -197,8 +236,11 @@ Lift the x509 certificate nodes that reference the domain `microsoft.com`:
 storm> crypto:x509:cert:identities:fqdns*[=microsoft.com]
 crypto:x509:cert=1239ca963e0bf5801029ee309279af85
         :identities:fqdns = ['microsoft.com', 'office365.com']
+        :identities:fqdns.size = 2
         :issuer = CN=Microsoft Certificate Authority
         :sha256 = 6b60c1c833979494caff32bf02391793ac85f533516367f12a1cea857bbacba7
+        .created = 2026-10-08T12:52:38.355566Z
+        .updated = 2026-10-08T12:52:38.35664Z
 ```
 
 Filter a set of articles (`doc:report` nodes) by Proofpoint to include only those with a topic that starts with "cyber":
@@ -209,10 +251,16 @@ doc:report=35f46fad2d9c564cd9f6164b15a65ae3
         :publisher:name = proofpoint
         :title = more things happened today
         :topics = ['cybersecurity', 'zero trust']
+        :topics.size = 2
+        .created = 2026-10-08T12:52:38.369884Z
+        .updated = 2026-10-08T12:52:38.37069Z
 doc:report=8856a1e346dbac855fc30a8e1478bf8a
         :publisher:name = proofpoint
         :title = report about stuff
         :topics = ['cybercrime', 'ransomware']
+        :topics.size = 2
+        .created = 2026-10-08T12:52:38.371953Z
+        .updated = 2026-10-08T12:52:38.372459Z
 ```
 
 See [Lift by (Arrays) (*[ ])](storm_ref_lift.md#lift-by-arrays) and [Filter by (Arrays) (*[ ])](storm_ref_filter.md#filter-by-arrays) for additional details.
@@ -233,12 +281,16 @@ inet:fqdn=microsoft.com
         :issuffix = false
         :iszone = true
         :zone = microsoft.com
+        .created = 2026-10-08T12:52:38.35664Z
+        .updated = 2026-10-08T12:52:38.357083Z
 inet:fqdn=office365.com
         :domain = com
         :host = office365
         :issuffix = false
         :iszone = true
         :zone = office365.com
+        .created = 2026-10-08T12:52:38.35664Z
+        .updated = 2026-10-08T12:52:38.358107Z
 ```
 
 Pivot from a set of `entity:name` nodes to any nodes that reference those names (e.g., `ou:org` nodes where the `entity:name` is present in the `:name` property or `:names` array):
@@ -248,9 +300,15 @@ storm> entity:name^=ministry <- *
 ou:org=e365491864a971d208683af6d0c5258a
         :name = valisministeerium
         :names = ['ministry of foreign affairs of estonia']
+        :names.size = 1
+        .created = 2026-10-08T12:52:38.389014Z
+        .updated = 2026-10-08T12:52:38.389377Z
 ou:org=d9a396b7dbd4be115c04961f650a239c
         :name = ministry of public security
         :names = ['mps']
+        :names.size = 1
+        .created = 2026-10-08T12:52:38.387644Z
+        .updated = 2026-10-08T12:52:38.388102Z
 ```
 
 <a id="type-duration"></a>
@@ -265,28 +323,70 @@ You can view all secondary properties that include `duration` types using the fo
 syn:prop:type*[=duration]
 ```
 
-In addition, all properties that are interval ([ival](storm_ref_type_specific.md#type-ival)) types have a `.duration` virtual property.
+In addition, all properties that are interval (`ival`) types have a `.duration` virtual property. See the [ival](storm_ref_type_specific.md#type-ival) section for additional details.
+
+<a id="type-duration-index"></a>
 
 ### Indexing
 
 A `duration` is stored as an integer value representing the number of microseconds.
 
+<a id="type-duration-parse"></a>
+
 ### Parsing
 
 A `duration` is commonly specified using a string value (days / hours / minutes / seconds / microseconds as appropriate) with the following notation:
 
-`##D hh:mm:ss.mmmmmm`
+`<#>D hh:mm:ss.mmmmmm`
 
-The literal uppercase letter `D` is used to represent the number of days. When entering a duration value as a string, single or double quotes are required in accordance with the standard rules for using [Whitespace and Literals in Storm](storm_ref_intro.md#storm-whitespace-literals).
+The literal uppercase letter `D` is used to represent the number of days. Note that day values cannot start with a leading zero; `7D` is acceptable, but `07D` is not.
+
+When entering a duration value as a string, single or double quotes are required in accordance with the standard rules for using [Whitespace and Literals in Storm](storm_ref_intro.md#storm-whitespace-literals).
+
+You can specify a `duration` string at any level of granularity (`5D` is acceptable, as is `'5D 03:42:17.234861'`).
+
+In addition, the following formats and values are acceptable:
+
+- Seconds (`ss`). Numbers without parentheses are read as seconds: `[ :period.duration=42 ]` sets the `.duration` value to `00:00:42`.
+  - Fractional (decimal) seconds are allowed; `[ :period.duration=1.5 ]` sets the `.duration` value to `00:00:01.5`.
+
+- Minutes and seconds (`mm:ss`). For example, `[ :period.duration=17:00 ]` sets `.duration` to `00:17:00`.
+
+- Hours / minutes / seconds (`hh:mm:ss`).
+
+> [!TIP]
+> For `ss`, `mm:ss`, and `hh:mm:ss` formatted values, Synapse converts each value (seconds, minutes, and hours) to its microsecond equivalent, adds the values together, and stores the result. The result is then **displayed** in standard `<#>D hh:mm:ss.mmmmmm` format.
+>
+> This means that (while not recommended) you can enter a value representing 46 hours, 2000 minutes, and 342 seconds:
+>
+> `[ :period.duration=46:2000:342 ]`
+>
+> Synapse converts this to microseconds, adds the values, and displays duration as 3 days, 7 hours, 25 minutes, and 42 seconds: `:period.duration='3D 07:25:42'`.
 
 A `duration` can also be specified as the number of microseconds expressed as an integer value enclosed in parentheses:
 
 `(218262777)`
 
 > [!TIP]
-> Similar to [time](storm_ref_type_specific.md#type-time) types, Synapse expects users to enter duration values using human-friendly strings, and will attempt to parse the input as such. Using parentheses tells Synapse to interpret the value as a raw integer.
+> This parentheses syntax only applies when setting or updating a `duration` property using Storm. When setting or updating a property in the [Optic UI](/docs/synapse-enterprise-optic/latest/index.md) by editing a field, you must enter a duration string value.
+
+**Special time values**
+
+The following are also acceptable:
+
+- The special time values `?` ("unknown") and `*` ("ongoing") can be set for a property type of `duration` (e.g., `it:sec:c2:config:connect:delay`) or a `.duration` virtual property.
+  
+  - `?` results in a duration of `(?, ?)` (unknown start / unknown end).
+  - `*` results in a duration of `(?, *)` (unknown start, ongoing).
+
+See the [time](storm_ref_type_specific.md#type-time) section for additional details on these special values and their use.
+
+> [!NOTE]
+> The value of the `.duration` virtual property of an interval (`ival`) is directly related to the interval's start (`.min`) and end (`.max`) values. Your ability to set (or modify) `.duration` may depend on whether `.min` and `.max` already exist, as well as their current values.
 >
-> Note that this parentheses syntax only applies when setting or updating a `duration` property using Storm. When setting or updating a property in the [Optic UI](/docs/synapse-enterprise-optic/latest/index.md) by editing a field, you must enter a duration string value.
+> See the [ival](storm_ref_type_specific.md#type-ival) section for additional details on the `.duration` virtual property and its behavior.
+
+<a id="type-duration-insert"></a>
 
 ### Insertion
 
@@ -302,6 +402,8 @@ it:sec:c2:config=d55ce84c26e688c9739c96398f289788
         :connect:delay = 00:17:00
         :family = redtree
         :file = f46d3ee70e8824a45370cbeed445289f
+        .created = 2026-10-08T12:52:38.40652Z
+        .updated = 2026-10-08T12:52:38.412563Z
 ```
 
 Set the duration of a compromise (`risk:compromise` node) to six days, six hours, 46 minutes, and 23 seconds:
@@ -311,7 +413,13 @@ storm> risk:compromise:name='example compromise' [ :period.duration='6D 06:46:23
 risk:compromise=7e85e3476e8c18bdbf6aec4289361a68
         :name = example compromise
         :period = ? - ?
+        :period.began = ?
+        :period.ended = ?
+        :period.duration = 6D 06:46:23
+        :period.precision = microsecond
         :reporter:name = vertex
+        .created = 2026-10-08T12:52:38.417922Z
+        .updated = 2026-10-08T12:52:38.43417Z
 ```
 
 Or:
@@ -321,13 +429,20 @@ storm> risk:compromise:name='example compromise' [ :period.duration=(54278300000
 risk:compromise=7e85e3476e8c18bdbf6aec4289361a68
         :name = example compromise
         :period = ? - ?
+        :period.began = ?
+        :period.ended = ?
+        :period.duration = 6D 06:46:23
+        :period.precision = microsecond
         :reporter:name = vertex
+        .created = 2026-10-08T12:52:38.417922Z
+        .updated = 2026-10-08T12:52:38.43417Z
 ```
 
 **Usage Notes:**
 
-- Duration values can be set at any level of granularity; e.g., `[ :duration=19D ]` is acceptable, as are values to microsecond resolution.
-- In the example above, `.duration` is a virtual property of `risk:compromise:period`, which is an interval (`ival`) type. See the [ival](storm_ref_type_specific.md#type-ival) section below for a detailed discussion of `ival` types, including their virtual properties (`.min`, `.max`, `.duration`, `.precision`) and related behaviors.
+- In the example above, `.duration` is a virtual property of `risk:compromise:period`, which is an interval (`ival`) type. See the [ival](storm_ref_type_specific.md#type-ival) section below for a detailed discussion of `ival` types, including their virtual properties and related behaviors.
+
+<a id="type-duration-operate"></a>
 
 ### Operations
 
@@ -341,9 +456,11 @@ As `duration` types are stored as integers, they support any operations suitable
 
 In addition, arithmetic on typed values preserves the `duration` type:
 
-- adding or subtracting two `duration` values yields a `duration`;
-- multiplying a `duration` by an integer yields a `duration`;
-- adding a `duration` to a `time` yields a new `time` (see [time](storm_ref_type_specific.md#type-time)).
+- Adding or subtracting two `duration` values yields a `duration`. Similarly, subtracting two `time` values yields a `duration` (see [time](storm_ref_type_specific.md#type-time)).
+  - If either operation results in a negative value, Synapse returns an error (`Duration value is outside of valid range.`) because a `duration` cannot be negative.
+- Multiplying a `duration` by an integer yields a `duration`.
+- Adding a `duration` to a `time` yields a new `time`.
+- When adding a string to a `duration` (e.g., `<duration> + '2020'`), Synapse attempts to parse (and add) the string as a `time`; if that fails, Synapse will attempt to parse (and add) the string as another `duration`.
 
 <a id="type-file"></a>
 
@@ -374,7 +491,7 @@ Files can be ingested programmatically (such as via a Synapse [Power-Up](../glos
 - the **Upload File** menu option available from the [Optic UI](/docs/synapse-enterprise-optic/latest/index.md), which allows you to either upload a file from local disk, or download a file from a specified URL; or
 - the <span class="title-ref">[axon.put](syn_tools_axon_put.md#syn-tools-axon-put) tool, available from the CLI in the community version of Synapse, which loads a file into the Axon and optionally creates the corresponding </span><span class="title-ref">file:bytes</span>\` node.
 
-Similarly, Storm's HTTP library ([stormlibs-lib-inet-http](../stormtypes_libs.md#stormlibs-lib-inet-http)) could be leveraged to retrieve a web-based file and use the returned bytes as input (potentially using Storm variables - see [Storm Reference - Advanced - Variables](storm_adv_vars.md#storm-adv-vars)) to the `guid` generator. A detailed discussion of this method is beyond the scope of this section; see the [stormtypes-libs-header](../stormtypes_libs.md#stormtypes-libs-header) technical documentation for additional detail.
+Similarly, Storm's HTTP library ([`$lib.inet.http`](../stormtypes_libs.md#stormlibs-lib-inet-http)) could be leveraged to retrieve a web-based file and use the returned bytes as input (potentially using Storm variables - see [Storm Reference - Advanced - Variables](storm_adv_vars.md#storm-adv-vars)) to the `guid` generator. A detailed discussion of this method is beyond the scope of this section; see the [Storm Libraries](../stormtypes_libs.md#stormtypes-libs-header) technical documentation for additional detail.
 
 ### Operations
 
@@ -403,7 +520,11 @@ storm> ou:org:name=vertex
 ou:org=7918de6a997e984dbf966f8002df95ad
         :name = vertex
         :names = ['The Vertex Project', 'The Vertex Project, LLC']
+        :names.size = 2
         :websites = ['https://vertex.link/']
+        :websites.size = 1
+        .created = 2026-10-08T12:52:38.28728Z
+        .updated = 2026-10-08T12:52:38.315575Z
 ```
 
 Alternatively, the guid value can be copied and pasted.
@@ -427,6 +548,8 @@ storm> [ inet:email=training@vertex.link ]
 inet:email=training@vertex.link
         :fqdn = vertex.link
         :username = training
+        .created = 2026-10-08T12:52:38.445276Z
+        .updated = 2026-10-08T12:52:38.445276Z
 ```
 
 Guid forms are notable in that their primary property - a 128-bit value represented in hex - has no obvious relationship to whatever the form represents. For example, the primary property of an organization node (e.g., `ou:org=0efcf9b86fa373fab26112f2b29b94ca`) does not tell you anything about the organization itself, such as its name, location, or URL. This means that guids are useful for guaranteeing that nodes are **unique** (you cannot create two different `ou:org` nodes in Synapse with the same guid), but less useful for **deconfliction**.
@@ -435,12 +558,18 @@ Most importantly, it is still possible for users or processes to inadvertently c
 
 ```stormdoc
 storm> ou:org:name='the vertex project'
-ou:org=fc8249b0cec4c78666c9b004f86a7f40
+ou:org=89969ca4455a10b28f19a9ace7b57897
         :name = the vertex project
         :websites = ['https://vertex.link/']
-ou:org=4214cfe06609a0f078462e00120fba3e
+        :websites.size = 1
+        .created = 2026-10-08T12:52:38.46917Z
+        .updated = 2026-10-08T12:52:38.469861Z
+ou:org=e4e20ad3eee3e07a6f25283864a23d13
         :name = the vertex project
         :websites = ['https://vertex.link/']
+        :websites.size = 1
+        .created = 2026-10-08T12:52:38.470457Z
+        .updated = 2026-10-08T12:52:38.470997Z
 ```
 
 The nodes above have different guid values - they are unique and have been deconflicted based on their primary property. But looking at the secondary properties, it is clear (to a human) that both `ou:org` nodes are meant to represent The Vertex Project - this is a problem, because we do not want two different nodes for one organization.
@@ -479,6 +608,8 @@ storm> [ ou:org=( { "name": "the vertex project", "email": "info@vertex.link" } 
 ou:org=4d6e7a274a2cb69edf7d01922b85fdc7
         :email = info@vertex.link
         :name = the vertex project
+        .created = 2026-10-08T12:52:38.488262Z
+        .updated = 2026-10-08T12:52:38.488262Z
 ```
 
 In the query above:
@@ -507,6 +638,8 @@ storm> [ ou:org=( { "name": "the vertex project", "email": "info@vertex.link" } 
 ou:org=4d6e7a274a2cb69edf7d01922b85fdc7
         :email = info@vertex.link
         :name = the vertex project
+        .created = 2026-10-08T12:52:38.492585Z
+        .updated = 2026-10-08T12:52:38.492585Z
 ```
 
 ```stormdoc
@@ -514,9 +647,11 @@ storm> $name='the vertex project' $email=info@vertex.link [ ou:org=( { "name": $
 ou:org=4d6e7a274a2cb69edf7d01922b85fdc7
         :email = info@vertex.link
         :name = the vertex project
+        .created = 2026-10-08T12:52:38.492585Z
+        .updated = 2026-10-08T12:52:38.492585Z
 ```
 
-- When creating a new node using dictionary syntax, Synapse uses an algorithm (the guid generator or "guid grinder") to generate a predictable guid using the dictionary content as input. The dictionary is converted to a sorted (alphabetical) list of `(<key>, <normalized value>)` tuples that are fed to the algorithm (the same algorithm is implemented by the `$lib.guid()` library (see [stormlibs-lib-guid](../stormtypes_libs.md#stormlibs-lib-guid)).
+- When creating a new node using dictionary syntax, Synapse uses an algorithm (the guid generator or "guid grinder") to generate a predictable guid using the dictionary content as input. The dictionary is converted to a sorted (alphabetical) list of `(<key>, <normalized value>)` tuples that are fed to the algorithm (the same algorithm is implemented by the `$lib.guid()` library (see [`$lib.guid()`](../stormtypes_libs.md#stormlibs-lib-guid)).
 
   Given the following query in dictionary syntax:
 
@@ -540,27 +675,36 @@ Let's say you want to deconflict an `ou:org` node using the organization's FQDN 
 storm> ou:org:name='the vertex project'
 ou:org=4d6e7a274a2cb69edf7d01922b85fdc7
         :dns:mx = ['vertex.link', 'vtx.lk']
+        :dns:mx.size = 2
         :email = info@vertex.link
         :name = the vertex project
+        .created = 2026-10-08T12:52:38.492585Z
+        .updated = 2026-10-08T12:52:38.499696Z
 ```
 
 The following dictionary syntax identifies and lifts the existing node (note the guid value), because **both** MX FQDNs in the JSON dictionary are present on the existing node:
 
 ```stormdoc
-storm> [ ou:org=( { "name": "the vertex project", "dns:mx": [ "vtx.lk", "vertex.link" ] } ) ]
+storm> [ ou:org=( { "name": "the vertex project", "dns:mx": ["vtx.lk", "vertex.link"] } ) ]
 ou:org=4d6e7a274a2cb69edf7d01922b85fdc7
         :dns:mx = ['vertex.link', 'vtx.lk']
+        :dns:mx.size = 2
         :email = info@vertex.link
         :name = the vertex project
+        .created = 2026-10-08T12:52:38.492585Z
+        .updated = 2026-10-08T12:52:38.499696Z
 ```
 
 In contrast, the following dictionary syntax only contains one of the `:dns:mx` values, so fails to deconflict and creates a new node with a different guid:
 
 ```stormdoc
-storm> [ ou:org=( { "name": "vertex", "dns:mx": [ "vertex.link" ] } )  ]
+storm> [ ou:org=( { "name": "vertex", "dns:mx": ["vertex.link"] } ) ]
 ou:org=8621515203b49ce5a95800989f9a783b
         :dns:mx = ['vertex.link']
+        :dns:mx.size = 1
         :name = vertex
+        .created = 2026-10-08T12:52:38.512425Z
+        .updated = 2026-10-08T12:52:38.512425Z
 ```
 
 <a id="guid-dictionary-special-keys"></a>
@@ -579,6 +723,8 @@ meta:note=ff21a3dc1182a8bd1ad0bc79800513a4
         :creator = 4d2217d714db5e75719c988bf1798895
         :creator:name = alice liddell
         :text = example note
+        .created = 2026-10-08T12:52:38.517392Z
+        .updated = 2026-10-08T12:52:38.521747Z
 ```
 
 The named form must be allowed by the target. If it is not (or it is not a guid form), normalization raises an error, which the `?=` operator and `$try` (see below) suppress. When `$as` is provided where the form is already fixed by context, it must match that form.
@@ -595,6 +741,8 @@ ou:org=53dc5b6083904309a43641eb7b74e444
         :desc = a great org
         :name = vertex project
         :phone = +1 (555) 123-4567
+        .created = 2026-10-08T12:52:38.530121Z
+        .updated = 2026-10-08T12:52:38.530121Z
 ```
 
 **Virtual property keys**
@@ -613,7 +761,7 @@ Any dotted key that does not match this pattern is treated as an ordinary proper
 - For [ival](storm_ref_type_specific.md#type-ival)-typed properties (e.g., `:seen`), the virtual properties `min`, `max`, `duration`, and `precision` change the ival tuple itself, so two dictionaries with different `.min` values produce **different** guids and therefore different nodes.
 - For `econ:price`-typed properties (e.g., `:price`), `currency` and `adjusted` are stored as virt metadata alongside the numeric value. Two dictionaries with the same numeric price but different currencies resolve to the **same** node (the currency is applied to the node on first creation; on re-deconfliction the currency in the deconf dict is not re-applied).
 
-*\`\`\$props\`\` virtual keys* -- Virtual keys in `$props` are applied to the node as if they appeared in the explicit edit syntax (`:price.currency=USD`). The base property's value is seeded from the deconfliction dictionary when necessary (e.g., `$props: {"price.currency": "USD"}` with `price` in the deconfliction dict).
+*`$props` virtual keys* -- Virtual keys in `$props` are applied to the node as if they appeared in the explicit edit syntax (`:price.currency=USD`). The base property's value is seeded from the deconfliction dictionary when necessary (e.g., `$props: { "price.currency": "USD" }` with `price` in the deconfliction dict).
 
 > [!NOTE]
 > Virtual property keys are **not** accepted in `$unsets`.
@@ -625,6 +773,9 @@ storm> [ biz:listing=( { "name": "widget", "price": "10", "price.currency": "usd
 biz:listing=d9efd209ec0c275beaae1ae42aa2ac26
         :name = widget
         :price = 10USD
+        :price.currency = USD
+        .created = 2026-10-08T12:52:38.536781Z
+        .updated = 2026-10-08T12:52:38.536781Z
 ```
 
 *Example -- econ:price virtual key in \`\`\$props\`\`*:
@@ -634,6 +785,9 @@ storm> [ biz:listing=( { "name": "widget2", "price": "5", "$props": { "price.cur
 biz:listing=e3fd0b6a1d41ad7196f2855d54b65290
         :name = widget2
         :price = 5USD
+        :price.currency = USD
+        .created = 2026-10-08T12:52:38.54305Z
+        .updated = 2026-10-08T12:52:38.54305Z
 ```
 
 **\$try**
@@ -645,6 +799,8 @@ storm> [ ou:org=( { "name": "vertex project", "$try": true, "$props": { "phone":
 ou:org=53dc5b6083904309a43641eb7b74e444
         :desc = fine value
         :name = vertex project
+        .created = 2026-10-08T12:52:38.552397Z
+        .updated = 2026-10-08T12:52:38.552397Z
 ```
 
 **\$salt**
@@ -657,6 +813,8 @@ The `$salt` value itself is not stored on the node.
 storm> [ ou:org=( { "name": "salty org", "$salt": "source-a" } ) ]
 ou:org=31dcb02de25cf801c504649249da2b51
         :name = salty org
+        .created = 2026-10-08T12:52:38.55882Z
+        .updated = 2026-10-08T12:52:38.55882Z
 ```
 
 **\$unsets**
@@ -671,12 +829,16 @@ Each name in `$unsets` must be a valid property on the form. Specifying a proper
 storm> [ ou:org=( { "name": "example org" } ) ]
 ou:org=5b35796aed18ace44190dbabb6067ffc
         :name = example org
+        .created = 2026-10-08T12:52:38.562511Z
+        .updated = 2026-10-08T12:52:38.562511Z
 ```
 
 ```stormdoc
 storm> [ ou:org=( { "name": "example org", "$unsets": ["desc"] } ) ]
 ou:org=5b35796aed18ace44190dbabb6067ffc
         :name = example org
+        .created = 2026-10-08T12:52:38.562511Z
+        .updated = 2026-10-08T12:52:38.562511Z
 ```
 
 <a id="guid-predictable"></a>
@@ -690,6 +852,8 @@ To create a predictable guid, provide a list of ordered inputs (enclosed in pare
 ```stormdoc
 storm> [ ou:org=('the vertex project', 'https://vertex.link/') ]
 ou:org=d7f0d5bd78b358a74147995fc9b2e1b2
+        .created = 2026-10-08T12:52:38.571014Z
+        .updated = 2026-10-08T12:52:38.571014Z
 ```
 
 Note that this is a "blank" node with no secondary properties set. Unlike dictionary syntax where the JSON dictionary lists properties and values as `key:value` pairs, the syntax for predictable guids simply provides a list of strings to the algorithm. You can set the properties once the node has been created, or set them as part of your original query:
@@ -699,6 +863,9 @@ storm> [ ou:org=('the vertex project', 'https://vertex.link/') :name='the vertex
 ou:org=d7f0d5bd78b358a74147995fc9b2e1b2
         :name = the vertex project
         :websites = ['https://vertex.link/']
+        :websites.size = 1
+        .created = 2026-10-08T12:52:38.571014Z
+        .updated = 2026-10-08T12:52:38.574763Z
 ```
 
 Secondary property deconfliction (provided by dictionary syntax and described above) is the preferred deconfliction method to avoid duplicate nodes. However, predictable guids may be useful when:
@@ -711,31 +878,41 @@ Secondary property deconfliction (provided by dictionary syntax and described ab
 - The set of inputs must be sufficient to create a unique node. Be sure to choose inputs that will always be present in the data source.
 - If the nodes being created are event-based (e.g., include a unique timestamp), then the timestamp should be used as one of the inputs.
 - When using this method to deconflict data from a unique (single) data source, we recommend that you include the source (e.g., the name of the data source) as one of the inputs.
-- You can specify input values as literals or variables. The guid is generated using the algorithm implemented by the `$lib.guid()` library (see [stormlibs-lib-guid](../stormtypes_libs.md#stormlibs-lib-guid)). All of the following are valid:
+- You can specify input values as literals or variables. The guid is generated using the algorithm implemented by the `$lib.guid()` library (see [`$lib.guid()`](../stormtypes_libs.md#stormlibs-lib-guid)). All of the following are valid:
 
 ```stormdoc
 storm> [ ou:org=('the vertex project', https://vertex.link/) ]
 ou:org=d7f0d5bd78b358a74147995fc9b2e1b2
+        .created = 2026-10-08T12:52:38.583187Z
+        .updated = 2026-10-08T12:52:38.583187Z
 ```
 
 ```stormdoc
 storm> $name='the vertex project' $url=https://vertex.link/ [ ou:org=($name, $url) ]
 ou:org=d7f0d5bd78b358a74147995fc9b2e1b2
+        .created = 2026-10-08T12:52:38.583187Z
+        .updated = 2026-10-08T12:52:38.583187Z
 ```
 
 ```stormdoc
 storm> $guid=$lib.guid('the vertex project', https://vertex.link/) [ ou:org=$guid ]
 ou:org=d7f0d5bd78b358a74147995fc9b2e1b2
+        .created = 2026-10-08T12:52:38.583187Z
+        .updated = 2026-10-08T12:52:38.583187Z
 ```
 
 ```stormdoc
 storm> $name='the vertex project' $url=https://vertex.link/ $guid=$lib.guid($name, $url) [ ou:org=$guid ]
 ou:org=d7f0d5bd78b358a74147995fc9b2e1b2
+        .created = 2026-10-08T12:52:38.583187Z
+        .updated = 2026-10-08T12:52:38.583187Z
 ```
 
 ```stormdoc
 storm> $name='the vertex project' $url=https://vertex.link/ [ ou:org=$lib.guid($name, $url) ]
 ou:org=d7f0d5bd78b358a74147995fc9b2e1b2
+        .created = 2026-10-08T12:52:38.583187Z
+        .updated = 2026-10-08T12:52:38.583187Z
 ```
 
 - The input to the algorithm is interpreted as a structured list of **string values** (i.e., `(str_0, str_1, str_2...str_n)`). To consistently generate the same guid, each string must be **identical** (note that strings are case sensitive) and in the **same order** each time.
@@ -748,15 +925,19 @@ You can specify the asterisk ( `*` ) as the primary property value when creating
 
 ```stormdoc
 storm> [ ou:org=* ]
-ou:org=98c3284f03e7bf546c01f2c4b003ece1
+ou:org=ce7fa28d9025eb05dc60c060d5bd4702
+        .created = 2026-10-08T12:52:38.600091Z
+        .updated = 2026-10-08T12:52:38.600091Z
 ```
 
 Note that this is a "blank" node with no secondary properties set. You can set the properties once the node has been created, or set them as part of your original query:
 
 ```stormdoc
 storm> [ ou:org=* :name='the vertex project' ]
-ou:org=a8d1637f81de09da6c81f5f30dd1c6b2
+ou:org=63ddbb72acb34726810ff9e5a6654713
         :name = the vertex project
+        .created = 2026-10-08T12:52:38.603094Z
+        .updated = 2026-10-08T12:52:38.603323Z
 ```
 
 > [!WARNING]
@@ -788,6 +969,8 @@ Lift an org node by its name:
 storm> ou:org:name='foo corporation'
 ou:org=911df639e39ea5756ada95e7285c31d2
         :name = foo corporation
+        .created = 2026-10-08T12:52:38.606298Z
+        .updated = 2026-10-08T12:52:38.606298Z
 ```
 
 Lift a DNS request node by the name used in the DNS query:
@@ -797,6 +980,8 @@ storm> inet:dns:request:query:name=pop.seznam.cz
 inet:dns:request=e24e2348a8e3ccc2ce7002aaecdb7376
         :query:name = pop.seznam.cz
         :time = 2020-04-30T09:30:33Z
+        .created = 2026-10-08T12:52:38.633035Z
+        .updated = 2026-10-08T12:52:38.633035Z
 ```
 
 It is also possible to lift and filter guid nodes using a "sufficiently unique" prefix match of the guid value.
@@ -811,6 +996,8 @@ entity:contact=92a43adc904c5e62c4cc80817004c7f5
         :name = ozzie the pony
         :org:name = vertex
         :type = vertex.employee
+        .created = 2026-10-08T12:52:38.641188Z
+        .updated = 2026-10-08T12:52:38.641756Z
 ```
 
 The length of the value that is "sufficiently unique" will vary depending on the data in your instance of Synapse. If your selection criteria matches more than one node, Synapse will return all matches.
@@ -825,10 +1012,13 @@ Set the `:org` property for an `entity:contact` node to the guid value of the as
 storm> entity:contact:name='ron the cat' [ :org={ ou:org:name='the vertex project' } ]
 entity:contact=eb141bade0f7833c7998d9871f7dd871
         :emails = ['ron@vertex.link']
+        :emails.size = 1
         :name = ron the cat
-        :org = a8d1637f81de09da6c81f5f30dd1c6b2
+        :org = 63ddbb72acb34726810ff9e5a6654713
         :title = cattribution analyst
         :type = vertex.employee
+        .created = 2026-10-08T12:52:38.339941Z
+        .updated = 2026-10-08T12:52:38.655048Z
 ```
 
 > [!NOTE]
@@ -925,18 +1115,24 @@ inet:fqdn=ayuisyahooapis.com
         :issuffix = false
         :iszone = true
         :zone = ayuisyahooapis.com
+        .created = 2026-10-08T12:52:38.658217Z
+        .updated = 2026-10-08T12:52:38.658713Z
 inet:fqdn=micyuisyahooapis.com
         :domain = com
         :host = micyuisyahooapis
         :issuffix = false
         :iszone = true
         :zone = micyuisyahooapis.com
+        .created = 2026-10-08T12:52:38.660118Z
+        .updated = 2026-10-08T12:52:38.660572Z
 inet:fqdn=usyahooapis.com
         :domain = com
         :host = usyahooapis
         :issuffix = false
         :iszone = true
         :zone = usyahooapis.com
+        .created = 2026-10-08T12:52:38.661898Z
+        .updated = 2026-10-08T12:52:38.662333Z
 ```
 
 Lift all domains ending with `s.wordpress.com`:
@@ -949,24 +1145,32 @@ inet:fqdn=dogs.wordpress.com
         :issuffix = false
         :iszone = false
         :zone = wordpress.com
+        .created = 2026-10-08T12:52:38.672382Z
+        .updated = 2026-10-08T12:52:38.672618Z
 inet:fqdn=sss.wordpress.com
         :domain = wordpress.com
         :host = sss
         :issuffix = false
         :iszone = false
         :zone = wordpress.com
+        .created = 2026-10-08T12:52:38.673436Z
+        .updated = 2026-10-08T12:52:38.674017Z
 inet:fqdn=www.sss.wordpress.com
         :domain = sss.wordpress.com
         :host = www
         :issuffix = false
         :iszone = false
         :zone = wordpress.com
+        .created = 2026-10-08T12:52:38.673436Z
+        .updated = 2026-10-08T12:52:38.674417Z
 inet:fqdn=cats.wordpress.com
         :domain = wordpress.com
         :host = cats
         :issuffix = false
         :iszone = false
         :zone = wordpress.com
+        .created = 2026-10-08T12:52:38.670396Z
+        .updated = 2026-10-08T12:52:38.671762Z
 ```
 
 Filter a set of DNS A records to those with domains ending with `.museum`:
@@ -976,6 +1180,8 @@ storm> inet:dns:a +:fqdn='*.museum'
 inet:dns:a=('woot.museum', '5.6.7.8')
         :fqdn = woot.museum
         :ip = 5.6.7.8
+        .created = 2026-10-08T12:52:38.685181Z
+        .updated = 2026-10-08T12:52:38.685181Z
 ```
 
 **Usage Notes**
@@ -1079,14 +1285,20 @@ inet:ip=2606:4700:3031::6815:1c72
         :scope = global
         :type = unicast
         :version = 6
+        .created = 2026-10-08T12:52:38.784409Z
+        .updated = 2026-10-08T12:52:38.784409Z
 inet:ip=2606:4700:3031::6815:1c76
         :scope = global
         :type = unicast
         :version = 6
+        .created = 2026-10-08T12:52:38.785535Z
+        .updated = 2026-10-08T12:52:38.785535Z
 inet:ip=2606:4700:3031::6815:1c77
         :scope = global
         :type = unicast
         :version = 6
+        .created = 2026-10-08T12:52:38.786551Z
+        .updated = 2026-10-08T12:52:38.786551Z
 ```
 
 Filter a set of DNS A records to only include those whose IP value is within the 172.16.\* RFC1918 range:
@@ -1096,6 +1308,8 @@ storm> inet:dns:a:fqdn=woot.com +:ip=172.16.0.0/12
 inet:dns:a=('woot.com', '172.16.47.12')
         :fqdn = woot.com
         :ip = 172.16.47.12
+        .created = 2026-10-08T12:52:38.794475Z
+        .updated = 2026-10-08T12:52:38.794475Z
 ```
 
 <a id="type-int"></a>
@@ -1122,6 +1336,9 @@ biz:listing=09b216f462057dd2018e92695231a1a6
         :count:total = 42
         :name = widgets for sale
         :price = 10USD
+        :price.currency = USD
+        .created = 2026-10-08T12:52:38.801576Z
+        .updated = 2026-10-08T12:52:38.805331Z
 ```
 
 Use a hex value to set the `:ip:proto` property for an `inet:flow` node to 6:
@@ -1131,7 +1348,15 @@ storm> inet:flow:server.ip=142.118.95.50 [ :ip:proto=0x06 ]
 inet:flow=4e43f635884ea6c381992ae0c78a964e
         :ip:proto = 6
         :period = 2026-04-27T09:37:42Z - 2026-04-27T09:37:42.000001Z
+        :period.began = 2026-04-27T09:37:42Z
+        :period.ended = 2026-04-27T09:37:42.000001Z
+        :period.duration = 00:00:00.000001
+        :period.precision = microsecond
         :server = tcp://142.118.95.50:8888
+        :server.ip = 142.118.95.50
+        :server.port = 8888
+        .created = 2026-10-08T12:52:38.81061Z
+        .updated = 2026-10-08T12:52:38.813898Z
 ```
 
 Use the octal value 755 to set the POSIX permissions for a RAR archive entry:
@@ -1143,6 +1368,8 @@ file:mime:rar:entry=20271c769d69a6db5c691dbe391214e9
         :extra:posix:perms = 493
         :file = a1ad3c4eb92948a788eb3b60246984c2
         :parent = 2030fb2331688d4b6d55afb26828dd8e
+        .created = 2026-10-08T12:52:38.823109Z
+        .updated = 2026-10-08T12:52:38.826667Z
 ```
 
 Posix permissions are commonly represented in octal (e.g., 755), which is decimal 493.
@@ -1165,12 +1392,27 @@ risk:alert=c0266bc76a31e37bab40b8a4dd78736b
         :created = 2023-08-01T09:00:00Z
         :name = outbound traffic to SOC-reported IP
         :priority = 9
+        .created = 2026-10-08T12:52:38.830712Z
+        .updated = 2026-10-08T12:52:38.830712Z
 ```
 
 Lift all `inet:flow` nodes tagged with `#my.tag` and filter to include only those where the `:ip:proto` property is set to the hex equivalent of 6:
 
 ```stormdoc
-storm> inet:flow#mytag +:ip:proto=0x06
+storm> inet:flow#my.tag +:ip:proto=0x06
+inet:flow=dc28a73bb22ed29d5cd258f3d5fd207c
+        :ip:proto = 6
+        :period = 2026-03-19T01:37:42Z - 2026-03-19T01:38:09Z
+        :period.began = 2026-03-19T01:37:42Z
+        :period.ended = 2026-03-19T01:38:09Z
+        :period.duration = 00:00:27
+        :period.precision = microsecond
+        :server = tcp://62.152.42.139:1234
+        :server.ip = 62.152.42.139
+        :server.port = 1234
+        .created = 2026-10-08T12:52:38.845982Z
+        .updated = 2026-10-08T12:52:38.846751Z
+        #my.tag
 ```
 
 Use an octal value to lift all the RAR entry nodes where the `:extra:posix:perms` are 755 (decimal 493):
@@ -1182,6 +1424,8 @@ file:mime:rar:entry=20271c769d69a6db5c691dbe391214e9
         :extra:posix:perms = 493
         :file = a1ad3c4eb92948a788eb3b60246984c2
         :parent = 2030fb2331688d4b6d55afb26828dd8e
+        .created = 2026-10-08T12:52:38.823109Z
+        .updated = 2026-10-08T12:52:38.826667Z
 ```
 
 <a id="type-ival"></a>
@@ -1270,6 +1514,12 @@ inet:dns:a=('yoyodyne.com', '16.16.16.16')
         :fqdn = yoyodyne.com
         :ip = 16.16.16.16
         :seen = 2018-12-13T01:05:00Z - 2018-12-16T12:57:00Z
+        :seen.min = 2018-12-13T01:05:00Z
+        :seen.max = 2018-12-16T12:57:00Z
+        :seen.duration = 3D 11:52:00
+        :seen.precision = microsecond
+        .created = 2026-10-08T12:52:38.857683Z
+        .updated = 2026-10-08T12:52:38.859541Z
 ```
 
 `ival` types cannot be used with comparison operators such as "less than" or "greater than or equal to".
@@ -1286,14 +1536,32 @@ inet:dns:a=('hurr.com', '4.4.4.4')
         :fqdn = hurr.com
         :ip = 4.4.4.4
         :seen = 2019-01-05T09:38:00Z - 2019-03-12T18:17:00Z
+        :seen.min = 2019-01-05T09:38:00Z
+        :seen.max = 2019-03-12T18:17:00Z
+        :seen.duration = 66D 08:39:00
+        :seen.precision = microsecond
+        .created = 2026-10-08T12:52:38.867999Z
+        .updated = 2026-10-08T12:52:38.868901Z
 inet:dns:a=('derp.net', '8.8.8.8')
         :fqdn = derp.net
         :ip = 8.8.8.8
         :seen = 2019-03-08T07:26:00Z - 2019-03-22T10:14:00Z
+        :seen.min = 2019-03-08T07:26:00Z
+        :seen.max = 2019-03-22T10:14:00Z
+        :seen.duration = 14D 02:48:00
+        :seen.precision = microsecond
+        .created = 2026-10-08T12:52:38.869621Z
+        .updated = 2026-10-08T12:52:38.870619Z
 inet:dns:a=('blergh.org', '2.2.2.2')
         :fqdn = blergh.org
         :ip = 2.2.2.2
         :seen = 2019-03-28T22:22:00Z - 2019-04-27T00:03:00Z
+        :seen.min = 2019-03-28T22:22:00Z
+        :seen.max = 2019-04-27T00:03:00Z
+        :seen.duration = 29D 01:41:00
+        :seen.precision = microsecond
+        .created = 2026-10-08T12:52:38.871255Z
+        .updated = 2026-10-08T12:52:38.872261Z
 ```
 
 `ival` types cannot be used with the `*range=` custom comparator. `*range=` can only be used to specify a range of individual values (such as `time` or `int`).
@@ -1303,7 +1571,7 @@ inet:dns:a=('blergh.org', '2.2.2.2')
 >
 > You can access each date/time of an `ival` independently by assigning the value to a **pair** of variables as follows:
 >
-> `( $min, $max )=:seen`
+> `($min, $max)=:seen`
 >
 > `$min` will represent the value `2023/07/08 11:19:02` and `$max` will represent the value `2023/12/14 21:18:47`.
 
@@ -1354,7 +1622,7 @@ The use of the dot character ( `.` ) as a reserved boundary marker impacts prefi
 
 When **lifting** or **filtering** on `loc` property values using the prefix comparison operator ( `^=` ), the specified value must fall on a dot boundary.
 
-String and string-derived types are **prefix-indexed** to optimize lifting or filtering strings that start with a given substring. For standard strings, the prefix operator can be used with strings of arbitrary length. However, for `loc` types, the prefix operator works along dot boundaries. This is because it is generally more analytically meaningful to lift all locations within the US (`^= us`) or within Florida (`^= us.fl`) than it is to lift all locations in the US within states that start with `M` (`^= us.m`).
+String and string-derived types are **prefix-indexed** to optimize lifting or filtering strings that start with a given substring. For standard strings, the prefix operator can be used with strings of arbitrary length. However, for `loc` types, the prefix operator works along dot boundaries. This is because it is generally more analytically meaningful to lift all locations within the US (`^=us`) or within Florida (`^=us.fl`) than it is to lift all locations in the US within states that start with `M` (`^=us.m`).
 
 Prefix comparison for `loc` types is useful because it easily allows lifting or filtering at any appropriate level of resolution within the dotted hierarchy:
 
@@ -1367,9 +1635,13 @@ storm> ou:org:place:loc^=tr
 ou:org=729523c7015f7601feb284e1fdbaf64c
         :name = republic of turkey ministry of foreign affairs
         :place:loc = tr.ankara
+        .created = 2026-10-08T12:52:38.879458Z
+        .updated = 2026-10-08T12:52:38.879934Z
 ou:org=152b0923ee4d4fab577cd887433ba66f
         :name = adeo it consulting services
         :place:loc = tr.istanbul
+        .created = 2026-10-08T12:52:38.880917Z
+        .updated = 2026-10-08T12:52:38.881362Z
 ```
 
 Lift all IP addresses geolocated in the province of Ontario, Canada (`ca.on`):
@@ -1380,14 +1652,20 @@ inet:ip=149.248.52.240
         :place:loc = ca.on
         :type = unicast
         :version = 4
+        .created = 2026-10-08T12:52:38.888006Z
+        .updated = 2026-10-08T12:52:38.88846Z
 inet:ip=49.51.12.195
         :place:loc = ca.on.barrie
         :type = unicast
         :version = 4
+        .created = 2026-10-08T12:52:38.88933Z
+        .updated = 2026-10-08T12:52:38.889853Z
 inet:ip=199.201.123.200
         :place:loc = ca.on.keswick
         :type = unicast
         :version = 4
+        .created = 2026-10-08T12:52:38.890368Z
+        .updated = 2026-10-08T12:52:38.890598Z
 ```
 
 > [!NOTE]
@@ -1405,10 +1683,14 @@ geo:place=965638e363dcca0e7148136ad68551aa
         :latlong = 47.6205099,-122.3514714
         :loc = us.wa.seattle
         :name = space needle
+        .created = 2026-10-08T12:52:38.897963Z
+        .updated = 2026-10-08T12:52:38.898316Z
 geo:place=c50de88c5787c9eaae2697544cc679f2
         :latlong = 47.4502535,-122.3110105
         :loc = us.wa.seattle
         :name = seattle-tacoma international airport
+        .created = 2026-10-08T12:52:38.898937Z
+        .updated = 2026-10-08T12:52:38.899201Z
 ```
 
 When **lifting** on `:loc` property values using the equals operator ( `=` ), a single asterisk ( `*` ) can be used as a wildcard to represent any trailing string following a dot boundary (including no trailing string - `:loc=us.*` will match `:loc=us` as well as `:loc=us.tx.austin`). The asterisk must immediately follow a dot boundary and must be the final character in the expression (e.g., expressions such as `:loc=us.*.rochester` and `:loc=us.m*` are invalid; the expressions will not generate an error but will fail to return any nodes).
@@ -1420,9 +1702,13 @@ storm> ou:org:place:loc=tr.*
 ou:org=729523c7015f7601feb284e1fdbaf64c
         :name = republic of turkey ministry of foreign affairs
         :place:loc = tr.ankara
+        .created = 2026-10-08T12:52:38.879458Z
+        .updated = 2026-10-08T12:52:38.879934Z
 ou:org=152b0923ee4d4fab577cd887433ba66f
         :name = adeo it consulting services
         :place:loc = tr.istanbul
+        .created = 2026-10-08T12:52:38.880917Z
+        .updated = 2026-10-08T12:52:38.881362Z
 ```
 
 Lift all IP addresses geolocated in the province of Ontario, Canada:
@@ -1433,14 +1719,20 @@ inet:ip=149.248.52.240
         :place:loc = ca.on
         :type = unicast
         :version = 4
+        .created = 2026-10-08T12:52:38.888006Z
+        .updated = 2026-10-08T12:52:38.88846Z
 inet:ip=49.51.12.195
         :place:loc = ca.on.barrie
         :type = unicast
         :version = 4
+        .created = 2026-10-08T12:52:38.88933Z
+        .updated = 2026-10-08T12:52:38.889853Z
 inet:ip=199.201.123.200
         :place:loc = ca.on.keswick
         :type = unicast
         :version = 4
+        .created = 2026-10-08T12:52:38.890368Z
+        .updated = 2026-10-08T12:52:38.890598Z
 ```
 
 > [!NOTE]
@@ -1482,8 +1774,12 @@ Lift all organizations whose name starts with the word "Acme":
 storm> ou:org:name^=acme
 ou:org=70a48c4618332a7d6e9251a9b02699c3
         :name = acme construction
+        .created = 2026-10-08T12:52:38.914056Z
+        .updated = 2026-10-08T12:52:38.914056Z
 ou:org=fa605964cccb6209733f50ca547f41f2
         :name = acme practical joke products
+        .created = 2026-10-08T12:52:38.914696Z
+        .updated = 2026-10-08T12:52:38.914696Z
 ```
 
 Strings and string-derived types can also be lifted or filtered using the regular expression extended comparator ( `~=`) (see [Lift by Regular Expression (~=)](storm_ref_lift.md#lift-regex) and [Filter by Regular Expression (~=)](storm_ref_filter.md#filter-regex)).
@@ -1528,6 +1824,8 @@ syn:tag=rep.us_cisa.lapsus
         :base = lapsus
         :depth = 2
         :up = rep.us_cisa
+        .created = 2026-10-08T12:52:38.920065Z
+        .updated = 2026-10-08T12:52:38.920065Z
 ```
 
 In the above example:
@@ -1555,6 +1853,8 @@ inet:fqdn=woot.com
         :issuffix = false
         :iszone = true
         :zone = woot.com
+        .created = 2026-10-08T12:52:38.682858Z
+        .updated = 2026-10-08T12:52:38.924905Z
         #some.new.tag
 ```
 
@@ -1577,22 +1877,32 @@ storm> syn:tag^=cno
 syn:tag=cno
         :base = cno
         :depth = 0
+        .created = 2026-10-08T12:52:38.929592Z
+        .updated = 2026-10-08T12:52:38.929592Z
 syn:tag=cno.mal
         :base = mal
         :depth = 1
         :up = cno
+        .created = 2026-10-08T12:52:38.930901Z
+        .updated = 2026-10-08T12:52:38.930901Z
 syn:tag=cno.mal.redtree
         :base = redtree
         :depth = 2
         :up = cno.mal
+        .created = 2026-10-08T12:52:38.930901Z
+        .updated = 2026-10-08T12:52:38.930901Z
 syn:tag=cno.threat
         :base = threat
         :depth = 1
         :up = cno
+        .created = 2026-10-08T12:52:38.929592Z
+        .updated = 2026-10-08T12:52:38.929592Z
 syn:tag=cno.threat.t27
         :base = t27
         :depth = 2
         :up = cno.threat
+        .created = 2026-10-08T12:52:38.929592Z
+        .updated = 2026-10-08T12:52:38.929592Z
 ```
 
 Lift all tags associated with data reported by Sophos where the final tag element starts with `co`:
@@ -1604,11 +1914,15 @@ syn:tag=rep.sophos.cobalt_shadow
         :depth = 2
         :title = COBALT SHADOW (Sophos)
         :up = rep.sophos
+        .created = 2026-10-08T12:52:38.937905Z
+        .updated = 2026-10-08T12:52:38.938197Z
 syn:tag=rep.sophos.copper_fieldstone
         :base = copper_fieldstone
         :depth = 2
         :title = COPPER FIELDSTONE (Sophos)
         :up = rep.sophos
+        .created = 2026-10-08T12:52:38.938734Z
+        .updated = 2026-10-08T12:52:38.938941Z
 ```
 
 **Usage notes:**
@@ -1674,6 +1988,8 @@ financial_gain.
 entity:goal:type:taxonomy=financial_gain
         :base = financial_gain
         :depth = 0
+        .created = 2026-10-08T12:52:38.944502Z
+        .updated = 2026-10-08T12:52:38.944502Z
 ```
 
 ### Parsing
@@ -1710,21 +2026,33 @@ storm> ind:industry:type^=media
 ind:industry=7ae4b38ab2f6ff357ccc3af9f2fe08eb
         :name = media
         :type = media
+        .created = 2026-10-08T12:52:38.95472Z
+        .updated = 2026-10-08T12:52:38.95472Z
 ind:industry=6942ca4b2a116555a05a8a61df2f95ae
         :name = entertainment
         :type = media.entertainment
+        .created = 2026-10-08T12:52:38.958878Z
+        .updated = 2026-10-08T12:52:38.958878Z
 ind:industry=3012dd13ad13769abb640315e0268b50
         :name = journalism and news media
         :type = media.journalism
+        .created = 2026-10-08T12:52:38.955941Z
+        .updated = 2026-10-08T12:52:38.955941Z
 ind:industry=856018e7b0b5666acc29c93f96031e0c
         :name = journalists and reporters
         :type = media.journalism.reporters
+        .created = 2026-10-08T12:52:38.956746Z
+        .updated = 2026-10-08T12:52:38.956746Z
 ind:industry=54c66062e7d30a118d7e5d0e61948cfd
         :name = publishing
         :type = media.publishing
+        .created = 2026-10-08T12:52:38.957489Z
+        .updated = 2026-10-08T12:52:38.957489Z
 ind:industry=5a5686c1c34b3dea70b97631a4abd710
         :name = print media
         :type = media.publishing.print
+        .created = 2026-10-08T12:52:38.958197Z
+        .updated = 2026-10-08T12:52:38.958197Z
 ```
 
 Lift all industries (`ind:industry` nodes) within the "media" category / taxonomy whose subcategory starts with "j":
@@ -1734,9 +2062,13 @@ storm> ind:industry:type^=media.j
 ind:industry=3012dd13ad13769abb640315e0268b50
         :name = journalism and news media
         :type = media.journalism
+        .created = 2026-10-08T12:52:38.955941Z
+        .updated = 2026-10-08T12:52:38.955941Z
 ind:industry=856018e7b0b5666acc29c93f96031e0c
         :name = journalists and reporters
         :type = media.journalism.reporters
+        .created = 2026-10-08T12:52:38.956746Z
+        .updated = 2026-10-08T12:52:38.956746Z
 ```
 
 **Usage notes:**
@@ -1797,15 +2129,15 @@ N/A
 
   where *\<count\>* is a numeric value and *\<unit\>* is one of the following:
 
-  > - `minute(s)`
-  > - `hour(s)`
-  > - `day(s)`
+  - `minute(s)`
+  - `hour(s)`
+  - `day(s)`
 
   **Examples:**
 
-  > - `'+7 days'`
-  > - `'-15 minutes'`
-  > - `'+-1 hour'`
+  - `'+7 days'`
+  - `'-15 minutes'`
+  - `'+-1 hour'`
 
 - **Special** time values:
 
@@ -1845,7 +2177,9 @@ Set the time of a DNS request to the current time:
 storm> inet:dns:request:query:name=woot.com [ :time=now ]
 inet:dns:request=a8569961179b0f059054dd9531019b9a
         :query:name = woot.com
-        :time = 2026-09-09T14:33:32.21049Z
+        :time = 2026-10-08T12:52:38.97406Z
+        .created = 2026-10-08T12:52:38.969555Z
+        .updated = 2026-10-08T12:52:38.974094Z
 ```
 
 Set the observed time window (technically an `ival` type) for when an IP address was a known sinkhole (via the `#cno.infra.dns.sink.hole` tag) from its known start date to an indefinite future time (i.e., the sinkhole is presumed to remain a sinkhole indefinitely / until the values are manually updated with an explicit end date):
@@ -1855,6 +2189,8 @@ storm> [ inet:ip=1.2.3.4 +#cno.infra.dns.sink.hole=(2017/06/13, '?') ]
 inet:ip=1.2.3.4
         :type = unicast
         :version = 4
+        .created = 2026-10-08T12:52:38.682858Z
+        .updated = 2026-10-08T12:52:38.982839Z
         #cno.infra.dns.sink.hole = 2017-06-13T00:00:00Z - ?
 ```
 
@@ -1865,6 +2201,8 @@ storm> [ inet:ip=5.6.7.8 +#cno.infra.dns.sink.hole=(2017/06/13 09:46+04:00, '?')
 inet:ip=5.6.7.8
         :type = unicast
         :version = 4
+        .created = 2026-10-08T12:52:38.685181Z
+        .updated = 2026-10-08T12:52:38.988302Z
         #cno.infra.dns.sink.hole = 2017-06-13T05:46:00Z - ?
 ```
 
@@ -1879,6 +2217,8 @@ storm> inet:dns:request:query:name=example.com [ :time=2021/01/23 ]
 inet:dns:request=4e584c97fa99b1cc81ee966b489ccd43
         :query:name = example.com
         :time = 2021-01-23T00:00:00Z
+        .created = 2026-10-08T12:52:38.992029Z
+        .updated = 2026-10-08T12:52:38.998072Z
 ```
 
 ```stormdoc
@@ -1886,6 +2226,8 @@ storm> inet:dns:request:query:name=example.com [ :time=2021/01/23* ]
 inet:dns:request=4e584c97fa99b1cc81ee966b489ccd43
         :query:name = example.com
         :time = 2021-01-23T00:00:00Z
+        .created = 2026-10-08T12:52:38.992029Z
+        .updated = 2026-10-08T12:52:38.998072Z
 ```
 
 When specifying a relative time for a `time` value, **the offset will be calculated from the current time** (`now`):
@@ -1894,7 +2236,9 @@ When specifying a relative time for a `time` value, **the offset will be calcula
 storm> inet:dns:request:query:name=woot.com [ :time='-5 minutes' ]
 inet:dns:request=a8569961179b0f059054dd9531019b9a
         :query:name = woot.com
-        :time = 2026-09-09T14:28:32.222341Z
+        :time = 2026-10-08T12:47:39.005185Z
+        .created = 2026-10-08T12:52:38.969555Z
+        .updated = 2026-10-08T12:52:39.005213Z
 ```
 
 Plus / minus ( `+-` ) relative times cannot be specified for `time` types, as the type requires a single value. See the section on [ival](storm_ref_type_specific.md#type-ival) (interval) types for details on using `+-` times with `ival` types.
@@ -1925,9 +2269,13 @@ storm> inet:dns:request +:time<2019/06/01
 inet:dns:request=947d62a0a3af257f8c19ffbbb631a0ff
         :query:name = derp.net
         :time = 2015-12-14T19:22:00Z
+        .created = 2026-10-08T12:52:39.013137Z
+        .updated = 2026-10-08T12:52:39.013137Z
 inet:dns:request=b7937c1d4e3159f6bbe83b15f9c84d23
         :query:name = hurr.com
         :time = 2018-06-28T17:43:00Z
+        .created = 2026-10-08T12:52:39.011128Z
+        .updated = 2026-10-08T12:52:39.011128Z
 ```
 
 > [!NOTE]
@@ -1978,9 +2326,13 @@ storm> file:mime:pe:compiled*range=(2021/01/01, now)
 file:mime:pe=7f9899adcfd3c62d98cf70fe06daaf40
         :compiled = 2021-04-13T00:23:14Z
         :file = e96796b9016d801ac201d720e3544e13
+        .created = 2026-10-08T12:52:39.032534Z
+        .updated = 2026-10-08T12:52:39.032534Z
 file:mime:pe=d35f5ed5b10b8d1c3333d621a1ece572
         :compiled = 2023-10-30T05:34:22Z
         :file = 25ec0d9ba759244aa39ecfb182cb8c47
+        .created = 2026-10-08T12:52:39.033271Z
+        .updated = 2026-10-08T12:52:39.033271Z
 ```
 
 > [!NOTE]
@@ -2002,14 +2354,32 @@ inet:dns:a=('aaaa.org', '1.2.3.4')
         :fqdn = aaaa.org
         :ip = 1.2.3.4
         :seen = 2018-12-29T12:36:27Z - 2019-06-03T18:14:33Z
+        :seen.min = 2018-12-29T12:36:27Z
+        :seen.max = 2019-06-03T18:14:33Z
+        :seen.duration = 156D 05:38:06
+        :seen.precision = microsecond
+        .created = 2026-10-08T12:52:39.038736Z
+        .updated = 2026-10-08T12:52:39.039513Z
 inet:dns:a=('derp.net', '8.8.8.8')
         :fqdn = derp.net
         :ip = 8.8.8.8
         :seen = 2019-03-08T07:26:00Z - 2019-03-22T10:14:00Z
+        :seen.min = 2019-03-08T07:26:00Z
+        :seen.max = 2019-03-22T10:14:00Z
+        :seen.duration = 14D 02:48:00
+        :seen.precision = microsecond
+        .created = 2026-10-08T12:52:38.869621Z
+        .updated = 2026-10-08T12:52:38.870619Z
 inet:dns:a=('bbbb.edu', '5.6.7.8')
         :fqdn = bbbb.edu
         :ip = 5.6.7.8
         :seen = 2019-03-16T12:59:59Z - 2019-03-16T13:01:01Z
+        :seen.min = 2019-03-16T12:59:59Z
+        :seen.max = 2019-03-16T13:01:01Z
+        :seen.duration = 00:01:02
+        :seen.precision = microsecond
+        .created = 2026-10-08T12:52:39.040237Z
+        .updated = 2026-10-08T12:52:39.041351Z
 ```
 
 > [!NOTE]

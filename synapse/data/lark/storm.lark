@@ -99,7 +99,7 @@ _condcallargs: _LPARNOSPACE [(_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPAC
 
 // The set of non-edit non-commands in storm
 
-_oper: stormfunc | initblock | emptyblock | finiblock | trycatch | subquery | _formpivot | formjoin
+_oper: stormfunc | stormclass | initblock | execblock | emptyblock | finiblock | trycatch | subquery | _formpivot | formjoin
      | formpivotin | formjoinin | opervarlist | setitem | setvar | vareval | filtoper
      | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE | return | emit | stop
      | _liftprop | ifstmt | yieldvalu | n1walk | n2walk | n1join | n2join | n1walknpivo | n2walknpivo | n1walknjoin | n2walknjoin | rawpivot
@@ -156,6 +156,9 @@ yieldvalu: YIELD _argvalu
 
 _INIT.2: /init(?=[\s\{])/
 initblock: _INIT "{" query "}"
+
+_EXEC.2: /exec(?=[\s\{])/
+execblock: _EXEC "{" query "}"
 
 _EMPTY.2: /empty(?=[\s\{])/
 emptyblock: _EMPTY "{" query "}"
@@ -296,9 +299,13 @@ tagpropwithspace: tagnamewithspace _COLONNOSPACE (BASEPROP | _varvalu) -> tagpro
 formtagprop: (PROPS | WILDPROPS | derefprops) tagname _COLONNOSPACE (BASEPROP | _varvalu)
 _COLONNOSPACE.2: /(?<!\s):/
 
-_funcarg: (VARTOKN [EQNOSPACE _valu])
-funcargs: "(" (_funcarg ("," _funcarg)* )? ")"
+funcargtype: "as" (BASEPROP | _varvalu)
+funcarg: VARTOKN funcargtype? [EQNOSPACE _valu]
+funcargs: "(" (funcarg ("," funcarg)* )? ")"
 stormfunc: "function" VARTOKN funcargs "{" query "}"
+stormmethod: "method" VARTOKN funcargs "{" query "}"
+classextends: "extends" VARTOKN
+stormclass: "class" VARTOKN classextends? "{" stormmethod* "}"
 
 stormcmd: CMDNAME stormcmdargs?
 stormcmdargs: _stormcmdarg+
@@ -360,7 +367,7 @@ argembedquery: _EMBEDQUERYSTART query "}" -> embedquery
 CMDARGV.-1: /(?![|{}$="'`#(:.\s])[^\s|}]+/
 
 // The name of a storm command
-CMDNAME.2: /(?!(init|empty|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch|as|reverse)\b)[a-z][a-z0-9.]+(?=[\s\|\}]|$)/
+CMDNAME.2: /(?!(init|exec|empty|fini|function|class|method|extends|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch|as|reverse)\b)[a-z][a-z0-9.]+(?=[\s\|\}]|$)/
 
 CMDOPT.4: /(?<=\s)-[a-zA-Z0-9_-]+(?![:a-zA-Z0-9_><-])/
 

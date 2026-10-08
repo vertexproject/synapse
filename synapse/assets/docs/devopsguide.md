@@ -180,19 +180,30 @@ Once complete, a WARNING level log message will be issued:
 
 Synapse Services may have additional data migrations applied during updates as well. These will always be noted in the Changelog for an individual service.
 
+<a id="devops-task-flagday"></a>
+
+#### Flag Day Releases
+
+A flag day release requires special attention before it is deployed, such as updating multiple services at the same time or in a specific order. Deploying one without following the documented steps may leave services unable to communicate with each other.
+
+The Changelog for a flag day release has a `Flag Day` section at the top which describes what needs to be done. Before updating, read the `Flag Day` section and follow the steps it lists. See [Update Sequencing](devopsguide.md#update-sequencing) for the general order in which services should be updated.
+
+> [!NOTE]
+> Please ensure you have a tested backup available before applying these updates.
+
 <a id="modelflagday"></a>
 
 #### Model Flag Day
 
-Periodically, a Synapse release will include small, but technically backward incompatible, changes to the data model. All such migrations will include a `Model Flag Day` heading in the Changelog with a detailed description of each change to the data model. Additionally, the release will execute an in-place migration to modify data to confirm with model updates. If necessary, any data that can not be migrated automatically will be saved to a location documented within the detailed description.
+A Model Flag Day is a type of [flag day release](devopsguide.md#devops-task-flagday). Periodically, a Synapse release will include small, but technically backward incompatible, changes to the data model. All such migrations will include a `Model Flag Day` heading in the Changelog with a detailed description of each change to the data model. Additionally, the release will execute an in-place migration to modify data to confirm with model updates. If necessary, any data that can not be migrated automatically will be saved to a location documented within the detailed description.
 
 When we release a Synapse version containing a `Model Flag Day` update, we will simultaneously release updates to any effected Power-Ups.
 
 Examples of potential `Model Flag Day` changes:
 
-> - Removing a previously deprecated property
-> - Specifying a more specific type for a property to allow pivoting
-> - Tightening type normalization constraints of a property
+- Removing a previously deprecated property
+- Specifying a more specific type for a property to allow pivoting
+- Tightening type normalization constraints of a property
 
 It is **highly** recommended that production deployments have a process for testing custom storm code in a staging environment to help identify any tweaks that may be necessary due to the updated data model.
 
@@ -245,27 +256,27 @@ When deploying updates, we suggest deploying updates to the entire ecosystem in 
 
 1.  AHA, Axon, and the JSONStor services:
 
-    > This order ensures that the AHA service, Axon, and JSONStor services are all updated first.
+    This order ensures that the AHA service, Axon, and JSONStor services are all updated first.
 
 2.  Cortex:
 
-    > Next, the Cortex should be updated. It may use new or updated APIs from the previous services.
+    Next, the Cortex should be updated. It may use new or updated APIs from the previous services.
 
 3.  Search and Metrics services:
 
-    > The Search and Metrics updates, in turn, may use new or updated APIs from the Cortex.
+    The Search and Metrics updates, in turn, may use new or updated APIs from the Cortex.
 
 4.  Optic:
 
-    > The Optic service may use new or updated APIs from the previous services. Optic has its own version requirements for communicating with the Cortex and will not work if that version requirement is unmet.
+    The Optic service may use new or updated APIs from the previous services. Optic has its own version requirements for communicating with the Cortex and will not work if that version requirement is unmet.
 
 5.  Any remaining Advanced Power-Ups:
 
-    > Remaining Advanced Power-Ups would provide new or updated functionality to other services.
+    Remaining Advanced Power-Ups would provide new or updated functionality to other services.
 
 6.  Any Rapid Power-Ups:
 
-    > Some Rapid Power-Ups may integrate with Advanced Power-Ups to provide additional functionality. Having the Advanced Power-Ups updated ensures that any optional dependencies that the Rapid Power-Ups may have would be met.
+    Some Rapid Power-Ups may integrate with Advanced Power-Ups to provide additional functionality. Having the Advanced Power-Ups updated ensures that any optional dependencies that the Rapid Power-Ups may have would be met.
 
 #### Updating Rapid Power-Ups
 
@@ -577,13 +588,13 @@ The following example shows setting a password policy on the Cortex with the fol
 
 - Complexity rules:
 
-  > - Require at least 12 total characters.
-  > - Disallow sequences of more than 3 characters in a row.
-  > - Require at least two uppercase characters.
-  > - Require at least two lowercase characters.
-  > - Specify a custom set of lowercase characters to check against (ASCII & some unicode characters).
-  > - Require at least two special characters.
-  > - Require at least two numbers.
+  - Require at least 12 total characters.
+  - Disallow sequences of more than 3 characters in a row.
+  - Require at least two uppercase characters.
+  - Require at least two lowercase characters.
+  - Specify a custom set of lowercase characters to check against (ASCII & some unicode characters).
+  - Require at least two special characters.
+  - Require at least two numbers.
 
 The following Compose file shows using the policy:
 
@@ -609,7 +620,7 @@ ERROR: Cannot change password due to the following policy violations:
   - Password must contain at least 2 uppercase characters, 0 found.
   - Password must contain at least 2 special characters, 0 found.
   - Password must contain at least 2 digit characters, 0 found.
-complete. 0 nodes in 146 ms (0/sec).
+complete. 0 nodes in 0.146 sec (0/sec).
 ```
 
 ### Deployment Options
@@ -905,85 +916,85 @@ To configure custom CA certificates with kubernetes, do the following:
 
 1.  Create a config map from your CA certificate files.
 
-    > The example has a pre-created root CA and an intermediate CA certificate in PEM format:
-    >
-    > ```text
-    > $ ls -l ./cas
-    > total 8
-    > -rw-rw-r-- 1 user user 1708 Feb 14 19:19 intermediate.crt
-    > -rw-rw-r-- 1 user user 1696 Feb 14 19:19 root.crt
-    >
-    > $ kubectl create configmap tls-ca-certs --from-file ./cas
-    > configmap/tls-ca-certs created
-    >
-    > $ kubectl describe configmap tls-ca-certs
-    > Name:         tls-ca-certs
-    > Namespace:    default
-    > Labels:       <none>
-    > Annotations:  <none>
-    > ```
-    >
-    > Example Data:
-    >
-    > ```text
-    > intermediate.crt:
-    >
-    > -----BEGIN CERTIFICATE-----
-    > MIIEwTCCAqmgAwIBAgIRALMB8pwt2Ivp29Ij5DqnPfYwDQYJKoZIhvcNAQELBQAw
-    > <snip certificate body ...>
-    > 5haPeH+7M+DxEhwanIcfBXNY/7Xn
-    > -----END CERTIFICATE-----
-    >
-    > root.crt:
-    >
-    > -----BEGIN CERTIFICATE-----
-    > MIIEuDCCAqCgAwIBAgIQY7KrFPXtwpWTYfCA2pktSjANBgkqhkiG9w0BAQsFADAP
-    > <snip certificate body ...>
-    > i03ynl21g6erwz0c
-    > -----END CERTIFICATE-----
-    > ```
+    The example has a pre-created root CA and an intermediate CA certificate in PEM format:
+
+    ```text
+    $ ls -l ./cas
+    total 8
+    -rw-rw-r-- 1 user user 1708 Feb 14 19:19 intermediate.crt
+    -rw-rw-r-- 1 user user 1696 Feb 14 19:19 root.crt
+
+    $ kubectl create configmap tls-ca-certs --from-file ./cas
+    configmap/tls-ca-certs created
+
+    $ kubectl describe configmap tls-ca-certs
+    Name:         tls-ca-certs
+    Namespace:    default
+    Labels:       <none>
+    Annotations:  <none>
+    ```
+
+    Example Data:
+
+    ```text
+    intermediate.crt:
+
+    -----BEGIN CERTIFICATE-----
+    MIIEwTCCAqmgAwIBAgIRALMB8pwt2Ivp29Ij5DqnPfYwDQYJKoZIhvcNAQELBQAw
+    <snip certificate body ...>
+    5haPeH+7M+DxEhwanIcfBXNY/7Xn
+    -----END CERTIFICATE-----
+
+    root.crt:
+
+    -----BEGIN CERTIFICATE-----
+    MIIEuDCCAqCgAwIBAgIQY7KrFPXtwpWTYfCA2pktSjANBgkqhkiG9w0BAQsFADAP
+    <snip certificate body ...>
+    i03ynl21g6erwz0c
+    -----END CERTIFICATE-----
+    ```
 
 2.  Add the `volume`, `volumeMount`, and `environment` variables to the Cortex. You may need to specify permissions on your certificates as needed, as long as they are readable by your Cortex user, that is fine.
 
-    > Example volume:
-    >
-    > ```text
-    > - name: tls-ca-certs
-    >   configMap:
-    >     name: tls-ca-certs
-    > ```
-    >
-    > Example volumeMount:
-    >
-    > ```text
-    > - mountPath: /vertex/tls-ca-certs
-    >   name: tls-ca-certs
-    > ```
-    >
-    > Example environment variable:
-    >
-    > ```text
-    > - name: SYN_CORTEX_TLS_CA_DIR
-    >   value: "/vertex/tls-ca-certs/"
-    > ```
+    Example volume:
+
+    ```text
+    - name: tls-ca-certs
+      configMap:
+        name: tls-ca-certs
+    ```
+
+    Example volumeMount:
+
+    ```text
+    - mountPath: /vertex/tls-ca-certs
+      name: tls-ca-certs
+    ```
+
+    Example environment variable:
+
+    ```text
+    - name: SYN_CORTEX_TLS_CA_DIR
+      value: "/vertex/tls-ca-certs/"
+    ```
 
 3.  Verify the TLS certificates were loaded by making an HTTPS request in Storm.
 
-    > ```storm
-    > $lib.print($lib.inet.http.get(<URL TO SERVER WITH CUSTOM CERTIFICATES>))
-    > ```
-    >
-    > On success, you should see an `inet:http:resp` with code 200 and reason OK:
-    >
-    > ```stormdoc
-    > inet:http:resp: {'code': 200, 'reason': 'OK', 'headers': ... }
-    > ```
-    >
-    > If the TLS CA certificates are not being loaded properly, a response similar to the following will be seen:
-    >
-    > ```stormdoc
-    > inet:http:resp: {'code': -1, 'reason': "Exception occurred during request: ClientConnectorCertificateError ...", ...}
-    > ```
+    ```storm
+    $lib.print($lib.inet.http.get(<URL TO SERVER WITH CUSTOM CERTIFICATES>))
+    ```
+
+    On success, you should see an `inet:http:resp` with code 200 and reason OK:
+
+    ```stormdoc
+    inet:http:resp: {'code': 200, 'reason': 'OK', 'headers': ... }
+    ```
+
+    If the TLS CA certificates are not being loaded properly, a response similar to the following will be seen:
+
+    ```stormdoc
+    inet:http:resp: {'code': -1, 'reason': "Exception occurred during request: ClientConnectorCertificateError ...", ...}
+    ```
 
 In this example, the volume with the configmap contains symlinks which are treated as directories. When the SSLContext is created with those additional files, Synapse attempts to load the directory, will fail and then log an exception. This does not stop the SSLContext from being created with the additonal CA files.
 
@@ -1241,7 +1252,7 @@ The Cortex can be configured ( via Storm ) to service custom HTTP API endpoints.
 
 These endpoints have a base URL of `/api/ext/`. Additional path components in a request are used to resolve which API definition is used to handle the response.
 
-The Storm queries which implement these endpoints will have a `$request` object ( see [stormprims-http-api-request-f527](stormtypes_prims.md#stormprims-http-api-request-f527) ) added to them. This object is used to send custom data back to the caller. This object contains helpers to access the request data, as well as functions to send data back to the caller.
+The Storm queries which implement these endpoints will have a `$request` object ( see [`http:api:request`](stormtypes_prims.md#stormprims-http-api-request-f527) ) added to them. This object is used to send custom data back to the caller. This object contains helpers to access the request data, as well as functions to send data back to the caller.
 
 > [!NOTE]
 > Several examples show [curl](https://curl.se/) and [jq](https://github.com/jqlang/jq) being used to access endpoints or process data. These tools are not required in order to interact with the Extended HTTP API.
@@ -1367,7 +1378,7 @@ $ curl -s -k -u "root:secret" "https://127.0.0.1:4443/api/ext/demo/casemath?hehe
 
 ##### Managing HTTP APIs
 
-When creating an Extended HTTP API, the request path must be provided. This path component is matched against any path components after `/api/etx/*` when determing which API endpoint will service the request. The API endpoints are matched in order, comparing their `path` against the requested path using a case sensitive [fullmatch](https://docs.python.org/3/library/re.html#re.fullmatch) regular expression comparison. Newly created API endpoints are added to the end of the list for matching. It is best for these endpoints to be ordered from most specific to least specific.
+When creating an Extended HTTP API, the request path must be provided. This path component is matched against any path components after `/api/ext/*` when determining which API endpoint will service the request. The API endpoints are matched in order, comparing their `path` against the requested path using a case sensitive [fullmatch](https://docs.python.org/3/library/re.html#re.fullmatch) regular expression comparison. Newly created API endpoints are added to the end of the list for matching. It is best for these endpoints to be ordered from most specific to least specific.
 
 To list the registered APIs, their order, and path information, use the `cortex.httpapi.list` command:
 
@@ -1402,7 +1413,7 @@ The path of an endpoint can also be changed. This can be done by assigning a new
 
 ```stormdoc
 storm> $api=$lib.cortex.httpapi.get(1896bda5dbd97615ee553059079620ba) $api.path="demo/mynew/path"
-complete. 0 nodes in 8 ms (0/sec).
+complete. 0 nodes in 0.008 sec (0/sec).
 
 storm> cortex.httpapi.list
  order | iden                             | owner                | auth  | runas  | path
@@ -1527,23 +1538,23 @@ Since the endpoints are executed by running Storm queries to generate responses,
 
 **owner**
 
-> By default, the user that creates an endpoint is marked as the `owner` for that endpoint. This is the default user that will execute the Storm queries which implement the HTTP Methods. This value can be changed by setting the `.owner` property on the endpoint object to a different User.
->
-> A user marked as the `owner` of an endpoint does not have any permissions granted that allows them to edit the endpoint.
+By default, the user that creates an endpoint is marked as the `owner` for that endpoint. This is the default user that will execute the Storm queries which implement the HTTP Methods. This value can be changed by setting the `.owner` property on the endpoint object to a different User.
+
+A user marked as the `owner` of an endpoint does not have any permissions granted that allows them to edit the endpoint.
 
 **view**
 
-> The View that an Extended HTTP API endpoint is created in is recorded as the View that the Storm endpoints are executed in. This View can be changed by assigning the `.view` property on the endpoint object to a different View.
+The View that an Extended HTTP API endpoint is created in is recorded as the View that the Storm endpoints are executed in. This View can be changed by assigning the `.view` property on the endpoint object to a different View.
 
 **authenticated**
 
-> By default, the endpoints require the requester to have an authenticated session. Information about API authentication can be found at [Authentication](httpapi.md#http-api-authentication). This authentication requirement can be disabled by setting the `.authenticated` property on the endpoint object to `(false)`. That will allow the endpoint to be resolved without presenting any sort of authentication information.
+By default, the endpoints require the requester to have an authenticated session. Information about API authentication can be found at [Authentication](httpapi.md#http-api-authentication). This authentication requirement can be disabled by setting the `.authenticated` property on the endpoint object to `(false)`. That will allow the endpoint to be resolved without presenting any sort of authentication information.
 
 **runas**
 
-> By default, the Storm logic is run by the user that is marked as the `owner`. Endpoints can instead be configured to run as the authenticated user by setting the `.runas` property on the HTTP API object to `user`. In order to change the behavior to executing the queries as the owner, the value should be set to `owner`.
->
-> When an endpoint is configured with `runas` set to `user` and `authenticated` to `(false)` any calls to that API will be executed as the `owner`.
+By default, the Storm logic is run by the user that is marked as the `owner`. Endpoints can instead be configured to run as the authenticated user by setting the `.runas` property on the HTTP API object to `user`. In order to change the behavior to executing the queries as the owner, the value should be set to `owner`.
+
+When an endpoint is configured with `runas` set to `user` and `authenticated` to `(false)` any calls to that API will be executed as the `owner`.
 
 This allows creating endpoints that run in one of three modes:
 
@@ -1846,21 +1857,21 @@ A popular option for Orchestration is Kubernetes. Kubernetes is an open-source s
 
 The following examples walk through deploying an example Synapse deployment ( based on [Synapse Deployment Guide](deploymentguide.md#deploymentguide) ), but inside of a managed Kubernetes cluster managed by Digital Ocean. This deployment makes a few assumptions:
 
-> Synapse Deployment Guide
->
-> :   This guide assumes a familiarity with the Synapse deployment guide. Concepts covered there are not repeated here.
->
-> namespace
->
-> :   These examples use the Kubernetes `default` namespace.
->
-> PersistentVolumeClaim
->
-> :   These examples use PersistentVolumeClaim (PVC) to create a persistent storage location. All Synapse services assume they have some persistent storage to read and write to. This example uses the `storageClass` of `do-block-storage`. You may need to alter these examples to provide a `storageClass` that is appropriate for your environment.
->
-> AHA naming
->
-> :   In Kubernetes, we rely on the default naming behavior for services to find the AHA service via DNS. The AHA service uses a naming convention starting with `aha` followed by a two-digit number (e.g., `aha00`) to support multiple instances. The service's DNS name is configured using the required `SYN_AHA_DNS_NAME` environment variable, which follows the pattern `<service-name>.<namespace>.svc.cluster.local`. For example, with the default namespace, the DNS name would be `aha00.default.svc.cluster.local`. The AHA service will fail to start if `SYN_AHA_DNS_NAME` is not set. It will automatically bind on `0.0.0.0` since we cannot bind the DNS label provided by Kubernetes prior to the Pod running AHA being available. The `SYN_AHA_AHA_NETWORK` value can be set to any desired Certificate Authority name (e.g., `dev.synapse`) and is used for SSL certificate validation between Synapse services.
+Synapse Deployment Guide
+
+:   This guide assumes a familiarity with the Synapse deployment guide. Concepts covered there are not repeated here.
+
+namespace
+
+:   These examples use the Kubernetes `default` namespace.
+
+PersistentVolumeClaim
+
+:   These examples use PersistentVolumeClaim (PVC) to create a persistent storage location. All Synapse services assume they have some persistent storage to read and write to. This example uses the `storageClass` of `do-block-storage`. You may need to alter these examples to provide a `storageClass` that is appropriate for your environment.
+
+AHA naming
+
+:   In Kubernetes, we rely on the default naming behavior for services to find the AHA service via DNS. The AHA service uses a naming convention starting with `aha` followed by a two-digit number (e.g., `aha00`) to support multiple instances. The service's DNS name is configured using the required `SYN_AHA_DNS_NAME` environment variable, which follows the pattern `<service-name>.<namespace>.svc.cluster.local`. For example, with the default namespace, the DNS name would be `aha00.default.svc.cluster.local`. The AHA service will fail to start if `SYN_AHA_DNS_NAME` is not set. It will automatically bind on `0.0.0.0` since we cannot bind the DNS label provided by Kubernetes prior to the Pod running AHA being available. The `SYN_AHA_AHA_NETWORK` value can be set to any desired Certificate Authority name (e.g., `dev.synapse`) and is used for SSL certificate validation between Synapse services.
 
 ###### AHA
 
@@ -2710,25 +2721,25 @@ You can then use a Chrome browser to navigate to `https://localhost:4443` and yo
 
 The following items should be considered for Kubernetes deployments intended for production use cases:
 
-> Healthchecks
->
-> :   These examples use large `startupProbe` failure values. Vertex recommends these large values, since service updates may have automatic data migrations which they perform at startup, and services booted with `onboot:optimize` (see [Optimize Databases](devopsguide.md#devops-task-onboot-optimize)) will delay startup to optimize their databases. Both of these will be performed before a service has enabled any listeners which would respond to healthcheck probes. The large value prevents a service from being terminated prior to a long running data migration or database optimization completing.
->
-> Ingress and Load Balancing
->
-> :   The use of `kubectl port-forward` may not be sustainable in a production environment. It is common to use a form of ingress controller or load balancer for external services to reach services such as the Cortex or Optic applications. It is common for the Optic UI or the Cortex HTTP API to be exposed to end users since that often has a simpler networking configuration than exposing Telepath services on AHA and the Cortex.
->
-> Log aggregation
->
-> :   Many Kubernetes clusters may perform some sort of log aggregation for the containers running in them. If your log aggregation solution can parse JSON formatted container logs, you can set the `SYN_LOG_STRUCT` environment variable to `"true"` to enable structured log output. See [Configure Logging](devopsguide.md#devops-task-logging) for more information about that option.
->
-> Node Selectors
->
-> :   These examples do not use any node selectors to bind pods to specific nodes or node types. Node selectors on the podspec can be used to constrain different services to different types of nodes. For example, they can be used to ensure the Cortex is deployed to a node which has been provisioned as a high memory node for that purpose.
->
-> PVC
->
-> :   The previous examples used relatively small volume claim sizes for demonstration purposes. A `storageClass` which can be dynamically resized will be helpful in the event of needing to grow the storage used by a deployment. This is a common feature for managed Kubernetes instances.
+Healthchecks
+
+:   These examples use large `startupProbe` failure values. Vertex recommends these large values, since service updates may have automatic data migrations which they perform at startup, and services booted with `onboot:optimize` (see [Optimize Databases](devopsguide.md#devops-task-onboot-optimize)) will delay startup to optimize their databases. Both of these will be performed before a service has enabled any listeners which would respond to healthcheck probes. The large value prevents a service from being terminated prior to a long running data migration or database optimization completing.
+
+Ingress and Load Balancing
+
+:   The use of `kubectl port-forward` may not be sustainable in a production environment. It is common to use a form of ingress controller or load balancer for external services to reach services such as the Cortex or Optic applications. It is common for the Optic UI or the Cortex HTTP API to be exposed to end users since that often has a simpler networking configuration than exposing Telepath services on AHA and the Cortex.
+
+Log aggregation
+
+:   Many Kubernetes clusters may perform some sort of log aggregation for the containers running in them. If your log aggregation solution can parse JSON formatted container logs, you can set the `SYN_LOG_STRUCT` environment variable to `"true"` to enable structured log output. See [Configure Logging](devopsguide.md#devops-task-logging) for more information about that option.
+
+Node Selectors
+
+:   These examples do not use any node selectors to bind pods to specific nodes or node types. Node selectors on the podspec can be used to constrain different services to different types of nodes. For example, they can be used to ensure the Cortex is deployed to a node which has been provisioned as a high memory node for that purpose.
+
+PVC
+
+:   The previous examples used relatively small volume claim sizes for demonstration purposes. A `storageClass` which can be dynamically resized will be helpful in the event of needing to grow the storage used by a deployment. This is a common feature for managed Kubernetes instances.
 
 <a id="orch-kubernetes-sysctl"></a>
 
@@ -4033,7 +4044,7 @@ Enable sysctl parameter checks and warn if values are not optimal.
 
 #### http:proxy
 
-An aiohttp-socks compatible proxy URL to use storm HTTP API.
+An aiohttp-socks compatible proxy URL to use Storm HTTP API.
 
 **Type**
 
@@ -4211,7 +4222,7 @@ A telepath URL of our upstream/parent. This overrides AHA selection.
 
 #### safemode
 
-Enable safe-mode which disables crons, triggers, dmons, storm package onload handlers, and view merge tasks.
+Enable safe-mode which disables crons, triggers, dmons, Storm package onload handlers, and view merge tasks.
 
 **Type**
 
@@ -4247,7 +4258,7 @@ Enable Storm scrape interfaces when using $lib.scrape APIs.
 
 #### storm:log
 
-Log storm queries via system logger.
+Log Storm queries via system logger.
 
 **Type**
 
@@ -4265,7 +4276,7 @@ Log storm queries via system logger.
 
 #### storm:log:level
 
-Logging log level to emit storm logs at.
+Logging log level to emit Storm logs at.
 
 **Type**
 

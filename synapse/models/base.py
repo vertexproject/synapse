@@ -629,6 +629,9 @@ modeldefs = (
                     ('desc', ('text', {}), {
                         'doc': 'A description of the award.'}),
 
+                    ('website', ('inet:url', {}), {
+                        'doc': 'The primary website that describes the award.'}),
+
                     ('period', ('ival', {}), {
                         'doc': 'The period of time when the issuer gave out the award.'}),
 

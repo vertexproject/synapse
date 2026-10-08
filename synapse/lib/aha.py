@@ -21,6 +21,7 @@ import synapse.lib.httpapi as s_httpapi
 import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
+import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.provision as s_provision
 
 logger = logging.getLogger(__name__)
@@ -297,6 +298,20 @@ class AhaApi(s_cell.CellApi):
         return await self.cell.addAhaSvcProv(name, provinfo=provinfo)
 
     @s_cell.adminapi()
+    async def addAhaSvcProvByType(self, celltype):
+        '''
+        Provision the next sequential service of the given type.
+        '''
+        return await self.cell.addAhaSvcProvByType(celltype)
+
+    @s_cell.adminapi()
+    async def addAhaCloneByReq(self, host, *, port=27492):
+        '''
+        Enroll the sender as a clone of the leader AHA service.
+        '''
+        return await self.cell.addAhaCloneByReq(host, port=port)
+
+    @s_cell.adminapi()
     async def delAhaSvcProv(self, iden):
         '''
         Remove a previously added provisioning entry by iden.
@@ -505,6 +520,11 @@ class AhaCell(s_cell.Cell):
     celltype = 'aha'
 
     cellapi = AhaApi
+
+    # the discovery listener is created in initServiceNetwork ( phase 5 ), but the
+    # initServiceActive hook can fire in phase 3 on a leader boot, so the
+    # attribute must exist before then.
+    provmcast = None
     confbase = copy.deepcopy(s_cell.Cell.confbase)
     confbase['parent']['hidedocs'] = False  # type: ignore
     confbase['parent']['hidecmdl'] = False  # type: ignore
@@ -837,6 +857,7 @@ class AhaCell(s_cell.Cell):
             proxy = await self.nexsroot.client.proxy(timeout=timeout)
             async for item in proxy.callAhaPeerApi(iden, todo, timeout=timeout, skiprun=skiprun):
                 yield item
+            return
 
         queue = asyncio.Queue()
         async with await s_base.Base.anit() as base:
@@ -859,6 +880,7 @@ class AhaCell(s_cell.Cell):
             proxy = await self.nexsroot.client.proxy(timeout=timeout)
             async for item in proxy.callAhaPeerGenr(iden, todo, timeout=timeout, skiprun=skiprun):
                 yield item
+            return
 
         queue = asyncio.Queue()
         async with await s_base.Base.anit() as base:
@@ -889,8 +911,19 @@ class AhaCell(s_cell.Cell):
         for client in list(self.clients.values()):
             await client.fini()
 
+    async def initServiceActive(self):
+        # a promoted AHA joins the discovery group so it receives group addressed
+        # requests; guarded because the hook can fire before _initProvMcast runs
+        # at boot, where _initProvMcast joins directly from self.isactive.
+        if self.provmcast is not None:
+            self.provmcast.joinGroup()
+
     async def initServicePassive(self):
         await self._finiSvcClients()
+        # a demoted AHA drops the discovery group and stops receiving group
+        # addressed requests; unicast to its port is unaffected.
+        if self.provmcast is not None:
+            self.provmcast.dropGroup()
 
     async def initServiceRuntime(self):
 
@@ -912,10 +945,11 @@ class AhaCell(s_cell.Cell):
 
         self.addActiveCoro(self._clearInactiveSessions)
 
-        # the current leader registers itself in its own registry ( see
-        # _runAhaSelfReg ). as an active coro this follows leadership: a promoted
-        # clone registers under its own name and a demoted leader is dropped.
+        # the leader registers itself in its own registry.
         self.addActiveCoro(self._runAhaSelfReg)
+
+        # a follower registers itself as a mirror with its upstream leader.
+        self.addPassiveCoro(self._runAhaFollowReg)
 
         if self.isactive:
 
@@ -987,10 +1021,10 @@ class AhaCell(s_cell.Cell):
         # Register the current AHA leader in its own service registry.
         #
         # This runs as an ACTIVE coro, so it starts only once we are the leader
-        # and is cancelled on demotion ( which drops the link below and marks the
-        # entry offline ). Crucially we do NOT set self.ahaclient: the generic
-        # promote/handoff machinery ( _tellAhaReady, _takeLeadTerm,
-        # _waitAhaRegOnline, _runAhaRegLoop ) keys off self.ahaclient and would
+        # and is cancelled on demotion ( which drops the link below; we then
+        # re-register as a mirror via _runAhaFollowReg ). Crucially we do NOT set
+        # self.ahaclient: the generic promote/handoff machinery ( _tellAhaReady,
+        # _takeLeadTerm, _waitAhaRegOnline, _runAhaRegLoop ) keys off self.ahaclient and would
         # route registry writes through a peer AHA that is holding its nexus lock
         # while coordinating a handoff, deadlocking the promotion. Keeping
         # self.ahaclient None preserves AHA's bespoke parent-based failover.
@@ -1024,15 +1058,82 @@ class AhaCell(s_cell.Cell):
                 logger.exception(f'Error registering AHA service {self.ahasvcname} with itself: {e}')
                 await self.waitfini(1)
 
+    async def _runAhaFollowReg(self):
+
+        # Register a following AHA as a mirror with its upstream leader.
+        #
+        # This runs as a PASSIVE coro, so it is cancelled before _runAhaSelfReg
+        # starts on promotion. As in _runAhaSelfReg we do NOT use self.ahaclient:
+        # we hold a plain telepath link to our parent and the leader marks us
+        # offline when it drops.
+
+        if self.conf.get('aha:name') is None:
+            return
+
+        await self.netready.wait()
+
+        ahaname = self.conf.get('aha:name')
+
+        while not self.isfini:
+
+            # clear before checking so a bump that races us is retained.
+            self.aharegbump.clear()
+
+            # an AHA only follows an explicit parent. a demoted leader has none
+            # until AhaCell.handoff() saves it and bumps us.
+            upstream = None
+            if self.conf.get('parent') is not None:
+                upstream = self.getParentUrl()
+
+            if upstream is None:
+                await self.aharegbump.wait()
+                continue
+
+            try:
+                async with await s_telepath.openurl(upstream) as proxy:
+
+                    info = await self.getAhaInfo()
+                    await proxy.addAhaSvc(f'{ahaname}...', info)
+
+                    # report ready once our nexus enters the real-time window.
+                    if not info.get('ready'):
+
+                        fini = self.schedCoro(proxy.waitfini())
+                        ready = self.schedCoro(self.nexsroot.ready.wait())
+
+                        try:
+                            await asyncio.wait((fini, ready), return_when=asyncio.FIRST_COMPLETED)
+                        finally:
+                            fini.cancel()
+                            ready.cancel()
+
+                        del fini, ready
+
+                        if not proxy.isfini:
+                            await proxy.modAhaSvcInfo(f'{ahaname}...', {'ready': True})
+
+                    await proxy.waitfini()
+
+            except Exception as e:
+                mesg = f'Error registering AHA mirror {ahaname} with {s_urlhelp.sanitizeUrl(upstream)}: {e}'
+                logger.exception(mesg)
+                await self.waitfini(1)
+
     async def _initProvMcast(self, secret):
 
         key = s_provision.deriveKey(secret)
 
         self.provmcast = await s_provision.ProvCast.anit(key, s_provision.DEFAULT_MCAST_PORT,
-                                                         group=s_provision.DEFAULT_MCAST_GROUP, join=True)
+                                                         group=s_provision.DEFAULT_MCAST_GROUP, listen=True)
         self.onfini(self.provmcast)
 
         logger.info(f'provision discovery listening: {s_provision.DEFAULT_MCAST_GROUP}:{s_provision.DEFAULT_MCAST_PORT}')
+
+        # the leader joins the discovery group; a follower stays out of it and so
+        # never receives a group addressed request. initServiceActive /
+        # initServicePassive keep this following leadership across promote/demote.
+        if self.isactive:
+            self.provmcast.joinGroup()
 
         self.schedCoro(self._runProvMcast())
 
@@ -1049,10 +1150,10 @@ class AhaCell(s_cell.Cell):
 
     async def _onProvMcastReq(self, mesg, addr):
 
-        # only the current leader services provisioning requests.
-        if not self.isactive:
-            return
-
+        # membership decides who answers: a follower has dropped the discovery
+        # group ( initServicePassive ) so it never receives a group addressed
+        # request, while unicast to its port still arrives and is serviced with
+        # the write forwarded to the leader. Nothing to gate here.
         try:
             s_schemas.reqValidProvRequest(mesg)
         except s_exc.SchemaViolation:
@@ -1064,13 +1165,12 @@ class AhaCell(s_cell.Cell):
 
         try:
             if mtype == 'aha':
-                # enroll the sender as a clone of this ( leader ) AHA service.
-                url = await self.addAhaClone(data.get('host'), port=data.get('port', 27492))
+                # forwarded to the leader so the clone parents off it, rather than
+                # off a follower which happened to receive the request.
+                url = await self.addAhaCloneByReq(data.get('host'), port=data.get('port', 27492))
 
             else:
-                celltype = data.get('type')
-                name = await self._getProvMcastName(celltype)
-                url = await self.addAhaSvcProv(name)
+                url = await self.addAhaSvcProvByType(data.get('type'))
 
             resp = {'type': 'retn', 'data': (True, {'url': url})}
 
@@ -1086,6 +1186,30 @@ class AhaCell(s_cell.Cell):
         # register a leadership term becomes the leader; the rest follow it.
         indx = await self.getSvcTypeIndex(celltype)
         return f'{indx:03d}.{celltype}'
+
+    @s_cell.from_leader
+    async def addAhaSvcProvByType(self, celltype):
+        '''
+        Provision the next sequential service of the given type.
+
+        Note:
+            Both the name assignment and the provisioning are done by the leader,
+            whose dns:name and provisioning port the returned URL names.
+        '''
+        name = await self._getProvMcastName(celltype)
+        return await self.addAhaSvcProv(name)
+
+    @s_cell.from_leader
+    async def addAhaCloneByReq(self, host, port=27492):
+        '''
+        Enroll a clone from a discovery request.
+
+        Note:
+            The enrollment is done by the leader, so the clone parents off it and
+            the returned URL names its dns:name and provisioning port, rather than
+            those of a follower which happened to receive the request.
+        '''
+        return await self.addAhaClone(host, port=port)
 
     async def _clearInactiveSessions(self):
 
@@ -1736,6 +1860,9 @@ class AhaCell(s_cell.Cell):
         self.modCellConf({'parent': turl})
         await self.nexsroot.startup()
 
+        # re-register as a mirror with the new leader now that our parent is set.
+        self.aharegbump.set()
+
     async def regLeadTerm(self, svctype, svcname, nexsoffs, term=None):
         '''
         Register a service with the leadership term for its service type and
@@ -1935,10 +2062,11 @@ class AhaCell(s_cell.Cell):
         conf['dmon:listen'] = f'ssl://0.0.0.0:{port}?hostname={host}&ca={network}'
 
         # assign the clone the next sequential aha:name ( 001.aha, 002.aha, ... ).
-        # a clone registers itself in the registry ( via _runAhaSelfReg ) if and
-        # when it is promoted to leader; while following it is not separately
-        # registered. we do NOT set aha:servers here: an AHA never registers via a
-        # peer ahaclient ( that would deadlock its own failover, see _runAhaSelfReg ).
+        # while following, a clone registers as a mirror with its parent ( via
+        # _runAhaFollowReg ) and once promoted it registers itself as the leader
+        # ( via _runAhaSelfReg ). we do NOT set aha:servers here: an AHA never
+        # registers via a peer ahaclient ( that would deadlock its own failover,
+        # see _runAhaSelfReg ).
         celltype = self.getCellType()
         conf['aha:name'] = f'{await self.getSvcTypeIndex(celltype):03d}.{celltype}'
 

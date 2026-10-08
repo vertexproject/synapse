@@ -246,6 +246,12 @@ class TestUtils(s_t_utils.SynTest):
             self.skipIfNoPath('newpDoesNotExist', mesg='hehe')
         self.isin('newpDoesNotExist mesg=hehe', str(cm.exception))
 
+        self.eq('user <iden> added', self.normDrift(f'user {"a" * 32} added'))
+        self.eq('file <sha256> saved', self.normDrift(f'file {"b" * 64} saved'))
+        self.eq('at <time>', self.normDrift('at 2026-09-16 14:03:22'))
+        self.eq('at <time>', self.normDrift('at 2026/09/16 14:03:22.415'))
+        self.ne(self.normDrift('hello storm!'), self.normDrift('hello drift!'))
+
     async def test_syntest_logstream_base(self):
         with self.getLoggerStream('synapse.tests.test_utils') as stream:
             logger.error('ruh roh i am a error message')

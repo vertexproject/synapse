@@ -1491,3 +1491,21 @@ for $i in $values {
                 await core.callStorm('return($lib.cortex.getNidByNdef((newp, newp, newp)))')
 
             self.len(0, await core.nodes('yield (99999)'))
+
+    async def test_libcortex_httpapi_request_stormrepr(self):
+        async with self.getTestCore() as core:
+            rootkey, _ = await core.addUserApiKey(core.auth.rootuser.iden, 'test')
+            addr, hport = await core.addHttpsPort(0)
+
+            q = '''
+            $api = $lib.cortex.httpapi.add('reprtest')
+            $api.methods.get = ${ $request.reply(200, body=({"repr": `{$request}`})) }
+            return ( $api.iden )
+            '''
+            await core.callStorm(q)
+
+            async with self.getHttpSess(port=hport, headers={'X-API-KEY': rootkey}) as sess:
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/reprtest?foo=bar')
+                self.eq(resp.status, http.HTTPStatus.OK)
+                data = await resp.json()
+                self.eq(data.get('repr'), 'http:api:request: GET /api/ext/reprtest')

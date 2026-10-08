@@ -3440,10 +3440,8 @@ class Poly(Type):
     def postTypeInit(self):
 
         self.typetype = self.modl.type('syn:type')
-        self.valuetype = self.modl.type('data')
         self.virts |= {
             'type': (self.typetype, self._getType),
-            'value': (self.valuetype, self._getValue),
         }
 
         self.virtindx |= {
@@ -3650,11 +3648,6 @@ class Poly(Type):
 
     def _getType(self, valu):
         return valu[0][0]
-
-    def _getValue(self, valu):
-        # deprecated during the 3.0.0 development cycle
-        s_common.deprdate('.value', s_stormtypes.VALUVIRTDEPR['eoldate'])
-        return valu[0][1]
 
     def getStorType(self, valu):
         tobj = self.modl.reqType(valu[0])
@@ -4854,6 +4847,7 @@ class Time(IntBase):
 
         prec = (await self.prectype.norm(newprec))[0]
         valu, norminfo = await self._normPyInt(valu, {'precision': prec})
+        norminfo['merge'] = False
         return valu, norminfo
 
     async def _ctorCmprAt(self, valu):

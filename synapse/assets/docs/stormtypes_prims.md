@@ -3131,6 +3131,861 @@ Get a copy of the list containing unique items.
 **Returns:**
 The return type is [`list`](#stormprims-list-f527).
 
+<a id="stormprims-markdown-block-f527"></a>
+
+## markdown:block
+
+A block of markdown: one top-level piece of a document.
+
+A block is its source, so printing one or returning it from Storm gives that source.
+
+
+<a id="stormprims-markdown-block-text"></a>
+
+### text
+
+The block's markdown source, which is the value of the block.
+
+**Returns:**
+The markdown source. The return type is [`str`](#stormprims-str-f527).
+When this is used to set the value, it does not have a return type.
+
+<a id="stormprims-markdown-block-type"></a>
+
+### type
+
+The type of block this is, which is always `block`.
+
+**Returns:**
+The block type. The return type is [`str`](#stormprims-str-f527).
+
+<a id="stormprims-markdown-code-f527"></a>
+
+## markdown:code
+
+A fenced markdown code block.
+
+
+<a id="stormprims-markdown-code-lang"></a>
+
+### lang
+
+The code language on the fence.
+
+**Returns:**
+The code language. The return type is [`str`](#stormprims-str-f527).
+When this is used to set the value, it does not have a return type.
+
+<a id="stormprims-markdown-code-text"></a>
+
+### text
+
+The block's markdown source, which is the value of the block.
+
+**Returns:**
+The markdown source. The return type is [`str`](#stormprims-str-f527).
+When this is used to set the value, it does not have a return type.
+
+<a id="stormprims-markdown-code-type"></a>
+
+### type
+
+The type of block this is, which is always `code`.
+
+**Returns:**
+The block type. The return type is [`str`](#stormprims-str-f527).
+
+<a id="stormprims-markdown-code-valu"></a>
+
+### valu
+
+The code itself, without the fences.
+
+**Returns:**
+The code. The return type is [`str`](#stormprims-str-f527).
+When this is used to set the value, it does not have a return type.
+
+<a id="stormprims-markdown-div-f527"></a>
+
+## markdown:div
+
+A fenced div: `::: {.class key="value"}` ... `:::`.
+
+
+<a id="stormprims-markdown-div-attrs"></a>
+
+### attrs
+
+The key=value attributes on the opening fence.
+
+**Returns:**
+The attributes. The return type is [`dict`](#stormprims-dict-f527).
+
+<a id="stormprims-markdown-div-classes"></a>
+
+### classes
+
+The classes on the opening fence.
+
+Setting them rebuilds the fence around what it already carries: the block keeps its iden, its
+data and every attribute, and only its classes change.
+
+
+**Returns:**
+The class names. The return type is [`list`](#stormprims-list-f527).
+When this is used to set the value, it does not have a return type.
+
+<a id="stormprims-markdown-div-text"></a>
+
+### text
+
+The block's markdown source, which is the value of the block.
+
+**Returns:**
+The markdown source. The return type is [`str`](#stormprims-str-f527).
+When this is used to set the value, it does not have a return type.
+
+<a id="stormprims-markdown-div-type"></a>
+
+### type
+
+The type of block this is, which is always `div`.
+
+**Returns:**
+The block type. The return type is [`str`](#stormprims-str-f527).
+
+<a id="stormprims-markdown-div-valu"></a>
+
+### valu
+
+The markdown between the fences.
+
+**Returns:**
+The contained markdown. The return type is [`str`](#stormprims-str-f527).
+When this is used to set the value, it does not have a return type.
+
+<a id="stormprims-markdown-doc-f527"></a>
+
+## markdown:doc
+
+A markdown document, as the ordered list of blocks that make it up.
+
+The blocks are the document: `$doc.blocks` hands out the blocks themselves, so popping, adding and
+reordering them there changes the document.
+
+
+<a id="stormprims-markdown-doc-add"></a>
+
+### add(block, indx=(-1))
+
+Add a block to the document.
+
+Appends by default. Pass an `indx` to insert before the block at that position. A block
+the document already holds is refused, so popping one is how it moves.
+
+
+**Args:**
+
+- `block` (`markdown:block`): The block to add.
+- `indx` (`int`): Insert before this position. -1 appends.
+
+
+**Returns:**
+The document (for chaining). The return type is [`markdown:doc`](#stormprims-markdown-doc-f527).
+
+<a id="stormprims-markdown-doc-block"></a>
+
+### block(iden)
+
+The storm block carrying `iden`, or null.
+
+An iden is the durable name of a block: everything else about it moves -- its position, its
+content, its title -- so this is how one is found again.
+
+Examples:
+    Rebuild one block, leaving the rest of the document alone::
+
+        $doc.block($iden).refresh()
+
+
+**Args:**
+
+- `iden` (`str`): The block iden.
+
+
+**Returns:**
+The block, or null when the document has no such block. The return type may be one of the following: [`markdown:stormblock`](#stormprims-markdown-stormblock-f527), `null`.
+
+<a id="stormprims-markdown-doc-blocks"></a>
+
+### blocks
+
+The blocks of the document, in order.
+
+The list is the document's own, so it can be manipulated in place. A block put in with
+`append`, `extend` or an assignment is refused for the same reasons `add()` refuses one.
+
+Examples:
+    Drop the first block::
+
+        $doc.blocks.pop((0))
+
+    Move the last block to the front::
+
+        $doc.add($doc.blocks.pop(), indx=(0))
+
+
+**Returns:**
+The document blocks. The return type is [`list`](#stormprims-list-f527).
+
+<a id="stormprims-markdown-doc-clear"></a>
+
+### clear()
+
+Remove every block from the document, leaving it empty.
+
+The block data of what was removed is not touched, the same as for any other removal:
+`orphans()` names those and `purgeOrphans()` drops them.
+
+Examples:
+    Rebuild a document from scratch::
+
+        $doc = $lib.markdown.load($node)
+        $doc.clear()
+        $doc.add($lib.markdown.heading('Today', (2)))
+        $doc.save()
+
+
+**Returns:**
+The document (for chaining). The return type is [`markdown:doc`](#stormprims-markdown-doc-f527).
+
+<a id="stormprims-markdown-doc-modBlockVars"></a>
+
+### modBlockVars(vars)
+
+Merge these vars into every storm block's, leaving the names they do not share alone.
+
+Examples:
+    Re-point every block, keeping whatever else each carries::
+
+        $doc.modBlockVars(({"threat": $threat.repr()}))
+        $doc.refresh()
+
+
+**Args:**
+
+- `vars` (`dict`): The vars to merge into each storm block. A value is anything JSON holds, nested included.
+
+
+**Returns:**
+How many storm blocks were updated. The return type is `int`.
+
+<a id="stormprims-markdown-doc-node"></a>
+
+### node
+
+The node this document was opened from, or null.
+
+**Returns:**
+The node, or null. The return type is [`node`](#stormprims-node-f527).
+
+<a id="stormprims-markdown-doc-orphans"></a>
+
+### orphans()
+
+The idens whose block data is stored on the node but whose blocks are no longer in the
+document. Nothing removes them: that is the caller's policy.
+
+An iden the document's text still names is not an orphan, even where its fence no longer
+reads as a storm block: mistyped, nested, or inside a block above it that never closes.
+Its data comes back into use once the markdown is fixed.
+
+
+**Returns:**
+The orphaned idens. The return type is [`list`](#stormprims-list-f527).
+
+<a id="stormprims-markdown-doc-popBlockVars"></a>
+
+### popBlockVars(names)
+
+Remove these names from every storm block's vars.
+
+Examples:
+    Take a var out of the whole document::
+
+        $doc.popBlockVars((tag,))
+
+
+**Args:**
+
+- `names` (`list`): The variable names to remove.
+
+
+**Returns:**
+How many storm blocks were changed. The return type is `int`.
+
+<a id="stormprims-markdown-doc-purgeOrphans"></a>
+
+### purgeOrphans()
+
+Delete the block data `orphans()` reports, and hand back the idens removed.
+
+Kept separate from `save()`: a block stops being in the document the moment its fence is
+mistyped, so a save that swept would destroy a block's query while its author was typing.
+
+
+**Returns:**
+The idens whose data was deleted. The return type is [`list`](#stormprims-list-f527).
+
+<a id="stormprims-markdown-doc-refresh"></a>
+
+### refresh()
+
+Re-run the stored query of every block in the document that can rebuild itself.
+
+A block that does not rebuild is skipped rather than raising, and keeps the content it has.
+A refusal about the caller rather than the data (a permission, a read-only runtime) raises
+instead, since it is the same answer for every block.
+
+Answers with both halves: `rebuilt`, mapping each iden to the number of rows it drew,
+and `failed`, mapping an iden to the reason it did not.
+
+Examples:
+    Refresh a document and report what did not come back::
+
+        $done = $doc.refresh()
+        for ($iden, $mesg) in $done.failed { $lib.warn(`{$iden}: {$mesg}`) }
+
+    Notice the blocks that rebuilt with nothing in them::
+
+        for ($iden, $rows) in $done.rebuilt {
+            if ($rows = (0)) { $lib.warn(`{$iden} is empty`) }
+        }
+
+
+**Returns:**
+The rows each iden `rebuilt`, and why each `failed` one did not. The return type is [`dict`](#stormprims-dict-f527).
+
+<a id="stormprims-markdown-doc-save"></a>
+
+### save()
+
+Write the document back to the node it was opened from: the body, the `updated` stamp, and
+the data of every storm block in it. A save that changes nothing stamps nothing.
+
+Refused when the text would not read back as the storm blocks the document holds, as when a
+heading or paragraph's text opens a fence that swallows the blocks after it.
+
+Examples:
+    Add a table to a story and save it::
+
+        $doc = $lib.markdown.load($node)
+        $doc.add($lib.markdown.stormtable(${ inet:fqdn#suspect }))
+        $doc.save()
+
+
+**Returns:**
+Returns null. The return type is `null`.
+
+<a id="stormprims-markdown-doc-setBlockVars"></a>
+
+### setBlockVars(vars)
+
+Replace the vars of every storm block in this document.
+
+A document has no vars of its own, so a value shared across one is set on its blocks. Point
+in time: a block added afterwards carries what its ctor was handed.
+
+Examples:
+    Point every block in a document at one threat::
+
+        $doc.setBlockVars(({"threat": $threat.repr()}))
+
+
+**Args:**
+
+- `vars` (`dict`): The vars to store on each storm block. A value is anything JSON holds, nested included.
+
+
+**Returns:**
+How many storm blocks were set. The return type is `int`.
+
+<a id="stormprims-markdown-doc-text"></a>
+
+### text
+
+The markdown source of the document, which is its blocks joined back together.
+
+Settable: assigning a document's text re-parses it into blocks.
+
+Examples:
+    Read the source out::
+
+        $body = $doc.text
+
+    ...and replace the whole document with other markdown::
+
+        $doc.text = $body
+
+
+**Returns:**
+The markdown source. The return type is [`str`](#stormprims-str-f527).
+When this is used to set the value, it does not have a return type.
+
+<a id="stormprims-markdown-doc-unwrap"></a>
+
+### unwrap()
+
+The markdown source with every storm block replaced by its content: no `:::` fences, for a
+consumer that does not understand them.
+
+A div that is not a storm block is left alone, since its fence is presumably meaningful to
+whoever wrote it.
+
+Examples:
+    Send a document somewhere that speaks plain markdown::
+
+        $lib.inet.http.post($url, json=({"text": $doc.unwrap()}))
+
+
+**Returns:**
+The markdown source, without the fences. The return type is [`str`](#stormprims-str-f527).
+
+<a id="stormprims-markdown-heading-f527"></a>
+
+## markdown:heading
+
+A markdown heading.
+
+
+<a id="stormprims-markdown-heading-level"></a>
+
+### level
+
+The heading level (1-6).
+
+**Returns:**
+The heading level. The return type is `int`.
+When this is used to set the value, it does not have a return type.
+
+<a id="stormprims-markdown-heading-text"></a>
+
+### text
+
+The block's markdown source, which is the value of the block.
+
+**Returns:**
+The markdown source. The return type is [`str`](#stormprims-str-f527).
+When this is used to set the value, it does not have a return type.
+
+<a id="stormprims-markdown-heading-type"></a>
+
+### type
+
+The type of block this is, which is always `heading`.
+
+**Returns:**
+The block type. The return type is [`str`](#stormprims-str-f527).
+
+<a id="stormprims-markdown-heading-valu"></a>
+
+### valu
+
+The heading text.
+
+**Returns:**
+The heading text. The return type is [`str`](#stormprims-str-f527).
+When this is used to set the value, it does not have a return type.
+
+<a id="stormprims-markdown-list-f527"></a>
+
+## markdown:list
+
+A markdown list.
+
+
+<a id="stormprims-markdown-list-items"></a>
+
+### items
+
+The list items.
+
+**Returns:**
+The list items. The return type is [`list`](#stormprims-list-f527).
+When this is used to set the value, it does not have a return type.
+
+<a id="stormprims-markdown-list-ordered"></a>
+
+### ordered
+
+True if the list is ordered (numbered).
+
+**Returns:**
+True if the list is ordered. The return type is [`boolean`](#stormprims-boolean-f527).
+When this is used to set the value, it does not have a return type.
+
+<a id="stormprims-markdown-list-text"></a>
+
+### text
+
+The block's markdown source, which is the value of the block.
+
+**Returns:**
+The markdown source. The return type is [`str`](#stormprims-str-f527).
+When this is used to set the value, it does not have a return type.
+
+<a id="stormprims-markdown-list-type"></a>
+
+### type
+
+The type of block this is, which is always `list`.
+
+**Returns:**
+The block type. The return type is [`str`](#stormprims-str-f527).
+
+<a id="stormprims-markdown-paragraph-f527"></a>
+
+## markdown:paragraph
+
+A markdown paragraph.
+
+
+<a id="stormprims-markdown-paragraph-text"></a>
+
+### text
+
+The block's markdown source, which is the value of the block.
+
+**Returns:**
+The markdown source. The return type is [`str`](#stormprims-str-f527).
+When this is used to set the value, it does not have a return type.
+
+<a id="stormprims-markdown-paragraph-type"></a>
+
+### type
+
+The type of block this is, which is always `paragraph`.
+
+**Returns:**
+The block type. The return type is [`str`](#stormprims-str-f527).
+
+<a id="stormprims-markdown-paragraph-valu"></a>
+
+### valu
+
+The paragraph text, with newlines collapsed to spaces when set.
+
+**Returns:**
+The paragraph text. The return type is [`str`](#stormprims-str-f527).
+When this is used to set the value, it does not have a return type.
+
+<a id="stormprims-markdown-stormblock-f527"></a>
+
+## markdown:stormblock
+
+A block whose content came from a Storm query: a fenced div carrying an iden, plus the data that
+says how to rebuild it. The data travels with the block, so a block dropped from a document takes
+its data with it.
+
+
+<a id="stormprims-markdown-stormblock-attrs"></a>
+
+### attrs
+
+The key=value attributes on the opening fence.
+
+**Returns:**
+The attributes. The return type is [`dict`](#stormprims-dict-f527).
+
+<a id="stormprims-markdown-stormblock-classes"></a>
+
+### classes
+
+The classes on the opening fence.
+
+Setting them rebuilds the fence around what it already carries: the block keeps its iden, its
+data and every attribute, and only its classes change.
+
+
+**Returns:**
+The class names. The return type is [`list`](#stormprims-list-f527).
+When this is used to set the value, it does not have a return type.
+
+<a id="stormprims-markdown-stormblock-data"></a>
+
+### data
+
+The data this block needs to rebuild itself, which lives outside the markdown.
+
+The source half is the same for every type: `type` (which names the renderer), `query` (as
+written, and may name variables), `vars`, `mode`, and `updated`. The render half is `opts`,
+which belongs to the type: a `table` keeps `columns` and the `form` its rows shared. A caller
+may add its own keys to either.
+
+Populated for a block this runtime built and for a document opened from a node. A document
+parsed from text alone starts with empty data, for a caller to assign here.
+
+
+**Returns:**
+The data. The return type is [`dict`](#stormprims-dict-f527).
+When this is used to set the value, it does not have a return type.
+
+<a id="stormprims-markdown-stormblock-iden"></a>
+
+### iden
+
+The block iden, which its data is stored under.
+
+**Returns:**
+The iden. The return type is [`str`](#stormprims-str-f527).
+
+<a id="stormprims-markdown-stormblock-nodes"></a>
+
+### nodes()
+
+Re-run this block's query and hand back the nodes, without touching its content.
+
+What `refresh()` runs, minus the rendering: the query with its variables bound, in a read only
+runtime, whatever `type` says. Path variables are not carried.
+
+
+**Returns:**
+The nodes the query produced. The return type is [`list`](#stormprims-list-f527).
+
+<a id="stormprims-markdown-stormblock-popVar"></a>
+
+### popVar(name)
+
+Remove one of this block's vars, leaving the rest as they are.
+
+
+**Args:**
+
+- `name` (`str`): The variable name.
+
+
+**Returns:**
+Returns null. The return type is `null`.
+
+<a id="stormprims-markdown-stormblock-refresh"></a>
+
+### refresh()
+
+Re-run this block's query and rebuild its content where it stands.
+
+The query runs with its stored variables bound, in a read only runtime. The opening fence is
+untouched, so the block keeps its iden, its position and its data. A type that knows what form
+it is of keeps only those rows, since its stored query may be a broader lift.
+
+
+**Returns:**
+The number of rows it rebuilt. The return type is `int`.
+
+<a id="stormprims-markdown-stormblock-refreshable"></a>
+
+### refreshable
+
+Whether `refresh()` would rebuild this block.
+
+True when core has a renderer for the block's `data.type` (`table`, `image`, `node`, `print`)
+and it has a query to re-run in a mode core runs. `refresh()` raises with the reason when this
+answers false, so a caller sweeping a document can either filter or ask and be told.
+
+
+**Returns:**
+True when refresh() would rebuild it. The return type is [`boolean`](#stormprims-boolean-f527).
+
+<a id="stormprims-markdown-stormblock-setVar"></a>
+
+### setVar(name, valu)
+
+Set one of this block's vars, leaving the rest as they are.
+
+Examples:
+    Point a block at a different subject::
+
+        $block.setVar(threat, $threat.repr())
+
+
+**Args:**
+
+- `name` (`str`): The variable name.
+- `valu` (`prim`): The value to bind: anything JSON holds, lists and dicts included.
+
+
+**Returns:**
+Returns null. The return type is `null`.
+
+<a id="stormprims-markdown-stormblock-text"></a>
+
+### text
+
+The block's markdown source, which is the value of the block.
+
+**Returns:**
+The markdown source. The return type is [`str`](#stormprims-str-f527).
+When this is used to set the value, it does not have a return type.
+
+<a id="stormprims-markdown-stormblock-title"></a>
+
+### title
+
+The block's `## Title` heading, or null when it has none.
+
+Setting it retitles the block and leaves its content alone; setting it to null removes the
+heading. A rebuild keeps the title it finds, so one set here survives `refresh()`.
+
+Examples:
+    Retitle a block::
+
+        $doc.block($iden).title = 'Known tools'
+
+
+**Returns:**
+The title, or null when it has none. The return type is [`str`](#stormprims-str-f527).
+When this is used to set the value, it does not have a return type.
+
+<a id="stormprims-markdown-stormblock-type"></a>
+
+### type
+
+The type of block this is, which is always `stormblock`. It names the block, not how it rebuilds, which is `$block.data.type` (`table`, `image`, `node` or `print`).
+
+**Returns:**
+The block type. The return type is [`str`](#stormprims-str-f527).
+
+<a id="stormprims-markdown-stormblock-valu"></a>
+
+### valu
+
+The markdown between the fences.
+
+**Returns:**
+The contained markdown. The return type is [`str`](#stormprims-str-f527).
+When this is used to set the value, it does not have a return type.
+
+<a id="stormprims-markdown-stormblock-vars"></a>
+
+### vars
+
+The values this block's query names, bound when it runs.
+
+These are what `$block.data.vars` holds. A document has no vars of its own: see
+`$doc.setBlockVars()` to set the same names on every block at once.
+
+
+**Returns:**
+The block's own vars. The return type is [`dict`](#stormprims-dict-f527).
+When this is used to set the value, it does not have a return type.
+
+<a id="stormprims-markdown-table-f527"></a>
+
+## markdown:table
+
+A GFM markdown table.
+
+Rows are appended to the source, so adding one leaves every row already in the table exactly as it
+was.
+
+
+<a id="stormprims-markdown-table-addRow"></a>
+
+### addRow(data)
+
+Add a row of cell values.
+
+**Args:**
+
+- `data` (`list`): The row cell values, one per column.
+
+
+**Returns:**
+The table (for chaining). The return type is [`markdown:table`](#stormprims-markdown-table-f527).
+
+<a id="stormprims-markdown-table-addRows"></a>
+
+### addRows(data)
+
+Add multiple rows of cell values.
+
+**Args:**
+
+- `data` (`list`): A list of rows to add.
+
+
+**Returns:**
+The table (for chaining). The return type is [`markdown:table`](#stormprims-markdown-table-f527).
+
+<a id="stormprims-markdown-table-columns"></a>
+
+### columns
+
+The column definitions.
+
+**Returns:**
+The normalized column definition dicts. The return type is [`list`](#stormprims-list-f527).
+
+<a id="stormprims-markdown-table-rows"></a>
+
+### rows
+
+The rows of the table, each a list of cell values as they are written.
+
+A plain list, to read and to iterate: rows go in through `addRow()`, and appending to this
+one writes nothing.
+
+
+**Returns:**
+The rows. The return type is [`list`](#stormprims-list-f527).
+
+<a id="stormprims-markdown-table-sort"></a>
+
+### sort(name, direction='asc')
+
+Put the rows in the order of one column.
+
+The header stays where it is and each row moves whole, so a sort never rewrites a cell.
+Rows order by the text in the column, except a column where every cell reads as a number,
+which orders numerically. An empty cell is the smallest value: first ascending, last
+descending. Rows added afterwards are appended rather than sorted into place.
+
+Examples:
+    Sort a table by its first column::
+
+        $tabl.sort("Software")
+
+        // ...or the other way
+        $tabl.sort("Software", direction=desc)
+
+
+**Args:**
+
+- `name` (`str`): The name of the column to sort by.
+- `direction` (`str`): The sort direction, `asc` or `desc`.
+
+
+**Returns:**
+The table (for chaining). The return type is [`markdown:table`](#stormprims-markdown-table-f527).
+
+<a id="stormprims-markdown-table-text"></a>
+
+### text
+
+The block's markdown source, which is the value of the block.
+
+**Returns:**
+The markdown source. The return type is [`str`](#stormprims-str-f527).
+When this is used to set the value, it does not have a return type.
+
+<a id="stormprims-markdown-table-type"></a>
+
+### type
+
+The type of block this is, which is always `table`.
+
+**Returns:**
+The block type. The return type is [`str`](#stormprims-str-f527).
+
 <a id="stormprims-model-edge-f527"></a>
 
 ## model:edge
@@ -3798,18 +4653,6 @@ Get the type of the tuple.
 
 **Returns:**
 The type is [`str`](#stormprims-str-f527).
-
-<a id="stormprims-noderef-value"></a>
-
-### value
-
-> **Warning:**
-> `$noderef.value` has been deprecated and will be removed on or after 2026-09-24.
-
-Get the valu of the tuple.
-
-**Returns:**
-The type is `any`.
 
 <a id="stormprims-number-f527"></a>
 
@@ -5320,18 +6163,6 @@ Get the type of the tuple.
 **Returns:**
 The type is [`str`](#stormprims-str-f527).
 
-<a id="stormprims-valu-value"></a>
-
-### value
-
-> **Warning:**
-> `$valu.value` has been deprecated and will be removed on or after 2026-09-24.
-
-Get the valu of the tuple.
-
-**Returns:**
-The type is `any`.
-
 <a id="stormprims-vault-f527"></a>
 
 ## vault
@@ -5779,6 +6610,26 @@ The iden of the View.
 
 **Returns:**
 The type is [`str`](#stormprims-str-f527).
+
+<a id="stormprims-view-insertChildFork"></a>
+
+### insertChildFork(name=(null))
+
+Insert a new View between this View and all of its child Views.
+
+Only admin permissions on this View are required, and every child View is
+re-parented, including Views owned by other users. The new View receives a
+copy of this View's quorum, so pending merge requests on the re-parented
+child Views now target the new View. Child Views which are currently
+merging are left under this View.
+
+**Args:**
+
+- `name` (`str`): The name of the new View.
+
+
+**Returns:**
+The `view` object for the new View. The return type is [`view`](#stormprims-view-f527).
 
 <a id="stormprims-view-insertParentFork"></a>
 

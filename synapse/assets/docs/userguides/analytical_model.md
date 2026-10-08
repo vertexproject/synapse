@@ -40,6 +40,8 @@ syn:tag=rep.mandiant.apt1
         :doc = Indicator or activity Mandiant calls (or associates with) APT1.
         :title = APT1 (Mandiant)
         :up = rep.mandiant
+        .created = 2026-10-05T18:01:16.742435Z
+        .updated = 2026-10-05T18:01:16.742998Z
 ```
 
 The `syn:tag` node has the following properties:
@@ -109,6 +111,8 @@ inet:ip=185.29.8.215
         :place:loc = se.ab.stockholm
         :type = unicast
         :version = 4
+        .created = 2026-10-05T18:01:16.779272Z
+        .updated = 2026-10-05T18:01:16.78105Z
         #cno.infra.anon.tor.exit = 2023-05-08T14:30:51Z - 2023-08-17T19:39:48Z
 ```
 

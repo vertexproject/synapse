@@ -1,5 +1,157 @@
 # Synapse Changelog
 
+## v3.5.0 - 2026-10-08
+
+### Flag Day
+
+[What is a flag day?](https://hub.vertex.link/docs/synapse/latest/devopsguide.md#devops-task-flagday)
+
+- The Cortex and Optic must be updated together. The packed node format
+  changed, so a mismatched Optic cannot correctly render nodes from the Cortex.
+  Code which consumes packed nodes from the raw Storm APIs may also require
+  adjustment.
+
+### Model Changes
+
+- Added the `:name` property to the `econ:exchange` form.
+- Added the `:website` property to the `meta:award` form.
+- Added the `biz:listing -(used)> inet:service:platform` edge.
+- Added the `:vehicle` property to the `transport:air:telem` form.
+- Added the `:deprecated` property to the `doc:document` interface.
+- Updated the `it:hardware` form to implement the `meta:reported` interface,
+  adding properties such as `:id`, `:names` and `:reporter`.
+
+### Features and Enhancements
+
+- Added `$lib.infosec.cvss.metricsToVect()` to build a normalized CVSS vector
+  string from a dictionary of metrics.
+- Added the Storm `exec` block, which runs a query once like an `init` block
+  without yielding its nodes into the pipeline. `exec` is now a reserved Storm
+  keyword and can no longer be used as, or as the first segment of, a command
+  name.
+- Added the recent commit history of each LMDB slab to the `getDiagInfo()` API
+  response.
+- Improved performance of `$lib.pkg.has()` by no longer copying the package
+  definition.
+- Updated `$lib.spooled.set()` to accept typed values.
+- Added `$view.insertChildFork()` Storm API to insert a new View between a View
+  and all of its child Views.
+- Updated the Axon `readlines()` and `csvrows()` APIs to parse files within the
+  Axon process rather than spawning a process for each call. A line longer than
+  128 MiB now raises a `BadDataValu` error.
+- Updated Storm function and method call errors to quote the parameter name.
+- Added coverage measurement of Storm embedded in `.py` and `.yaml` files to
+  `stormcov` by default.
+- Updated Storm objects such as `pipe`, `inet:http:socket` and `crypto:rsa:key`
+  to print a readable summary.
+- Added a `--split` option to `mdstorm` fences which renders the query as its
+  own code block, without the `storm>` prompt, ahead of its output labeled
+  `Output:`.
+- Added support for declaring a type on Storm function and method parameters
+  using `as`, which normalizes the value provided by the caller and raises an
+  error when it does not norm.
+- Added support for user defined classes in Storm using the `class` and
+  `method` keywords, including single inheritance, `__storm_init` and
+  `__storm_fini` lifecycle methods, and private `__` prefixed members.
+- Updated the Storm CLI and `mdstorm` output to display virtual properties,
+  meta properties, and light edge counts. Added a `--hide-edges` flag to the
+  `mdstorm` directives.
+- Added the `$lib.markdown` Storm library for building and editing markdown
+  documents, including blocks whose content comes from a Storm query and which
+  can rebuild themselves.
+
+### Bugfixes
+
+- Fixed `$lib.vertex.packages.install` not verifying the code signature of a
+  package before installing it.
+- Fixed a bug where an exception raised while a mirror applied a forwarded
+  write returned the mirror loop's own running frame in its traceback, which
+  could stop the mirror loop if the caller cleared the traceback frames.
+- Fixed `$lib.auth.roles.get()` and `$lib.auth.users.get()` raising a Python
+  error when given a null or non-string iden.
+- Fixed an issue which caused `$lib.aha.callPeerApi()` and
+  `$lib.aha.callPeerGenr()` to return duplicate results and call each peer
+  twice when run against an AHA follower.
+- Fixed an issue which caused `$lib.dmon.bump()`, locking or unlocking a user,
+  or restarting the Cortex to restart a stopped Storm dmon, which
+  `$lib.dmon.stop()` could then no longer stop.
+- Fixed an issue which caused AHA mirrors to be missing from the AHA service
+  registry and unresolvable by their `aha:name`.
+- Fixed `prop:set` triggers on a property firing repeatedly when an interface
+  `prop:set` trigger also matched it.
+- Fixed duplicate nodes returned when lifting by an interface a form inherits
+  through more than one path, and fixed deleting an extended form with such
+  interfaces.
+- Fixed `mdstorm` adding a trailing blank line to a Storm block whose output
+  ended with an empty line.
+- Fixed the Storm CLI reporting query execution time in the wrong units.
+- Updated `$lib.inet.http` error logs to sanitize URLs.
+- Fixed Storm command loading swallowing `CancelledError`.
+- Fixed an issue where setting the `precision` virtual property on a `time`
+  property whose type sets `ismin` or `ismax` did not truncate the value.
+- Fixed `$lib.time.fromunix()` raising uncatchable errors for non-numeric or
+  non-finite values; it now raises `BadArg`.
+- Fixed `$lib.repr()` raising `BadArg` when passed a node, or a property or tag
+  value such as `:seen`.
+- Fixed `synapse.utils.stormcov` intermittently dropping all coverage for a
+  Storm query.
+- Fixed filters which use a full form or property name with a meta property or
+  a `type` virtual property.
+- Fixed a Cell waiting on AHA provisioning discovery or for a
+  `SYN_PROVISION_FOLLOWER` leader logging its warning on every retry instead of
+  once every 60 seconds.
+- Fixed MCP server sessions expiring after about 3.6 seconds idle instead of
+  one hour, and Storm cursors after about 0.3 seconds instead of five minutes.
+- Fixed forks of a View returning stale nodes after the View's layers were
+  changed with `$view.set(layers, ...)`.
+- Fixed `$view.insertParentFork()` allowing a View which is merging to be
+  re-parented.
+- Fixed `$lib.vars.<name> = $lib.undef` not removing a variable from the parent
+  scope when run in a sub-query.
+- Fixed documentation content being wrapped in blockquotes, and changed
+  generated notes and warnings to use alert blocks.
+- Fixed the Axon HTTP upload API starting an upload in the Axon for a request
+  which was denied.
+- Updated Cortex Storm, Telepath, and HTTP APIs which use the Axon to raise a
+  `TimeOut` error after waiting 300 seconds for the Axon, instead of waiting
+  indefinitely.
+- Fixed the data model docs not listing edges a form gets from its interfaces
+  or parent forms.
+- Fixed a multi-line `mdstorm --fail` fence failing the doc build with an
+  unhandled warning.
+- Fixed AHA clone enrollment over unicast provisioning discovery to parent the
+  new AHA off the current leader rather than the mirror which received the
+  request.
+- Fixed provisioning of a service which sets `SYN_PROVISION_HOST` when the AHA
+  server it names is a demoted mirror. Multicast discovery requests are still
+  serviced only by the leader AHA.
+- Updated the packed node to include the missing repr values for its virtual
+  properties when the `repr` node option is set.
+
+### Notes
+
+- Removed the deprecated `.value` virtual property.
+- Moved the info for a node's own value into a `valuinfo` key in the packed
+  node.
+
+### Improved documentation
+
+- Updated the `duration` section of the Storm type-specific reference to cover
+  accepted input formats, special values, and arithmetic behavior.
+- Added an Extended Model page to the Storm library documentation with working
+  examples for `$lib.model.ext`, and fixed the extended model examples in the
+  admin guide.
+- Fixed the Extended HTTP API path in the devops guide; it is `/api/ext/*`, not
+  `/api/etx/*`.
+- Added a `Flag Day Releases` section to the Synapse devops guide.
+- Fixed Synapse doc cross-links to Storm libraries and types which displayed
+  the raw anchor id as their text.
+
+### Deprecations
+
+- Deprecated the `dyncall()` and `dyniter()` Cell and telepath APIs; they will
+  be removed on 2027-01-01.
+
 ## v3.4.0 - 2026-09-28
 
 ### Model Changes

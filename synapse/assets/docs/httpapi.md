@@ -46,31 +46,31 @@ Most Synapse HTTP APIs require an authenticated user. HTTP API endpoints requiri
 
 A Cortex user can create their own API key via Storm. The following is an example of generating a user API key:
 
-> ```stormdoc
-> storm> ($key, $info)= $lib.auth.users.byname($lib.auth.users.get().name).genApiKey('Test Key') $lib.print($key)
-> syn-XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=
-> ```
+```stormdoc
+storm> ($key, $info)= $lib.auth.users.byname($lib.auth.users.get().name).genApiKey('Test Key') $lib.print($key)
+syn-XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=
+```
 
 This API Key can then be used to make HTTP API calls. The following example shows the use of `curl` and `jq` to make a Storm call with the API key and then format the response:
 
-> ```text
-> $ curl -k -s -H "X-API-KEY: syn-XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=" \
-> --data '{"query": "return($lib.auth.users.get().name)"}' \
-> https://localhost:4443/api/v3/storm/call | jq
->
-> {
->   "status": "ok",
->   "result": "root"
-> }
-> ```
+```text
+$ curl -k -s -H "X-API-KEY: syn-XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=" \
+--data '{"query": "return($lib.auth.users.get().name)"}' \
+https://localhost:4443/api/v3/storm/call | jq
+
+{
+  "status": "ok",
+  "result": "root"
+}
+```
 
 The API key may also be supplied as the username of an HTTP Basic authentication header (the password is ignored). This is convenient for clients that only support HTTP Basic authentication, such as embedding the key in the request URL:
 
-> ```text
-> $ curl -k -s \
-> --data '{"query": "return($lib.auth.users.get().name)"}' \
-> https://syn-XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=@localhost:4443/api/v3/storm/call | jq
-> ```
+```text
+$ curl -k -s \
+--data '{"query": "return($lib.auth.users.get().name)"}' \
+https://syn-XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=@localhost:4443/api/v3/storm/call | jq
+```
 
 The following Python examples create a client session that sends the API key via the `X-API-KEY` header on every request. The remaining endpoint examples in this document assume a session created this way.
 

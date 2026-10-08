@@ -124,7 +124,7 @@ What changed
 
 What you need to do
 
-:   See [Automatic Service Provisioning (SYN_PROVISION_SECRET)](devops-service-provisioning.md#vtx_300_devops-service-provisioning) for the full workflow, the multicast group and port, firewall considerations, and the unicast fallback. In short: set `SYN_PROVISION_SECRET` on AHA and on each service and omit the per-service provisioning URL.
+:   See [Automatic Service Provisioning (SYN_PROVISION_SECRET)](devops-service-provisioning.md#vtx_300_devops-service-provisioning) for the full workflow, the multicast group and port, firewall considerations, and the unicast fallback. A multicast request is serviced only by the leader AHA; a request unicast to a specific AHA is serviced by that server whether it leads or mirrors. In short: set `SYN_PROVISION_SECRET` on AHA and on each service and omit the per-service provisioning URL.
 
 ## Followers and AHA clones: `SYN_PROVISION_FOLLOWER`
 

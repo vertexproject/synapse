@@ -912,6 +912,7 @@ class MdDocsTest(s_test.SynTest):
         # semantics), so that log line must be ignored
         msgs = [
             "Error during storm execution for { [ inet:ip=woot.com inet:ip=22.22.22.22 ] }",
+            "Error during storm execution for { function foo() {\n    return()\n}\n\n$foo(bar) }",
         ]
         self.eq([], s_mddocs._classifyWarnings(msgs))
 
@@ -1862,6 +1863,98 @@ class MdDocsTest(s_test.SynTest):
                 await s_mddocs.buildDocs(srcdir, outdir)
 
             self.isin('double-backtick inline code', str(cm.exception))
+
+    def test_lintlinktext_raw_anchor(self):
+        with self.getTestDir() as outdir:
+            path = s_common.genpath(outdir, 'page.md')
+            with open(path, 'w') as fd:
+                fd.write('# Title\n\nSee [stormprims-node-f527](x.md#stormprims-node-f527) here.\n')
+
+            issues = s_mddocs.lintLinkText(outdir)
+
+            self.len(1, issues)
+            self.isin('link text is the raw anchor id', issues[0])
+            self.isin('stormprims-node-f527', issues[0])
+            self.isin('page.md', issues[0])
+            self.isin('line 3', issues[0])
+
+    def test_lintlinktext_backticked_raw_anchor(self):
+        with self.getTestDir() as outdir:
+            path = s_common.genpath(outdir, 'page.md')
+            with open(path, 'w') as fd:
+                fd.write('# Title\n\nSee [`stormlibs-lib-cron`](x.md#stormlibs-lib-cron) here.\n')
+
+            issues = s_mddocs.lintLinkText(outdir)
+
+            self.len(1, issues)
+            self.isin('stormlibs-lib-cron', issues[0])
+
+    def test_lintlinktext_multiple_links_on_a_line(self):
+        with self.getTestDir() as outdir:
+            path = s_common.genpath(outdir, 'page.md')
+            with open(path, 'w') as fd:
+                fd.write('# Title\n\n[a-b](x.md#a-b) and [`$lib.cron`](x.md#lib-cron) and [c-d](x.md#c-d)\n')
+
+            issues = s_mddocs.lintLinkText(outdir)
+
+            self.len(2, issues)
+            self.isin('a-b', issues[0])
+            self.isin('c-d', issues[1])
+
+    def test_lintlinktext_clean(self):
+        with self.getTestDir() as outdir:
+            path = s_common.genpath(outdir, 'page.md')
+            with open(path, 'w') as fd:
+                fd.write('\n'.join((
+                    '# Title',
+                    '',
+                    'Readable [`node`](x.md#stormprims-node-f527) text.',
+                    'A plain word [limit](cmd.md#limit) matching its heading.',
+                    'No anchor [stormlibs-lib-cron](x.md) at all.',
+                    'Different [stormlibs-lib-cron](x.md#stormlibs-lib-cron-get) fragment.',
+                    'External [a-b](https://example.com/a-b).',
+                    '',
+                )))
+
+            self.len(0, s_mddocs.lintLinkText(outdir))
+
+    def test_lintlinktext_ignores_fenced_blocks(self):
+        with self.getTestDir() as outdir:
+            path = s_common.genpath(outdir, 'page.md')
+            with open(path, 'w') as fd:
+                fd.write('# Title\n\n```text\n[a-b](x.md#a-b)\n```\n\nOutside [c-d](x.md#c-d).\n')
+
+            issues = s_mddocs.lintLinkText(outdir)
+
+            self.len(1, issues)
+            self.isin('c-d', issues[0])
+            self.isin('line 7', issues[0])
+
+    async def test_builddocs_rejects_raw_anchor_link_text(self):
+        with self.getTestDir() as srcdir, self.getTestDir() as outdir:
+            _write(srcdir, 'index.md', '\n'.join((
+                '# Index',
+                '',
+                '```mdtoc',
+                'page1.md',
+                '```',
+                '',
+            )))
+            _write(srcdir, 'page1.md', '\n'.join((
+                '# Page One',
+                '',
+                '<a id="some-anchor"></a>',
+                '',
+                '## Target',
+                '',
+                'See [some-anchor](page1.md#some-anchor) here.',
+                '',
+            )))
+
+            with self.raises(s_exc.SynErr) as cm:
+                await s_mddocs.buildDocs(srcdir, outdir)
+
+            self.isin('link text is the raw anchor id some-anchor', str(cm.exception))
 
 class DocDriftTest(s_test.SynTest):
     '''synapse.lib.mddocs.checkDrift and its supporting helpers.'''

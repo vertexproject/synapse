@@ -106,6 +106,7 @@ import synapse.lib.stormlib.tabular as s_stormlib_tabular  # noqa: F401
 import synapse.lib.stormlib.version as s_stormlib_version  # noqa: F401
 import synapse.lib.stormlib.easyperm as s_stormlib_easyperm  # noqa: F401
 import synapse.lib.stormlib.ethereum as s_stormlib_ethereum  # noqa: F401
+import synapse.lib.stormlib.markdown as s_stormlib_markdown  # noqa: F401
 import synapse.lib.stormlib.modelext as s_stormlib_modelext  # noqa: F401
 import synapse.lib.stormlib.compression as s_stormlib_compression  # noqa: F401
 
@@ -155,13 +156,8 @@ reqValidStormMacro = s_config.getJsValidator({
     ],
 })
 
-class CortexAxonMixin:
-
-    async def getAxon(self):
-        return await self.cell.getAxon()
-
-    async def getAxonInfo(self):
-        return await self.cell.getAxonInfo()
+class CortexAxonMixin(s_axon.HasAxonHandlerMixin):
+    '''Kept as the Cortex Axon handler base; HasAxonHandlerMixin provides the behavior.'''
 
 class CortexAxonHttpHasV3(s_httpapi.ApiKeyOnlyMixin, CortexAxonMixin, s_axon.AxonHttpHasV3):
     pass
@@ -599,6 +595,7 @@ class CoreApi(s_cell.CellApi):
                                                     startvalu=startvalu):
             yield item
 
+    @s_cell.nopoolapi
     async def getAxonUpload(self):
         self.user.confirm(('axon', 'upload'))
         axon = await self.cell.getAxon()
@@ -670,7 +667,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
     confbase['safemode']['hidecmdl'] = False
     confbase['safemode']['description'] = (
-        'Enable safe-mode which disables crons, triggers, dmons, storm '
+        'Enable safe-mode which disables crons, triggers, dmons, Storm '
         'package onload handlers, and view merge tasks.'
     )
 
@@ -688,12 +685,12 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         },
         'storm:log': {
             'default': False,
-            'description': 'Log storm queries via system logger.',
+            'description': 'Log Storm queries via system logger.',
             'type': 'boolean'
         },
         'storm:log:level': {
             'default': 'INFO',
-            'description': 'Logging log level to emit storm logs at.',
+            'description': 'Logging log level to emit Storm logs at.',
             'type': [
                 'integer',
                 'string',
@@ -705,7 +702,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             'type': 'boolean',
         },
         'http:proxy': {
-            'description': 'An aiohttp-socks compatible proxy URL to use storm HTTP API.',
+            'description': 'An aiohttp-socks compatible proxy URL to use Storm HTTP API.',
             'type': 'string',
         },
         'tls:ca:dir': {
@@ -2140,6 +2137,47 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         self.stormcmds.pop(name, None)
         self._stormdocs = None
 
+    def _reqStormPkgSigned(self, pkgdef):
+        '''
+        Verify the code signature of a Storm package definition.
+
+        The signature covers the pkgdef with its entire metadata block removed.
+        Raises s_exc.BadPkgDef if the package is unsigned, its certificate is
+        malformed or invalid, or the signature does not match.
+        '''
+        pkgcopy = s_msgpack.deepcopy(pkgdef)
+        metadata = pkgcopy.pop('metadata', None)
+        codesign = metadata.get('codesign') if metadata is not None else None
+        if codesign is None:
+            mesg = 'Storm package is not signed!'
+            raise s_exc.BadPkgDef(mesg=mesg)
+
+        certbyts = codesign.get('cert')
+        if certbyts is None:
+            mesg = 'Storm package has no certificate!'
+            raise s_exc.BadPkgDef(mesg=mesg)
+
+        signbyts = codesign.get('sign')
+        if signbyts is None:
+            mesg = 'Storm package has no signature!'
+            raise s_exc.BadPkgDef(mesg=mesg)
+
+        try:
+            cert = self.certdir.loadCertByts(certbyts.encode('utf-8'))
+        except s_exc.BadCertBytes as e:
+            raise s_exc.BadPkgDef(mesg='Storm package has malformed certificate!') from None
+
+        try:
+            self.certdir.valCodeCert(certbyts.encode())
+        except s_exc.BadCertVerify as e:
+            mesg = e.get('mesg')
+            raise s_exc.BadPkgDef(mesg=f'Storm package has invalid certificate: {mesg}') from None
+
+        pubk = s_rsa.PubKey(cert.public_key())
+        if not pubk.verifyitem(pkgcopy, s_common.uhex(signbyts)):
+            mesg = 'Storm package signature does not match!'
+            raise s_exc.BadPkgDef(mesg=mesg)
+
     async def addStormPkg(self, pkgdef, verify=False):
         '''
         Add the given storm package to the cortex.
@@ -2148,42 +2186,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         '''
         # do validation before nexs...
         if verify:
-            pkgcopy = s_msgpack.deepcopy(pkgdef)
-            metadata = pkgcopy.pop('metadata', None)
-            codesign = metadata.get('codesign') if metadata is not None else None
-            if codesign is None:
-                mesg = 'Storm package is not signed!'
-                raise s_exc.BadPkgDef(mesg=mesg)
-
-            certbyts = codesign.get('cert')
-            if certbyts is None:
-                mesg = 'Storm package has no certificate!'
-                raise s_exc.BadPkgDef(mesg=mesg)
-
-            signbyts = codesign.get('sign')
-            if signbyts is None:
-                mesg = 'Storm package has no signature!'
-                raise s_exc.BadPkgDef(mesg=mesg)
-
-            try:
-                cert = self.certdir.loadCertByts(certbyts.encode('utf-8'))
-            except s_exc.BadCertBytes as e:
-                raise s_exc.BadPkgDef(mesg='Storm package has malformed certificate!') from None
-
-            try:
-                self.certdir.valCodeCert(certbyts.encode())
-            except s_exc.BadCertVerify as e:
-                mesg = e.get('mesg')
-                if mesg:
-                    mesg = f'Storm package has invalid certificate: {mesg}'
-                else:
-                    mesg = 'Storm package has invalid certificate!'
-                raise s_exc.BadPkgDef(mesg=mesg) from None
-
-            pubk = s_rsa.PubKey(cert.public_key())
-            if not pubk.verifyitem(pkgcopy, s_common.uhex(signbyts)):
-                mesg = 'Storm package signature does not match!'
-                raise s_exc.BadPkgDef(mesg=mesg)
+            self._reqStormPkgSigned(pkgdef)
 
         await self._normStormPkg(pkgdef)
         return await self._push('pkg:add', pkgdef)
@@ -2294,6 +2297,9 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             return None
 
         return self._addStormPkgSvc(pkgdef)
+
+    async def hasStormPkg(self, name):
+        return name in self.stormpkgs
 
     async def getStormPkgs(self):
         return self._getStormPkgs()
@@ -4191,7 +4197,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
     async def _trySetStormCmd(self, name, cdef):
         try:
             self._setStormCmd(cdef)
-        except (asyncio.CancelledError, Exception):
+        except Exception:
             logger.exception(f'Storm command load failed: {name}')
 
     def _initStormLibs(self):
@@ -5368,7 +5374,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
     @s_nexus.Pusher.onPushAuto('storm:dmon:bump', reader=False)
     async def bumpStormDmon(self, iden):
         ddef = self.stormdmondefs.get(iden)
-        if ddef is None:
+        if ddef is None or not ddef.get('enabled', True):
             return False
 
         if self.isactive:

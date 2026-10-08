@@ -119,8 +119,7 @@ This represents a packed node. Each serialized node will have the following stru
 
         # optional
         "nodedata": {}      # Node data carried along the path, when present.
-        "repr": ...         # (node:opts repr) Presentation value for the node's own value.
-        "virts": {}         # (node:opts virts) Virtual property values of the node's own value.
+        "valuinfo": {}      # (node:opts repr / virts) The info for the node's own value.
         "links": [...]      # (node:opts links) Pivot/edge link trail used to reach the node.
         "storage": [...]    # (node:opts storage) Per-layer storage breakdown.
         "embeds": {}        # (node:opts embeds) Embedded props from related nodes.
@@ -157,10 +156,13 @@ The reserved info keys are:
 Model derived names never appear at the top level of an info dict; they appear
 only as keys within `v`. New keys are registered in the `Node.pack()` docstring.
 
+The info dict for the node's own value is in the `valuinfo` key, and its value
+half is in the ndef. Like `r` and `v`, `valuinfo` is omitted when empty.
+
 `t` is packed only where the concrete type is carried by the data rather than
 derivable from the model. It is present on a scalar property and on each array
-member, whose types vary per value, and absent on an array container, a tag and
-a tag property.
+member, whose types vary per value, and absent on an array container, a tag, a
+tag property and a virtual property.
 
 The value of an array property is a list of member envelopes, so envelope
 nesting is bounded at one level: a member is always a scalar envelope, never
@@ -175,7 +177,7 @@ An embed is packed exactly like a property on the node it was walked to, so one
 reader serves both.
 
 > [!NOTE]
-> In Synapse 3.0.0 the packed node is keyed by an integer `nid` (Node ID) rather than the 2.x hex `iden`, gains a `meta` dictionary, and always includes `n1verbs` / `n2verbs` light-edge verb counts. Property, tag and tag property values are envelopes rather than bare values; the `reprs` and `tagpropreprs` dictionaries and the flattened `<name>.type`, `<name>.<virt>` and `<name>.size` keys they replace are gone. The `repr`, `links`, `virts`, and `storage` keys are produced by the `node:opts` option (see [Storm Opts](storm_api.md#dev_storm_opts)).
+> In Synapse 3.0.0 the packed node is keyed by an integer `nid` (Node ID) rather than the 2.x hex `iden`, gains a `meta` dictionary, and always includes `n1verbs` / `n2verbs` light-edge verb counts. Property, tag and tag property values are envelopes rather than bare values; the `reprs` and `tagpropreprs` dictionaries and the flattened `<name>.type`, `<name>.<virt>` and `<name>.size` keys they replace are gone. The `valuinfo`, `links`, and `storage` keys are produced by the `node:opts` option (see [Storm Opts](storm_api.md#dev_storm_opts)).
 >
 > Runtime-only nodes (`syn:form`, `syn:prop`, and the other `syn:` runt forms) are packed from a fixed property dictionary and carry none of the `nid`, `meta`, `n1verbs` or `n2verbs` keys, but their property values are envelopes like any other node's.
 
@@ -433,37 +435,37 @@ The Telepath `callStorm()` and HTTP API `storm/call` interfaces are designed to 
 
 Example:
 
-> The following example shows retrieving a user definition.
->
-> ```python3
-> # Prox is assumed to be a Telepath proxy to a Cortex.
-> >>> text = '$user = $lib.auth.users.byname($name) return ( $user )'
-> >>> opts = {'vars': {'name': 'root'}}
-> >>> ret = prox.callStorm(text, opts=opts)
-> >>> pprint(ret)
-> {'admin': True,
->  'archived': False,
->  'authgates': {'0b942d5f4309d70e5fa64423714e25aa': {'admin': True},
->                'cdf6f1727da73dbac95e295e5d258847': {'admin': True}},
->  'email': None,
->  'iden': '933a320b7ce8134ba5abd93aa487e1b5',
->  'locked': False,
->  'name': 'root',
->  'roles': (),
->  'rules': (),
->  'type': 'user'}
-> ```
->
-> The following shows setting an API key for a Power-Up. There is no `return` statement, so the return value defaults to None.
->
-> ```python3
-> # Prox is assumed to be a Telepath proxy to a Cortex.
-> >>> text = 'foobar.setup.apikey $apikey'
-> >>> opts = {'vars': {'apikey': 'secretKey'}}
-> >>> ret = prox.callStorm(text, opts=opts)
-> >>> print(ret)
-> None
-> ```
+The following example shows retrieving a user definition.
+
+```python3
+# Prox is assumed to be a Telepath proxy to a Cortex.
+>>> text = '$user = $lib.auth.users.byname($name) return ( $user )'
+>>> opts = {'vars': {'name': 'root'}}
+>>> ret = prox.callStorm(text, opts=opts)
+>>> pprint(ret)
+{'admin': True,
+ 'archived': False,
+ 'authgates': {'0b942d5f4309d70e5fa64423714e25aa': {'admin': True},
+               'cdf6f1727da73dbac95e295e5d258847': {'admin': True}},
+ 'email': None,
+ 'iden': '933a320b7ce8134ba5abd93aa487e1b5',
+ 'locked': False,
+ 'name': 'root',
+ 'roles': (),
+ 'rules': (),
+ 'type': 'user'}
+```
+
+The following shows setting an API key for a Power-Up. There is no `return` statement, so the return value defaults to None.
+
+```python3
+# Prox is assumed to be a Telepath proxy to a Cortex.
+>>> text = 'foobar.setup.apikey $apikey'
+>>> opts = {'vars': {'apikey': 'secretKey'}}
+>>> ret = prox.callStorm(text, opts=opts)
+>>> print(ret)
+None
+```
 
 <a id="dev_storm_opts"></a>
 
@@ -480,9 +482,9 @@ If this is set to True, the Storm runtime will be created with `$lib.debug` set 
 
 Example:
 
-> ```python3
-> opts = {'debug': True}
-> ```
+```python3
+opts = {'debug': True}
+```
 
 ### graph
 
@@ -490,9 +492,9 @@ Apply a subgraph projection to the query results. The value may be `True` (use t
 
 Example:
 
-> ```python3
-> opts = {'graph': True}
-> ```
+```python3
+opts = {'graph': True}
+```
 
 ### nids
 
@@ -503,10 +505,10 @@ This is a list of integer Node IDs (NIDs) to use as initial input to the Storm r
 
 Example:
 
-> ```python3
-> nids = (1099511627992, 1099511628010)
-> opts = {'nids': nids}
-> ```
+```python3
+nids = (1099511627992, 1099511628010)
+opts = {'nids': nids}
+```
 
 ### keepalive
 
@@ -516,10 +518,10 @@ The keepalive value must be greater than zero.
 
 Example:
 
-> ```python3
-> keepalive = 2  # Send a keepalive message every 2 seconds
-> opts = {'keepalive': keepalive}
-> ```
+```python3
+keepalive = 2  # Send a keepalive message every 2 seconds
+opts = {'keepalive': keepalive}
+```
 
 ### limit
 
@@ -527,9 +529,9 @@ Limit the total number of nodes that the Storm runtime produces. When this numbe
 
 Example:
 
-> ```python3
-> opts = {'limit': 100}
-> ```
+```python3
+opts = {'limit': 100}
+```
 
 ### meta
 
@@ -544,9 +546,9 @@ It is recorded as a nested `meta` key of the log record's `params` rather than m
 
 Example:
 
-> ```python3
-> opts = {'meta': {'jobid': '5a5b1f0d1e4f4c0a', 'source': 'nightly-ingest'}}
-> ```
+```python3
+opts = {'meta': {'jobid': '5a5b1f0d1e4f4c0a', 'source': 'nightly-ingest'}}
+```
 
 ### mode
 
@@ -554,17 +556,17 @@ This is the mode that a Storm query is parsed in. Specifying `lookup` mode enabl
 
 Example:
 
-> ```python3
-> # Using lookup mode, the query text (before an optional | pipe to return to storm mode) is scraped
-> # for typed values such as FQDNs, IP Addresses, and Hashes and an attempt is made to lift
-> # any matching nodes. A look:miss message is fired for any scraped value that is not found
-> # in the current View. Any text that remains after scraping is matched against forms and
-> # properties that define lookup mode hints in the data model (via the modes.lookup info key),
-> # using the comparator specified by each hint (e.g. ^= for prefix matching), and is also sent
-> # to the search Storm interface implemented by any loaded package. Nodes matched by the hints
-> # and by the search interface are deduplicated against each other.
-> opts = {'mode': 'lookup'}
-> ```
+```python3
+# Using lookup mode, the query text (before an optional | pipe to return to storm mode) is scraped
+# for typed values such as FQDNs, IP Addresses, and Hashes and an attempt is made to lift
+# any matching nodes. A look:miss message is fired for any scraped value that is not found
+# in the current View. Any text that remains after scraping is matched against forms and
+# properties that define lookup mode hints in the data model (via the modes.lookup info key),
+# using the comparator specified by each hint (e.g. ^= for prefix matching), and is also sent
+# to the search Storm interface implemented by any loaded package. Nodes matched by the hints
+# and by the search interface are deduplicated against each other.
+opts = {'mode': 'lookup'}
+```
 
 ### ndefs
 
@@ -572,14 +574,14 @@ This is a list of form and value tuples to use as initial input to the Storm run
 
 Example:
 
-> ```python3
-> ndefs = (
->     ('inet:fqdn', 'com'),
->     ('inet:ip', (4, 134744072)),
-> )
->
-> opts = {'ndefs': ndefs}
-> ```
+```python3
+ndefs = (
+    ('inet:fqdn', 'com'),
+    ('inet:ip', (4, 134744072)),
+)
+
+opts = {'ndefs': ndefs}
+```
 
 ### nexus
 
@@ -595,10 +597,10 @@ Hold the query until the Cortex reaches a Nexus offset. This is how a caller kee
 
 Example:
 
-> ```python3
-> # ...having taken offs from the fini message of the write which preceded this read
-> opts = {'nexus': {'offset': offs, 'timeout': 30}}
-> ```
+```python3
+# ...having taken offs from the fini message of the write which preceded this read
+opts = {'nexus': {'offset': offs, 'timeout': 30}}
+```
 
 ### readpool
 
@@ -606,9 +608,9 @@ Synapse Enterprise only. If a read pool is configured, setting this to `false` p
 
 Example:
 
-> ```python3
-> opts = {'readpool': False}
-> ```
+```python3
+opts = {'readpool': False}
+```
 
 ### readonly
 
@@ -616,9 +618,9 @@ Run the Storm query in a readonly mode. This prevents editing the graph data, an
 
 Examples:
 
-> ```python3
-> opts = {'readonly': True}
-> ```
+```python3
+opts = {'readonly': True}
+```
 
 ### node:opts
 
@@ -626,7 +628,7 @@ A nested dictionary that controls how each node is packed in the output message 
 
 `repr` (bool, default `False`)
 
-:   Populate human-friendly representations of system mode values. When set, the node gains a `repr` key for its own value, and each property, tag and tag property envelope gains an `r` key. A scalar `r` is omitted when it matches the value; an array container's `r` is always populated. There is no longer a `reprs` or `tagpropreprs` dictionary.
+:   Populate human-friendly representations of system mode values. When set, the node gains `valuinfo.r` for its own value, and each property, tag and tag property envelope gains an `r` key. A scalar `r` is omitted when it matches the value; an array container's `r` is always populated. There is no longer a `reprs` or `tagpropreprs` dictionary.
 
 `links` (bool, default `False`)
 
@@ -643,7 +645,7 @@ A nested dictionary that controls how each node is packed in the output message 
 
 `virts` (bool, default `False`)
 
-:   Include virtual property values. The node gains a `virts` key for its own value, and each property envelope which has virts gains a `v` key mapping the virt name to its own envelope. Virtual properties are no longer flattened into `props` as `<name>.<virt>` sibling keys, and the `<name>.type` and `<name>.size` keys they came with are gone -- the type is on the envelope as `t`, and an array's size is `v.size`.
+:   Include virtual property values. The node gains `valuinfo.v` for its own value, and each property envelope which has virts gains a `v` key, each mapping the virt name to its own envelope. Virtual properties are no longer flattened into `props` as `<name>.<virt>` sibling keys, and the `<name>.type` and `<name>.size` keys they came with are gone -- the type is on the envelope as `t`, and an array's size is `v.size`.
 
 `storage` (bool, default `False`)
 
@@ -657,7 +659,8 @@ opts = {'node:opts': {'repr': True, 'virts': True}}
 
 # A Storm node message with reprs and virts added to it (note the integer nid).
 # ':version' carries an 'r' because its repr differs from the stored value,
-# while ':type' does not, since 'unicast' reprs to itself.
+# while ':type' does not, since 'unicast' reprs to itself. The node's own repr
+# and virts are in 'valuinfo'.
 ('node',
  (('inet:ip', (4, 134744072)),
   {'nid': 1099511627992,
@@ -669,8 +672,7 @@ opts = {'node:opts': {'repr': True, 'virts': True}}
    'path': {},
    'n1verbs': {},
    'n2verbs': {},
-   'repr': '8.8.8.8',
-   'virts': {}}))
+   'valuinfo': {'r': '8.8.8.8'}}))
 ```
 
 ### show
@@ -684,16 +686,16 @@ If the option is not set the full message stream is sent. If it is set, only the
 
 Example:
 
-> ```python3
-> # Only node and warn messages.
-> opts = {'show': ['node', 'warn']}
->
-> # Nodes without the edits which produced them, still reporting errors.
-> opts = {'show': ['node', 'err']}
->
-> # Consume no messages at all.
-> opts = {'show': []}
-> ```
+```python3
+# Only node and warn messages.
+opts = {'show': ['node', 'warn']}
+
+# Nodes without the edits which produced them, still reporting errors.
+opts = {'show': ['node', 'err']}
+
+# Consume no messages at all.
+opts = {'show': []}
+```
 
 ### hide
 
@@ -708,13 +710,13 @@ If the option is not set, or is set to an empty list, nothing is hidden. Unlike 
 
 Example:
 
-> ```python3
-> # Everything except the edits which produced the nodes.
-> opts = {'hide': ['edits']}
->
-> # Drop the bookkeeping messages, keeping nodes, output, and errors.
-> opts = {'hide': ['init', 'fini']}
-> ```
+```python3
+# Everything except the edits which produced the nodes.
+opts = {'hide': ['edits']}
+
+# Drop the bookkeeping messages, keeping nodes, output, and errors.
+opts = {'hide': ['init', 'fini']}
+```
 
 ### sudo
 
@@ -722,9 +724,9 @@ A boolean option which attempts to invoke the Storm runtime as a global admin. T
 
 Example:
 
-> ```python3
-> opts = {'sudo': True}
-> ```
+```python3
+opts = {'sudo': True}
+```
 
 ### task
 
@@ -734,12 +736,12 @@ A caller is given the iden it asked for or an error, never a different one. The 
 
 Example:
 
-> ```python3
-> # Generate a guid on the client side and provide it to the Cortex
-> import synapse.common as s_commmon
-> task_iden = s_common.guid()
-> opts = {'task': task_iden}
-> ```
+```python3
+# Generate a guid on the client side and provide it to the Cortex
+import synapse.common as s_commmon
+task_iden = s_common.guid()
+opts = {'task': task_iden}
+```
 
 ### user
 
@@ -747,9 +749,9 @@ The User iden to run the Storm query as. This allows a global admin to run a Sto
 
 Example:
 
-> ```python3
-> opts = {'user': 6e9c8de2f1aa39fee11c19d0974e0917}
-> ```
+```python3
+opts = {'user': 6e9c8de2f1aa39fee11c19d0974e0917}
+```
 
 ### vars
 
@@ -757,19 +759,19 @@ A dictionary of key - value pairs that are mapped into the Storm runtime as vari
 
 Example:
 
-> ```python3
-> # A secret key - A good example of this is configuring a Rapid Power-Up.
-> vars = {'secretkey': 'c8de2fe11c19d0974e091aa39fe176e9'}
-> opts = {'vars': vars}
->
-> # Some example data that could be used in a Storm ingest script.
-> records = (
->     ('foobar.com', '8.8.8.8', '20210810'),
->     ('bazplace.net', '1.2.3.4', '20210810'),
-> )
-> vars = {'records': records}
-> opts = {'vars': vars}
-> ```
+```python3
+# A secret key - A good example of this is configuring a Rapid Power-Up.
+vars = {'secretkey': 'c8de2fe11c19d0974e091aa39fe176e9'}
+opts = {'vars': vars}
+
+# Some example data that could be used in a Storm ingest script.
+records = (
+    ('foobar.com', '8.8.8.8', '20210810'),
+    ('bazplace.net', '1.2.3.4', '20210810'),
+)
+vars = {'records': records}
+opts = {'vars': vars}
+```
 
 > [!NOTE]
 > Variable names must be strings, and the names `lib`, `node`, and `path` are reserved and may not be used as `vars` keys (a `BadArg` is raised otherwise).
@@ -780,6 +782,6 @@ The View iden in which to run the Storm query in. If not specified, the query wi
 
 Example:
 
-> ```python3
-> opts = {'view': 31ded629eea3c7221be0a61695862952}
-> ```
+```python3
+opts = {'view': 31ded629eea3c7221be0a61695862952}
+```

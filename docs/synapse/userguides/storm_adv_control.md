@@ -11,6 +11,7 @@ Storm includes a number of common programming control flow structures to facilit
 - [Init Block](storm_adv_control.md#flow-init)
 - [Fini Block](storm_adv_control.md#flow-fini)
 - [Empty Block](storm_adv_control.md#flow-empty)
+- [Exec Block](storm_adv_control.md#flow-exec)
 - [If-Else Statement](storm_adv_control.md#flow-if-else)
 - [Switch Statement](storm_adv_control.md#flow-switch)
 - [For Loop](storm_adv_control.md#flow-for)
@@ -24,8 +25,8 @@ See the following User Guide and Reference sections for additional information:
 - [Storm Reference - Advanced - Variables](storm_adv_vars.md#storm-adv-vars)
 - [Storm Reference - Advanced - Methods](storm_adv_methods.md#storm-adv-methods)
 - [Storm Reference - Advanced - Functions](storm_adv_functions.md#storm-adv-functions)
-- [stormtypes-libs-header](../stormtypes_libs.md#stormtypes-libs-header)
-- [stormtypes-prim-header](../stormtypes_prims.md#stormtypes-prim-header)
+- [Storm Libraries](../stormtypes_libs.md#stormtypes-libs-header)
+- [Storm Types](../stormtypes_prims.md#stormtypes-prim-header)
 
 Storm Developers may also wish to refer to the [Synapse Developer Guide](../devguide.md#devguide).
 
@@ -57,9 +58,9 @@ A few helpful tips when writing and debugging advanced Storm:
 
 **Operations may execute multiple times.** Because each node passes through each operation in a Storm query individually, operations execute more than once (typically once for each node in the pipeline as it passes through that operation). This includes control flow operations, such as for loops! If you don't account for this behavior with control flow operations in particular, it can result in behavior such as:
 
-> - An exponentially increasing working set (if each node passing through an operation generates multiple results, and the results are not deduplicated / uniq'ed appropriately).
-> - A variable that is set by an operation being consistently changed (re-set) for each node passing through the operation (commonly resulting in "last node wins" with respect to variable assignment).
-> - A variable that **fails** to be set for a node that does **not** pass through the operation where the variable is assigned (resulting in a `NoSuchVar` error).
+- An exponentially increasing working set (if each node passing through an operation generates multiple results, and the results are not deduplicated / uniq'ed appropriately).
+- A variable that is set by an operation being consistently changed (re-set) for each node passing through the operation (commonly resulting in "last node wins" with respect to variable assignment).
+- A variable that **fails** to be set for a node that does **not** pass through the operation where the variable is assigned (resulting in a `NoSuchVar` error).
 
 **Use subqueries...but understand how they work.** Unlike most Storm operations and commands, subqueries **do not consume** nodes - by default, what goes into a subquery comes out of a subquery, regardless of what happens inside the subquery itself. This means you can use [subqueries](storm_ref_subquery.md) with advanced Storm to isolate certain operations and keep the "primary" nodes passing through the Storm pipeline consistent. That said, a node still has to pass **into** a subquery for the Storm inside a subquery to run. If your subquery **fails** to execute, it may be because nothing is going in to it.
 
@@ -81,7 +82,7 @@ $asn=:asn
 $lib.print($asn)
 ```
 
-You can also print values associated with the node(s) in the current working set, using the various methods associated with the `$node` Storm type. (See [Storm Reference - Advanced - Methods](storm_adv_methods.md#storm-adv-methods) for a user-focused introduction to methods, or [stormprims-node-f527](../stormtypes_prims.md#stormprims-node-f527) in the detailed Storm Libraries / Storm Types documentation for a more technical discussion.)
+You can also print values associated with the node(s) in the current working set, using the various methods associated with the `$node` Storm type. (See [Storm Reference - Advanced - Methods](storm_adv_methods.md#storm-adv-methods) for a user-focused introduction to methods, or [`node`](../stormtypes_prims.md#stormprims-node-f527) in the detailed Storm Libraries / Storm Types documentation for a more technical discussion.)
 
 ```storm
 $lib.print($node.ndef)
@@ -102,7 +103,7 @@ $lib.print($node.ndef)
 
 An **init block** allows you to execute the specified Storm **once** at the beginning of your Storm query, before nodes enter the Storm pipeline. This allows you to use Storm to perform a set of operations a **single** time only.
 
-See also [Fini Block](storm_adv_control.md#flow-fini).
+See also [Fini Block](storm_adv_control.md#flow-fini) and [Exec Block](storm_adv_control.md#flow-exec).
 
 **Syntax:**
 
@@ -177,6 +178,45 @@ yield $makeSomeNodes()
 empty {
     $lib.print("No nodes created")
 }
+```
+
+<a id="flow-exec"></a>
+
+
+### Exec Block
+
+An **exec block** allows you to execute the specified Storm **once**, like an [Init Block](storm_adv_control.md#flow-init), but any nodes yielded by the block are discarded rather than entering the Storm pipeline. Nodes that are already in the pipeline pass through the exec block unchanged.
+
+Variables set within the block remain available to the rest of the Storm query, holding the last value set while the block ran. Using a variable after the block that the block never set, such as one set per-node when a lift within the block matched no nodes, raises an error.
+
+Prints, warnings, and other messages generated by the Storm within the block are still output; only the nodes yielded by the block are not.
+
+An exec block is the preferred replacement for using the `spin` command to discard nodes created earlier in a Storm query.
+
+**Syntax:**
+
+```storm
+exec { <storm> }
+```
+
+**Examples:**
+
+- Create a node and print a message, without the newly created node being included in the output of your Storm query:
+
+```mdstorm --split
+exec {
+    [ inet:fqdn=woot.com ]
+    $lib.print(`Created {$node.repr()}`)
+}
+```
+
+- Set a variable within an exec block and print it after the block. The variable is available to the rest of the Storm query:
+
+```mdstorm --split
+exec {
+    $greeting = "hello"
+}
+$lib.print($greeting)
 ```
 
 <a id="flow-if-else"></a>
@@ -264,7 +304,7 @@ else { | malware.download }
 The Storm query above:
 
 - takes an inbound `file:bytes` node;
-- checks for the file in the Axon ([stormlibs-lib-axon-has](../stormtypes_libs.md#stormlibs-lib-axon-has)) using the `:sha256` value of the inbound file;
+- checks for the file in the Axon ([`$lib.axon.has()`](../stormtypes_libs.md#stormlibs-lib-axon-has)) using the `:sha256` value of the inbound file;
 - if `$lib.axon.has(:sha256)` returns `true` (i.e., we have the file), do nothing (`{  }`);
 - otherwise call the `malware.download` service to attempt to download the file.
 
@@ -326,7 +366,7 @@ The Storm query above:
 - checks the switch conditions based on the form of the node (see [$node.form](storm_adv_methods.md#meth-node-form));
 - matches the form name against the list of forms;
 - handles each form differently (e.g., hashes are submitted to a malware service, domains are submitted to passive DNS and whois services, etc.)
-- if the inbound form does not match any of the specified cases, print ([stormlibs-lib-print](../stormtypes_libs.md#stormlibs-lib-print)) the specified statement (e.g., `"file:bytes is not supported."`).
+- if the inbound form does not match any of the specified cases, print ([`$lib.print()`](../stormtypes_libs.md#stormlibs-lib-print)) the specified statement (e.g., `"file:bytes is not supported."`).
 
 The default case above is not strictly necessary - any inbound nodes that fail to match a condition will simply pass through the switch statement with no action taken. It is used above to illustrate the optional use of a default case for any non-matching nodes.
 
@@ -440,7 +480,7 @@ Because the catch block handles the error, any additional Storm (i.e., after the
 
 In the catch block above, `<name>` can be the name of a single error type, a set of error types, or the asterisk ( `*` ) to represent any error. When using multiple catch blocks, the asterisk can be used in the final block as a default case to catch any error not explicitly handled by a previous catch block.
 
-The catch block can return a status (e.g., `return((1))`) or output a warning message (e.g., using `$lib.warn()` - see [stormlibs-lib-warn](../stormtypes_libs.md#stormlibs-lib-warn)).
+The catch block can return a status (e.g., `return((1))`) or output a warning message (e.g., using `$lib.warn()` - see [`$lib.warn()`](../stormtypes_libs.md#stormlibs-lib-warn)).
 
 **Example:**
 
@@ -458,7 +498,7 @@ try {
 ```
 
 > [!TIP]
-> `$lib.raise()` may also be useful for explicitly raising exceptions (see [stormlibs-lib-raise](../stormtypes_libs.md#stormlibs-lib-raise)).
+> `$lib.raise()` may also be useful for explicitly raising exceptions (see [`$lib.raise()`](../stormtypes_libs.md#stormlibs-lib-raise)).
 
 <a id="storm-adv-example"></a>
 
@@ -491,10 +531,10 @@ $lib.print('And we're done!')
 
 The query:
 
-> - lifts a single FQDN node;
-> - defines a list containing three elements, `foo`, `bar`, and `baz`;
-> - uses a `for` loop to iterate over the list, printing each element;
-> - prints `And we're done!`
+- lifts a single FQDN node;
+- defines a list containing three elements, `foo`, `bar`, and `baz`;
+- uses a `for` loop to iterate over the list, printing each element;
+- prints `And we're done!`
 
 When executed, the query generates the following output:
 

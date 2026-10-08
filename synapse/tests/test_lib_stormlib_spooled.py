@@ -28,13 +28,28 @@ class StormlibSpooledTest(s_test.SynTest):
 
             q = '''
                 $set = $lib.spooled.set()
-                inet:ip $set.add(:asn.value)
-                $set.rems((:asn.value, :asn.value))
+                inet:ip $set.add(:asn)
+                $set.rems((:asn, :asn))
                 [ it:log:event="*" ] +it:log:event [ :data=$set.list() ]
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.propeq(nodes[0], 'data', ())
+
+            # typed values are stored by their normalized value
+            q = '''
+                $set = $lib.spooled.set()
+                inet:ip $set.adds((:asn, :asn)) | spin |
+                inet:ip +:asn=20 $set.rem(:asn) | spin |
+                return(($set.list(), $set.has((30)), $set.has($lib.cast(inet:asn, 30)), $set.has((20))))
+            '''
+            self.eq(((30,), True, True, False), await core.callStorm(q))
+
+            q = '''
+                $set = $lib.spooled.set($lib.cast(inet:asn, 20))
+                return($set.has((20)))
+            '''
+            self.true(await core.callStorm(q))
 
             q = '''
                 $set = $lib.spooled.set()
@@ -144,6 +159,15 @@ class StormlibSpooledTest(s_test.SynTest):
             '''
             valu = await core.callStorm(q)
             self.eq(1500, valu)
+
+            q = '''
+                $set = $lib.spooled.set()
+                $set.adds($lib.range(2500, start=1000))
+                inet:ip $set.add(:asn) | spin |
+                $set.rems(($lib.cast(inet:asn, 30), (1000)))
+                return(($set.size(), $set.has($lib.cast(inet:asn, 20)), $set.has((30))))
+            '''
+            self.eq((1500, True, False), await core.callStorm(q))
 
             subq = '''{
                 $sset = $lib.spooled.set()

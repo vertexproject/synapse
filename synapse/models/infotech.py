@@ -1720,6 +1720,7 @@ modeldefs = (
                 'template': {'title': 'hardware'},
                 'interfaces': (
                     ('meta:usable', {}),
+                    ('meta:reported', {}),
                     ('meta:observable', {}),
                     ('biz:manufactured', {}),
                     ('risk:exploitable', {}),

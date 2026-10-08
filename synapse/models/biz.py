@@ -178,6 +178,9 @@ modeldefs = (
             (('biz:listing', 'has', 'econ:lineitem'), {
                 'doc': 'The listing offers the line item.'}),
 
+            (('biz:listing', 'used', 'inet:service:platform'), {
+                'doc': 'The listing was posted on the platform.'}),
+
             (('biz:deal', 'has', 'econ:lineitem'), {
                 'doc': 'The deal includes the line item.'}),
 

@@ -567,7 +567,72 @@ for $n in $getNodes() {
     $lib.print($n)
 }
 
+// An argument may declare a type with "as", which normalizes the caller value
+// and raises an error when it does not norm. (null) is only allowed, and passed
+// through, for an argument whose default is (null).
+function addPort(fqdn as inet:fqdn, port as int=(443)) {
+    return(`{$fqdn}:{$port}`)
+}
 ```
+
+### Classes
+
+```storm
+// A class bundles methods with the state they operate on. A class body may
+// contain only method declarations.
+class Indicator {
+
+    // __storm_init() is the constructor, and receives the constructor arguments
+    method __storm_init(valu as str, kind as str=unknown) {
+        $self.valu = $valu
+        $self.kind = $kind
+        return()
+    }
+
+    // __storm_fini() runs once, when the instance is finalized by fini() or
+    // when the query which declared or imported its class finishes
+    method __storm_fini() {
+        $lib.print(`releasing {$self.valu}`)
+        return()
+    }
+
+    method describe() { return($self.__fmt()) }
+
+    // a __ prefixed method or value is private to the class
+    method __fmt() { return(`{$self.kind} {$self.valu}`) }
+}
+
+// Declaring a class binds its name as a constructor
+$ind = $Indicator("vertex.link", kind=fqdn)
+$lib.print($ind.describe())
+$lib.print($ind.valu)
+
+// Single inheritance with "extends". $super resolves methods starting from the
+// class being extended.
+class Domain extends Indicator {
+    method __storm_init(valu as inet:fqdn) {
+        $super.__storm_init($valu, kind=fqdn)
+        return()
+    }
+
+    method describe() { return(`domain {$super.describe()}`) }
+}
+```
+
+Notes:
+
+- `$self` is available in every method and holds the instance state; `$super` is available when the class extends another. Neither is a variable: only code written within the method body ( including a function declared inside it, but not after the method returns ) may use them, and passing `$self` elsewhere passes only the public instance. They may not be assigned to, used in method parameters, or used within `${ }`. Outside a class they are ordinary variable names.
+- A method is found before a value of the same name, and a value may not take a method's name. A `$self.m()` call resolves from the class which wrote it, not the instance class, so a base method is not overridden by a subclass declaration. Code handed the instance, including a module function a method passes `$self` to, calls a subclass override as usual, and the override receives its arguments, so don't hand it private data that way; call through `$self` or pass the function the data instead. `$super` may only call a public base class method.
+- A public value ( no `__` prefix ) may be freely read, replaced, changed in place, or added by any code holding the instance; keep state the class relies on private.
+- A private ( `__` ) member must be named literally, like `$self.__x`. A private method belongs to the class which declares it and may only be called. A private value belongs to the class whose method sets it; a subclass and its base can not read or replace each other's, even one of the same name.
+- A subclass which declares no `__storm_init()` inherits the one it extends; a subclass which declares one must call `$super.__storm_init()` when the class it extends has one, or construction fails. Each `__storm_init()` runs at most once per instance; one which raises may not be retried, and construction fails even if a subclass catches the error. An instance whose construction failed may not be used, and none may be finalized while being constructed. Every `__storm_fini()` in the chain runs automatically, most derived first.
+- `__storm_init()` and `__storm_fini()` are only invoked by the runtime; the one direct call allowed is `$super.__storm_init()` from within an `__storm_init()`. End them with `return()` like any other method called for its value.
+- Every instance has a built-in `fini()` which runs the `__storm_fini()` chain once; afterwards any use of the instance raises. An instance which is never explicitly finalized is finalized, newest first, when the query ( or `view.exec` / `runas` block ) which declared or imported its class finishes, and dropping a variable does not finalize it. Call `fini()` on instances a long-running query no longer needs. Any holder may call `fini()`, so a module should not hand out an instance it keeps using itself. `fini` is reserved: a class may not declare a `fini()` method or set a `fini` value.
+- The `__storm_` prefix is reserved for these built-in methods. Declaring any other `__storm_` method is a syntax error, and an instance value may not use the prefix.
+- A class declared at the top level of a module is exported like a function, so `$lib.import()` callers can construct it. Give it a `__` name and return instances from a module function to keep callers from constructing or extending it.
+- Like a function, a method ( including `__storm_init()` and `__storm_fini()` ) runs with the privileges of the module or query which declared it, whoever calls it, and resolves that module's variables. A class in a privileged ( `asroot:perms` ) module runs its methods elevated, so review them like its functions. An inherited method keeps its declarer's privileges on a subclass instance; a subclass's own methods, and any object or class elevated code is handed, run with their declarer's privileges. An elevated method should not trust an instance's public values; keep the state it relies on private.
+- A class instance cannot be converted to a primitive, so it cannot be returned from a query to an external caller.
+- Keep a secret off the instance: read it from a vault in a private module function each time it is needed and pass it straight to its use, never into a method variable ( the nodes a method yields carry its variables to the caller in `$path.vars` ), and never send it to an endpoint the caller chooses. Any holder of an instance may still use the secret through its methods.
 
 ### Subqueries
 

@@ -947,6 +947,11 @@ class Jwt(s_stormtypes.StormType):
     async def _gtorHeader(self):
         return JwtDict(self.header, self)
 
+    async def stormrepr(self):
+        if not self.locked:
+            return f'{self._storm_typename}: unsigned'
+        return f'{self._storm_typename}: signed ({self.header.get("alg")})'
+
     @s_stormtypes.stormfunc(readonly=True)
     async def sign(self, key, alg, fmt='compact'):
         if self.locked:

@@ -3,7 +3,9 @@ import http
 import time
 import asyncio
 import hashlib
+import inspect
 import logging
+import functools
 import contextlib
 
 import regex
@@ -22,6 +24,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.view as s_view
+import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.output as s_output
 import synapse.lib.dyndeps as s_dyndeps
@@ -6721,6 +6724,19 @@ class CortexBasicTest(s_t_utils.SynTest):
                 user = await core.auth.getUserByName('user')
                 asuser = {'user': user.iden}
 
+                ddef = await core.callStorm('return($lib.dmon.add(${$lib.print(bar)}))')
+                stopped = ddef.get('iden')
+                ddef = await core.callStorm('return($lib.dmon.add(${$lib.print(baz)}))')
+                running = ddef.get('iden')
+                self.true(await core.callStorm('return($lib.dmon.stop($iden))', opts={'vars': {'iden': stopped}}))
+
+                # a ddef persisted without an enabled key loads as enabled
+                ddef = await core.callStorm('return($lib.dmon.add(${$lib.print(faz)}))')
+                legacy = ddef.get('iden')
+                ddef = core.stormdmondefs.get(legacy)
+                ddef.pop('enabled')
+                core.stormdmondefs.set(legacy, ddef)
+
                 ddef = await core.callStorm('return($lib.dmon.add(${$lib.print(foo)}))')
                 self.isinstance(ddef, dict)
                 iden = ddef.get('iden')
@@ -6738,6 +6754,21 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 self.nn(await core.callStorm('return($lib.dmon.get($iden))', opts=asuser))
                 self.nn(core.stormdmondefs.get(iden))
+
+                dmon = core.stormdmons.getDmon(stopped)
+                self.false(dmon.enabled)
+                self.none(dmon.task)
+                self.nn(core.stormdmons.getDmon(running).task)
+
+                dmon = core.stormdmons.getDmon(legacy)
+                self.true(dmon.enabled)
+                self.nn(dmon.task)
+                self.notin('enabled', core.stormdmondefs.get(legacy))
+
+                task = dmon.task
+                self.true(await core.callStorm('return($lib.dmon.bump($iden))', opts={'vars': {'iden': legacy}}))
+                self.nn(dmon.task)
+                self.ne(task, dmon.task)
 
     async def test_cortex_storm_dmon_view(self):
 
@@ -6892,6 +6923,20 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core.delStormCmd('sleep')
 
             self.none(await core._delStormCmd('newp'))
+
+            # cancellation is not swallowed when loading a command
+            with mock.patch.object(core, '_setStormCmd', side_effect=asyncio.CancelledError()):
+                with self.raises(asyncio.CancelledError):
+                    await core._trySetStormCmd('cancel', {})
+
+            # other errors are logged
+            with mock.patch.object(core, '_setStormCmd', side_effect=s_exc.BadArg(mesg='newp')):
+                with self.getLoggerStream('synapse.cortex') as stream:
+                    await core._trySetStormCmd('hehe', {})
+
+            msgs = [m for m in stream.jsonlines() if 'Storm command load failed: hehe' in m['message']]
+            self.len(1, msgs)
+            self.eq(msgs[0]['error']['code'], 'BadArg')
 
     async def test_cortex_storm_lib_dmon_cmds(self):
         async with self.getTestCore() as core:
@@ -7190,7 +7235,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                         self.addSvcToAha(aha, '00.jsonstor', s_jsonstor.JsonStorCell), \
                         self.addSvcToAha(aha, '00.cortex', s_cortex.Cortex) as core:
 
-                    # Use dyncalls, not direct object access.
+                    # Use the Storm axon APIs, not direct object access.
                     asdfhash_h = '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892'
                     size, sha2 = await core.callStorm('return( $lib.axon.put($buf) )',
                                                       {'vars': {'buf': b'asdfasdf'}})
@@ -7202,6 +7247,34 @@ class CortexBasicTest(s_t_utils.SynTest):
                     # ensure the cortex can use the remote axon proxy
                     coreaxon = await core.getAxon()
                     self.eq(await axon.metrics(), await coreaxon.metrics())
+
+    async def test_cortex_axon_ready_timeout(self):
+
+        async with self.getTestCluster() as clus:
+
+            core = clus.cortex
+            self.nn(await core.getAxon())
+
+            timeout = inspect.signature(core.getAxon).parameters['timeout'].default
+            self.eq(timeout, s_const.AXON_READY_TIMEOUT)
+
+            await clus.axon.fini()
+
+            with self.raises(s_exc.TimeOut) as cm:
+                await core.getAxon(timeout=0.1)
+            self.eq(cm.exception.get('mesg'), 'Timed out waiting 0.1 seconds for the Axon to be ready.')
+            self.eq(cm.exception.get('timeout'), 0.1)
+
+            opts = {'vars': {'sha256': s_common.ehex(hashlib.sha256(b'vertex').digest())}}
+
+            with mock.patch.object(core, 'getAxon', functools.partial(core.getAxon, timeout=0.1)):
+
+                with self.raises(s_exc.TimeOut):
+                    await core.callStorm('return($lib.axon.has($sha256))', opts=opts)
+
+                async with core.getLocalProxy() as proxy:
+                    with self.raises(s_exc.TimeOut):
+                        await proxy.getAxonUpload()
 
     async def test_cortex_delLayerView(self):
 
@@ -9948,7 +10021,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # Add a regular trigger
                 q = '''
                 $lib.log.warning(`SAFEMODE TRIGGER: {$node}`)
-                $tick = :tick.value
+                $tick = :tick
                 $str = { [( test:str=TRIGGER :hehe=$tick )] }
                 $queue = $lib.queue.gen(queue:safemode)
                 $queue.put($tick)
@@ -9959,7 +10032,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # Add an async trigger
                 q = '''
                 $lib.log.warning(`SAFEMODE ATRIGGER: {$node}`)
-                $tick = :tick.value
+                $tick = :tick
                 $str = { [( test:str=ATRIGGER :hehe=$tick )] }
                 $queue = $lib.queue.gen(queue:safemode)
                 $queue.put($tick)
@@ -10170,7 +10243,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             q = '''
                 test:guid=(d0,)
-                $d=:raw.value
+                $d=:raw
                 $d.list.rem(listval0)
                 $d.str = foo
                 $d.int = ($d.int + 1)
@@ -10190,7 +10263,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # modifying the property value shouldn't update the node
             q = '''
                 test:guid=(d0,)
-                $d=:raw.value
+                $d=:raw
                 $d.dict = $lib.undef
             '''
             nodes = await core.nodes(q)

@@ -16,6 +16,7 @@ import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
+import synapse.lib.const as s_const
 import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
@@ -912,6 +913,73 @@ class InitBlock(AstNode):
             async for innr in subq.run(runt, s_common.agen()):
                 yield innr
 
+class ExecBlock(AstNode):
+    '''
+    An AST node that runs only once before yielding nodes, like an init block,
+    but drops any nodes yielded by its subquery.
+
+    Example:
+
+        Using an exec block::
+
+            exec {
+                // stuff here runs *once* and any nodes it yields are discarded
+                [ inet:fqdn=vertex.link ]
+                $lib.print(done)
+            }
+
+    '''
+
+    def getRuntVars(self, runt):
+
+        # classify the subquery vars separately so per-node vars stay per-node within it
+        names = []
+        outer = runt.runtvars
+        inner = runt.runtvars = dict(outer)
+        try:
+            for name, isrunt in self.kids[0].getRuntVars(runt):
+                names.append(name)
+                if not inner.get(name):
+                    inner[name] = isrunt
+
+        finally:
+            runt.runtvars = outer
+
+        runt.execvars[self] = {name: inner[name] for name in names}
+
+        # the block runs once, so the rest of the query sees its final values
+        for name in names:
+            yield name, True
+
+    async def _drain(self, runt):
+
+        # layer the block's own classifications over the current outer ones
+        outer = runt.runtvars
+        runt.runtvars = outer | runt.execvars[self]
+        try:
+            async for _ in self.kids[0].run(runt, s_common.agen()):
+                pass
+
+        finally:
+            runt.runtvars = outer
+
+    async def run(self, runt, genr):
+
+        once = False
+        async for item in genr:
+
+            if not once:
+                await self._drain(runt)
+
+                # match InitBlock so the first node sees any runt var updates
+                item[1].vars |= runt.vars
+                once = True
+
+            yield item
+
+        if not once:
+            await self._drain(runt)
+
 class EmptyBlock(AstNode):
     '''
     An AST node that only runs if there are not inbound nodes in the pipeline. It is
@@ -1381,12 +1449,22 @@ class SetItemOper(Oper):
     $foo."bar baz" = faz
     $foo.$bar = baz
     '''
+    # set by the parser on a member of $self within a class method
+    selfkind = None
+    methnode = None
+    islit = False
+
     async def run(self, runt, genr):
 
         count = 0
         async for node, path in genr:
 
             count += 1
+
+            if self.selfkind is not None:
+                await self._setSelfItem(runt, path)
+                yield node, path
+                continue
 
             item = s_stormtypes.fromprim(await self.kids[0].compute(runt, path), basetypes=False)
 
@@ -1407,6 +1485,10 @@ class SetItemOper(Oper):
 
         if count == 0 and self.isRuntSafe(runt):
 
+            if self.selfkind is not None:
+                await self._setSelfItem(runt, None)
+                return
+
             item = s_stormtypes.fromprim(await self.kids[0].compute(runt, None), basetypes=False)
 
             name = await self.kids[1].compute(runt, None)
@@ -1421,6 +1503,22 @@ class SetItemOper(Oper):
                     await item.setitem(name, valu)
                 except s_exc.SynErr as e:
                     raise self.kids[0].addExcInfo(e)
+
+    async def _setSelfItem(self, runt, path):
+
+        # the member of the running instance is resolved from the method which
+        # declared this reference, never from the value of a $self variable.
+        name = await self.kids[1].compute(runt, path)
+        valu = await self.kids[2].compute(runt, path)
+
+        with s_scope.enter({'runt': runt}):
+            try:
+                ctx = runt.getMethCtx(self.methnode)
+                name = await s_stormtypes.tostr(name)
+                await ctx.obj.setSelf(ctx, name, valu, self.islit)
+
+            except s_exc.SynErr as e:
+                raise self.kids[0].addExcInfo(e)
 
 class VarListSetOper(Oper):
 
@@ -3650,6 +3748,15 @@ class HasAbsPropCond(Cond):
         prop = runt.model.props.get(name)
         if prop is not None:
 
+            if prop.isform and virt is not None and virt in runt.model.metatypes:
+
+                async def cond(node, path):
+                    if prop.name not in node.form.formtypes:
+                        return False
+                    return node.getMeta(virt) is not None
+
+                return cond
+
             vgetr = None
             if virt is not None:
                 vgetr = prop.type.getVirtGetr(virt)
@@ -3958,7 +4065,7 @@ class AbsVirtPropCond(Cond):
 
         forms = set([prop.form.name for prop in props])
 
-        if not prop.type.ispoly:
+        if not prop.type.ispoly or prop.type.virts.get(virt) is not None:
             (ptyp, getr) = prop.type.getVirtInfo(virt)
 
             if (ctor := ptyp.getCmprCtor(cmpr)) is None:
@@ -4520,7 +4627,15 @@ class VirtProp(Value):
 
 class VarValue(Value):
 
+    # set by the parser on a $self or $super reference within a class method
+    selfkind = None
+    methnode = None
+
     def validate(self, runt):
+
+        # $self and $super are provided by the running method, not a variable
+        if self.selfkind is not None:
+            return
 
         if runt.runtvars.get(self.name) is None:
             exc = s_exc.NoSuchVar(mesg=f'Missing variable: {self.name}', name=self.name)
@@ -4532,15 +4647,27 @@ class VarValue(Value):
         self.isconst = False
 
     def isRuntSafe(self, runt):
+        if self.selfkind is not None:
+            return True
+
         return runt.isRuntVar(self.name)
 
     def isRuntSafeAtom(self, runt):
+        if self.selfkind is not None:
+            return True
+
         return runt.isRuntVar(self.name)
 
     def hasVarName(self, name):
         return self.kids[0].value() == name
 
     async def compute(self, runt, path):
+
+        if self.selfkind is not None:
+            try:
+                return runt.getMethCtx(self.methnode).obj
+            except s_exc.SynErr as e:
+                raise self.addExcInfo(e)
 
         if path is not None:
             valu = path.getVar(self.name, defv=s_common.novalu)
@@ -4562,7 +4689,17 @@ class VarValue(Value):
 
 class VarDeref(Value):
 
+    # set by the parser on a member of $self or $super within a class method
+    selfkind = None
+    methnode = None
+    iscall = False
+    islit = False
+    superinit = False
+
     async def compute(self, runt, path):
+
+        if self.selfkind is not None:
+            return await self._computeSelf(runt, path)
 
         base = await self.kids[0].compute(runt, path)
         # the deref of None is always None
@@ -4575,6 +4712,25 @@ class VarDeref(Value):
         with s_scope.enter({'runt': runt}):
             try:
                 return await valu.deref(name)
+            except s_exc.SynErr as e:
+                raise self.kids[1].addExcInfo(e)
+
+    async def _computeSelf(self, runt, path):
+
+        # the member of the running instance is resolved from the method which
+        # declared this reference, never from the value of a $self variable.
+        name = await self.kids[1].compute(runt, path)
+
+        with s_scope.enter({'runt': runt}):
+            try:
+                ctx = runt.getMethCtx(self.methnode)
+                name = await s_stormtypes.tostr(name)
+
+                if self.selfkind == 'super':
+                    return await ctx.obj.derefSuper(ctx, name, self.superinit)
+
+                return await ctx.obj.derefSelf(ctx, name, self.iscall, self.islit)
+
             except s_exc.SynErr as e:
                 raise self.kids[1].addExcInfo(e)
 
@@ -6684,25 +6840,60 @@ class Stop(Oper):
             raise self.addExcInfo(s_stormctrl.StormStop())
         raise self.addExcInfo(s_stormctrl.StormStop())
 
+class FuncArgType(AstNode):
+    '''
+    Represents the "as <type>" annotation on a function or method argument.
+    '''
+
+    async def compute(self, runt, path):
+        return await s_stormtypes.tostr(await self.kids[0].compute(runt, path))
+
+class FuncArg(AstNode):
+    '''
+    Represents a single argument in a function or method definition.
+
+    ( name, [type], [default] )
+    '''
+
+    def __init__(self, astinfo, kids=()):
+
+        AstNode.__init__(self, astinfo, kids=kids)
+
+        self.name = self.kids[0].value()
+
+        self.typekid = None
+        self.defvkid = None
+
+        for kid in self.kids[1:]:
+            if isinstance(kid, FuncArgType):
+                self.typekid = kid
+                continue
+
+            self.defvkid = kid
+
+    async def compute(self, runt, path):
+
+        argtype = None
+        if self.typekid is not None:
+            argtype = await self.typekid.compute(runt, path)
+
+        defv = s_common.novalu
+        if self.defvkid is not None:
+            defv = await self.defvkid.compute(runt, path)
+
+            if s_stormtypes.ismutable(defv):
+                exc = s_exc.StormRuntimeError(mesg='Mutable default parameter value not allowed')
+                raise self.defvkid.addExcInfo(exc)
+
+        return (self.name, argtype, defv)
+
 class FuncArgs(AstNode):
     '''
     Represents the function arguments in a function definition
     '''
 
     async def compute(self, runt, path):
-        retn = []
-
-        for kid in self.kids:
-            valu = await kid.compute(runt, path)
-            if isinstance(kid, CallKwarg):
-                if s_stormtypes.ismutable(valu[1]):
-                    exc = s_exc.StormRuntimeError(mesg='Mutable default parameter value not allowed')
-                    raise kid.addExcInfo(exc)
-            else:
-                valu = (valu, s_common.novalu)
-            retn.append(valu)
-
-        return retn
+        return [await kid.compute(runt, path) for kid in self.kids]
 
 class Function(AstNode):
     '''
@@ -6767,9 +6958,55 @@ class Function(AstNode):
         # var scope validation occurs in the sub-runtime
         pass
 
-    async def callfunc(self, runt, argdefs, args, kwargs, funcpath):
+    async def castArgs(self, runt, argdefs, mergargs, funcpath):
+        '''
+        Enforce any "as <type>" annotations declared on the arguments.
+
+        A (null) value is only allowed for an argument whose default is (null),
+        so that an argument which is not optional always receives a valid value.
+        '''
+        for name, argtype, defv in argdefs:
+
+            if argtype is None:
+                continue
+
+            valu = mergargs.get(name)
+            if valu is None:
+
+                if defv is None:
+                    continue
+
+                mesg = f'{funcpath}() parameter "{name}" requires a valid {argtype}, not (null).'
+                raise self.kids[1].addExcInfo(s_exc.BadArg(mesg=mesg, name=name, type=argtype))
+
+            mergargs[name] = await self.castArgValu(runt, funcpath, name, argtype, valu)
+
+    async def castArgValu(self, runt, funcpath, name, argtype, valu):
+
+        styp = runt.model.type(argtype)
+        if styp is None:
+            mesg = f'{funcpath}() parameter "{name}" declares unknown type {argtype}.'
+            raise self.kids[1].addExcInfo(s_exc.NoSuchType(mesg=mesg, name=argtype))
+
+        try:
+            norm, info = await styp.norm(await s_stormtypes.tostor(valu))
+        except s_exc.BadTypeValu as e:
+            mesg = f'{funcpath}() parameter "{name}" requires a valid {argtype}: {e.get("mesg")}'
+            raise self.kids[1].addExcInfo(s_exc.BadArg(mesg=mesg, name=name, type=argtype)) from e
+
+        return styp.tostorm(norm, virts=info.get('virts'))
+
+    async def callfunc(self, runt, argdefs, args, kwargs, funcpath, methctx=None):
         '''
         Execute a function call using the given runtime.
+
+        The methctx is the context of a Storm class method call, which provides
+        the $self and $super references within the method body. It is attached to
+        the sub runtime which runs the body and is active only while it runs.
+
+        The body runs in a sub runtime of runt, the runtime which declared the
+        function, so variables resolve lexically through it and the body runs
+        with its user and privileges.
 
         This function may return a value / generator / async generator
         '''
@@ -6788,11 +7025,11 @@ class Function(AstNode):
             posnames.add(name)
 
         # Merge in the rest from kwargs or the default values set at function definition
-        for name, defv in argdefs[len(args):]:
+        for name, _, defv in argdefs[len(args):]:
             valu = kwargs.pop(name, s_common.novalu)
             if valu is s_common.novalu:
                 if defv is s_common.novalu:
-                    mesg = f'{funcpath}() missing required argument {name}'
+                    mesg = f'{funcpath}() missing required argument "{name}"'
                     raise self.kids[1].addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
                 valu = defv
 
@@ -6803,14 +7040,17 @@ class Function(AstNode):
             # used a kwarg not defined.
             kwkeys = list(kwargs.keys())
             if kwkeys[0] in posnames:
-                mesg = f'{funcpath}() got multiple values for parameter {kwkeys[0]}'
+                mesg = f'{funcpath}() got multiple values for parameter "{kwkeys[0]}"'
                 raise self.kids[1].addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
 
             plural = 's' if len(kwargs) > 1 else ''
-            mesg = f'{funcpath}() got unexpected keyword argument{plural}: {",".join(kwkeys)}'
+            names = ', '.join(f'"{k}"' for k in kwkeys)
+            mesg = f'{funcpath}() got unexpected keyword argument{plural}: {names}'
             raise self.kids[1].addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
 
         assert len(mergargs) == len(argdefs)
+
+        await self.castArgs(runt, argdefs, mergargs, funcpath)
 
         opts = {'vars': mergargs}
 
@@ -6819,6 +7059,9 @@ class Function(AstNode):
 
                 # inform the sub runtime to use function scope rules
                 subr.funcscope = True
+
+                if methctx is not None:
+                    methctx.activate(subr)
 
                 try:
                     await asyncio.sleep(0)
@@ -6836,11 +7079,20 @@ class Function(AstNode):
                     mesg = f'function {self.name} - Generator control statement "{e.statement}" used outside of a generator function.'
                     raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, function=self.name,
                                                                   statement=e.statement)) from e
+                finally:
+                    if methctx is not None:
+                        methctx.active = False
 
         async def genr():
             async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
                 # inform the sub runtime to use function scope rules
                 subr.funcscope = True
+
+                # a generator method may be created while the instance is live
+                # and iterated after it is finalized, so the body is guarded here.
+                if methctx is not None:
+                    methctx.activate(subr)
+
                 try:
                     if self.hasemit:
                         await asyncio.sleep(0)
@@ -6859,5 +7111,148 @@ class Function(AstNode):
                     mesg = f'function {self.name} - Loop control statement "{e.statement}" used outside of a loop.'
                     raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, function=self.name,
                                                                   statement=e.statement)) from e
+                finally:
+                    if methctx is not None:
+                        methctx.active = False
 
         return genr()
+
+class Method(Function):
+    '''
+    ( name, args, body )
+
+    A method declared within a Storm class definition. A method is bound to an
+    instance by the class which declares it rather than being bound into the
+    enclosing variable scope the way a function is.
+
+    class Foo {
+        method bar(x as int) { return($x) }
+    }
+    '''
+    def prepare(self):
+
+        Function.prepare(self)
+
+        # __storm_init() and __storm_fini() are built-in methods invoked by the
+        # runtime, so they always run to completion rather than being classified
+        # as node yielding generator functions when they declare no return() value.
+        if self.name in s_const.STORM_BUILTIN_METHODS:
+            self.hasretn = True
+            self.hasemit = False
+
+class ClassExtends(AstNode):
+    '''
+    Represents the "extends <name>" clause of a Storm class definition.
+    '''
+    def prepare(self):
+        self.name = self.kids[0].value()
+
+class Class(AstNode):
+    '''
+    ( name, [extends], methods... )
+
+    class Foo {
+        method __storm_init(x as int) {
+            $self.x = $x
+            return()
+        }
+        method bar() { return($self.x) }
+    }
+
+    class Bar extends Foo {
+        method __storm_init(x as int) {
+            $super.__storm_init($x)
+            return()
+        }
+    }
+
+    $foo = $Bar((10))
+    $lib.print($foo.bar())
+    '''
+    runtopaque = True
+
+    def prepare(self):
+        assert isinstance(self.kids[0], Const)
+        self.name = self.kids[0].value()
+
+        self.basename = None
+        self.methods = []
+
+        for kid in self.kids[1:]:
+
+            if isinstance(kid, ClassExtends):
+                self.basename = kid.name
+                continue
+
+            self.methods.append(kid)
+
+    # a class definition is always runtsafe: every kid ( the name, the extends
+    # clause and each Method ) is itself runtsafe, so the inherited
+    # AstNode.isRuntSafe() already returns True.
+
+    def getRuntVars(self, runt):
+        yield (self.name, True)
+
+    def validate(self, runt):
+        # var scope validation occurs in the method sub-runtimes
+        pass
+
+    def getBaseClass(self, runt):
+
+        valu = runt.getVar(self.basename, defv=s_common.novalu)
+        if valu is s_common.novalu:
+            mesg = f'Class {self.name} extends unknown class {self.basename}.'
+            raise self.addExcInfo(s_exc.NoSuchVar(mesg=mesg, name=self.basename))
+
+        clsinfo = getattr(valu, '_storm_class', None)
+        if clsinfo is None:
+            mesg = f'Class {self.name} may not extend ${self.basename} which is not a class.'
+            raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, name=self.basename))
+
+        return clsinfo
+
+    async def run(self, runt, genr):
+
+        for meth in self.methods:
+            argskid = meth.kids[1]
+            if not argskid.isRuntSafe(runt):
+                exc = s_exc.StormRuntimeError(mesg='Non-runtsafe default parameter value not allowed')
+                raise argskid.addExcInfo(exc)
+
+        async def once():
+
+            base = None
+            if self.basename is not None:
+                base = self.getBaseClass(runt)
+
+            meths = {}
+            for meth in self.methods:
+                meths[meth.name] = (meth, await meth.kids[1].compute(runt, None), runt)
+
+            # the root AST which declared this class names its module
+            rootquery = self
+            while getattr(rootquery, 'parent', None) is not None:
+                rootquery = rootquery.parent
+
+            clsinfo = s_stormtypes.StormClass(self.name, base, meths, runt, rootquery)
+
+            @s_stormtypes.stormfunc(readonly=True)
+            async def realctor(*args, **kwargs):
+                return await clsinfo.instance(args, kwargs)
+
+            realctor._storm_funcpath = self.name
+            realctor._storm_class = clsinfo
+
+            await runt.setVar(self.name, realctor)
+
+        count = 0
+
+        async for node, path in genr:
+            count += 1
+            if count == 1:
+                await once()
+
+            yield node, path
+
+        if count == 0:
+            await once()

@@ -624,6 +624,14 @@ class ImapTest(s_test.SynTest):
                 retn = await core.callStorm(scmd, opts=opts)
                 self.eq(((True, None), (True, ('deleted', 'drafts', 'inbox', 'sent'))), retn)
 
+                # the server object reprs with its host and port, not a Python object address
+                scmd = '''
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
+                    return(`{$server}`)
+                '''
+                retn = await core.callStorm(scmd, opts=opts)
+                self.eq(f'inet:imap:server: 127.0.0.1:{port}', retn)
+
     async def test_storm_imap_ssl_verify_false(self):
         async with self.getTestCoreAndImapPortSsl() as (core, port):
             user = 'user00@vertex.link'

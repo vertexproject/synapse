@@ -55,7 +55,9 @@ _md_parser = markdown_it.MarkdownIt('commonmark')
 # validate it) but only displays the "storm> ..." line, not its output;
 # --hide replaces the old standalone storm-pre directive on a per-call basis,
 # running the query silently (no output at all, not even the query line)
-# (see "Key findings" #8, #10, #12, #14).
+# (see "Key findings" #8, #10, #12, #14). --split renders the query as its
+# own storm code block, without the "storm> " prompt, and the output in a
+# separate block after it, labeled "Output:".
 mdstorm_flags = argparse.ArgumentParser(add_help=False)
 mdstorm_flags.add_argument('--hide-query', default=False, action='store_true',
                          help='Suppress the echoed "storm> ..." query line in the rendered doc.')
@@ -63,6 +65,8 @@ mdstorm_flags.add_argument('--hide-tags', default=False, action='store_true',
                          help='Suppress tag output in the rendered doc.')
 mdstorm_flags.add_argument('--hide-props', default=False, action='store_true',
                          help='Suppress prop output in the rendered doc.')
+mdstorm_flags.add_argument('--hide-edges', default=False, action='store_true',
+                         help='Suppress light edge count output in the rendered doc.')
 mdstorm_flags.add_argument('--vars', default=None, help='JSON object merged into the Storm opts "vars" key.')
 mdstorm_flags.add_argument('--opts', default=None, help='A full JSON Storm opts dict (mutually exclusive with --vars).')
 mdstorm_flags.add_argument('--fail', default=False, action='store_true',
@@ -73,6 +77,9 @@ mdstorm_flags.add_argument('--hide-output', default=False, action='store_true',
 mdstorm_flags.add_argument('--hide', default=False, action='store_true',
                          help='Run the query to prep the Cortex; nothing is printed into the document, not even '
                               'the query line. Folds the old standalone storm-pre directive into storm itself.')
+mdstorm_flags.add_argument('--split', default=False, action='store_true',
+                         help='Render the query as a storm code block without the "storm> " prompt, followed by '
+                              'its output in a separate block labeled "Output:".')
 mdstorm_flags.add_argument('--mock-http', dest='mock_http', default=None, metavar='PATH',
                          help='A VCR cassette YAML file to record/replay HTTP calls made by this query only, '
                               'overriding the document-wide --mock-http cassette (if any) for this one call.')
@@ -596,10 +603,16 @@ class MdStorm(s_base.Base):
             cli.hidetags = True
         if opts.hide_props:
             cli.hideprops = True
+        if opts.hide_edges:
+            cli.hideedges = True
         if opts.fail:
             self.context['storm-fail'] = True
 
         callopts = self._mergeViewOpts(self._buildStormOpts(opts.vars, opts.opts))
+
+        if opts.split:
+            await self._runSplitStorm(cli, opts, query.strip(), callopts, mockhttp)
+            return
 
         self._printf('```stormdoc\n')
 
@@ -611,12 +624,42 @@ class MdStorm(s_base.Base):
             # query printed/returned.
             result = result.split('\n', 1)[0] + '\n'
 
+        # drop trailing blank lines so the closing fence follows the output
+        result = result.rstrip('\n')
+        if result:
+            result += '\n'
+
         self._printf(result)
 
         if self.context.pop('storm-fail', None):
             raise s_exc.StormRuntimeError(mesg='Expected a failure, but none occurred.')
 
         self._printf('```\n')
+
+    async def _runSplitStorm(self, cli, opts, query, callopts, mockhttp):
+        '''
+        Render a --split fence: the query as a storm code block with no
+        "storm> " prompt, then its output (if any) in a separate block
+        labeled "Output:" so it reads as belonging to the query above it.
+        '''
+        cli.echoline = False
+
+        if not opts.hide_query:
+            self._printf(f'```storm\n{query}\n```\n')
+
+        result = await cli.runDocCmdLine(query, self.context, stormopts=callopts, mockhttp=mockhttp)
+
+        if self.context.pop('storm-fail', None):
+            raise s_exc.StormRuntimeError(mesg='Expected a failure, but none occurred.')
+
+        result = result.rstrip('\n')
+        if opts.hide_output or not result:
+            return
+
+        if not opts.hide_query:
+            self._printf('\nOutput:\n')
+
+        self._printf(f'\n```stormdoc\n{result}\n```\n')
 
     async def _handleStormSetup(self, parser, fenceargs, text):
         '''

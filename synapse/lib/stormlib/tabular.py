@@ -135,6 +135,10 @@ class TabularPrinter(s_stormtypes.StormType):
             'header': self.header,
         })
 
+    async def stormrepr(self):
+        cols = ', '.join(coldef['name'] for coldef in self.colconf)
+        return f'{self._storm_typename}: columns="{cols}"'
+
     def _formatRowLine(self, lineitems, pad=' '):
         sepr = self.seprconf['column']
         endstr = sepr if self.seprconf['column:outline'] else ''

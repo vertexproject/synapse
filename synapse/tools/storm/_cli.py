@@ -257,6 +257,8 @@ class StormCompleter(prompt_toolkit.completion.Completer):
         info = await self._cli.item.getCoreInfoV2()
         types = info['modeldict']['types']
 
+        self._cli.modeldict = info['modeldict']
+
         # Process forms/props
         for form in info['modeldict']['forms'].values():
             formname = form['name']
@@ -420,11 +422,13 @@ class StormCli(s_cli.Cli, s_printer.StormPrinter):
 
         self.hidetags = False
         self.hideprops = False
+        self.hideedges = False
+        self.modeldict = None
 
         self.indented = False
         self.cmdprompt = 'storm> '
 
-        self.stormopts = {'node:opts': {'repr': True}}
+        self.stormopts = {'node:opts': {'repr': True, 'virts': True}}
 
         if opts is not None:
 
@@ -485,6 +489,9 @@ class StormCli(s_cli.Cli, s_printer.StormPrinter):
 
             if mtyp in self._print_skips:
                 continue
+
+            if mtyp == 'node' and self.modeldict is None:
+                self.modeldict = (await self.item.getCoreInfoV2())['modeldict']
 
             if mtyp == 'edits':
                 edit = mesg[1]

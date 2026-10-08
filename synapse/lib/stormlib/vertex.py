@@ -290,7 +290,9 @@ class LibVertexPackages(s_stormtypes.Lib):
             Install a package from the Vertex Hub.
 
             Any files the package declares are downloaded into the Cortex Axon before the
-            package is added, so a package is never installed without its files.''',
+            package is added, so a package is never installed without its files. The package's
+            code signature is verified before any of its files are downloaded or it is added,
+            so an unsigned or tampered package is rejected.''',
          'type': {'type': 'function', '_funcname': '_install',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the package to install.'},
@@ -411,8 +413,24 @@ class LibVertexPackages(s_stormtypes.Lib):
     async def _install(self, name, version=None):
         self.runt.confirm(('vertex', 'packages', 'install'))
 
+        name = await s_stormtypes.tostr(name)
+        version = await s_stormtypes.tostr(version, noneok=True)
+
         path = await self._pkgPath(name, version)
         pkgdef = await _hubReq(self.runt, 'GET', path)
+
+        if s_common.envbool('SYNDEV_VERTEX_HUB_PACKAGE_NOSIGN'):
+            logger.warning(f'Skipping package verification for {name}')
+        else:
+            self.runt.view.core._reqStormPkgSigned(pkgdef)
+
+        # the signature does not bind the package to the request
+        gotname = pkgdef.get('name')
+        gotvers = pkgdef.get('version')
+        if gotname != name or (version is not None and gotvers != version):
+            reqvers = 'latest' if version is None else version
+            mesg = f'Vertex Hub returned package {gotname}@{gotvers} for requested {name}@{reqvers}.'
+            raise s_exc.BadPkgDef(mesg=mesg, name=name, version=version, gotname=gotname, gotversion=gotvers)
 
         # the files must be in the Axon before an onload query may read them
         await self._downloadPkgFiles(pkgdef)

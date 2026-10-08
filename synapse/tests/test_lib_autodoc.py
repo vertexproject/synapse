@@ -111,6 +111,9 @@ class _FakeTelepathApi:
         '''Not part of the public API and must never be documented.'''
         return None
 
+    # re-wrapped from a base class, so it is documented there rather than here
+    getCellInfo = s_cell.CellApi.getCellInfo
+
 class AutodocTest(s_t_utils.SynTest):
 
     def test_autodoc_helpers(self):
@@ -316,7 +319,7 @@ class AutodocTest(s_t_utils.SynTest):
         depr = {'eolvers': '3.0.0', 'mesg': 'use $lib.newthing instead.'}
         lines = s_autodoc.genDeprecationWarningMd('$lib.oldthing', depr)
         text = '\n'.join(lines)
-        self.isin('> **Warning:**', text)
+        self.isin('> [!WARNING]', text)
         self.isin('has been deprecated and will be removed in version 3.0.0', text)
         self.isin('use $lib.newthing instead.', text)
 
@@ -416,7 +419,7 @@ class AutodocTest(s_t_utils.SynTest):
 
         self.isin('# Test', text)
         self.isin('lib.test', text)
-        self.isin('> **Warning:**', text)
+        self.isin('> [!WARNING]', text)
         self.isin('`$lib.test.beep` has been deprecated and will be removed on or after 8080-08-08.', text)
         self.isin('`$lib.test.someargs` has been deprecated and will be removed in version v3.0.0.', text)
 
@@ -438,7 +441,7 @@ class AutodocTest(s_t_utils.SynTest):
 
         self.isin('$lib.depr', text)
         self.isin('$lib.depr.boop', text)
-        self.isin('> **Warning:**', text)
+        self.isin('> [!WARNING]', text)
         self.isin('`$lib.depr.boop` has been deprecated and will be removed in version v3.0.0.', text)
 
     def test_docstormtypesmd_runtime_help(self):
@@ -569,7 +572,52 @@ class AutodocTest(s_t_utils.SynTest):
     def test_renderapipassthroughmd_trims_blank_lines(self):
         lines = ['', '', 'Some example text.', '', 'More text.', '', '']
         rendered = s_autodoc.renderApiPassthroughMd(lines)
-        self.eq(['> Some example text.', '>', '> More text.'], rendered)
+        self.eq(['Some example text.', '', 'More text.'], rendered)
+
+    def test_renderapipassthroughmd_literal_blocks(self):
+        # a literal block keeps its relative indentation and is followed by prose
+        lines = [
+            'Get the rows::',
+            '',
+            '    async for row in rows:',
+            '        await dostuff(row)',
+            '',
+            'Then do more::',
+            '    stuff()',
+            '',
+            'Final words.',
+        ]
+        rendered = s_autodoc.renderApiPassthroughMd(lines)
+        self.eq([
+            'Get the rows:',
+            '',
+            '```python',
+            'async for row in rows:',
+            '    await dostuff(row)',
+            '```',
+            '',
+            'Then do more:',
+            '',
+            '```python',
+            'stuff()',
+            '```',
+            '',
+            'Final words.',
+        ], rendered)
+
+        # a standalone marker is dropped, and a literal block may end the section
+        rendered = s_autodoc.renderApiPassthroughMd(['Intro.', '', '::', '', '    a = 1', '    b = 2'])
+        self.eq(['Intro.', '', '```python', 'a = 1', 'b = 2', '```'], rendered)
+
+        rendered = s_autodoc.renderApiPassthroughMd(['::', '  x'])
+        self.eq(['```python', 'x', '```'], rendered)
+
+        # a marker with nothing indented beneath it is just prose
+        rendered = s_autodoc.renderApiPassthroughMd(['Nothing follows::', '', 'Next.'])
+        self.eq(['Nothing follows:', '', 'Next.'], rendered)
+
+        rendered = s_autodoc.renderApiPassthroughMd(['Nothing follows::'])
+        self.eq(['Nothing follows:'], rendered)
 
     def test_process_interfaces_md(self):
         md = s_autodoc.MdHelp()
@@ -638,6 +686,55 @@ class AutodocTest(s_t_utils.SynTest):
         self.notin(src_other_dst_other, ret['source'])
         self.notin(src_other_dst_other, ret['target'])
 
+    def test_lookupedgesforform_names(self):
+        # an edge declared against an interface or a parent form matches any
+        # of the names in the given set, not just the form name itself.
+        iface_src = ((None, 'srciface', 'meta:observable'), {})
+        iface_dst = (('meta:observable', 'dstiface', None), {})
+        parent_src = ((None, 'srcparent', 'meta:rule'), {})
+        unrelated = (('other:form', 'unrelated', 'other:form2'), {})
+
+        edges = [iface_src, iface_dst, parent_src, unrelated]
+        names = {'it:app:yara:rule', 'meta:rule', 'meta:observable'}
+
+        ret = s_autodoc.lookupedgesforform('it:app:yara:rule', edges, names=names)
+
+        self.eq(ret['target'], [iface_src, parent_src])
+        self.eq(ret['source'], [iface_dst])
+        self.notin(unrelated, ret.get('source', []))
+        self.notin(unrelated, ret.get('target', []))
+
+        # names defaults to {form} when omitted -- src/dst are then never in
+        # names, so the interface/parent-form edges no longer resolve to target
+        default = s_autodoc.lookupedgesforform('it:app:yara:rule', edges)
+        self.notin(iface_src, default.get('target', []))
+        self.notin(parent_src, default.get('target', []))
+
+    def test_getformedgenames(self):
+        modeldict = {
+            'forms': {'it:app:yara:rule': {}, 'meta:rule': {}},
+            'types': {
+                'it:app:yara:rule': {
+                    'info': {
+                        'bases': ('base', 'guid', 'meta:rule'),
+                        'interfaces': (('meta:usable', {}), ('meta:observable', {})),
+                    },
+                },
+            },
+            'interfaces': {
+                'meta:usable': {'interfaces': ()},
+                'meta:observable': {'interfaces': (('meta:havable', {}),)},
+                'meta:havable': {'interfaces': ()},
+            },
+        }
+
+        names = s_autodoc.getFormEdgeNames('it:app:yara:rule', modeldict)
+
+        self.eq(names, {'it:app:yara:rule', 'meta:rule', 'meta:usable', 'meta:observable', 'meta:havable'})
+        # base types that are not forms (e.g. 'base', 'guid') are excluded
+        self.notin('base', names)
+        self.notin('guid', names)
+
     def test_process_forms_props_md(self):
         md = s_autodoc.MdHelp()
         dochelp = _FakeDocHelp(forms={'test:form': 'Docstring missing a period'})
@@ -650,6 +747,52 @@ class AutodocTest(s_t_utils.SynTest):
         self.isin('Docstring missing a period.', s)
         self.isin('**Source Edges:**', s)
         self.isin('| `test:form` | `-(refs)>` | `*` | An edge. |', s)
+
+    def test_process_forms_props_md_generic_edge_doc_both_sections(self):
+        # a generic edge's info dict is shared between the source and target
+        # buckets when the form has both -- rendering it in one section must
+        # not blank out its doc for the other section.
+        md = s_autodoc.MdHelp()
+        dochelp = _FakeDocHelp(forms={'test:form': 'Docstring missing a period'})
+        forms = [('test:form', {}, [])]
+        alledges = [
+            (('test:form', 'srcedge', None), {'doc': 'source specific.'}),
+            (('other:form', 'dstedge', 'test:form'), {'doc': 'target specific.'}),
+            ((None, 'generic', None), {'doc': 'generic doc.'}),
+        ]
+        s_autodoc.processFormsPropsMd(md, dochelp, forms, alledges)
+        s = md.getMdText()
+
+        srcidx = s.index('**Source Edges:**')
+        dstidx = s.index('**Target Edges:**')
+        srctext = s[srcidx:dstidx]
+        dsttext = s[dstidx:]
+
+        self.isin('| `*` | `-(generic)>` | `*` | generic doc. |', srctext)
+        self.isin('| `*` | `-(generic)>` | `*` | generic doc. |', dsttext)
+
+    def test_process_forms_props_md_modeldict(self):
+        # an edge declared against test:form's interface still shows up when a
+        # modeldict is given, so lookupedgesforform() can expand the form's names.
+        md = s_autodoc.MdHelp()
+        dochelp = _FakeDocHelp(forms={'test:form': 'Docstring missing a period'})
+        forms = [('test:form', {}, [])]
+        alledges = [
+            (('test:iface', 'refs', None), {'doc': 'An edge.'}),
+        ]
+        modeldict = {
+            'forms': {'test:form': {}},
+            'types': {
+                'test:form': {'info': {'bases': (), 'interfaces': (('test:iface', {}),)}},
+            },
+            'interfaces': {
+                'test:iface': {'interfaces': ()},
+            },
+        }
+        s_autodoc.processFormsPropsMd(md, dochelp, forms, alledges, modeldict=modeldict)
+        s = md.getMdText()
+        self.isin('**Source Edges:**', s)
+        self.isin('| `test:iface` | `-(refs)>` | `*` | An edge. |', s)
 
 class AutodocMdGeneratorsTest(s_t_utils.SynTest):
 
@@ -682,6 +825,27 @@ class AutodocMdGeneratorsTest(s_t_utils.SynTest):
 
             self.isin('| name | type | doc |', text)
             self.isin('| `:zone` |', text)
+
+    async def test_docmodelformsmd_iface_and_parent_form_edges(self):
+        async with self.getTestCore() as core:
+            formsmd = await s_autodoc.docModelFormsMd(core)
+            text = formsmd.getMdText()
+
+            # it:host implements risk:targetable, which is an edge n2 (entity:actor -(targeted)>)
+            hostidx = text.index('<a id="dm-form-it-host"></a>')
+            nexthead = text.index('<a id="dm-form-', hostidx + 1)
+            hosttext = text[hostidx:nexthead]
+            self.isin('**Target Edges:**', hosttext)
+            # edges declared against risk:targetable keep showing the edge as
+            # declared, not substituted with the matched form name
+            self.isin('| `entity:actor` | `-(targeted)>` | `risk:targetable` |', hosttext)
+
+            # it:app:yara:rule inherits from meta:rule, which is an edge n1 (meta:rule -(detects)>)
+            ruleidx = text.index('<a id="dm-form-it-app-yara-rule"></a>')
+            nexthead = text.index('<a id="dm-form-', ruleidx + 1)
+            ruletext = text[ruleidx:nexthead]
+            self.isin('**Source Edges:**', ruletext)
+            self.isin('| `meta:rule` | `-(detects)>` | `meta:observable` |', ruletext)
 
     async def test_docconfdefsmd(self):
         confdocs = await s_autodoc.docConfdefsMd('synapse.cortex.Cortex')
@@ -738,6 +902,9 @@ class AutodocMdGeneratorsTest(s_t_utils.SynTest):
         self.notin('_private', text)
         self.notin('Not part of the public API', text)
 
+        # methods defined in another module are left to that module's docs
+        self.notin('getCellInfo', text)
+
         # Args section renders as a bullet list with type in parens
         self.isin('**Args**', text)
         self.isin('- **sha256** (*bytes*): The sha256 hash of the file in bytes.', text)
@@ -762,9 +929,11 @@ class AutodocMdGeneratorsTest(s_t_utils.SynTest):
         # a docstring with no recognized sections is rendered as a plain summary
         self.isin('No frills status, with no sections at all.', text)
 
-        # an Examples section falls back to a blockquote passthrough
+        # an Examples section renders prose plus a fenced literal block
         self.isin('**Examples**', text)
-        self.isin('> Get the bytes from an Axon and process them::', text)
+        self.isin('Get the bytes from an Axon and process them:\n\n```python\nbuf = b\'\'\n'
+                  'async for bytz in axon.get(sha256):\n    buf += bytz\n```', text)
+        self.notin('> Get the bytes', text)
 
     async def test_docapimd_anchor_and_class_doc(self):
         apidocs = await s_autodoc.docApiMd('synapse.tests.test_lib_autodoc._FakeTelepathApi')
@@ -1000,7 +1169,7 @@ class AutodocMdGeneratorsTest(s_t_utils.SynTest):
         try:
             libtext = (await s_autodoc.docStormTypesLibsMd()).getMdText()
 
-            self.isin('> **Note:** `$lib.tsted` is only available in Test Edition.', libtext)
+            self.isin('> [!NOTE]\n> `$lib.tsted` is only available in Test Edition.', libtext)
 
             # the object's own note implies it for its members
             self.notin('`$lib.tsted.thing` is only available', libtext)
@@ -1009,7 +1178,7 @@ class AutodocMdGeneratorsTest(s_t_utils.SynTest):
             self.notin('`$lib.time` is only available', libtext)
 
             typetext = (await s_autodoc.docStormTypesPrimsMd()).getMdText()
-            self.isin('> **Note:** `tsted:thing` is only available in Test Edition.', typetext)
+            self.isin('> [!NOTE]\n> `tsted:thing` is only available in Test Edition.', typetext)
 
             # and the registry only carries the key for an item that set one
             libs = {'.'.join(d['path']): d for d in reg.getLibDocs()}
@@ -1031,7 +1200,7 @@ class AutodocMdGeneratorsTest(s_t_utils.SynTest):
         await s_autodoc._renderStormCmdsMd(md, None, cdefs, 1)
         text = md.getMdText()
 
-        self.isin('> **Note:** `tsted.run` is only available in Test Edition.', text)
+        self.isin('> [!NOTE]\n> `tsted.run` is only available in Test Edition.', text)
         self.notin('`plain.run` is only available', text)
 
     async def test_stormcmd_block_pkgname(self):

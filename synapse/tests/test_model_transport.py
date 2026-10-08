@@ -36,6 +36,7 @@ class TransportTest(s_test.SynTest):
             telem = (await core.nodes('''
                 [ transport:air:telem=*
                     :flight=* as transport:air:flight
+                    :vehicle=* as transport:air:craft
                     :place:latlong=(20.22, 80.1111)
                     :place:latlong:accuracy=10m
                     :place:loc=us
@@ -50,6 +51,7 @@ class TransportTest(s_test.SynTest):
                     :time=20200202
                 ]'''))[0]
             self.nn(telem.get('flight'))
+            self.nn(telem.get('vehicle'))
             self.nn(telem.get('place'))
             self.propeq(telem, 'place:latlong', (20.22, 80.1111))
             self.propeq(telem, 'place:loc', 'us')
@@ -62,6 +64,7 @@ class TransportTest(s_test.SynTest):
             self.propeq(telem, 'time', 1580601600000000)
             self.propeq(telem, 'course', '79.1')
             self.propeq(telem, 'heading', '99.02')
+            self.len(1, await core.nodes('transport:air:telem :vehicle -> transport:air:craft'))
 
             vessel = (await core.nodes('''[
                 transport:sea:vessel=*

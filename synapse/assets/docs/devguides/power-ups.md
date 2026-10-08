@@ -126,7 +126,7 @@ Local interpreter (non-storm) commands may be executed with a ! prefix:
 
 storm> acme.hello.sayhi
 hello storm!
-complete. 0 nodes in 1 ms (0/sec).
+complete. 0 nodes in 0.001 sec (0/sec).
 storm>
 ```
 
@@ -209,6 +209,8 @@ function getFooByBar(bar) {
 
 Notice that the `$apikey` is being retrieved and used to call the HTTP API but is not returned to the caller.
 
+The methods of a [class](../userguides/storm_adv_classes.md#storm-class-privileges) declared in a privileged module run with admin privileges as well, just as its functions do, whoever calls them. Review them the same way, and keep any state an elevated method relies on private, since any code holding an instance may set its public values.
+
 ## Storm Commands
 
 Adding **Storm Commands** to your Cortex via a **Storm Package** is a great way to extend the functionality of your Cortex in a CLI user-friendly way.
@@ -227,7 +229,7 @@ Usage: acme.hello.sayhi [options]
 Options:
 
   --help                      : Display the command usage.
-complete. 0 nodes in 4 ms (0/sec).
+complete. 0 nodes in 0.004 sec (0/sec).
 storm>
 ```
 
@@ -289,7 +291,7 @@ Options:
 Arguments:
 
   <fqdn>                      : A mandatory / positional command line argument.
-complete. 0 nodes in 6 ms (0/sec).
+complete. 0 nodes in 0.006 sec (0/sec).
 ```
 
 Command line options are available within the **Storm** command by accessing the implicit `$cmdopts` variable. The command example (`storm/commands/acme.hello.omgopts.storm`) can be seen below:

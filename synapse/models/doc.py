@@ -63,6 +63,9 @@ modeldefs = (
 
                     ('file:captured', ('time', {}), {
                         'doc': 'The time when the file content was captured.'}),
+
+                    ('deprecated', ('time', {}), {
+                        'doc': 'The time that the {title} was retired.'}),
                 ),
                 'doc': 'A common interface for documents.'}),
 

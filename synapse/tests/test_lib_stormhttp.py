@@ -202,11 +202,18 @@ class StormHttpTest(s_test.SynTest):
             $resp = $lib.inet.http.get($url, params=$params, ssl=({"verify": false}))
             return ( ($resp.code, $resp.reason, $resp.err) )
             '''
-            code, reason, (errname, _) = await core.callStorm(q, opts=opts)
+            with self.getLoggerStream('synapse.lib.stormhttp') as stream:
+                code, reason, (errname, _) = await core.callStorm(q, opts=opts)
             self.eq(code, -1)
             self.isin('Exception occurred during request: ', reason)
             self.isin('Invalid query type', reason)
             self.eq('TypeError', errname)
+
+            # the url is sanitized when logging the error
+            msgs = [m for m in stream.jsonlines() if 'Error during http GET' in m['message']]
+            self.len(1, msgs)
+            self.isin('root:****@', msgs[0]['message'])
+            self.notin('root:root@', msgs[0]['message'])
 
             # SSL Verify enabled results in an aiohttp.ClientConnectorCertificateError
             q = '''
@@ -1007,12 +1014,15 @@ class StormHttpTest(s_test.SynTest):
 
                 ($ok, $mesg) = $sock.rx()
                 if (not $ok) { $lib.exit($mesg) }
-                return($mesg)
+                return(($mesg, `{$sock}`))
             ''', opts={'vars': {'port': port}})
+            mesg, sockrepr = mesg
             self.eq(mesg.get('hi'), 'woot')
             self.eq(mesg.get('headers').get('Key'), 'False')
             # HTTP params are received as multidict's and returned in similar shape.
             self.eq(mesg.get('params').get('param1'), ['somevalu', ])
+            # the socket reprs as its type name, not a Python object address
+            self.eq('inet:http:socket', sockrepr)
 
             # With no User-Agent supplied, the Cortex's own default is sent on the websocket
             # upgrade request too

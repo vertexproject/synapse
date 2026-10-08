@@ -77,7 +77,7 @@ Global variables operate independently of any node. That is, they can be invoked
 
 The library variable ( `$lib` ) is a built-in variable that provides access to the global Storm library. In Storm, libraries are accessed using built-in variable names (e.g., `$lib.print()`).
 
-Libraries provide access to a wide range of additional functionality with Storm. See the [stormtypes-libs-header](../stormtypes_libs.md#stormtypes-libs-header) technical documentation for descriptions of the libraries available within Storm.
+Libraries provide access to a wide range of additional functionality with Storm. See the [Storm Libraries](../stormtypes_libs.md#stormtypes-libs-header) technical documentation for descriptions of the libraries available within Storm.
 
 <a id="vars-node"></a>
 
@@ -100,7 +100,7 @@ Invoking this variable during a Storm query is useful when you want to:
 - store the value of the current node before pivoting to another node, or
 - use an aspect of the current node in subsequent query operations.
 
-The `$node` variable supports a number of built-in **methods** that can be used to access specific data or properties associated with a node. See the technical documentation for the [stormprims-node-f527](../stormtypes_prims.md#stormprims-node-f527) object or the [$node](storm_adv_methods.md#meth-node) section of the [Storm Reference - Advanced - Methods](storm_adv_methods.md#storm-adv-methods) user documentation for additional detail and examples.
+The `$node` variable supports a number of built-in **methods** that can be used to access specific data or properties associated with a node. See the technical documentation for the [`node`](../stormtypes_prims.md#stormprims-node-f527) object or the [$node](storm_adv_methods.md#meth-node) section of the [Storm Reference - Advanced - Methods](storm_adv_methods.md#storm-adv-methods) user documentation for additional detail and examples.
 
 <a id="vars-node-path"></a>
 
@@ -108,7 +108,7 @@ The `$node` variable supports a number of built-in **methods** that can be used 
 
 The path variable (`$path`) is a built-in Storm variable that **references the path of a node as it travels through the pipeline of a Storm query**.
 
-The `$path` variable is not used on its own, but in conjunction with its methods. See the technical documentation for the [stormprims-node-path-f527](../stormtypes_prims.md#stormprims-node-path-f527) object or the [$path](storm_adv_methods.md#meth-path) section of the [Storm Reference - Advanced - Methods](storm_adv_methods.md#storm-adv-methods) user documentation for additional detail and examples.
+The `$path` variable is not used on its own, but in conjunction with its methods. See the technical documentation for the [`node:path`](../stormtypes_prims.md#stormprims-node-path-f527) object or the [$path](storm_adv_methods.md#meth-path) section of the [Storm Reference - Advanced - Methods](storm_adv_methods.md#storm-adv-methods) user documentation for additional detail and examples.
 
 <a id="vars-trigger"></a>
 
@@ -222,6 +222,8 @@ Tag `file:bytes` nodes that have a number of `malicious` scan results higher tha
 storm> $threshold=5 file:bytes +{ -> it:av:scan:result:target +:verdict=malicious }>=$threshold [ +#review ]
 file:bytes=46a9671d1dbb810345f2c0354be6cdaa
         :sha256 = fe1bef0d799269eb8d4a23afc523301a8c40952fa81bb43d1011e6beeccfd44e
+        .created = 2026-10-05T18:01:31.118055Z
+        .updated = 2026-10-05T18:01:31.183122Z
         #review
 ```
 
@@ -241,6 +243,8 @@ inet:service:account=7ab324ea3fc562ab820ff1e93dc9f4b7
         :email = ron@protonmail.com
         :name = hacks4cats
         :platform = d65b7bb1da7a1af0411a817bf11ed16b
+        .created = 2026-10-05T18:01:31.187336Z
+        .updated = 2026-10-05T18:01:31.187336Z
 ```
 
 **Built-in variables and methods**
@@ -251,13 +255,15 @@ inet:service:account=7ab324ea3fc562ab820ff1e93dc9f4b7
 
 ```stormdoc
 storm> inet:fqdn=mail.mydomain.com $fqdn=$node $lib.print($fqdn)
-Node{(('inet:fqdn', 'mail.mydomain.com'), {'nid': 30, 'meta': {'created': 1788964368426006, 'updated': 1788964368427038}, 'tags': {}, 'props': {'host': ('mail', {'t': 'str:lower'}), 'domain': ('mydomain.com', {'t': 'inet:fqdn'}), 'issuffix': (0, {'t': 'bool'}), 'iszone': (0, {'t': 'bool'}), 'zone': ('mydomain.com', {'t': 'inet:fqdn'})}, 'tagprops': {}, 'n1verbs': {}, 'n2verbs': {}})}
+Node{(('inet:fqdn', 'mail.mydomain.com'), {'nid': 30, 'meta': {'created': 1791223291191752, 'updated': 1791223291192499}, 'tags': {}, 'props': {'host': ('mail', {'t': 'str:lower'}), 'domain': ('mydomain.com', {'t': 'inet:fqdn'}), 'issuffix': (0, {'t': 'bool'}), 'iszone': (0, {'t': 'bool'}), 'zone': ('mydomain.com', {'t': 'inet:fqdn'})}, 'tagprops': {}, 'n1verbs': {}, 'n2verbs': {}})}
 inet:fqdn=mail.mydomain.com
         :domain = mydomain.com
         :host = mail
         :issuffix = false
         :iszone = false
         :zone = mydomain.com
+        .created = 2026-10-05T18:01:31.191752Z
+        .updated = 2026-10-05T18:01:31.192499Z
 ```
 
 > [!NOTE]
@@ -265,7 +271,7 @@ inet:fqdn=mail.mydomain.com
 >
 > For some use cases, Synapse and Storm can understand which component of the node you want when referring to the full `$node` object. However, you can always be explicit by using the appropriate **attribute** to access the component you want (such as `$node.value` or `$node.form`).
 >
-> See the technical documentation for the [stormprims-node-f527](../stormtypes_prims.md#stormprims-node-f527) object or the [$node](storm_adv_methods.md#meth-node) section of the [Storm Reference - Advanced - Methods](storm_adv_methods.md#storm-adv-methods) user documentation for additional detail and examples when using methods associated with the `$node` built-in variable.
+> See the technical documentation for the [`node`](../stormtypes_prims.md#stormprims-node-f527) object or the [$node](storm_adv_methods.md#meth-node) section of the [Storm Reference - Advanced - Methods](storm_adv_methods.md#storm-adv-methods) user documentation for additional detail and examples when using methods associated with the `$node` built-in variable.
 
 **Node attribute:** Assign the **primary property value** of an `inet:fqdn` node to the variable `$fqdn` using the `$node.value` attribute:
 
@@ -278,6 +284,8 @@ inet:fqdn=mail.mydomain.com
         :issuffix = false
         :iszone = false
         :zone = mydomain.com
+        .created = 2026-10-05T18:01:31.191752Z
+        .updated = 2026-10-05T18:01:31.192499Z
 ```
 
 Find the DNS A records associated with a given domain where the PTR record for the IP matches the FQDN:
@@ -287,6 +295,8 @@ storm> inet:fqdn=mail.mydomain.com $fqdn=$node.value -> inet:dns:a +{ -> inet:ip
 inet:dns:a=('mail.mydomain.com', '25.25.25.25')
         :fqdn = mail.mydomain.com
         :ip = 25.25.25.25
+        .created = 2026-10-05T18:01:31.196614Z
+        .updated = 2026-10-05T18:01:31.196614Z
 ```
 
 > [!TIP]
@@ -310,6 +320,8 @@ storm> $mytag=cno.infra.dns.sinkhole
 storm> crypto:hash:sha256=21101ae64d881df51e46be9e4f693a9029862c5dab8a53d504303c53a5d1d7a3 $mytags=$node.tags(cno.mal.*) $lib.print($mytags)
 ['cno.mal.bar', 'cno.mal.foo']
 crypto:hash:sha256=21101ae64d881df51e46be9e4f693a9029862c5dab8a53d504303c53a5d1d7a3
+        .created = 2026-10-05T18:01:31.202684Z
+        .updated = 2026-10-05T18:01:31.20369Z
         #cno.mal.bar
         #cno.mal.foo
         #cno.threat.baz
@@ -334,11 +346,15 @@ file:bytes=a12c97b5b3f5257c9dde37a3be65b79b
         :md5 = 0ca6e2ad69826c8e3287fc8576112814
         :sha1 = b26974e367002bddd3545609fcfd54cbd4d076de
         :sha256 = 21101ae64d881df51e46be9e4f693a9029862c5dab8a53d504303c53a5d1d7a3
+        .created = 2026-10-05T18:01:31.206852Z
+        .updated = 2026-10-05T18:01:31.208749Z
         #cno.mal.bar
 file:bytes=a12c97b5b3f5257c9dde37a3be65b79b
         :md5 = 0ca6e2ad69826c8e3287fc8576112814
         :sha1 = b26974e367002bddd3545609fcfd54cbd4d076de
         :sha256 = 21101ae64d881df51e46be9e4f693a9029862c5dab8a53d504303c53a5d1d7a3
+        .created = 2026-10-05T18:01:31.206852Z
+        .updated = 2026-10-05T18:01:31.209041Z
         #cno.mal.bar
         #cno.mal.foo
 ```
@@ -363,6 +379,8 @@ inet:fqdn=evildomain.com
         :issuffix = false
         :iszone = true
         :zone = evildomain.com
+        .created = 2026-10-05T18:01:31.210532Z
+        .updated = 2026-10-05T18:01:31.211183Z
         #cno.threat.t20.own = 2019-09-08T00:00:00Z - 2021-09-08T00:00:00Z
 ```
 
@@ -376,10 +394,22 @@ inet:dns:a=('www.evildomain.com', '1.2.3.4')
         :fqdn = www.evildomain.com
         :ip = 1.2.3.4
         :seen = 2020-07-12T00:00:00Z - 2020-12-13T00:00:00Z
+        :seen.min = 2020-07-12T00:00:00Z
+        :seen.max = 2020-12-13T00:00:00Z
+        :seen.duration = 154D 00:00:00
+        :seen.precision = microsecond
+        .created = 2026-10-05T18:01:31.215036Z
+        .updated = 2026-10-05T18:01:31.215745Z
 inet:dns:a=('smtp.evildomain.com', '5.6.7.8')
         :fqdn = smtp.evildomain.com
         :ip = 5.6.7.8
         :seen = 2020-04-04T00:00:00Z - 2020-08-02T00:00:00Z
+        :seen.min = 2020-04-04T00:00:00Z
+        :seen.max = 2020-08-02T00:00:00Z
+        :seen.duration = 120D 00:00:00
+        :seen.precision = microsecond
+        .created = 2026-10-05T18:01:31.216349Z
+        .updated = 2026-10-05T18:01:31.216982Z
 ```
 
 **Library Functions**
@@ -392,14 +422,14 @@ Assign the current time to the variable `$now` using `$lib.time.now()`:
 
 ```stormdoc
 storm> $now=$lib.time.now() $lib.print($now)
-1788964368465300
+1791223291221071
 ```
 
 Convert an epoch microseconds integer into a human-readable date/time string using `$lib.repr()`:
 
 ```stormdoc
 storm> $now=$lib.time.now() $lib.print($lib.repr(time,$now))
-2026-09-09T14:32:48.466847Z
+2026-10-05T18:01:31.222329Z
 ```
 
 **Expressions**
@@ -437,5 +467,5 @@ Assign an `ou:org` node to the variable `$org` by lifting the org node using its
 
 ```stormdoc
 storm> $org={ ou:org:name=vertex } $lib.print($org)
-Node{(('ou:org', '7918de6a997e984dbf966f8002df95ad'), {'nid': 57, 'meta': {'created': 1788964368476739, 'updated': 1788964368477075}, 'tags': {}, 'props': {'place:loc': ('us.va', {'t': 'loc'}), 'name': ('vertex', {'t': 'entity:name'}), 'names': ((('the vertex project', {'t': 'entity:name'}),), {})}, 'tagprops': {}, 'n1verbs': {}, 'n2verbs': {}})}
+Node{(('ou:org', '7918de6a997e984dbf966f8002df95ad'), {'nid': 57, 'meta': {'created': 1791223291231335, 'updated': 1791223291231629}, 'tags': {}, 'props': {'place:loc': ('us.va', {'t': 'loc'}), 'name': ('vertex', {'t': 'entity:name'}), 'names': ((('the vertex project', {'t': 'entity:name'}),), {})}, 'tagprops': {}, 'n1verbs': {}, 'n2verbs': {}})}
 ```

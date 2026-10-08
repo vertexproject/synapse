@@ -8,4 +8,5 @@ The are several more advanced Storm language language concepts which are documen
 - [Storm Reference - Advanced - Methods](storm_adv_methods.md)
 - [Storm Reference - Advanced - Control Flow](storm_adv_control.md)
 - [Storm Reference - Advanced - Functions](storm_adv_functions.md)
+- [Storm Reference - Advanced - Classes](storm_adv_classes.md)
 

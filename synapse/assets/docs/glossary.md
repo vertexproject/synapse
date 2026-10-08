@@ -348,7 +348,7 @@ In Synapse, easy permissions ("easy perms" for short) are a simplified means to 
 - Edit = 2
 - Admin = 3
 
-As an example, the [stormlibs-lib-macro-grant](stormtypes_libs.md#stormlibs-lib-macro-grant) Storm library can be used to assign easy perms to a [macro](glossary.md#gloss-macro). Contrast with [Permission](glossary.md#gloss-permission).
+As an example, the [`$lib.macro.grant()`](stormtypes_libs.md#stormlibs-lib-macro-grant) Storm library can be used to assign easy perms to a [macro](glossary.md#gloss-macro). Contrast with [Permission](glossary.md#gloss-permission).
 
 <a id="gloss-edge"></a>
 
@@ -487,7 +487,7 @@ A category of form whose primary property is an ordered set of two or more comma
 
 ### Form, Extended
 
-A custom form added outside of the base Synapse [data model](glossary.md#gloss-data-model) to represent specialized data. Extended forms can be added with the [stormlibs-lib-model-ext](stormtypes_libs.md#stormlibs-lib-model-ext) libraries.
+A custom form added outside of the base Synapse [data model](glossary.md#gloss-data-model) to represent specialized data. Extended forms can be added with the [`$lib.model.ext`](stormtypes_libs.md#stormlibs-lib-model-ext) libraries.
 
 See the section on [Extending the Data Model](userguides/data_model.md#data-model-extend) for details.
 
@@ -1018,7 +1018,7 @@ Synapse will automatically set ([Autoadd](glossary.md#gloss-autoadd)) any second
 
 ### Property, Extended
 
-Within Synapse, an extended property is a custom property added to an existing form to capture specialized data. Extended properties can be added with the [stormlibs-lib-model-ext](stormtypes_libs.md#stormlibs-lib-model-ext) libraries.
+Within Synapse, an extended property is a custom property added to an existing form to capture specialized data. Extended properties can be added with the [`$lib.model.ext`](stormtypes_libs.md#stormlibs-lib-model-ext) libraries.
 
 See the section on [Extending the Data Model](userguides/data_model.md#data-model-extend) for details.
 

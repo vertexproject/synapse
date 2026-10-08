@@ -8,14 +8,14 @@
 
 Some of Storm's [Built-In Variables](storm_adv_vars.md#vars-builtin) support **methods** used to perform various actions on the object represented by the variable.
 
-A **subset** of the built-in variables / objects that support methods, along with a few commonly used methods and examples, are listed below. For full detail, refer to the [stormtypes-prim-header](../stormtypes_prims.md#stormtypes-prim-header) technical reference.
+A **subset** of the built-in variables / objects that support methods, along with a few commonly used methods and examples, are listed below. For full detail, refer to the [Storm Types](../stormtypes_prims.md#stormtypes-prim-header) technical reference.
 
 <a id="meth-lib"></a>
 
 
 ## \$lib
 
-The built-in [$lib](storm_adv_vars.md#vars-global-lib) variable is used to access Storm libraries. See the [stormtypes-libs-header](../stormtypes_libs.md#stormtypes-libs-header) technical reference for additional detail on available libraries.
+The built-in [$lib](storm_adv_vars.md#vars-global-lib) variable is used to access Storm libraries. See the [Storm Libraries](../stormtypes_libs.md#stormtypes-libs-header) technical reference for additional detail on available libraries.
 
 [Optic](/docs/synapse-enterprise-optic/latest/index.md) users can use the **Library Explorer** (located in the Help Tool) to examine available libraries. Libraries are listed without their `$lib` prefix (e.g., `$lib.print()` is listed under `print(mesg)`).
 
@@ -31,7 +31,7 @@ In some instances we have included use-case examples, where the variable or meth
 
 ## \$node
 
-[$node](storm_adv_vars.md#vars-node-node) is a built-in Storm variable that references **the current node in the Storm query pipeline**. `$node` can be used as a variable on its own or with the example methods listed below. See the [stormprims-node-f527](../stormtypes_prims.md#stormprims-node-f527) section of the [stormtypes-prim-header](../stormtypes_prims.md#stormtypes-prim-header) technical documentation for a full list.
+[$node](storm_adv_vars.md#vars-node-node) is a built-in Storm variable that references **the current node in the Storm query pipeline**. `$node` can be used as a variable on its own or with the example methods listed below. See the [`node`](../stormtypes_prims.md#stormprims-node-f527) section of the [Storm Types](../stormtypes_prims.md#stormtypes-prim-header) technical documentation for a full list.
 
 > [!NOTE]
 > As the `$node` variable and related methods reference the current node in the Storm pipeline, any Storm logic referencing `$node` will fail to execute if the pipeline does not contain a node (i.e., based on previously executing Storm logic).
@@ -344,7 +344,7 @@ inet:dns:a=(woot.com, 54.173.9.236) $lib.print($node.value) | spin
 
 [$path](storm_adv_vars.md#vars-node-path) is a built-in Storm variable that **references the path of a node as it travels through the pipeline of a Storm query.**
 
-The `$path` variable is generally not used on its own, but in conjunction with its methods. See the [stormprims-node-path-f527](../stormtypes_prims.md#stormprims-node-path-f527) section of the [stormtypes-prim-header](../stormtypes_prims.md#stormtypes-prim-header) technical documentation for a full list.
+The `$path` variable is generally not used on its own, but in conjunction with its methods. See the [`node:path`](../stormtypes_prims.md#stormprims-node-path-f527) section of the [Storm Types](../stormtypes_prims.md#stormtypes-prim-header) technical documentation for a full list.
 
 <a id="meth-path-links"></a>
 

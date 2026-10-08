@@ -1,6 +1,9 @@
 import ssl
 import http
 import asyncio
+import functools
+
+from unittest import mock
 
 import aiohttp
 import aiohttp.client_exceptions as a_exc
@@ -2175,14 +2178,54 @@ class HttpApiTest(s_tests.SynTest):
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
 
             apikey, _ = await core.addUserApiKey(core.auth.rootuser.iden, 'test')
+
+            sha256 = s_common.ehex(s_t_axon.asdfhash)
+            hasurl = f'https://localhost:{port}/api/v3/axon/files/has/sha256/{sha256}'
+            puturl = f'https://localhost:{port}/api/v3/axon/files/put'
+            geturl = f'https://localhost:{port}/api/v3/axon/files/by/sha256/{sha256}'
+
+            await (await core.getAxon()).put(b'asdfasdf')
+
+            # a timeout reading the axon info is also answered with a 503
+            async def getAxonInfo():
+                raise s_exc.TimeOut(mesg='Timed out waiting 0.1 seconds for the Axon to be ready.', timeout=0.1)
+
             async with self.getHttpSess(port=port, headers={'X-API-KEY': apikey}) as sess:
-                await axon.fini()
+                with mock.patch.object(core, 'getAxonInfo', getAxonInfo):
+                    async with sess.get(geturl) as resp:
+                        self.eq(resp.status, http.HTTPStatus.SERVICE_UNAVAILABLE)
+                        item = await resp.json()
+                        self.eq(item.get('code'), 'TimeOut')
+
+            await axon.fini()
+
+            # an unauthenticated request is refused without waiting on the axon
+            async with self.getHttpSess(port=port) as sess:
+                async with sess.post(puturl, data=b'asdfasdf', timeout=timeout) as resp:
+                    self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
+
+            async with self.getHttpSess(port=port, headers={'X-API-KEY': apikey}) as sess:
 
                 with self.raises(TimeoutError):
-                    sha256 = s_common.ehex(s_t_axon.asdfhash)
-                    url = f'https://localhost:{port}/api/v3/axon/files/has/sha256/{sha256}'
-                    async with sess.get(url, timeout=timeout) as resp:
+                    async with sess.get(hasurl, timeout=timeout) as resp:
                         pass  # pragma: no cover
+
+                with mock.patch.object(core, 'getAxon', functools.partial(core.getAxon, timeout=0.1)):
+
+                    async with sess.get(hasurl) as resp:
+                        self.eq(resp.status, http.HTTPStatus.SERVICE_UNAVAILABLE)
+                        item = await resp.json()
+                        self.eq(item.get('status'), 'err')
+                        self.eq(item.get('code'), 'TimeOut')
+                        self.eq(item.get('mesg'), 'Timed out waiting 0.1 seconds for the Axon to be ready.')
+
+                    with self.getLoggerStream('tornado.application') as stream:
+                        async with sess.post(puturl, data=b'asdfasdf') as resp:
+                            self.eq(resp.status, http.HTTPStatus.SERVICE_UNAVAILABLE)
+                            item = await resp.json()
+                            self.eq(item.get('code'), 'TimeOut')
+
+                    self.notin('Uncaught exception', stream.getvalue())
 
     async def test_http_login_broken(self):
         async with self.getTestCore() as core:

@@ -48,7 +48,9 @@ async def main(argv, outp=s_output.stdout):
 
         async with await s_cortex.Cortex.anit(dirn) as core:
 
-            stormopts = {'node:opts': {'repr': True}}
+            printer.modeldict = await core.getModelDict()
+
+            stormopts = {'node:opts': {'repr': True, 'virts': True}}
 
             forkiden = None
 

@@ -44,6 +44,7 @@ import synapse.data as s_data
 import synapse.common as s_common
 
 import synapse.lib.json as s_json
+import synapse.lib.const as s_const
 import synapse.lib.config as s_config
 import synapse.lib.jsrpc as s_jsrpc
 import synapse.lib.httpapi as s_httpapi
@@ -120,7 +121,7 @@ async def _reapMcpSessionsOnce(cell):
         if sess is None:  # pragma: no cover
             continue
 
-        if now - sess.get('touched', 0) > SESSION_TIMEOUT * 1000:
+        if now - sess.get('touched', 0) > SESSION_TIMEOUT * s_const.second:
             cell._mcp_sessions.pop(sid, None)
             for info in sess.pop('cursors', {}).values():
                 await _finiStormCursor(info)
@@ -129,7 +130,7 @@ async def _reapMcpSessionsOnce(cell):
         cursors = sess.get('cursors', {})
         for iden in list(cursors):
             info = cursors.get(iden)
-            if info is not None and now - info['touched'] > STORM_CURSOR_TIMEOUT * 1000:
+            if info is not None and now - info['touched'] > STORM_CURSOR_TIMEOUT * s_const.second:
                 cursors.pop(iden, None)
                 await _finiStormCursor(info)
 
@@ -441,7 +442,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         if session is None:
             return None
 
-        if s_common.now() - session.get('touched') > self.SESSION_TIMEOUT * 1000:
+        if s_common.now() - session.get('touched') > self.SESSION_TIMEOUT * s_const.second:
             sessions.pop(sid, None)
             for info in session.pop('cursors', {}).values():
                 self.cell.schedCoro(_finiStormCursor(info))
@@ -1028,7 +1029,7 @@ that the parent already reflects the merged data the instant this returns; re-qu
     async def _sweepStormCursors(self, cursors):
         now = s_common.now()
         for iden in list(cursors):
-            if now - cursors[iden]['touched'] > STORM_CURSOR_TIMEOUT * 1000:
+            if now - cursors[iden]['touched'] > STORM_CURSOR_TIMEOUT * s_const.second:
                 await self._closeStormCursor(cursors, iden)
 
     async def _startStormCursor(self, query, opts):
@@ -1079,7 +1080,7 @@ that the parent already reflects the merged data the instant this returns; re-qu
         if info is None:
             raise s_exc.BadArg(mesg=f'Unknown or expired storm cursor: {cursor}')
 
-        if s_common.now() - info['touched'] > STORM_CURSOR_TIMEOUT * 1000:
+        if s_common.now() - info['touched'] > STORM_CURSOR_TIMEOUT * s_const.second:
             await self._closeStormCursor(cursors, cursor)
             raise s_exc.BadArg(mesg=f'Storm cursor expired: {cursor}')
 

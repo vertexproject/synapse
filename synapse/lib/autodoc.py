@@ -1,9 +1,10 @@
 import copy
 import inspect
 import logging
+import textwrap
 import collections
 
-from typing import List, Tuple, Dict, Union
+from typing import List, Tuple, Dict, Union, Optional
 
 import regex
 
@@ -441,10 +442,10 @@ def genEditionNoteMd(name, edition):
     Returns:
         list: The markdown lines.
     '''
-    return [f'> **Note:** `{name}` is only available in {edition}.', '']
+    return ['> [!NOTE]', f'> `{name}` is only available in {edition}.', '']
 
 def genDeprecationWarningMd(name, depr):
-    lines = ['> **Warning:**']
+    lines = ['> [!WARNING]']
 
     mesg = depr.get('mesg')
     date = depr.get('eoldate')
@@ -756,9 +757,13 @@ def renderApiReturnMd(lines):
 
 def renderApiPassthroughMd(lines):
     '''
-    Render an Examples/Note/Notes section's body as a Markdown blockquote --
-    a reasonable generic fallback for free-form prose (and RST literal
-    blocks, which this does not attempt to specially reformat).
+    Render an Examples/Note/Notes section's body as Markdown paragraphs.
+
+    Prose lines are emitted with their indentation removed. A line ending in
+    "::" introduces an RST literal block: the line is emitted with a single
+    trailing colon (or dropped when it is only "::"), and the indented lines
+    which follow it are emitted as a fenced code block with their relative
+    indentation preserved.
 
     Args:
         lines (list): The section's raw body lines.
@@ -772,7 +777,52 @@ def renderApiPassthroughMd(lines):
     while trimmed and not trimmed[-1].strip():
         trimmed.pop()
 
-    return [f'> {line.strip()}' if line.strip() else '>' for line in trimmed]
+    out = []
+    size = len(trimmed)
+
+    idx = 0
+    while idx < size:
+
+        line = trimmed[idx]
+        text = line.strip()
+        idx += 1
+
+        if not text.endswith('::'):
+            out.append(text)
+            continue
+
+        indent = len(line) - len(line.lstrip())
+
+        if text != '::':
+            out.append(text[:-1])
+
+        start = idx
+
+        block = []
+        while idx < size and (not trimmed[idx].strip() or len(trimmed[idx]) - len(trimmed[idx].lstrip()) > indent):
+            block.append(trimmed[idx])
+            idx += 1
+
+        while block and not block[0].strip():
+            block.pop(0)
+        while block and not block[-1].strip():
+            block.pop()
+
+        if not block:
+            idx = start
+            continue
+
+        if out and out[-1]:
+            out.append('')
+
+        out.append('```python')
+        out.extend(textwrap.dedent('\n'.join(block)).split('\n'))
+        out.append('```')
+
+        if idx < size:
+            out.append('')
+
+    return out
 
 # src / name / target
 EdgeDef = Tuple[Union[str, None], str, Union[str, None]]
@@ -1048,63 +1098,113 @@ def has_popts_data(props):
 
     return False
 
-def lookupedgesforform(form: str, edges: Edges) -> Dict[str, Edges]:
+def _resolveIfaces(ifacenames, interfaces):
+    '''Recursively resolve all interfaces including inherited ones.'''
+    resolved = set()
+
+    def _collect(name):
+        if name in resolved:
+            return
+        resolved.add(name)
+        iface = interfaces.get(name)
+        if iface is not None:
+            for subname, _subinfo in iface.get('interfaces', ()):
+                _collect(subname)
+
+    for name in ifacenames:
+        _collect(name)
+
+    return resolved
+
+def getFormEdgeNames(form: str, modeldict: dict) -> set:
+    '''
+    Get the set of names an edge endpoint may use to reference a form,
+    including the form itself, its ancestor forms, and its interfaces
+    (direct and inherited).
+
+    Args:
+        form (str): The form name.
+        modeldict (dict): The model dict from Cortex.getModelDict().
+
+    Returns:
+        set: The form name plus every ancestor form and interface name.
+    '''
+    names = {form}
+
+    forms = modeldict.get('forms', {})
+    interfaces = modeldict.get('interfaces', {})
+
+    tinfo = modeldict.get('types', {}).get(form, {}).get('info', {})
+    names.update(base for base in tinfo.get('bases', ()) if base in forms)
+
+    ifacenames = [name for name, _info in tinfo.get('interfaces', ())]
+    names.update(_resolveIfaces(ifacenames, interfaces))
+
+    return names
+
+def lookupedgesforform(form: str, edges: Edges, names: Optional[set] = None) -> Dict[str, Edges]:
+    if names is None:
+        names = {form}
+
     ret = collections.defaultdict(list)
 
     for edge in edges:
         src, name, dst = edge[0]
 
-        # src and dst may be None, form==name, or form!=name.
+        # src and dst may each be None, in names, or not in names.
         # This gives us 9 possible states to consider.
-        # src  |  dst | -> ret
+        # src        |  dst        | -> ret
         # ===================================
-        # none | none | -> generic
-        # none |   != | -> source
-        # none |    = | -> target
-        #   != | none | -> target
-        #    = | none | -> source
-        #   != |    = | -> target
-        #    = |   != | -> source
-        #   != |   != | -> no-op
-        #    = |    = | -> source, target
+        # none       | none        | -> generic
+        # none       | not in names| -> source
+        # none       | in names    | -> target
+        # not in nms | none        | -> target
+        # in names   | none        | -> source
+        # not in nms | in names    | -> target
+        # in names   | not in names| -> source
+        # not in nms | not in names| -> no-op
+        # in names   | in names    | -> source, target
 
         if src is None and dst is None:
             ret['generic'].append(edge)
             continue
-        if src is None and dst != form:
+        if src is None and dst not in names:
             ret['source'].append(edge)
             continue
-        if src is None and dst == form:
+        if src is None and dst in names:
             ret['target'].append(edge)
             continue
-        if src != form and dst is None:
+        if src not in names and dst is None:
             ret['target'].append(edge)
             continue
-        if src == form and dst is None:
+        if src in names and dst is None:
             ret['source'].append(edge)
             continue
-        if src != form and dst == form:
+        if src not in names and dst in names:
             ret['target'].append(edge)
             continue
-        if src == form and dst != form:
+        if src in names and dst not in names:
             ret['source'].append(edge)
             continue
-        if src != form and dst != form:
+        if src not in names and dst not in names:
             # no-op
             continue
-        if src == form and dst == form:
+        if src in names and dst in names:
             ret['source'].append(edge)
             ret['target'].append(edge)
 
     return copy.deepcopy(dict(ret))
 
-def processFormsPropsMd(md, dochelp, forms, alledges):
+def processFormsPropsMd(md, dochelp, forms, alledges, modeldict=None):
     '''
     Args:
         md (MdHelp):
         dochelp (DocHelp):
         forms (list):
         alledges (list):
+        modeldict (dict): The model dict from Cortex.getModelDict(), used to resolve
+            edges declared against a form's ancestor forms or interfaces. When None,
+            only edges declared directly against the form are matched.
 
     Returns:
         None
@@ -1114,7 +1214,8 @@ def processFormsPropsMd(md, dochelp, forms, alledges):
 
     for name, info, props in forms:
 
-        formedges = lookupedgesforform(name, alledges)
+        names = getFormEdgeNames(name, modeldict) if modeldict is not None else {name}
+        formedges = lookupedgesforform(name, alledges, names=names)
 
         doc = dochelp.forms.get(name)
         if not doc.endswith('.'):
@@ -1195,18 +1296,23 @@ def processFormsPropsMd(md, dochelp, forms, alledges):
             generic_edges = formedges.pop('generic', None)
 
             def _edgeRows(edges):
+                # a generic edge's info dict is shared between the source and
+                # target buckets (both may include it), so read from a copy
+                # rather than popping the original -- popping would leave the
+                # doc missing the second time the same edge is rendered.
                 _edges = []
                 for (edef, enfo) in edges:
                     src, enam, dst = edef
-                    doc = enfo.pop('doc', None)
+                    info = dict(enfo)
+                    doc = info.pop('doc', None)
                     if src is None:
                         src = '*'
                     if dst is None:
                         dst = '*'
                     for key in info_ignores:
-                        enfo.pop(key, None)
-                    if enfo:
-                        logger.warning(f'{name} => Light edge {enam} has unhandled info: {enfo}')
+                        info.pop(key, None)
+                    if info:
+                        logger.warning(f'{name} => Light edge {enam} has unhandled info: {info}')
                     _edges.append((src, enam, dst, doc))
                 _edges.sort(key=lambda x: x[:2])
                 return _edges
@@ -1350,7 +1456,7 @@ async def docModelFormsMd(core):
     md = MdHelp()
     md.addHead('Synapse Data Model - Forms', lvl=0)
 
-    processFormsPropsMd(md, dochelp, info['forms'], info['edges'])
+    processFormsPropsMd(md, dochelp, info['forms'], info['edges'], modeldict=info['modeldict'])
 
     return md
 
@@ -1494,6 +1600,7 @@ async def docApiMd(ctor):
         (name, valu) for name, valu in cls.__dict__.items()
         if not name.startswith('_')
         and (inspect.iscoroutinefunction(valu) or inspect.isasyncgenfunction(valu) or inspect.isfunction(valu))
+        and valu.__module__ == cls.__module__
     ]
 
     for name, valu in sorted(methods, key=lambda x: x[0]):

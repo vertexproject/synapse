@@ -33,6 +33,12 @@ class CryptoKey(s_stormtypes.Prim):
     def value(self):
         return self.key.dump(fmt='pem').decode()
 
+    async def stormrepr(self):
+        # the PEM itself is already available via value()/encode(); this repr just
+        # avoids dumping a whole key blob by default, it is not a security boundary
+        kind = 'private' if self.isprivate else 'public'
+        return f'{self._storm_typename}: {kind}'
+
     @s_stormtypes.stormfunc(readonly=True)
     async def _methPubkey(self):
         if not self.isprivate:

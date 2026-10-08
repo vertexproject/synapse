@@ -4,6 +4,8 @@
 
 The Synapse `aha.clone` tool can be used to generate a new clone URL to deploy an AHA mirror.
 
+Once deployed, the AHA clone registers itself with the leader under the next sequential AHA name (`001.aha`, `002.aha`, and so on), so it appears in the AHA service registry and can be targeted by name, such as `aha://001.aha...`.
+
 > [!NOTE]
 > Most deployments should deploy an AHA mirror automatically by setting `SYN_PROVISION_FOLLOWER` (along with the shared `SYN_PROVISION_SECRET`) on the new AHA server rather than generating a clone URL with this tool. See [Deploy AHA Mirrors (optional)](../deploymentguide.md#deploy_aha_mirror) in the deployment guide. This tool remains available for advanced cases.
 

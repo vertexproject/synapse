@@ -158,8 +158,8 @@ In our experience, the more analysts use Storm, the more they want even greater 
 - [Methods](storm_adv_methods.md)
 - [Control Flow](storm_adv_control.md)
 - [Functions](storm_adv_functions.md)
-- [stormtypes-libs-header](../stormtypes_libs.md#stormtypes-libs-header)
-- [stormtypes-prim-header](../stormtypes_prims.md#stormtypes-prim-header)
+- [Storm Libraries](../stormtypes_libs.md#stormtypes-libs-header)
+- [Storm Types](../stormtypes_prims.md#stormtypes-prim-header)
 
 **Analysts do not need to use or understand these more advanced concepts in order to use Storm or Synapse.** Basic Storm functions are sufficient for a wide range of analytical needs and workflows. However, these additional features are available to Storm power users and developers as needed:
 

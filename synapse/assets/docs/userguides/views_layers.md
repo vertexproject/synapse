@@ -24,7 +24,7 @@ Layers can be used to segregate different types of data. For example:
 
 Layers are where data is **written** in Synapse; you create nodes and edges, modify properties, and add or remove tags in a specific layer. Changes are typically made to the **top** layer of your current **view.**
 
-Layers are typically configured and managed by Synapse Admins. The Storm [layer](storm_ref_cmd.md#storm-layer) commands are used to work with layers, as are the [stormprims-layer-f527](../stormtypes_prims.md#stormprims-layer-f527) type and its methods, and the [stormlibs-lib-layer](../stormtypes_libs.md#stormlibs-lib-layer) libraries. The [Optic UI](/docs/synapse-enterprise-optic/latest/index.md) provides additional GUI-based tools to view and work with layers.
+Layers are typically configured and managed by Synapse Admins. The Storm [layer](storm_ref_cmd.md#storm-layer) commands are used to work with layers, as are the [`layer`](../stormtypes_prims.md#stormprims-layer-f527) type and its methods, and the [`$lib.layer`](../stormtypes_libs.md#stormlibs-lib-layer) libraries. The [Optic UI](/docs/synapse-enterprise-optic/latest/index.md) provides additional GUI-based tools to view and work with layers.
 
 <a id="ug_views"></a>
 
@@ -49,7 +49,7 @@ See our blog on [Best Practices for Views & Layers](https://vertex.link/blogs/vi
 > [!TIP]
 > A view contains the layer(s) that users can see. Visibility into a view's data is all or nothing; it is not possible to let users see "only certain nodes" or "only nodes with this tag" within a given view.
 
-The Storm [view](storm_ref_cmd.md#storm-view) commands are used to work with views, along with the [stormprims-view-f527](../stormtypes_prims.md#stormprims-view-f527) type and its methods and the [stormlibs-lib-view](../stormtypes_libs.md#stormlibs-lib-view) libraries. The [Optic UI](/docs/synapse-enterprise-optic/latest/index.md) provides additional GUI-based tools for working with views.
+The Storm [view](storm_ref_cmd.md#storm-view) commands are used to work with views, along with the [`view`](../stormtypes_prims.md#stormprims-view-f527) type and its methods and the [`$lib.view`](../stormtypes_libs.md#stormlibs-lib-view) libraries. The [Optic UI](/docs/synapse-enterprise-optic/latest/index.md) provides additional GUI-based tools for working with views.
 
 <a id="ug_fork_merge"></a>
 
@@ -135,7 +135,24 @@ To simplify a complex review and merge process, you can **insert** a new view be
 
 In Synapse, the [view.insertparentfork()](../stormtypes_prims.md#stormprims-view-insertParentFork) method can be used to insert the new view.
 
+A view which is currently merging cannot have a parent view inserted.
+
 In Optic, when forking a view (e.g., using the **fork icon** in the [View Task Bar](/docs/synapse-enterprise-optic/latest/user_interface/userguides/quick_tour.md#view-task-bar)), the Fork View dialog includes a toggle that can be enabled to "Insert as parent view" when creating the fork.
+
+<a id="ug_insert_child"></a>
+
+
+### Insert a Child View
+
+You can also insert a new view between an existing view and **all** of its forks. For example, if views A and B are both forks of view C, inserting a child view D into C makes D the new parent of A and B (and D a fork of C). Any forks of A or B are updated to include D's layer. The forks keep all of their data; each gains the inserted view's (empty) layer between it and C.
+
+- Inserting a child view requires admin permissions on view C only. Every fork of C is re-parented, including forks owned by other users.
+- The new view and its layer receive copies of the permissions on view C and on C's write layer.
+- The new view receives a copy of C's quorum settings, so pending merge requests (and their votes) on the re-parented forks remain valid and now target the new view.
+- A fork which is currently merging is left in place so that its merge completes into C.
+- A view which is itself merging cannot have a child view inserted.
+
+In Synapse, the [view.insertchildfork()](../stormtypes_prims.md#stormprims-view-insertChildFork) method can be used to insert the new view.
 
 <a id="ug_merge_changes"></a>
 

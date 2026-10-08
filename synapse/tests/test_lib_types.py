@@ -562,7 +562,7 @@ class TypesTest(s_t_utils.SynTest):
             node = nodes[0]
             pnode = node.pack(dorepr=True)
             self.eq(pnode[0], (t, (('test:int', 123), ('str:lower', 'haha'))))
-            self.eq(pnode[1].get('repr'), ('123', 'haha'))
+            self.eq(pnode[1]['valuinfo'], {'r': ('123', 'haha')})
             self.eq(pnode[1]['props']['foo'][1]['r'], '123')
             self.notin('r', pnode[1]['props']['bar'][1])
             self.propeq(node, 'foo', 123)
@@ -3570,6 +3570,25 @@ class TypesTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:guid:tick=202110310202021*')
+
+            # setting precision truncates the value rather than merging it
+            await core.addType('_maxtime', 'time', {'ismax': True}, {})
+            await core.addType('_mintime', 'time', {'ismin': True}, {})
+            await core.addFormProp('test:str', '_maxt', ('_maxtime', {}), {})
+            await core.addFormProp('test:str', '_mint', ('_mintime', {}), {})
+
+            nodes = await core.nodes('''
+                [ test:str=precmerge :_maxt="2021/06/15" :_mint="2021/06/15" ]
+                [ :_maxt.precision=year :_mint.precision=year ]
+            ''')
+            self.len(1, nodes)
+            self.propeq(nodes[0], '_maxt', 1609459200000000)
+            self.propeq(nodes[0], '_mint', 1609459200000000)
+            self.propeq(nodes[0], '_maxt.precision', s_time.PREC_YEAR)
+            self.propeq(nodes[0], '_mint.precision', s_time.PREC_YEAR)
+
+            self.eq('year', await core.callStorm('test:str=precmerge return($lib.repr(timeprecision, :_maxt.precision))'))
+            self.eq('2021-01-01T00:00:00Z', await core.callStorm('test:str=precmerge return($node.repr(_maxt))'))
 
         async with self.getTestCore() as core:
 
