@@ -1063,7 +1063,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'string',
         },
         'aha:promotable': {
-            'description': 'Set to false to prevent this service from being promoted to leader.',
+            'description': 'Set to false to exclude this service from automatic leader selection when the leader demotes, '
+                           'including during a graceful shutdown. It does not prevent an explicit promotion.',
             'type': 'boolean',
             'default': True,
         },
