@@ -870,7 +870,8 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The service platform which generated the alert.'}),
 
                     ('service:instance', ('inet:service:instance', {}), {
-                        'doc': 'The service instance which generated the alert.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :service:platform.'}),
 
                     ('service:account', ('inet:service:account', {}), {
                         'doc': 'The service account which generated the alert.'}),

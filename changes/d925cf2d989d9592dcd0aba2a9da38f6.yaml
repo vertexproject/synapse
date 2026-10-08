@@ -1,0 +1,7 @@
+---
+desc: Added ``$lib.model.migration.s.inetServiceInstanceToPlatform()`` to migrate
+  ``inet:service:instance`` nodes to ``inet:service:platform`` nodes.
+desc:literal: false
+prs: []
+type: feat
+...

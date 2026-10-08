@@ -1,0 +1,7 @@
+---
+desc: Deprecated the ``inet:service:instance`` form and the properties which reference
+  it. Use ``inet:service:platform`` with ``:parent`` instead.
+desc:literal: false
+prs: []
+type: deprecation
+...

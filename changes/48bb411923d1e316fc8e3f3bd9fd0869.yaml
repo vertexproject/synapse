@@ -1,0 +1,6 @@
+---
+desc: Added the ``:tenant`` property to the ``inet:service:platform`` form.
+desc:literal: false
+prs: []
+type: model
+...

@@ -1612,7 +1612,8 @@ class InetModule(s_module.CoreModule):
                         'doc': 'Deprecated. Please use inet:service:agent for autonomous agents.'}),
 
                     ('inet:service:instance', ('guid', {}), {
-                        'doc': 'An instance of the platform such as Slack or Discord instances.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:service:platform with :parent.'}),
 
                     ('inet:service:object:status', ('int', {'enums': svcobjstatus}), {
                         'doc': 'An object status enumeration.'}),
@@ -1821,7 +1822,8 @@ class InetModule(s_module.CoreModule):
                                 'doc': 'The platform which defines the {service:base}.'}),
 
                             ('instance', ('inet:service:instance', {}), {
-                                'doc': 'The platform instance which defines the {service:base}.'}),
+                                'deprecated': True,
+                                'doc': 'Deprecated. Please use :platform.'}),
                         ),
                     }),
 
@@ -1898,7 +1900,8 @@ class InetModule(s_module.CoreModule):
                                 'doc': 'The platform where the action was initiated.'}),
 
                             ('instance', ('inet:service:instance', {}), {
-                                'doc': 'The platform instance where the action was initiated.'}),
+                                'deprecated': True,
+                                'doc': 'Deprecated. Please use :platform.'}),
 
                             ('session', ('inet:service:session', {}), {
                                 'doc': 'The session which initiated the action.'}),
@@ -3815,6 +3818,9 @@ class InetModule(s_module.CoreModule):
 
                         ('parent', ('inet:service:platform', {}), {
                             'doc': 'A parent platform which owns this platform.'}),
+
+                        ('tenant', ('inet:service:tenant', {}), {
+                            'doc': 'The tenant which owns the platform.'}),
 
                         ('status', ('inet:service:object:status', {}), {
                             'doc': 'The status of the platform.'}),
