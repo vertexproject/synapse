@@ -16,6 +16,9 @@ class EconModule(s_module.CoreModule):
                 ('econ:pay:mii', ('int', {'min': 0, 'max': 9}), {
                     'doc': 'A Major Industry Identifier (MII).'}),
 
+                ('econ:pay:card:funding:type', ('str', {'lower': True, 'enums': 'credit,debit,prepaid,charge,deferreddebit'}), {
+                    'doc': 'A payment card funding type.'}),
+
                 ('econ:pay:pan', ('str', {'regex': '^(?<iin>(?<mii>[0-9]{1})[0-9]{5})[0-9]{1,13}$'}), {
                     'doc': 'A Primary Account Number (PAN) or card number.'}),
 
@@ -174,6 +177,18 @@ class EconModule(s_module.CoreModule):
 
                     ('account', ('econ:bank:account', {}), {
                         'doc': 'A bank account associated with the payment card.'}),
+
+                    ('funding:type', ('econ:pay:card:funding:type', {}), {
+                        'doc': 'The funding type of the card.'}),
+
+                    ('funding:reloadable', ('bool', {}), {
+                        'doc': 'Set to true if the prepaid card can be reloaded.'}),
+
+                    ('network', ('entity:actor', {}), {
+                        'doc': 'The payment network which processes transactions for the card.'}),
+
+                    ('network:name', ('entity:name', {}), {
+                        'doc': 'The name of the payment network which processes transactions for the card.'}),
                 )),
 
                 ('econ:purchase', {}, (

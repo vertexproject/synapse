@@ -1,0 +1,7 @@
+---
+desc: Added the `:funding:type`, `:funding:reloadable`, `:network` and `:network:name`
+  properties to the `econ:pay:card` form.
+desc:literal: false
+prs: []
+type: model
+...
