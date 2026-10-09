@@ -534,6 +534,19 @@ bar baz",vv
 
             self.eq(bbufretn[0], await axon.save(bbufhash, emptygen(), size=bbufretn[0]))
 
+            # ranged reads starting on a chunk boundary
+            chunks = (b'A' * 100, b'B' * 100, b'C' * 10)
+            blob = b''.join(chunks)
+            sha256 = hashlib.sha256(blob).digest()
+            self.eq(210, await axon.save(sha256, chunks, size=210))
+
+            for offs in (0, 99, 100, 101, 199, 200, 201, 206):
+                byts = b''.join([b async for b in axon.get(sha256, offs=offs, size=4)])
+                self.eq(blob[offs:offs + 4], byts)
+
+            self.eq(blob[98:208], b''.join([b async for b in axon.get(sha256, offs=98, size=110)]))
+            self.eq([b'B' * 100, b'C' * 10], [b async for b in axon.get(sha256, offs=100, size=110)])
+
     async def test_axon_proxy(self):
         async with self.getTestAxon() as axon:
             async with axon.getLocalProxy() as prox:
