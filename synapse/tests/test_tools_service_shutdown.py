@@ -46,29 +46,45 @@ class ShutdownToolTest(s_test.SynTest):
 
                 dirn00 = s_common.genpath(dirn, '00.cell')
                 dirn01 = s_common.genpath(dirn, '01.cell')
+                dirn02 = s_common.genpath(dirn, '02.cell')
 
                 cell00 = await aha.enter_context(self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=dirn00))
                 cell01 = await aha.enter_context(self.addSvcToAha(aha, '01.cell', s_cell.Cell, dirn=dirn01,
                                                                    provinfo={'mirror': 'cell'}))
+                cell02 = await aha.enter_context(self.addSvcToAha(aha, '02.cell', s_cell.Cell, dirn=dirn02,
+                                                                   provinfo={'mirror': 'cell'}))
                 self.true(cell00.isactive)
                 self.false(cell01.isactive)
+                self.false(cell02.isactive)
 
                 await cell01.sync()
+                await cell02.sync()
 
-                # confirm that graceful shutdown with peers also demotes...
+                # confirm that graceful shutdown with peers at the same nexus index also demotes...
                 outp = self.getTestOutp()
                 argv = ['--url', cell00.getLocalUrl(), '--timeout', '12']
                 self.eq(0, await s_t_shutdown.main(argv, outp=outp))
 
                 self.false(cell00.isactive)
-                self.true(cell01.isactive)
+                self.ne(cell01.isactive, cell02.isactive)
                 self.true(await cell00.waitfini(timeout=12))
+
+                leader, mirror = (cell01, cell02) if cell01.isactive else (cell02, cell01)
+                await mirror.sync()
+
+                outp.clear()
+                argv = ['--url', leader.getLocalUrl(), '--timeout', '12']
+                self.eq(0, await s_t_shutdown.main(argv, outp=outp))
+
+                self.false(leader.isactive)
+                self.true(mirror.isactive)
+                self.true(await leader.waitfini(timeout=12))
 
                 # and that graceful shutdown without any cluster peers works too...
                 outp.clear()
-                argv = ['--url', cell01.getLocalUrl(), '--timeout', '12']
+                argv = ['--url', mirror.getLocalUrl(), '--timeout', '12']
                 self.eq(0, await s_t_shutdown.main(argv, outp=outp))
-                self.true(await cell01.waitfini(timeout=12))
+                self.true(await mirror.waitfini(timeout=12))
 
     async def test_tool_shutdown_no_drain(self):
 
