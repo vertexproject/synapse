@@ -1,0 +1,9 @@
+---
+desc: Fixed an issue which caused ``Axon.get()``, ``Axon.unpack()``, ``$lib.axon.read()``,
+  ``$lib.axon.unpack()``, and HTTP ``Range`` downloads from ``/api/v1/axon/files/by/sha256/<sha256>``
+  to return bytes from the previous chunk when the offset was a multiple of 16 MiB.
+desc:literal: false
+prs:
+- 5042
+type: bug
+...

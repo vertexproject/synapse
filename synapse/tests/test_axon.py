@@ -473,6 +473,19 @@ bar baz",vv
             bytslist = [b async for b in axon.get(sha256, 2, size=6)]
             self.eq(b'dfqwer', b''.join(bytslist))
 
+            bytslist = [b async for b in axon.get(sha256, 4, size=4)]
+            self.eq(b'qwer', b''.join(bytslist))
+
+            bytslist = [b async for b in axon.get(sha256, 8, size=4)]
+            self.eq(b'zxcv', b''.join(bytslist))
+
+            bytslist = [b async for b in axon.get(sha256, 3, size=6)]
+            self.eq(b'fqwerz', b''.join(bytslist))
+
+            bytslist = [b async for b in axon.get(sha256, 4, size=8)]
+            self.eq(b'qwerzxcv', b''.join(bytslist))
+            self.notin(b'', bytslist)
+
             bytslist = [b async for b in axon.get(sha256, 11, size=6)]
             self.eq(b'v', b''.join(bytslist))
 
