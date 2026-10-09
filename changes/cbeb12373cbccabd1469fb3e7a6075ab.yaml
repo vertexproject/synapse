@@ -1,0 +1,8 @@
+---
+desc: Deprecated the ``ps:tokn`` form and the ``:name:sur``, ``:name:middle``, and
+  ``:name:given`` properties on ``ps:person`` and ``ps:persona``, and the ``:sur``,
+  ``:middle``, and ``:given`` properties on ``ps:name``.
+desc:literal: false
+prs: []
+type: deprecation
+...
