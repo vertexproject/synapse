@@ -19,6 +19,22 @@ class PsModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('ps:tokn', 'bob'))
 
+            self.true(core.model.type('ps:tokn').deprecated)
+            self.true(core.model.form('ps:tokn').deprecated)
+            self.eq('Deprecated. ps:tokn will be removed in 3.0.0.', core.model.type('ps:tokn').info.get('doc'))
+
+            for propname in ('ps:name:sur', 'ps:name:middle', 'ps:name:given',
+                             'ps:person:name:sur', 'ps:person:name:middle', 'ps:person:name:given',
+                             'ps:persona:name:sur', 'ps:persona:name:middle', 'ps:persona:name:given'):
+                prop = core.model.prop(propname)
+                self.true(prop.deprecated)
+
+                doc = 'Deprecated. Please use :name.'
+                if propname.startswith('ps:name:'):
+                    doc = 'Deprecated.'
+
+                self.eq(doc, prop.info.get('doc'))
+
             nodes = await core.nodes('[ps:name=" robert GREY  the\t3rd   "]')
             self.len(1, nodes)
             node = nodes[0]

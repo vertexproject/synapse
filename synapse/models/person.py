@@ -33,7 +33,8 @@ class PsModule(s_module.CoreModule):
                     'doc': 'An instance of an individual receiving an award.',
                 }),
                 ('ps:tokn', ('str', {'lower': True, 'strip': True}), {
-                    'doc': 'A single name element (potentially given or sur).',
+                    'deprecated': True,
+                    'doc': 'Deprecated. ps:tokn will be removed in 3.0.0.',
                     'ex': 'robert'
                 }),
                 ('ps:name', ('str', {'lower': True, 'onespace': True}), {
@@ -251,13 +252,16 @@ class PsModule(s_module.CoreModule):
                 ('ps:tokn', {}, ()),
                 ('ps:name', {}, (
                     ('sur', ('ps:tokn', {}), {
-                        'doc': 'The surname part of the name.'
+                        'deprecated': True,
+                        'doc': 'Deprecated.'
                     }),
                     ('middle', ('ps:tokn', {}), {
-                        'doc': 'The middle name part of the name.'
+                        'deprecated': True,
+                        'doc': 'Deprecated.'
                     }),
                     ('given', ('ps:tokn', {}), {
-                        'doc': 'The given name part of the name.'
+                        'deprecated': True,
+                        'doc': 'Deprecated.'
                     }),
                 )),
                 ('ps:person', {}, (
@@ -285,13 +289,16 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The localized name for the person.',
                     }),
                     ('name:sur', ('ps:tokn', {}), {
-                        'doc': 'The surname of the person.'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :name.'
                     }),
                     ('name:middle', ('ps:tokn', {}), {
-                        'doc': 'The middle name of the person.'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :name.'
                     }),
                     ('name:given', ('ps:tokn', {}), {
-                        'doc': 'The given name of the person.'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :name.'
                     }),
                     ('names', ('array', {'type': 'ps:name', 'uniq': True, 'sorted': True}), {
                         'doc': 'Variations of the name for the person.'
@@ -317,13 +324,16 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The localized name for the suspected person.',
                     }),
                     ('name:sur', ('ps:tokn', {}), {
-                        'doc': 'The surname of the suspected person.'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :name.'
                     }),
                     ('name:middle', ('ps:tokn', {}), {
-                        'doc': 'The middle name of the suspected person.'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :name.'
                     }),
                     ('name:given', ('ps:tokn', {}), {
-                        'doc': 'The given name of the suspected person.'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :name.'
                     }),
                     ('names', ('array', {'type': 'ps:name', 'uniq': True, 'sorted': True}), {
                         'doc': 'Variations of the name for a persona.'
