@@ -2,6 +2,7 @@
 desc: Fixed an issue which caused ``Axon.get()`` and ``$lib.axon.read()`` to return
   bytes from the previous chunk when the offset was a multiple of 16 MiB.
 desc:literal: false
-prs: []
+prs:
+- 5042
 type: bug
 ...
