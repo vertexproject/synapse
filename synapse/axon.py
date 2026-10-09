@@ -918,11 +918,14 @@ class Axon(s_cell.Cell):
         self.onfini(self.blobslab.fini)
 
         if self.inaugural:
-            self._setStorVers(1)
+            self._setStorVers(2)
 
         storvers = self._getStorVers()
         if storvers < 1:
             storvers = await self._setStorVers01()
+
+        if storvers < 2:
+            storvers = await self._setStorVers02()
 
     async def _setStorVers01(self):
 
@@ -947,6 +950,74 @@ class Axon(s_cell.Cell):
             self.blobslab.put(cursha + offs.to_bytes(8, 'big'), lkey[32:], db=self.offsets)
 
         return self._setStorVers(1)
+
+    async def _setStorVers02(self):
+
+        logger.warning('Updating Axon storage version (removing stale offset index entries). This may take a while.')
+
+        cursha = None
+
+        # deletes bump the outer scan and rewritten rows sort before its resume key
+        for lkey in self.blobslab.scanKeys(db=self.offsets):
+
+            await asyncio.sleep(0)
+
+            offssha = lkey[:32]
+            if offssha == cursha:
+                continue
+
+            if cursha is not None:
+                await self._fixBlobOffs(cursha)
+
+            cursha = offssha
+
+        if cursha is not None:
+            await self._fixBlobOffs(cursha)
+
+        return self._setStorVers(2)
+
+    async def _fixBlobOffs(self, sha256):
+        '''
+        Merge walk the offset rows expected from the blobs against the existing ones,
+        removing stale rows and putting missing or incorrect ones.
+        '''
+        def expected():
+            offs = 0
+            for lkey, byts in self.blobslab.scanByPref(sha256, db=self.blobs):
+                offs += len(byts)
+                yield sha256 + offs.to_bytes(8, 'big'), lkey[32:]
+
+        genr = expected()
+        item = next(genr, None)
+
+        # deletes bump the scan and puts only add keys before its current key
+        for lkey, lval in self.blobslab.scanByPref(sha256, db=self.offsets):
+
+            await asyncio.sleep(0)
+
+            while item is not None and item[0] < lkey:
+                self.blobslab.put(item[0], item[1], db=self.offsets)
+                item = next(genr, None)
+                await asyncio.sleep(0)
+
+            if item is None or lkey < item[0]:
+                self.blobslab.delete(lkey, db=self.offsets)
+                continue
+
+            if lval != item[1]:
+                self.blobslab.put(lkey, item[1], db=self.offsets)
+
+            item = next(genr, None)
+
+        while item is not None:
+            self.blobslab.put(item[0], item[1], db=self.offsets)
+            item = next(genr, None)
+            await asyncio.sleep(0)
+
+    async def _delBlobOffs(self, sha256):
+        for lkey in self.blobslab.scanKeysByPref(sha256, db=self.offsets):
+            self.blobslab.delete(lkey, db=self.offsets)
+            await asyncio.sleep(0)
 
     def _getStorVers(self):
         byts = self.blobslab.get(b'version', db=self.metadata)
@@ -1391,9 +1462,7 @@ class Axon(s_cell.Cell):
     async def _delBlobByts(self, sha256):
 
         # remove the offset indexes...
-        for lkey in self.blobslab.scanKeysByPref(sha256, db=self.blobs):
-            self.blobslab.delete(lkey, db=self.offsets)
-            await asyncio.sleep(0)
+        await self._delBlobOffs(sha256)
 
         # remove the actual blobs...
         for lkey in self.blobslab.scanKeysByPref(sha256, db=self.blobs):
