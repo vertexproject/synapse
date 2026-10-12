@@ -1014,11 +1014,6 @@ class Axon(s_cell.Cell):
             item = next(genr, None)
             await asyncio.sleep(0)
 
-    async def _delBlobOffs(self, sha256):
-        for lkey in self.blobslab.scanKeysByPref(sha256, db=self.offsets):
-            self.blobslab.delete(lkey, db=self.offsets)
-            await asyncio.sleep(0)
-
     def _getStorVers(self):
         byts = self.blobslab.get(b'version', db=self.metadata)
         if not byts:
@@ -1462,7 +1457,9 @@ class Axon(s_cell.Cell):
     async def _delBlobByts(self, sha256):
 
         # remove the offset indexes...
-        await self._delBlobOffs(sha256)
+        for lkey in self.blobslab.scanKeysByPref(sha256, db=self.offsets):
+            self.blobslab.delete(lkey, db=self.offsets)
+            await asyncio.sleep(0)
 
         # remove the actual blobs...
         for lkey in self.blobslab.scanKeysByPref(sha256, db=self.blobs):
