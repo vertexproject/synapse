@@ -1063,7 +1063,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'string',
         },
         'aha:promotable': {
-            'description': 'Set to false to prevent this service from being promoted to leader.',
+            'description': 'Set to false to exclude this service from automatic leader selection when the leader demotes, '
+                           'including during a graceful shutdown. It does not prevent an explicit promotion.',
             'type': 'boolean',
             'default': True,
         },
@@ -2639,7 +2640,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         retn = []
         async for svcdef in ahaproxy.getAhaSvcsByIden(self.iden, skiprun=self.runid):
 
-            if not svcdef['svcinfo'].get('promotable'): # pragma: no cover
+            if not svcdef['svcinfo'].get('promotable'):
                 continue
 
             retn.append(svcdef)
@@ -2688,7 +2689,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     logger.warning('...no suitable services discovered. Aborting demotion.', extra=extra)
                     return False
 
-                for svcindx, svcproxy in sorted(cands):
+                for svcindx, svcproxy in sorted(cands, key=lambda c: c[0], reverse=True):
 
                     try:
                         await svcproxy.promote(graceful=True)

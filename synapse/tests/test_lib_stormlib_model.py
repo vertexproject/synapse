@@ -745,6 +745,183 @@ class StormlibModelTest(s_test.SynTest):
             self.eq(ndata[0].get('client'), 'tcp://2.3.4.5')
             self.eq(await ndata[0].getData('migration:inet:service:message:client:address'), 'tcp://1.2.3.4')
 
+            await core.addTagProp('score', ('int', {}), {})
+            await core.addFormProp('risk:alert', '_foo:instance', ('inet:service:instance', {}), {})
+            await core.addFormProp('risk:alert', '_bar:instance', ('inet:service:instance', {}), {})
+            await core.addFormProp('risk:alert', '_bar:platform', ('inet:service:platform', {}), {})
+
+            await core.nodes('''
+                [
+                    (inet:service:platform=(slack,) :name=slack)
+                    (inet:service:platform=(other,) :name=other)
+                    (inet:service:account=(visi,))
+                    (inet:service:tenant=(vtx,))
+                    (inet:service:app=(app,))
+                    (meta:source=(src,))
+                    (inet:service:instance=(bare,))
+                    (inet:web:instance=(webinst,))
+                ]
+                | spin |
+
+                [ inet:service:instance=(vtx,)
+                    :id=T1234
+                    :platform=(slack,)
+                    :url=https://vertex.slack.com
+                    :name="vertex slack"
+                    :desc="the vertex slack"
+                    :period=(2020, 2021)
+                    :status=available
+                    :creator=(visi,)
+                    :owner=(visi,)
+                    :tenant=(vtx,)
+                    :app=(app,)
+                    .seen=(2022, 2023)
+                    +#foo.bar
+                    +#foo:score=10
+                    <(refs)+ { meta:source=(src,) }
+                    +(refs)> { inet:service:account=(visi,) }
+                ]
+                $node.data.set(hehe, haha)
+                | spin |
+
+                [
+                    (inet:service:account=(acct,) :instance=(vtx,) :platform=(slack,)
+                        :id=24156b84d7dcb4517c5b5444f00cd25e)
+                    (inet:service:message=(mesg,) :instance=(vtx,))
+                    (inet:service:login=(login,) :instance=(vtx,) :platform=(other,))
+                    (risk:alert=(alert,) :service:instance=(vtx,) :service:platform=(slack,)
+                        :_foo:instance=(vtx,) :_bar:instance=(vtx,) :_bar:platform=(other,))
+                    (it:log:event=(event,) :service:instance=(vtx,))
+                    (it:exec:query=(query,) :service:instance=(vtx,) :service:platform=(other,))
+                    (inet:service:account=(acct2,) :instance=(bare,))
+                ]
+            ''')
+
+            q = '''
+                inet:service:instance=(vtx,)
+                $plat = $lib.model.migration.s.inetServiceInstanceToPlatform($node)
+                return(($plat.form(), $plat.value()))
+            '''
+            instiden = s_common.guid(('vtx',))
+            self.eq(('inet:service:platform', instiden), await core.callStorm(q))
+
+            nodes = await core.nodes('inet:service:platform=(vtx,)')
+            self.len(1, nodes)
+            plat = nodes[0]
+            self.eq(plat.get('parent'), s_common.guid(('slack',)))
+            self.eq(plat.get('id'), 'T1234')
+            self.eq(plat.get('url'), 'https://vertex.slack.com')
+            self.eq(plat.get('name'), 'vertex slack')
+            self.eq(plat.get('desc'), 'the vertex slack')
+            self.eq(plat.get('period'), (1577836800000, 1609459200000))
+            self.eq(plat.get('status'), 30)
+            self.eq(plat.get('creator'), s_common.guid(('visi',)))
+            self.eq(plat.get('tenant'), s_common.guid(('vtx',)))
+            self.eq(plat.get('.seen'), (1640995200000, 1672531200000))
+            self.nn(plat.getTag('foo.bar'))
+            self.eq(plat.getTagProp('foo', 'score'), 10)
+            self.eq(await plat.getData('hehe'), 'haha')
+            self.eq(await plat.getData('migration:inet:service:instance:owner'), s_common.guid(('visi',)))
+            self.eq(await plat.getData('migration:inet:service:instance:app'), s_common.guid(('app',)))
+            self.len(1, await core.nodes('inet:service:platform=(vtx,) <(refs)- meta:source'))
+            self.len(1, await core.nodes('inet:service:platform=(vtx,) -(refs)> inet:service:account'))
+
+            # the instance node is left in place
+            self.len(1, await core.nodes('inet:service:instance=(vtx,)'))
+
+            nodes = await core.nodes('inet:service:account=(acct,)')
+            self.none(nodes[0].get('instance'))
+            self.eq(nodes[0].get('id'), instiden)
+            self.eq(nodes[0].get('platform'), instiden)
+
+            nodes = await core.nodes('inet:service:message=(mesg,)')
+            self.none(nodes[0].get('instance'))
+            self.eq(nodes[0].get('platform'), instiden)
+
+            nodes = await core.nodes('inet:service:login=(login,)')
+            self.none(nodes[0].get('instance'))
+            self.eq(nodes[0].get('platform'), s_common.guid(('other',)))
+            self.eq(await nodes[0].getData('migration:inet:service:login:instance'), instiden)
+
+            nodes = await core.nodes('risk:alert=(alert,)')
+            self.none(nodes[0].get('service:instance'))
+            self.eq(nodes[0].get('service:platform'), instiden)
+            self.eq(nodes[0].get('_foo:instance'), instiden)
+            self.none(nodes[0].get('_bar:instance'))
+            self.eq(nodes[0].get('_bar:platform'), s_common.guid(('other',)))
+            self.eq(await nodes[0].getData('migration:risk:alert:_bar:instance'), instiden)
+            self.none(await nodes[0].getData('migration:risk:alert:service:instance'))
+
+            nodes = await core.nodes('it:log:event=(event,)')
+            self.none(nodes[0].get('service:instance'))
+            self.eq(nodes[0].get('service:platform'), instiden)
+
+            nodes = await core.nodes('it:exec:query=(query,)')
+            self.none(nodes[0].get('service:instance'))
+            self.eq(nodes[0].get('service:platform'), s_common.guid(('other',)))
+            self.eq(await nodes[0].getData('migration:it:exec:query:service:instance'), instiden)
+
+            nodes = await core.nodes('inet:service:account=(acct2,)')
+            self.eq(nodes[0].get('instance'), s_common.guid(('bare',)))
+
+            # re-running is idempotent
+            self.eq(('inet:service:platform', instiden), await core.callStorm(q))
+            self.len(1, await core.nodes('inet:service:platform=(vtx,)'))
+            self.len(1, await core.nodes('inet:service:platform=(vtx,) <(refs)- meta:source'))
+            self.len(4, await core.nodes('inet:service:platform=(vtx,) <- *'))
+            nodes = await core.nodes('risk:alert=(alert,)')
+            self.eq(nodes[0].get('_foo:instance'), instiden)
+
+            # an instance with no props and nodata
+            q = '''
+                inet:service:instance=(bare,) $node.data.set(nope, nope)
+                return($lib.model.migration.s.inetServiceInstanceToPlatform($node, nodata=(true)))
+            '''
+            await core.callStorm(q)
+            nodes = await core.nodes('inet:service:platform=(bare,)')
+            self.len(1, nodes)
+            self.none(nodes[0].get('parent'))
+            self.none(nodes[0].get('name'))
+            self.none(await nodes[0].getData('nope'))
+            self.none(await nodes[0].getData('migration:inet:service:instance:owner'))
+
+            nodes = await core.nodes('inet:service:account=(acct2,)')
+            self.none(nodes[0].get('instance'))
+            self.eq(nodes[0].get('platform'), s_common.guid(('bare',)))
+
+            # an instance whose :platform shares its guid does not become its own parent
+            acme = await core.callStorm('''
+                $plat = {[ inet:service:platform=({"name": "acme chat"}) ]}
+                $inst = {[ inet:service:instance=({"name": "acme chat"}) :platform=$plat :name="acme chat" ]}
+                [ inet:service:account=(acmeacct,) :instance=$inst :platform=$plat ]
+                return($plat.value())
+            ''')
+            nodes = await core.nodes('inet:service:instance=({"name": "acme chat"})')
+            self.eq(acme, nodes[0].ndef[1])
+            self.eq(acme, nodes[0].get('platform'))
+
+            msgs = await core.stormlist('''
+                inet:service:instance=({"name": "acme chat"})
+                $lib.model.migration.s.inetServiceInstanceToPlatform($node)
+            ''')
+            self.stormIsInWarn(f'inet:service:instance={acme} has the same guid as the instance', msgs)
+            self.stormIsInWarn(':parent was not set', msgs)
+
+            nodes = await core.nodes('inet:service:platform=({"name": "acme chat"})')
+            self.len(1, nodes)
+            self.eq(acme, nodes[0].ndef[1])
+            self.none(nodes[0].get('parent'))
+            self.eq(nodes[0].get('name'), 'acme chat')
+
+            nodes = await core.nodes('inet:service:account=(acmeacct,)')
+            self.none(nodes[0].get('instance'))
+            self.eq(nodes[0].get('platform'), acme)
+            self.none(await nodes[0].getData('migration:inet:service:account:instance'))
+
+            with self.raises(s_exc.BadArg) as exc:
+                await core.callStorm('inet:web:instance | $lib.model.migration.s.inetServiceInstanceToPlatform($node)')
+            self.isin(', not inet:web:instance', exc.exception.get('mesg'))
+
     async def test_stormlib_model_migration_fuse(self):
 
         async with self.getTestCore() as core:

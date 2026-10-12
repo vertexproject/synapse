@@ -42,6 +42,32 @@ class EconTest(s_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ econ:pay:pan=notapan ]')
 
+            nodes = await core.nodes('''
+                [ econ:pay:card=*
+                    :funding:type=DEBIT
+                    :funding:reloadable=(false)
+                    :network={[ ou:org=* :name=visa ]}
+                    :network:name=VISA
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq('debit', nodes[0].get('funding:type'))
+            self.eq(0, nodes[0].get('funding:reloadable'))
+            self.eq('visa', nodes[0].get('network:name'))
+            self.eq('ou:org', nodes[0].get('network')[0])
+
+            self.len(1, await core.nodes('econ:pay:card:funding:type=debit'))
+            self.len(1, await core.nodes('econ:pay:card:funding:reloadable=(false)'))
+            self.len(1, await core.nodes('econ:pay:card:network:name=visa'))
+            self.len(1, await core.nodes('econ:pay:card:funding:type=debit :network -> ou:org +:name=visa'))
+
+            for valu in ('credit', 'debit', 'prepaid', 'charge', 'deferreddebit'):
+                nodes = await core.nodes('[ econ:pay:card=* :funding:type=$valu ]', opts={'vars': {'valu': valu}})
+                self.eq(valu, nodes[0].get('funding:type'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ econ:pay:card=* :funding:type=newp ]')
+
             place = s_common.guid()
             bycont = s_common.guid()
             fromcont = s_common.guid()

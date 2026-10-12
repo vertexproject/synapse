@@ -325,7 +325,17 @@ class InetModelTest(s_t_utils.SynTest):
             }})
             self.eq(t.norm(valu), expected)
 
+            valu = '2001:db8::/128'
+            expected = ('2001:db8::/128', {'subs': {
+                'broadcast': '2001:db8::',
+                'network': '2001:db8::',
+                'mask': 128,
+            }})
+            self.eq(t.norm(valu), expected)
+
             self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1/-1')
+            self.raises(s_exc.BadTypeValu, t.norm, '2001:db8:3333:4444:5555:6666:7777:8888')
+            self.raises(s_exc.BadTypeValu, t.norm, '2001:db8::')
 
     async def test_client(self):
         data = (
@@ -1321,6 +1331,8 @@ class InetModelTest(s_t_utils.SynTest):
             valu = ('1.2.3.4', '5.6.7.8', '7.8.9.10')
             self.raises(s_exc.BadTypeValu, t.norm, valu)
 
+            self.raises(s_exc.BadTypeValu, t.norm, '1.2.3.4')
+
     async def test_net6(self):
         tname = 'inet:net6'
         async with self.getTestCore() as core:
@@ -1350,6 +1362,11 @@ class InetModelTest(s_t_utils.SynTest):
 
             valu = ('fd00::', 'fe00::', 'ff00::')
             self.raises(s_exc.BadTypeValu, t.norm, valu)
+
+            self.raises(s_exc.BadTypeValu, t.norm, '2001:db8:3333:4444:5555:6666:7777:8888')
+            self.raises(s_exc.BadTypeValu, t.norm, '2001:db8::')
+
+            self.eq((False, None), await core.callStorm('return($lib.trycast(inet:net6, "2001:db8::"))'))
 
     async def test_passwd(self):
         async with self.getTestCore() as core:
@@ -3117,11 +3134,13 @@ class InetModelTest(s_t_utils.SynTest):
                 :provider={ ou:org:name=$provname }
                 :provider:name=$provname
                 :type=foo.bar
+                :tenant={[ inet:service:tenant=({"id": "VS-31337"}) ]}
             ]
             '''
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:service:platform', s_common.guid(('slack',))))
+            self.nn(nodes[0].get('tenant'))
             self.eq('foo', nodes[0].get('id'))
             self.eq('foo.bar.', nodes[0].get('type'))
             self.eq('foofam', nodes[0].get('family'))
@@ -3144,6 +3163,26 @@ class InetModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('inet:service:platform=(slack,) :remover -> *')
             self.eq(['baz'], [n.get('id') for n in nodes])
+
+            nodes = await core.nodes('inet:service:platform=(slack,) :tenant -> *')
+            self.eq(['VS-31337'], [n.get('id') for n in nodes])
+            self.len(1, await core.nodes('inet:service:tenant:id=VS-31337 -> inet:service:platform:tenant'))
+
+            self.true(core.model.form('inet:service:instance').deprecated)
+            for propname in ('inet:service:account:instance',
+                             'inet:service:login:instance',
+                             'inet:service:message:instance',
+                             'risk:alert:service:instance',
+                             'it:log:event:service:instance',
+                             'it:exec:query:service:instance'):
+                prop = core.model.prop(propname)
+                self.true(prop.deprecated)
+
+                doc = 'Deprecated. Please use :service:platform.'
+                if propname.startswith('inet:'):
+                    doc = 'Deprecated. Please use :platform.'
+
+                self.eq(doc, prop.info.get('doc'))
 
             nodes = await core.nodes('[ inet:service:platform=({"name": "slack chat"}) ]')
             self.eq(nodes[0].ndef, platform.ndef)

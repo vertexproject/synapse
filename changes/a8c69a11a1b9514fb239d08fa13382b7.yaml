@@ -1,7 +1,0 @@
----
-desc: Fixed ``HotCount.inc()`` not marking its slab dirty, which could delay persisting
-  counter updates such as layer form counts and Axon metrics.
-desc:literal: false
-prs: []
-type: bug
-...

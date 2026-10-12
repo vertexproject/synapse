@@ -1,7 +1,0 @@
----
-desc: Fixed ``$lib.auth.roles.get()`` and ``$lib.auth.users.get()`` raising a Python
-  error when given a null or non-string iden.
-desc:literal: false
-prs: []
-type: bug
-...

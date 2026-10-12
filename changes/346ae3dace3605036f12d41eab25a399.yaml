@@ -1,0 +1,7 @@
+---
+desc: Updated the ``aha:promotable`` description to say it only excludes a service
+  from automatic leader selection during demotion.
+desc:literal: false
+prs: []
+type: doc
+...

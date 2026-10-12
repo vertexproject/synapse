@@ -1,7 +1,0 @@
----
-desc: Added an ``axon:ready`` key to the ``cell`` section of the Cortex ``getCellInfo()``
-  API, which reports whether the Axon is ready.
-desc:literal: false
-prs: []
-type: feat
-...

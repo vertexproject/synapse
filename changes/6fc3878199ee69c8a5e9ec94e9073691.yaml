@@ -1,0 +1,8 @@
+---
+desc: Fixed a bug where an exception raised while a mirror applied a forwarded write
+  returned the mirror loop's own running frame in its traceback, which could stop
+  the mirror loop if the caller cleared the traceback frames.
+desc:literal: false
+prs: []
+type: bug
+...

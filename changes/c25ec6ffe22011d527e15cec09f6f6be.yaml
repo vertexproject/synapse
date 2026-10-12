@@ -1,8 +1,0 @@
----
-desc: Fixed a ``KeyError`` in Storm APIs which interacted with the Axon. Cortex Storm,
-  Telepath, and HTTP APIs which use the Axon now wait up to 300 seconds for the Axon to be
-  ready before raising a ``TimeOut`` error.
-desc:literal: false
-prs: []
-type: bug
-...
