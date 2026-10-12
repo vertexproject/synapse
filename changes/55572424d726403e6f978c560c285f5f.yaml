@@ -1,0 +1,9 @@
+---
+desc: Fixed an issue which caused deleting a file from an Axon to leave its byte offset
+  index entries in place, which could cause a subsequent byte range read of the same
+  file to return incorrect data. Added an Axon storage migration which removes those
+  entries.
+desc:literal: false
+prs: []
+type: bug
+...
