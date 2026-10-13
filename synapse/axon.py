@@ -1504,6 +1504,9 @@ class Axon(s_cell.Cell):
             if first:
                 first = False
                 delt = boff - offs
+                if delt == 0:
+                    continue
+
                 yield byts[-delt:]
                 continue
 

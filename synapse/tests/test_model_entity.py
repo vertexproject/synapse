@@ -164,6 +164,42 @@ class EntityModelTest(s_t_utils.SynTest):
             self.none(core.model.form('entity:had').prop('percent'))
             self.nn(core.model.form('entity:owned').prop('percent'))
 
+            # entity:authored links an actor to anything implementing doc:authorable.
+            self.true(core.model.form('entity:authored').implements('entity:activity'))
+
+            nodes = await core.nodes('''
+                $soft = {[ it:software=({"name": "beavertail"}) ]}
+                [ entity:authored=*
+                    :actor={[ risk:threat=({"name": "famous dog"}) ]}
+                    :actor:name="famous dog"
+                    :authorable=$soft
+                    :period=(2023, ?)
+                ]
+            ''')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'actor:name', 'famous dog')
+            self.propeq(nodes[0], 'period', (1672531200000000, 9223372036854775807, 0xffffffffffffffff))
+            self.len(1, await core.nodes('entity:authored :authorable -> it:software +:name=beavertail'))
+            self.len(1, await core.nodes('entity:authored :actor -> risk:threat'))
+
+            # any number of actors may author the same item
+            await core.nodes('''
+                $soft = {[ it:software=({"name": "beavertail"}) ]}
+                [ entity:authored=* :actor={[ risk:threat=({"name": "brave cat"}) ]} :authorable=$soft ]
+            ''')
+            self.len(2, await core.nodes('it:software:name=beavertail <- * +entity:authored'))
+
+            # anything implementing doc:authorable, such as a report
+            nodes = await core.nodes('''[
+                entity:authored=* :authorable={[ doc:report=* :title="dog days" ]}
+            ]''')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('entity:authored :authorable -> doc:report'))
+
+            # an item which is not doc:authorable is rejected
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ entity:authored=* :authorable={[ inet:fqdn=vertex.link ]} ]')
+
             nodes = await core.nodes('''[
                 entity:goal=*
                     :name=MyGoal

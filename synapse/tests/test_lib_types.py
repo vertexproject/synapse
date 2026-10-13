@@ -1369,6 +1369,56 @@ class TypesTest(s_t_utils.SynTest):
             prop = core.model.prop('entity:goal:name')
             self.false(nodes10[0].hasPropAltsValu(prop, ('newp:newp', 'phishing')))
 
+            # list guid seeds fold typed values the same way $lib.guid() does
+            await core.nodes('[ ou:org=* :name=Seed :names=(Alpha, Beta) ]')
+            await core.nodes('[ ou:org=* :name=seed :names=(ALPHA, beta) ]')
+            self.eq({'Seed', 'seed'}, {n.get('name')[1] for n in await core.nodes('ou:org:name=seed')})
+
+            seeds = (
+                (':name', s_common.guid(('seed',))),
+                ('$txt', None),
+                (':names', s_common.guid((('alpha', 'beta'),))),
+                (':name, plain', s_common.guid(('seed', 'plain'))),
+                ('(:name, plain), (10)', s_common.guid((('seed', 'plain'), 10))),
+            )
+            for seed, expt in seeds:
+
+                q = f'''
+                    $retn = ()
+                    ou:org:name=seed
+                    $txt = $lib.cast(inet:dns:txt, (vertex.link, :name))
+                    $retn.append(($lib.guid({seed}), $lib.cast(guid, ({seed},))))
+                    fini {{ return($retn) }}
+                '''
+                guids = await core.callStorm(q)
+                self.len(2, guids)
+                self.eq(guids[0], guids[1])
+                self.eq(guids[0][0], guids[0][1])
+
+                if expt is not None:
+                    self.eq(expt, guids[0][0])
+
+                q = f'ou:org:name=seed $txt = $lib.cast(inet:dns:txt, (vertex.link, :name)) [ ou:org=({seed},) ] -:name'
+                nodes = await core.nodes(q)
+                self.len(2, nodes)
+                self.eq(('ou:org', guids[0][0]), nodes[0].ndef)
+                self.eq(nodes[0].ndef, nodes[1].ndef)
+
+            # the text field inside a comp is folded
+            guid = await core.callStorm('return($lib.cast(guid, ($lib.cast(inet:dns:txt, (vertex.link, "Hello World")),)))')
+            self.eq(guid, await core.callStorm('return($lib.guid($lib.cast(inet:dns:txt, (vertex.link, "HELLO world"))))'))
+
+            nodes = await core.nodes('ou:org:name=seed [ ou:org=(:name,) ] -:name')
+            self.len(2, nodes)
+            self.len(1, await core.nodes(f'ou:org={s_common.guid(("seed",))}'))
+
+            # untyped literals are used as-is
+            self.eq(s_common.guid(('Foo',)), await core.callStorm('return($lib.cast(guid, (Foo,)))'))
+            self.eq(s_common.guid(('foo',)), await core.callStorm('return($lib.cast(guid, (foo,)))'))
+            nodes = await core.nodes('[ ou:org=(Foo, plain) ou:org=(foo, plain) ]')
+            self.eq(('ou:org', s_common.guid(('Foo', 'plain'))), nodes[0].ndef)
+            self.eq(('ou:org', s_common.guid(('foo', 'plain'))), nodes[1].ndef)
+
     async def test_poly(self):
 
         async with self.getTestCore() as core:

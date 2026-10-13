@@ -1,8 +1,8 @@
 ```mdstorm-setup
 ```
 
-<a id="storm-ref-type-specific"></a>
 
+<a id="storm-ref-type-specific"></a>
 
 # Storm Reference - Type-Specific Storm Behavior
 
@@ -31,11 +31,12 @@ Key types that have been optimized in various ways are documented below along wi
 - [loc](storm_ref_type_specific.md#type-loc) (location)
 - [str](storm_ref_type_specific.md#type-str) (string)
 - [syn:tag](storm_ref_type_specific.md#type-syn-tag) (tag)
-- [taxonomy](storm_ref_type_specific.md#type-taxoxnomy) (taxonomy)
+- [taxonomy](storm_ref_type_specific.md#type-taxonomy) (taxonomy)
 - [time](storm_ref_type_specific.md#type-time) (date/time)
+- [timeprecision](storm_ref_type_specific.md#type-timeprecision) (time precision)
+
 
 <a id="type-array"></a>
-
 
 ## array
 
@@ -272,7 +273,7 @@ A `duration` can also be specified as the number of microseconds expressed as an
 `(218262777)`
 
 > [!TIP]
-> This parentheses syntax only applies when setting or updating a `duration` property using Storm. When setting or updating a property in the [Optic UI](/docs/synapse-enterprise-optic/latest/index.md) by editing a field, you must enter a duration string value.
+> This [expression syntax](../glossary.md#gloss-expression-syntax) only applies when setting or updating a `duration` property using Storm. When setting or updating a property in the [Optic UI](/docs/synapse-enterprise-optic/latest/index.md) by editing a field, you must enter a duration string value.
 
 **Special time values**
 
@@ -387,8 +388,8 @@ Similarly, Storm's HTTP library ([`$lib.inet.http`](../stormtypes_libs.md#storml
 
 N/A
 
-<a id="type-guid"></a>
 
+<a id="type-guid"></a>
 
 ## guid
 
@@ -412,15 +413,15 @@ ou:org:name=vertex
 
 Alternatively, the guid value can be copied and pasted.
 
-<a id="guid-type-insertion"></a>
 
+<a id="guid-type-insertion"></a>
 
 ### Insertion
 
 There are multiple ways to create guid nodes in Synapse. The critical consideration when deciding which method is best for your use case is how (or whether) you can **deconflict** guid nodes.
 
-<a id="guid-best-practices"></a>
 
+<a id="guid-best-practices"></a>
 
 #### Deconfliction
 
@@ -455,8 +456,8 @@ With guid nodes, it is their **secondary properties** that provide meaningful in
 > [!NOTE]
 > When creating guid nodes, [Dictionary Syntax](storm_ref_type_specific.md#guid-dictionary) is preferred where possible. [Predictable Guids](storm_ref_type_specific.md#guid-predictable) and [Arbitrary Guids](storm_ref_type_specific.md#guid-arbitrary) can also be used, but you should consider their pros / cons and appropriate use cases.
 
-<a id="guid-dictionary"></a>
 
+<a id="guid-dictionary"></a>
 
 #### Dictionary Syntax
 
@@ -561,8 +562,8 @@ In contrast, the following dictionary syntax only contains one of the `:dns:mx` 
 [ ou:org=( { "name": "vertex", "dns:mx": ["vertex.link"] } ) ]
 ```
 
-<a id="guid-dictionary-special-keys"></a>
 
+<a id="guid-dictionary-special-keys"></a>
 
 ### Special Keys
 
@@ -679,8 +680,8 @@ Each name in `$unsets` must be a valid property on the form. Specifying a proper
 [ ou:org=( { "name": "example org", "$unsets": ["desc"] } ) ]
 ```
 
-<a id="guid-predictable"></a>
 
+<a id="guid-predictable"></a>
 
 #### Predictable Guids
 
@@ -739,9 +740,10 @@ $name='the vertex project' $url=https://vertex.link/ [ ou:org=$lib.guid($name, $
 ```
 
 - The input to the algorithm is interpreted as a structured list of **string values** (i.e., `(str_0, str_1, str_2...str_n)`). To consistently generate the same guid, each string must be **identical** (note that strings are case sensitive) and in the **same order** each time.
+- Typed values (such as property values or `$lib.cast()` results) are normalized for deconfliction the same way `$lib.guid()` normalizes them: values of the data model `text` type are case-folded, including inside comp and array values. Untyped literals are used as-is.
+
 
 <a id="guid-arbitrary"></a>
-
 
 #### Arbitrary Guids
 
@@ -835,8 +837,8 @@ entity:contact:name='ron the cat' [ :org={ ou:org:name='the vertex project' } ]
 
 See [Add or Modify Properties Using Subqueries](storm_ref_data_mod.md#prop-add-mod-subquery) for additional details.
 
-<a id="type-inet-fqdn"></a>
 
+<a id="type-inet-fqdn"></a>
 
 ## inet:fqdn
 
@@ -953,8 +955,8 @@ inet:dns:a +:fqdn='*.museum'
 - Domains cannot be **filtered** based on suffix matching (note that a "lift by suffix" is effectively a combined "lift and filter" operation).
 - Domains can be lifted or filtered using the regular expression (regex) extended operator (`~=`). For example `inet:fqdn~=google` is valid (see [Lift by Regular Expression (~=)](storm_ref_lift.md#lift-regex) and [Filter by Regular Expression (~=)](storm_ref_filter.md#filter-regex)). Note that lifting by regular expression is a brute-force operation and may be resource-intensive over large data sets; lifting a subset of data by some other method and then filtering by regular expression is preferable where possible.
 
-<a id="type-inet-ip"></a>
 
+<a id="type-inet-ip"></a>
 
 ## inet:ip
 
@@ -1067,8 +1069,8 @@ Filter a set of DNS A records to only include those whose IP value is within the
 inet:dns:a:fqdn=woot.com +:ip=172.16.0.0/12
 ```
 
-<a id="type-int"></a>
 
+<a id="type-int"></a>
 
 ## int
 
@@ -1152,8 +1154,8 @@ Use an octal value to lift all the RAR entry nodes where the `:extra:posix:perms
 file:mime:rar:entry:extra:posix:perms=0o755
 ```
 
-<a id="type-ival"></a>
 
+<a id="type-ival"></a>
 
 ## ival
 
@@ -1268,8 +1270,8 @@ inet:dns:a:seen@=(2019/03/01, 2019/04/01)
 >
 > `$min` will represent the value `2023/07/08 11:19:02` and `$max` will represent the value `2023/12/14 21:18:47`.
 
-<a id="type-loc"></a>
 
+<a id="type-loc"></a>
 
 ## loc
 
@@ -1380,8 +1382,8 @@ inet:ip:place:loc=ca.on.*
 >
 > Prefix match: `ou:org:place:loc^=de`
 
-<a id="type-str"></a>
 
+<a id="type-str"></a>
 
 ## str
 
@@ -1419,8 +1421,8 @@ ou:org:name^=acme
 
 Strings and string-derived types can also be lifted or filtered using the regular expression extended comparator ( `~=`) (see [Lift by Regular Expression (~=)](storm_ref_lift.md#lift-regex) and [Filter by Regular Expression (~=)](storm_ref_filter.md#filter-regex)).
 
-<a id="type-syn-tag"></a>
 
+<a id="type-syn-tag"></a>
 
 ## syn:tag
 
@@ -1520,8 +1522,8 @@ syn:tag^=rep.sophos.co
 > [!NOTE]
 > Working with (lifting, filtering, etc.) `syn:tag` **types** (`syn:tag` forms or property values) is different from working with **tags** applied to nodes. In particular, when filtering based on the tag(s) applied to a set of nodes, you can filter using single or double asterisks ( `*` or `**`). See [Filter by Tag Globs](storm_ref_filter.md#filter-tag-globs) or the general [Tag Filters](storm_ref_filter.md#tag-filter) or [Tag Lifts](storm_ref_lift.md#tag-lifts) sections for details on working with tags applied to nodes.
 
-<a id="type-taxoxnomy"></a>
 
+<a id="type-taxonomy"></a>
 
 ## taxonomy
 
@@ -1625,148 +1627,174 @@ ind:industry:type^=media.j
 - Use of the equals comparator ( `=` ) with `taxonomy` types will match the exact value only. So `ind:industry:type=energy` will only match that taxonomy and will not match `ind:industry:type=energy.electricity` or `ind:industry:type=energy.electricity.distribution`.
 - When lifting or filtering `taxonomy` types, use of the wildcard ( `*` ) is not allowed. For example, the following Storm expression is invalid and will throw a syntax error: `risk:attack:type:taxonomy=phishing.*`.
 
-<a id="type-time"></a>
 
+<a id="type-time"></a>
 
 ## time
 
-Synapse stores `time` types in Epoch microseconds (micros) - that is, the number of microseconds since January 1, 1970. The `time` type is technically a date/time because it encompasses both a date and a time. A time value alone, such as 12:37 PM (12:37:00.000000), is invalid.
+Synapse stores `time` types as an epoch microseconds (micros) integer - that is, the number of microseconds since January 1, 1970. This includes negative values to represent times prior to January 1, 1970 (e.g., `-435531600000000` for March 14, 1956 at 03:00).
+
+The `time` type is technically a date/time because it encompasses both a date and a time. A time value alone, such as 12:37 PM (12:37:00.000000), is invalid.
 
 See also the section on [ival](storm_ref_type_specific.md#type-ival) (interval) types for details on how `time` types are used as minimum / maximum pairs.
 
+**Virtual Properties**
+
+All `time` types have a `.precision` [virtual property](data_model.md#virtual-property) (of type `timeprecision`) that stores the precision for the time value. The default precision is `microsecond`, but the value can be set to any supported value.
+
+See the [timeprecision](storm_ref_type_specific.md#type-timeprecision) section for additional details on the `timeprecision` type.
+
+See the `time` [Insertion](storm_ref_type_specific.md#type-time-insert) section below for additional details on how `.precision` interacts with `time` values.
+
+
+<a id="type-time-index"></a>
+
 ### Indexing
 
-N/A
+`Time` values are stored as epoch microsecond integers.
+
+A `time` value's `.precision` is stored with the `time` but not indexed. If the `.precision` value matches the type's defined default (`microsecond` unless the type specifies otherwise), Synapse stores a null value to represent the default.
+
+
+<a id="type-time-parse"></a>
 
 ### Parsing
 
-`time` values can be input into Storm as any of the following:
+`time` values can be input into Storm using any of the following formats. Standard rules regarding the use of [Whitespace and Literals in Storm](storm_ref_intro.md#storm-whitespace-literals) apply.
 
-- **Explicit** times:
 
-  - Human-readable (YYYY/MM/DD hh:mm:ss.mmmmmm):
+<a id="type-time-parse-explicit"></a>
 
-    `'2018/12/16 09:37:52.324'`
+**Explicit** times:
 
-  - Human-readable "Zulu" (YYYY/MM/DDThh:mm:ss.mmmmmmZ):
+When entering explicit `time` values, you can enter them at any level of precision; you do not have to use the full microsecond format. See [Insertion](storm_ref_type_specific.md#type-time-insert) below for details on how Synapse interprets and stores `time` and `.precision` values for lower precision values (e.g., second, day).
 
-    `2018/12/16T09:37:52.324Z`
+- Human-readable (`YYYY/MM/DD hh:mm:ss.mmmmmm`):
+  
+  `'2018/12/16 09:37:52.324873'`
 
-  - Human-readable with time zone (YYYY-MM-DD hh:mm:ss.mmmmmm+/-hh:mm). No spaces are allowed between the time value and the time zone offset:
+- Human-readable "Zulu" (`YYYY/MM/DDThh:mm:ss.mmmmmmZ`):
+  
+  `2018/12/16T09:37:52.324873Z`
 
-    `2018-12-16 09:37:52.324-04:00`
+- Human-readable with time zone (`YYYY-MM-DD hh:mm:ss.mmmmmm +/-hh:mm`). A space between the value and the time zone offset is optional:
+  
+  `'2018-12-16 09:37:52.324873 -04:00'`
+  
+  `'2018-12-16 09:37:52.324873-04:00'`
+  
+  > [!NOTE]
+  > Synapse does not support the **storage** of a time zone (e.g., `+0800`) with a `time` value. Synapse stores all `time` values in UTC for consistency. If a time zone is specified using an acceptable time zone offset format on input, Synapse will automatically convert the value to UTC for storage. If no time zone is specified, Synapse will assume the value is in UTC.
 
-    > [!NOTE]
-    > Synapse does not support the **storage** of an explicit time zone with a time value (i.e., +0800). Synapse stores time values in UTC for consistency. If a time zone is specified using an acceptable time zone offset format on input, Synapse will automatically convert the value to UTC for storage. If no time zone is specified, Synapse will assume the value is in UTC.
+- No formatting (`YYYYMMDDhhmmssmmmmmm`):
+  
+  `20181216093752324873`
 
-  - No formatting (YYYYMMDDhhmmssmmmmmm):
+- Epoch micros:
+  
+  `(1544953072324873)`
+  
+  > [!TIP]
+  > Synapse attempts to parse time values as human-readable strings (the format most likely to be entered by users) by default. Using parentheses tells Synapse to interpret the value as a raw integer.
+  >
+  > [Expression syntax](../glossary.md#gloss-expression-syntax) can only be used when setting or updating a `time` property using Storm. When setting or updating a property in the [Optic UI](/docs/synapse-enterprise-optic/latest/index.md) by editing a field, you must enter a time string value.
 
-    `20181216093752324000`
 
-  - Epoch micros:
+<a id="type-time-parse-relative"></a>
 
-    `(1544953072324000)`
+**Relative** (offset) time values.
 
-    > [!TIP]
-    > Synapse expects that users will generally enter time values using human-friendly strings, and will attempt to parse the input as such. Using parentheses tells Synapse to interpret the value as a raw integer.
-    >
-    > Note that this parentheses syntax only applies when setting or updating a `time` property using Storm. When setting or updating a property in the [Optic UI](/docs/synapse-enterprise-optic/latest/index.md) by editing a field, you must enter a time string value.
+Synapse and Storm support the use of relative time expressions in the following format:
 
-- **Relative** (offset) time values in the format:
+**+** \| **-** \| **+-** *\<count\>* *\<unit\>*
 
-  **+** \| **-** \| **+-** *\<count\>* *\<unit\>*
+where *\<count\>* is a numeric value and *\<unit\>* is one of the following:
 
-  where *\<count\>* is a numeric value and *\<unit\>* is one of the following:
+- `sec`, `secs`, or `seconds`
+- `min`, `mins`, `minute`, or `minutes`
+- `hour` or `hours`
+- `day` or `days`
 
-  - `minute(s)`
-  - `hour(s)`
-  - `day(s)`
+**Usage Notes**
 
-  **Examples:**
+- The units do not need to be "grammatically correct" - Synapse will accept both `'+2 days'` and `'+2 day'`.
+- A space between the `+` | `-` | `+-` and *\<count\>* is optional. Synapse will accept both `'+10 seconds'` and `'+ 10 seconds'`.
+- A space between the *\<count\>* and *\<unit\>* is optional. Synapse will accept both `+3hours` and `'+3 hours'`
+- For `time` values, the time used to calculate the offset varies based on the use case:
+  
+  - If you specify a `time` value using a relative value only (e.g., `[ :time='+1 hour' ]`), the offset is calculated relative to the current time (`now`).
+  - If you specify a `time` value using an "anchor" time (e.g., `[ :time='2026/10/03 12:00 +1 hour' ]`), the offset is calculated from the anchor.
+  - If a relative time is used as the second value of a range (e.g., `*range=('2026/10/02 12:00', '+1 hour')`) or an `ival` (e.g., `[ :seen=('2026/10/02 12:00', '+1 hour') ]`), the offset is calculated from the first value.
 
-  - `'+7 days'`
-  - `'-15 minutes'`
-  - `'+-1 hour'`
+- A relative value that uses `+-` (e.g., `'+-30 seconds'`) results in two offsets (two `time` values) and cannot be used with a `time` type. A `+-` offset can only be used with [ival](storm_ref_type_specific.md#type-ival) (interval) types or as the second value of a range (e.g., `*range=('2021/05/13 12:00', '+-12 hours')`).
 
-- **Special** time values:
 
-  - the keyword `now` is used to represent the current date/time.
+<a id="type-time-parse-special"></a>
 
-  - a question mark ( `?` ) is used to effectively represent an unspecified / indefinite time in the future (technically equivalent to 9223372036854775807 micros, i.e., "some really high value in the future". Note that technically the largest valid micros value is 253402300799999999, which represents 9999/12/31 23:59:59.999999).
+**Special** time values:
 
-    The question mark can be used as the maximum value of an interval ([ival](storm_ref_type_specific.md#type-ival)) type to specify that the data or assessment associated with the `ival` should be considered valid indefinitely. (Contrast that with a maximum interval value set to the equivalent of `now` that would need to be continually updated over time in order to remain current.)
+The following terms and symbols have specialized meanings with respect to time in Synapse and Storm:
 
-Standard rules regarding using [Whitespace and Literals in Storm](storm_ref_intro.md#storm-whitespace-literals) apply. For example, `'2018/12/16 09:37:52.324'` needs to be entered in single or double quotes, but `2018/12/16` does not. Similarly, relative times starting with `+` or `-` and the special time value `?` need to be placed in single or double quotes.
+- the keyword `now` is used to represent the current date/time.
+- a question mark ( `?` ) represents **unknown**. Synapse stores this value as `0x7fffffffffffffff`.
+- an asterisk ( `*` ) represents **ongoing**. Synapse stores this value as `0x7ffffffffffffffe`.
 
-#### Lower Resolution Time Values and Wildcard Time Values
+**Usage Notes**
 
-`time` values (including tag timestamps) must be entered at a minimum resolution of year (`YYYY`) and can be entered up to a maximum resolution of microseconds (`YYYY/MM/DD hh:mm:ss.mmmmmm`).
-
-Where lower resolution values are entered, Synapse will make logical assumptions about the intended date / time value and zero-fill the remainder of the equivalent epoch mills date / time. For example:
-
-- A value of `2016` will be interpreted as 12:00 AM on January 1, 2016 (`2016/01/01 00:00:00.000000`).
-- A value of `2018/10/27` will be interpreted as 12:00 AM on that date (`2018/10/27 00:00:00.000000`).
-- A value of `'2020/03/16 05'` will be interpreted as 05:00 AM on that date (`2020/03/16 05:00:00.000000`).
-- A value of `'2018/10/27 14:00-04:00'` will be interpreted as 14:00 (2:00 PM) on that date with a 4 hour offset from UTC (`2018/10/27 14:00:00.000-04:00`, stored in UTC as `2018/10/27 18:00:00.000000`).
-
-Synapse also supports the use of the wildcard ( `*` ) character to specify a partial time value match:
-
-- A value of `2016*` will be interpreted as "any date / time within the year 2016".
-- A value of `2018/10/27*` will be interpreted as "any time on October 27, 2018".
-- A value of `'2020/03/16 05*'` will be interpreted as "any time within the hour of 05:00 on March 16, 2020".
+- The question mark ( `?` ) for "unknown" is most useful when setting the `.min` and / or `.max` value of an [ival](storm_ref_type_specific.md#type-ival), where the start and / or end time are not known.
+- The asterisk ( `*` ) for "ongoing" is most useful when setting the `.max` value of an [ival](storm_ref_type_specific.md#type-ival) to indicate that the activity is known (or assumed) to be continuing indefinitely.
 
 > [!NOTE]
-> When using wildcard syntax, the wildcard must be used on a sensible time value boundary, such as `YYYYMM*`. You cannot us a wildcard to "split" values (i.e., `YYMMD*` is invaild syntax).
+> "Ongoing" and "unknown" are represented **differently** in Synapse v3 and Synapse v2. Synapse v2 uses the question mark (not the asterisk) for "ongoing", and there is no symbol to represent "unknown".
 
-**Examples:**
 
-Set the time of a DNS request to the current time:
-
-```mdstorm --hide
-[ inet:dns:request=( { "query:name": "woot.com" } ) ]
-```
-
-```mdstorm
-inet:dns:request:query:name=woot.com [ :time=now ]
-```
-
-Set the observed time window (technically an `ival` type) for when an IP address was a known sinkhole (via the `#cno.infra.dns.sink.hole` tag) from its known start date to an indefinite future time (i.e., the sinkhole is presumed to remain a sinkhole indefinitely / until the values are manually updated with an explicit end date):
-
-```mdstorm
-[ inet:ip=1.2.3.4 +#cno.infra.dns.sink.hole=(2017/06/13, '?') ]
-```
-
-- Set the observed time window using a time zone offset:
-
-```mdstorm
-[ inet:ip=5.6.7.8 +#cno.infra.dns.sink.hole=(2017/06/13 09:46+04:00, '?') ]
-```
+<a id="type-time-insert"></a>
 
 ### Insertion
 
-When adding or modifying `time` types, any of the above formats (explicit / relative / special terms) can be specified.
+`time` values (including tag timestamps) can be inserted using any of the formats described above.
 
-In addition, when adding or modifying `time` types, a lower resolution time and a wildcard time behave identically. In other words, the following are equivalent Storm queries (both will set the `:time` value of the newly created DNS request node to `2021/01/23 00:00:00.000000`):
+Note that `time` values can be inserted at any precision, from year (`YYYY`) through microseconds (`YYYY/MM/DD hh:mm:ss.mmmmmm`); you do not have to specify the full microsecond format.
 
-```mdstorm --hide
-[ inet:dns:request=( { "query:name": "example.com" } ) ]
+Users should be aware of how Synapse interprets, sets, and stores lower precision time values and their associated `.precision` virtual properties.
+
+#### Lower Precision Time Values
+
+When you insert a `time` value using a lower (less than microsecond) precision, Synapse will **0-extend** the remainder of the value for normalization and storage purposes. For example:
+
+- A value of `2025` is stored as `2025-01-01T00:00:00.000000Z` (`1735689600000000` in epoch micros).
+- A value of `2025/10/27` is stored as `2025-10-27T00:00:00.000000Z` (`1761523200000000` in epoch micros).
+- A value of `'2025/10/27 05'` is stored as `2025-10-27T05:00:00.000000Z` (`1761541200000000` in epoch micros).
+- A value of `'2025/10/27 01:22-04:00'` is converted to UTC and stored as `2025-10-27T05:22:00.000000Z` (`1761542520000000` in epoch micros).
+
+#### Times and .precision
+
+The default precision for `time` types is `microsecond`. The `.precision` virtual property can be set to any allowed value. Synapse will update the associated `time` value to match the specified precision, if necessary.
+
+Setting a higher resolution precision (e.g., `microsecond`) on a lower resolution time (e.g., '2026/08/14 09:32') will **not** affect the `time` value (it is already 0-extended to microsecond precision, so only the `.precision` is updated).
+
+However, setting a lower resolution `.precision` on a higher resolution `time` will **truncate** and 0-extend the value to match the precision. For example, if you have a value of '2024/03/27 15:32:43' and set the `.precision` virtual property to `day`, Synapse will update the value to `2024/03/27` (technically, to `2024/03/27 00:00:00.000000`).
+
+#### The Wildcard ( \* ) and Time Values
+
+Synapse supports the use of the asterisk ( `*` ) as a "wildcard" character to partially match `time` values (e.g., `2026/05*`). (This is separate from the use of the asterisk on its own to represent the special value "ongoing".)
+
+The wildcard asterisk can be used when **inserting** a `time` value (setting or updating a `time` property), but behaves the same as the identical expression **without** the asterisk. In other words, Synapse interprets (and sets) both of the following in the same way:
+
+```mdstorm
+inet:dns:request:query:name=vertex.link [ :time=2025/10/27 ]
 ```
 
 ```mdstorm
-inet:dns:request:query:name=example.com [ :time=2021/01/23 ]
+inet:dns:request:query:name=vertex.link [ :time=2025/10/27* ]
 ```
 
-```mdstorm
-inet:dns:request:query:name=example.com [ :time=2021/01/23* ]
-```
+#### Relative Time Values
 
-When specifying a relative time for a `time` value, **the offset will be calculated from the current time** (`now`):
+See the **Parsing** section on [relative times](storm_ref_type_specific.md#type-time-parse-relative) for examples of setting a `time` type property with relative values.
 
-```mdstorm
-inet:dns:request:query:name=woot.com [ :time='-5 minutes' ]
-```
 
-Plus / minus ( `+-` ) relative times cannot be specified for `time` types, as the type requires a single value. See the section on [ival](storm_ref_type_specific.md#type-ival) (interval) types for details on using `+-` times with `ival` types.
+<a id="type-time-operate"></a>
 
 ### Operations
 
@@ -1785,91 +1813,132 @@ Arithmetic on typed values preserves the `time` type:
 
 `time` types can be lifted and filtered with the standard logical and mathematical comparators (see [Storm Reference - Lifting](storm_ref_lift.md#storm-ref-lift) and [Storm Reference - Filtering](storm_ref_filter.md#storm-ref-filter)). This includes the use of lower resolution time values and wildcard time values.
 
-**Example:**
+**Example**
 
-Filter a set of DNS request nodes to those that occurred prior to June 1, 2019:
+Filter a set of DNS request nodes to those that occurred on or after May 3, 2026:
 
 ```mdstorm --hide
-[ inet:dns:request=( { "query:name": "hurr.com", "time": "2018/06/28 17:43" } ) inet:dns:request=( { "query:name": "derp.net", "time": "2015/12/14 19:22" } ) ]
+[ inet:dns:request=( { "query:name": "hurr.com", "time": "2026/01/14 17:43" } ) inet:dns:request=( { "query:name": "derp.net", "time": "2026/05/27 19:22" } ) ]
 ```
 
 ```mdstorm
-inet:dns:request +:time<2019/06/01
+inet:dns:request +:time>=2026/05/03
 ```
 
 > [!NOTE]
-> It is important to understand the differences in behavior when lifting and filtering `time` types using lower resolution time values (which Synpase zero-fills) or wildcard time values (which Synpase wildcard-matches). These behaviors vary based on the specific operator used.
+> It is important to understand the differences in behavior when lifting and filtering `time` types using lower resolution `time` values (which are always 0-extended) or wildcard time values (which may be 0-extended or 1-extended, based on the specific operation).
 
-- When lifting or filtering using the equivalent ( `=` ) operator, behavior is **different:**
+- When lifting or filtering using the equivalent ( `=` ) operator, behavior is **different**:
 
-  - `:time=2021/05/13` means equal to **the exact date/time value** `2021/05/13 00:00:00.000`.
-  - `:time=2021/05/13*` means equal to **any** time on that date (`2021/05/13 00:00:00.000` through `2021/05/13 23:59:59.999`).
+  - `:time=2021/05/13` means equal to **the exact date/time value** `2021/05/13 00:00:00.000000` (0-extended).
+  - `:time=2021/05/13*` means equal to **any** time on that date - that is, `2021/05/13 00:00:00.000000` through `2021/05/13 23:59:59.999999` (1-extended).
 
-- When lifting or filtering using the greater than ( `>`) / greater than or equal to ( `>=`) operators, behavior is **equivalent:**
+- When lifting or filtering using the greater than ( `>`) / greater than or equal to ( `>=`) operators, behavior is **the same**:
 
-  - `:time>2021/05/13` and `:time>2021/05/13*` **both** mean any date / time greater than `2021/05/13 00:00:00.000`.
-  - `:time>=2021/05/13` and `:time>=2021/05/13*` **both** mean any date / time greater than or equal to `2021/05/13 00:00:00.000`.
+  - `:time>2021/05/13` and `:time>2021/05/13*` **both** mean any date / time greater than `2021/05/13 00:00:00.000000` (both are 0-extended).
+  - `:time>=2021/05/13` and `:time>=2021/05/13*` **both** mean any date / time greater than or equal to `2021/05/13 00:00:00.000000` (both are 0-extended).
 
-  Both are equivalent because in this case Synapse interprets the wildcard syntax as "greater than or equal to the **lowest** possible wildcard match", which in this case is `2021/05/13 00:00:00.000`.
+  Synapse interprets the wildcard syntax as "greater than or equal to the **lowest** possible wildcard match", which in this case is `2021/05/13 00:00:00.000000`.
 
-- When lifting or filtering using the less than ( `<` ) / less than or equal to ( `<=` ) operators, behavior is **different:**
+- When lifting or filtering using the less than ( `<` ) / less than or equal to ( `<=` ) operators, behavior is **different**:
 
-  - `:time<2021/05/13` / `:time<=2021/05/13` mean any date / time less than (or less than or equal to) `2021/05/13 00:00:00.000`.
-  - `:time<2021/05/13*` / `:time<=2021/05/13*` both mean any date / time less than (or less than or equal to) `2021/05/13 23:59:59.999`.
+  - `:time<2021/05/13` / `:time<=2021/05/13` mean any date / time less than (or less than or equal to) `2021/05/13 00:00:00.000000` (0-extended).
+  - `:time<2021/05/13*` / `:time<=2021/05/13*` both mean any date / time less than or equal to `2021/05/13 23:59:59.999999` (1-extended).
 
-  The behavior differs because in this case Synapse interprets the wildcard syntax as "less than or equal to the **highest** possible wildcard match", which in this case is `2021/05/13 23:59:59.999`.
+  Synapse interprets the wildcard syntax as "less than or equal to the **highest** possible wildcard match", which in this case is `2021/05/13 23:59:59.999999`.
 
 > [!TIP]
 > The wildcard syntax is useful because it can provide a simplified, more intuitive means to specify certain time ranges / time intervals without needing to use the range ( `*range=` ) or interval ( `@=` ) operators. For example, the following three Storm queries are equivalent and will return all files compiled at any time within the year 2019:
 >
 > ```storm
-> file:bytes:mime:pe:compiled=2019*
+> file:mime:pe:compiled=2019*
 >
-> file:bytes:mime:pe:compiled*range=('2019/01/01 00:00:00.000', '2019/12/31 23:59:59.999')
+> file:mime:pe:compiled*range=('2019/01/01 00:00:00.000000', '2019/12/31 23:59:59.999999')
 >
-> file:bytes:mime:pe:compiled@=('2019/01/01', '2020/01/01')
+> file:mime:pe:compiled@=('2019/01/01', '2020/01/01')
 > ```
 >
 > (A **range** maximum value represents "less than or equal to" that value, while an **interval** maximum value represents "less than" that value.)
 
 #### Range Custom Operator
 
-`time` types can lifted and filtered using the `*range=` custom comparator (see [Lift by Range (*range=)](storm_ref_lift.md#lift-range) and [Filter by Range (*range=)](storm_ref_filter.md#filter-range)).
-
-**Example:**
-
-Lift a set of `file:bytes` nodes whose PE compiled time is between January 1, 2019 and today:
-
-```mdstorm --hide
-$file1={ [ file:bytes=( { "sha256": "9f9d96e99cef99cbfe8d02899919a7f7220f2273bb36a084642f492dd3e473da" } ) ] } $file2={ [ file:bytes=( { "sha256": "bd422f912affcf6d0830c13834251634c8b55b5a161c1084deae1f9b5d6830ce" } ) ] } $file3={ [ file:bytes=( { "sha256": "fac373a26a5f0458890deea7bc93d6ea6e769eeb6440d56c5adf9f3da8838c90" } ) ] } [ file:mime:pe=( { "file": $file1, "compiled": "2019/10/07 12:42:45" } ) file:mime:pe=( { "file": $file2, "compiled": "2021/04/13 00:23:14" } ) file:mime:pe=( { "file": $file3, "compiled": "2023/10/30 05:34:22" } ) ]
-```
-
-```mdstorm
-file:mime:pe:compiled*range=(2021/01/01, now)
-```
-
-> [!NOTE]
-> Both lower resolution times (`2025`) and wildcard times (`2025*`) can be used for values specified within the `*range=` operator. Because the range operator is a shorthand syntax for "greater than or equal to `<range_min>` and less than or equal to `<range_max>`", users should be aware of differences in behavior between each kind of time value with greater than / less than operators.
-
-See the Storm documents referenced above for additional examples using the range (`*range=`) comparator.
+`time` types can be lifted and filtered using the `*range=` custom comparator. See [Lift by Range (*range=)](storm_ref_lift.md#lift-range) and [Filter by Range (*range=)](storm_ref_filter.md#filter-range) for a detailed discussion.
 
 #### Interval Custom Operator
 
-`time` types can be lifted and filtered using the interval ( `@=` ) custom comparator (see [Lift by Time or Interval (@=)](storm_ref_lift.md#lift-interval) and [Filter by Time or Interval (@=)](storm_ref_filter.md#filter-interval)). The comparator is specifically designed to compare `time` types and `ival` types, which can be useful (for example) for filtering to a set of nodes whose `time` properties fall within a specified interval.
+`time` types can be lifted and filtered using the interval ( `@=` ) custom comparator. See [Lift by Time or Interval (@=)](storm_ref_lift.md#lift-interval) and [Filter by Time or Interval (@=)](storm_ref_filter.md#filter-interval) for a detailed discussion.
 
-**Example:**
 
-Lift a set of DNS A records whose window of observation includes March 16, 2019 at 13:00 UTC:
+<a id="type-timeprecision"></a>
+
+## timeprecision
+
+The `timeprecision` type is a set of values used to specify the known precision of a time-related property value. Because the precision of a time (e.g., "milliseconds") is meaningless without the time itself, `timeprecision` is typically defined as a [virtual property](data_model.md#virtual-property) on a time-related type. For example, both [time](storm_ref_type_specific.md#type-time) and [ival](storm_ref_type_specific.md#type-ival) define a `.precision` virtual property. 
+
+Synapse supports `time` values to a microsecond (`YYYY/MM/DD hh:mm:ss.mmmmmm`) degree of precision. When we have time values with lower precision, Synapse has to extend the precision to normalize the value into epoch microseconds and store it as an integer. In most cases, lower precision times are **0-extended**. So a `time` value of `2024/06` is normalized as `2024/06/01 00:00:00.000000` and stored as the integer `1717200000000000`.
+
+This process allows us to store `time` values consistently, but introduces a problem: does the value `2024/06/01 00:00:00.000000` mean an event occurred in June 2024, and we normalized the value for storage? Or does it mean an event occurred **exactly** at midnight on June 1, 2024? 
+
+`timeprecision` allows Synapse to distinguish between the two by specifying the level of precision (in this case, `month` vs. `microsecond`) associated with the value.
+
+
+<a id="type-timeprecision-index"></a>
+
+### Indexing
+
+`timeprecision` values are virtual properties and are not indexed independently. They are stored with their associated type values (`time`, `ival`, etc.)
+
+
+<a id="type-timeprecision-parse"></a>
+
+### Parsing
+
+`timeprecision` values are integers (so they can be compared) that have corresponding name strings. You can input a `timeprecision` using its name or integer (as either an integer or numeric string):
+
+| Name | Integer |
+|---|---|
+| `year` | 4 |
+| `month` | 8 |
+| `day` | 12 |
+| `hour` | 16 |
+| `minute` | 20 |
+| `second` | 24 |
+| `millisecond` | 27 |
+| `microsecond` | 30 |
+
+Most time-related types (e.g., `time`, `ival`) use a default `timeprecision` of `microsecond`. However, types can declare their own lower-resolution default. For example, `date` (a `time` type) and `activity:day` (an `ival` type) both use a default precision of `day`.
+
+
+<a id="type-timeprecision-insert"></a>
+
+### Insertion
+
+A `timeprecision` type can be set by explicitly specifying the associated virtual property. The following example shows setting the `.precision` associated with a `time` type:
 
 ```mdstorm --hide
-[ ( inet:dns:a=(aaaa.org, 1.2.3.4) :seen=('2018/12/29 12:36:27', '2019/06/03 18:14:33') ) ( inet:dns:a=(bbbb.edu, 5.6.7.8) :seen=('2019/03/16 12:59:59', '2019/03/16 13:01:01') ) ]
+[ econ:purchase=( { "actor:name": "ron the cat", "seller:name": "swanson" } ) ]
 ```
 
 ```mdstorm
-inet:dns:a:seen@='2019/03/16 13:00'
+econ:purchase:actor:name='ron the cat' [ :time=2026/04/22 :time.precision=day ]
 ```
 
 > [!NOTE]
-> Both lower resolution times (`2025`) and wildcard time (`2025*`) can be used for values specified within the `@=` operator. Because the interval operator is a shorthand syntax for "greater than or equal to `<ival_min>` and less than `<ival_max>`", users should be aware of differences in behavior between each kind of time value with greater than / less than operators.
+> Individual types may vary in how they implement `timeprecision` (`.precision`), including:
+> - whether the type defines a default value for `.precision`;
+> - whether / when inserting the type's value will automatically set `.precision`;
+> - whether / how setting the type's `.precision` affects the type's value.
+>
+> See the type-specific information for [time](storm_ref_type_specific.md#type-time) and [ival](storm_ref_type_specific.md#type-ival) types for details.
 
-See the Storm documents referenced above for additional examples using the interval (`@=`) comparator.
+
+<a id="type-timeprecision-operate"></a>
+
+### Operations
+
+`timeprecision` values can be used to filter nodes, but cannot be used to lift nodes because they are not indexed.
+
+Because `timeprecision` values are integers, you can filter them using the standard comparison operators, using either the name or the integer. Higher integer values represent finer precision. For example:
+
+- `+:time.precision>=day` keeps nodes whose `:time` has a precision of `day` or finer.
+- `+:time.precision<day` keeps nodes whose `:time` has a precision of `month` or `year`.

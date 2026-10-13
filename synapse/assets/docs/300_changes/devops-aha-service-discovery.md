@@ -76,7 +76,7 @@ What you need to do
     python -m synapse.tools.service.demote
     ```
 
-:   Set the `aha:promotable` configuration option to `false` on any instance that must never hold leadership (for example a read-only or cross-region replica). The `synapse.tools.aha.mirror` tool reports each instance's `leader` / `follower` role and replication offsets for checking cluster state.
+:   Set the `aha:promotable` configuration option to `false` on any instance that should never be chosen automatically when the leader demotes or shuts down gracefully (for example a read-only or cross-region replica). An explicit `synapse.tools.service.promote` still promotes it. The `synapse.tools.aha.mirror` tool reports each instance's `leader` / `follower` role and replication offsets for checking cluster state.
 
 ## Removed `mirror` configuration; new `parent` override
 

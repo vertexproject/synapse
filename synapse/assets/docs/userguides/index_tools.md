@@ -29,5 +29,6 @@
 - [storm](syn_tools_storm.md)
 - [storm.pkg.gen](syn_tools_storm_pkg_gen.md)
 - [storm.pkg.doc](syn_tools_storm_pkg_docs.md)
+- [storm.lint](syn_tools_storm_lint.md)
 - [utils.easycert](syn_tools_utils_easycert.md)
 

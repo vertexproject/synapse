@@ -1065,8 +1065,13 @@ class InetModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await t.norm((1,))
 
-            with self.raises(s_exc.BadTypeValu):
+            with self.raises(s_exc.BadTypeValu) as cm:
                 t.repr((7, 1))
+            self.eq(cm.exception.get('mesg'), 'IP proto version 7 is not supported!')
+
+            with self.raises(s_exc.BadTypeValu) as cm:
+                t.repr(('4', 16909060))
+            self.eq(cm.exception.get('mesg'), "IP proto version '4' is not supported!")
 
             # Form Tests ======================================================
             nodes = await core.nodes('''

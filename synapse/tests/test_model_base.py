@@ -120,6 +120,11 @@ class BaseTest(s_t_utils.SynTest):
             # :creator is an entity:actor which entity:contact implements
             self.len(1, await core.nodes('entity:contact:name=visi -> meta:story'))
 
+            # Declared columns replace the guid primary value column
+            display = core.model.type('meta:story').info.get('display')
+            self.eq(['id', 'title', 'desc', 'version', 'creator:name', 'created', 'updated'],
+                    [col['opts']['name'] for col in display['columns']])
+
             # meta:story implements the doc:document interface and its parents
             self.true(core.model.form('meta:story').implements('doc:document'))
             self.true(core.model.form('meta:story').implements('doc:authorable'))

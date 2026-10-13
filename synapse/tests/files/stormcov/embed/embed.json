@@ -1,0 +1,14 @@
+{
+    "queries": [
+        {
+            "path": "embed.ts",
+            "line": 5,
+            "text": "\n        [ inet:fqdn=$fqdn ]\n        if (true) {\n            [ inet:fqdn=ts.link ]\n        }\n    "
+        },
+        {
+            "path": "embed.ts",
+            "line": 13,
+            "text": "inet:fqdn=ts.link | limit 1"
+        }
+    ]
+}

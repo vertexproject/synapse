@@ -7,6 +7,14 @@ as well, for the extensions in `--storm-embed-exts` (an empty value disables it)
 * `.yaml` / `.yml`: string values stored under any key in `--storm-yaml-keys`.
 * `.py`: string literals assigned to a name in `--storm-py-keys`, or stored under such a key in a dict literal.
 
+Storm in any other kind of host file is measured when it is listed in a manifest, a JSON file given to
+`--storm-manifests` which a tool that understands the host language writes:
+
+    {"queries": [{"path": "../src/app.ts", "line": 12, "text": "inet:fqdn=$fqdn"}]}
+
+A relative `path` is relative to the manifest. `line` is the host line holding the first line of `text`,
+and each further line of `text` must sit on the next host line.
+
 Embedded Storm is attributed to the real host file and line numbers. Only literals whose
 text maps one-to-one onto host lines are measured: Python string literals which use
 escaped newlines or implicit concatenation, and YAML folded or multi-line flow scalars, are skipped.
@@ -15,6 +23,11 @@ A query which ran is matched back to its source by its parse tree, since the Cor
 text. Identical text in more than one place is credited to every one of those places when any of
 them runs.
 
+A manifest entry may also name its call site with a `site` string. The query is then credited only
+when the text which ran ends with a `/* stormcov:<site> */` comment, which the tool writing the
+manifest adds to the host's own build, and only at that site. Its subqueries are credited through the
+outermost query's marker.
+
 Python files already carry Python line coverage, and coverage.py allows only one file tracer
 per file, so `coverage combine` refuses to merge that data with the Storm line coverage of the same
 file ("Conflicting file tracer name"). Storm hits inside embedded files are therefore written to their own
@@ -22,8 +35,8 @@ data file (`--stormcov-data`) and are reported from it:
 
     python -m coverage report --data-file=.stormcov-embed
 
-The keys used when reporting come from the `[synapse.utils.stormcov]` coverage plugin options
-`py_keys` and `yaml_keys` and must match the pytest options used when collecting.
+The keys and manifests used when reporting come from the `[synapse.utils.stormcov]` coverage plugin options
+`py_keys`, `yaml_keys` and `manifests` and must match the pytest options used when collecting.
 '''
 import os
 import ast
@@ -31,6 +44,7 @@ import sys
 import glob
 import logging
 import pathlib
+import operator
 import itertools
 import collections
 
@@ -43,8 +57,12 @@ import coverage
 from coverage.data import combine_parallel_data
 from coverage.exceptions import NoSource
 
+import synapse.exc as s_exc
 import synapse.data as s_data
 import synapse.common as s_common
+
+import synapse.lib.json as s_json
+import synapse.lib.config as s_config
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +77,32 @@ DEFAULT_EMBED_EXTS = ('py', 'yaml', 'yml')
 DEFAULT_PY_KEYS = ('_storm_query', 'storm')
 DEFAULT_YAML_KEYS = ('storm', 'query', 'onload')
 DEFAULT_DATA = '.stormcov-embed'
+
+# A coverage build marks each query with the call site its manifest entry names
+SITE_RX = regex.compile(r'/\* stormcov:(\S+) \*/\s*$')
+
+MANIFEST_SCHEMA = {
+    'type': 'object',
+    'properties': {
+        'queries': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'path': {'type': 'string', 'minLength': 1},
+                    'line': {'type': 'integer', 'minimum': 1},
+                    'text': {'type': 'string'},
+                    'site': {'type': 'string', 'minLength': 1},
+                },
+                'required': ['path', 'line', 'text'],
+                'additionalProperties': False,
+            },
+        },
+    },
+    'required': ['queries'],
+}
+
+reqValidManifest = s_config.getJsValidator(MANIFEST_SCHEMA)
 
 def pytest_addoption(parser): # pragma: no cover
     # NB: no coverage since this is a pytest hook
@@ -111,6 +155,14 @@ def pytest_addoption(parser): # pragma: no cover
         default=','.join(DEFAULT_YAML_KEYS),
         dest='stormyamlkeys',
         help=f'Comma separated list of YAML keys whose string values are Storm. Default: {",".join(DEFAULT_YAML_KEYS)}',
+    )
+
+    group.addoption(
+        '--storm-manifests',
+        action='store',
+        default='',
+        dest='stormmanifests',
+        help='Comma separated list of JSON manifests listing Storm embedded in other files. Default: none',
     )
 
     group.addoption(
@@ -283,6 +335,64 @@ def _getYamlStorm(path, keys):
     for offs, text in sorted(found):
         yield text, offs
 
+def loadManifests(paths):
+    '''
+    Load the Storm listed in manifest files.
+
+    Returns:
+        dict: The absolute host path to a list of (text, offs) tuples, ordered by offs.
+    '''
+    hosts = collections.defaultdict(list)
+
+    for path in paths:
+        try:
+            with open(path, 'rb') as fd:
+                mdef = reqValidManifest(s_json.load(fd))
+        except (OSError, s_exc.BadJsonText, s_exc.SchemaViolation) as e:
+            logger.warning('Skipping invalid storm manifest %s: %s', path, e)
+            continue
+
+        dirn = os.path.dirname(os.path.abspath(path))
+
+        for query in mdef['queries']:
+            if not query['text'].strip():
+                continue
+
+            host = os.path.abspath(os.path.join(dirn, query['path']))
+            item = (query['text'], query['line'] - 1)
+            if item not in hosts[host]:
+                hosts[host].append(item)
+
+    return {host: sorted(items, key=operator.itemgetter(1)) for host, items in hosts.items()}
+
+def loadManifestSites(paths):
+    '''
+    Load the manifest queries which name a call site.
+
+    Returns:
+        dict: The site to a (host, text, offs) tuple.
+    '''
+    sites = {}
+
+    for path in paths:
+        try:
+            with open(path, 'rb') as fd:
+                mdef = reqValidManifest(s_json.load(fd))
+        except (OSError, s_exc.BadJsonText, s_exc.SchemaViolation):
+            continue
+
+        dirn = os.path.dirname(os.path.abspath(path))
+
+        for query in mdef['queries']:
+            site = query.get('site')
+            if site is None or not query['text'].strip():
+                continue
+
+            host = os.path.abspath(os.path.join(dirn, query['path']))
+            sites[site] = (host, query['text'], query['line'] - 1)
+
+    return sites
+
 def getEmbeddedStorm(path, pykeys, yamlkeys):
     '''
     Yield (text, offs) for each Storm string embedded in a py or yaml host file.
@@ -336,6 +446,7 @@ class StormcovPlugin:
         self.embed_map = {}
         self.embed_hosts = set()
         self.subq_map = {}
+        self.site_map = {}
         self._handler_cache = {}
         self.lines_hit = collections.defaultdict(set)
         self.arcs_hit = collections.defaultdict(set)
@@ -358,6 +469,7 @@ class StormcovPlugin:
         self.pykeys = splitKeys(opts.stormpykeys)
         self.yamlkeys = splitKeys(opts.stormyamlkeys)
         self.datafile = opts.stormcov_data
+        self.manifests = sorted(splitKeys(opts.stormmanifests))
 
         self.pycov = hasattr(config.option, 'no_cov') and not config.option.no_cov
 
@@ -395,19 +507,43 @@ class StormcovPlugin:
         apth = os.path.abspath(path)
 
         for text, offs in getEmbeddedStorm(apth, self.pykeys, self.yamlkeys):
+            self.addEmbeddedStorm(apth, text, offs)
+
+    def findManifestStorm(self):
+        sites = loadManifestSites(self.manifests)
+        sited = {(host, text, offs) for host, text, offs in sites.values()}
+
+        for host, items in loadManifests(self.manifests).items():
+            for text, offs in items:
+                if (host, text, offs) not in sited:
+                    self.addEmbeddedStorm(host, text, offs)
+
+        # A query which names its call site is credited only through its marker
+        for site, (host, text, offs) in sites.items():
             try:
                 tree = self.parser.parse(text)
             except lark.exceptions.LarkError:
-                logger.debug('Skipping invalid embedded storm in %s at line %d', apth, offs + 1)
+                logger.debug('Skipping invalid embedded storm in %s at line %d', host, offs + 1)
                 continue
 
-            self.embed_hosts.add(apth)
-            self.findSubqueries(tree, apth, offs)
+            self.embed_hosts.add(host)
 
-            # A YAML alias repeats a literal at the same location, so only distinct locations are kept
-            locs = self.embed_map.setdefault(s_common.guid(str(tree)), [])
-            if (apth, offs) not in locs:
-                locs.append((apth, offs))
+            self.site_map[site] = (s_common.guid(str(tree)), host, offs, self.getSubqueries(tree, host, offs))
+
+    def addEmbeddedStorm(self, apth, text, offs):
+        try:
+            tree = self.parser.parse(text)
+        except lark.exceptions.LarkError:
+            logger.debug('Skipping invalid embedded storm in %s at line %d', apth, offs + 1)
+            return
+
+        self.embed_hosts.add(apth)
+        self.findSubqueries(tree, apth, offs)
+
+        # A YAML alias repeats a literal at the same location, so only distinct locations are kept
+        locs = self.embed_map.setdefault(s_common.guid(str(tree)), [])
+        if (apth, offs) not in locs:
+            locs.append((apth, offs))
 
     def findExecutableFiles(self, src_dir):
         rx = r"^[^#~!$@%^&*()+=,]+\.(" + "|".join(self.extensions) + r")$"
@@ -420,6 +556,14 @@ class StormcovPlugin:
                     yield path
 
     def findSubqueries(self, tree, path, hostoffs=0):
+        for subg, entries in self.getSubqueries(tree, path, hostoffs).items():
+            known = self.subq_map.setdefault(subg, [])
+            for entry in entries:
+                if entry not in known:
+                    known.append(entry)
+
+    def getSubqueries(self, tree, path, hostoffs=0):
+        subqs = {}
         for rule in ('argvquery', 'embedquery'):
             for node in tree.find_data(rule):
 
@@ -435,9 +579,11 @@ class StormcovPlugin:
 
                 # (path, offset added to the runtime line, subquery line within its own text)
                 entry = (path, line + hostoffs, line)
-                entries = self.subq_map.setdefault(subg, [])
+                entries = subqs.setdefault(subg, [])
                 if entry not in entries:
                     entries.append(entry)
+
+        return subqs
 
     def _startSysmon(self):
         if sys.monitoring.get_tool(self.toolid) is None:
@@ -502,7 +648,7 @@ class StormcovPlugin:
             embeddata.close()
 
     def isEmbedHost(self, path):
-        return os.path.splitext(path)[1][1:].lower() in EMBED_KINDS
+        return path in self.embed_hosts or os.path.splitext(path)[1][1:].lower() in EMBED_KINDS
 
     def addHits(self, data, hits, usearcs, files):
         if usearcs:
@@ -514,7 +660,7 @@ class StormcovPlugin:
 
     def pytest_sessionstart(self, session): # pragma: no cover
         # NB: no coverage since this is a pytest hook
-        if not self.embedexts or self.isworker or self.append:
+        if not (self.embedexts or self.manifests) or self.isworker or self.append:
             return
 
         coverage.CoverageData(basename=self.datafile).erase(parallel=True)
@@ -536,6 +682,9 @@ class StormcovPlugin:
         combine_parallel_data(coverage.CoverageData(basename=self.datafile))
 
     def discoverStormdirs(self, testpaths: list[pathlib.Path]):
+        # Manifests name their host files, so they do not depend on the storm dirs
+        self.findManifestStorm()
+
         # If a specific set of directories were specified, use that
         if self.stormdirs:
             for dirn in self.stormdirs.split(','):
@@ -582,7 +731,7 @@ class StormcovPlugin:
         except coverage.exceptions.NoDataError:
             logger.warning('No storm coverage data was found.')
 
-        if self.embedexts and os.path.exists(self.datafile):
+        if (self.embedexts or self.manifests) and os.path.exists(self.datafile):
             embedcov = coverage.Coverage(data_file=self.datafile)
             embedcov.load()
 
@@ -684,9 +833,14 @@ class StormcovPlugin:
         # duplicate subquery text that appears at different positions in the file.
         offs_hint = runt_origin.sline - 1 if runt_origin is not None else None
 
-        # text_map is keyed by (query_text, offs_hint) and avoids re-parsing the same
+        site = None
+        if self.site_map:
+            match = SITE_RX.search(node.text)
+            site = match.group(1) if match is not None else self.getRuntSite(runt_from_frame)
+
+        # text_map is keyed by (query_text, offs_hint, site) and avoids re-parsing the same
         # text/position pair on every AST node in a query.
-        text_key = (node.text, offs_hint)
+        text_key = (node.text, offs_hint, site)
         info = self.text_map.get(text_key, novalu)
         if info is not novalu:
             self._cacheHit(realnode, node, nodeid, info, runt_origin)
@@ -696,6 +850,17 @@ class StormcovPlugin:
         # the matching storm source file via subq_map (position-aware) or guid_map.
         tree = self.parser.parse(node.text)
         guid = s_common.guid(str(tree))
+
+        if site is not None:
+            locs = self.getSiteLocs(site, guid, offs_hint)
+            if not locs:
+                self._cacheMiss(realnode, node, nodeid, runt_origin)
+                return
+
+            info = tuple(locs)
+            self.text_map[text_key] = info
+            self._cacheHit(realnode, node, nodeid, info, runt_origin)
+            return
 
         # Identical text can not be told apart at runtime, so every place it appears is
         # credited. A subquery with a known source line is only credited at that line.
@@ -717,6 +882,43 @@ class StormcovPlugin:
         info = tuple(dict.fromkeys(locs))
         self.text_map[text_key] = info
         self._cacheHit(realnode, node, nodeid, info, runt_origin)
+
+    def getRuntSite(self, runt):
+        # The marker is on the outermost query, so walk up from a subquery runtime to it.
+        if runt is None:
+            return None
+
+        site = getattr(runt, '_stormcov_site', s_common.novalu)
+        if site is not s_common.novalu:
+            return site
+
+        top = runt
+        while (root := getattr(top, 'root', None)) is not None:
+            top = root
+
+        site = None
+        query = getattr(top, 'query', None)
+        if query is not None and (match := SITE_RX.search(query.text)) is not None:
+            site = match.group(1)
+
+        runt._stormcov_site = site
+        return site
+
+    def getSiteLocs(self, site, guid, offs_hint):
+        entry = self.site_map.get(site)
+        if entry is None:
+            return []
+
+        sguid, host, offs, subqs = entry
+        if guid == sguid:
+            return [(host, offs)]
+
+        entries = subqs.get(guid)
+        if entries is None:
+            return []
+
+        matched = [(p, o) for p, o, r in entries if r == offs_hint]
+        return matched or [(p, o) for p, o, r in entries]
 
     def _cacheMiss(self, realnode, rootnode, nodeid, runt_origin): # pragma: no cover
         # NB: no coverage since this runs inside of the sys.monitoring callback
@@ -1219,10 +1421,11 @@ class StormReporter(coverage.FileReporter):
 
 class EmbeddedStormReporter(StormReporter):
     '''
-    Reporter for a py or yaml file which embeds Storm.
+    Reporter for a file which embeds Storm, found by its keys or listed in a manifest as (text, offs) items.
     '''
-    def __init__(self, filename, parser, pykeys, yamlkeys):
+    def __init__(self, filename, parser, pykeys, yamlkeys, items=None):
         super().__init__(filename, parser)
+        self._items = items
         self._pykeys = pykeys
         self._yamlkeys = yamlkeys
         self._treecache = None
@@ -1231,7 +1434,11 @@ class EmbeddedStormReporter(StormReporter):
         if self._treecache is None:
             self._treecache = []
 
-            for text, offs in getEmbeddedStorm(self.filename, self._pykeys, self._yamlkeys):
+            items = self._items
+            if items is None:
+                items = getEmbeddedStorm(self.filename, self._pykeys, self._yamlkeys)
+
+            for text, offs in items:
                 try:
                     tree = self._parser.parse(text)
                 except lark.exceptions.LarkError:
@@ -1245,12 +1452,19 @@ class EmbeddedStormReporter(StormReporter):
 # line coverage tools being able to interpret coverage results generated by
 # stormcov
 class StormReporterPlugin(coverage.CoveragePlugin):
-    def __init__(self, pykeys=DEFAULT_PY_KEYS, yamlkeys=DEFAULT_YAML_KEYS):
+    def __init__(self, pykeys=DEFAULT_PY_KEYS, yamlkeys=DEFAULT_YAML_KEYS, manifests=()):
         self.parser = getParser()
         self.pykeys = frozenset(pykeys)
         self.yamlkeys = frozenset(yamlkeys)
 
+        # The reporting options apply to every run, so a manifest which was not built for this one is skipped quietly
+        self.manifests = loadManifests([path for path in manifests if os.path.exists(path)])
+
     def file_reporter(self, filename):
+        items = self.manifests.get(os.path.abspath(filename))
+        if items is not None:
+            return EmbeddedStormReporter(filename, self.parser, self.pykeys, self.yamlkeys, items=items)
+
         if os.path.splitext(filename)[1][1:].lower() in EMBED_KINDS:
             return EmbeddedStormReporter(filename, self.parser, self.pykeys, self.yamlkeys)
 
@@ -1262,5 +1476,6 @@ def coverage_init(reg, options): # pragma: no cover
     plugin = StormReporterPlugin(
         pykeys=splitKeys(options['py_keys']) if 'py_keys' in options else DEFAULT_PY_KEYS,
         yamlkeys=splitKeys(options['yaml_keys']) if 'yaml_keys' in options else DEFAULT_YAML_KEYS,
+        manifests=sorted(splitKeys(options.get('manifests', ''))),
     )
     reg.add_file_tracer(plugin)

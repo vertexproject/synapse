@@ -170,7 +170,7 @@ You want to use a one-time cron job that runs during off hours to perform some d
 
 ```stormdoc
 storm> cron.at --hour 2 { inet:ip:version=4 +:type=unicast -:place:loc | maxmind }
-Created cron job: c35dbfa741ef850a8054fedd6f42da65
+Created cron job: 939eeed0e57ff1b450ea49997b886b64
 ```
 
 > [!TIP]
@@ -182,8 +182,8 @@ We can view the details of this cron job using the `cron.list` command:
 storm> cron.list
  creator                   user                      iden        view        en?  rpt?  now?  err?  # start  last start        last end          query 
 #######################################################################################################################################################
- root                      root                      d55dbf06..  9c8f3337..  Y    N     N           0        Never             Never             inet:ip:version=4 +:type=unicast -:place:loc | maxmind 
- root                      root                      c35dbfa7..  9c8f3337..  Y    N     N           0        Never             Never             inet:ip:version=4 +:type=unicast -:place:loc | maxmind 
+ root                      root                      f5418837..  63031bf3..  Y    N     N           0        Never             Never             inet:ip:version=4 +:type=unicast -:place:loc | maxmind 
+ root                      root                      939eeed0..  63031bf3..  Y    N     N           0        Never             Never             inet:ip:version=4 +:type=unicast -:place:loc | maxmind 
 ```
 
 The output of `cron.list` includes the following columns:
@@ -210,7 +210,7 @@ You want to create a cron job that will run every hour to download the latest MI
 
 ```stormdoc
 storm> cron.add hourly@:00 { misp.sync }
-Created cron job: f9bce1507b342f8703cef02ef2d37f21
+Created cron job: babede4a3978d28751a79be8ebf088fe
 ```
 
 > [!TIP]
@@ -222,7 +222,7 @@ You routinely attempt to download samples of newly identified malware from a thi
 
 ```stormdoc
 storm> cron.add weekly/tue,thu,sat@20:00 { file:bytes#cno.mal -$lib.axon.has(:sha256) | malwarebazaar.download }
-Created cron job: 8f583f9d8110f581f5ba500ebedfd124
+Created cron job: eefe4045f47b076390c6902de44cf198
 ```
 
 > [!TIP]
@@ -364,7 +364,7 @@ You have identified a handful of IP addresses that are used as sinkhole infrastr
 
 ```stormdoc
 storm> trigger.add prop:set --name 'Tag sinkholed FQDNs based on known sinkhole IPs' --prop inet:dns:a:ip { +{ -> inet:ip +#cno.infra.dns.sink.hole } :fqdn -> inet:fqdn [ +#cno.infra.dns.sink.holed ] }
-Added trigger: f2008d09eb837eb9695dc8b4a9907817
+Added trigger: 8e32bb2bcbb206ffe6b3ee3aa7e7b9bf
 ```
 
 > [!TIP]
@@ -376,7 +376,7 @@ We can view the newly created trigger using `trigger.list`:
 storm> trigger.list
  creator                   user                      iden                              view         en?  async?  cond       object                            storm query 
 ##########################################################################################################################################################################
- root                      root                      f2008d09eb837eb9695dc8b4a9907817  9c8f3337...  Y    N       prop:set   inet:dns:a:ip                     +{ -> inet:ip +#cno.infra.dns.sink.hole } :fqdn -> inet:fqdn [ +#cno.infra.dns.sink.holed ] 
+ root                      root                      8e32bb2bcbb206ffe6b3ee3aa7e7b9bf  63031bf3...  Y    N       prop:set   inet:dns:a:ip                     +{ -> inet:ip +#cno.infra.dns.sink.hole } :fqdn -> inet:fqdn [ +#cno.infra.dns.sink.holed ] 
 ```
 
 The output of `trigger.list` includes the following columns:
@@ -397,7 +397,7 @@ Whenever an IP node is added to Synapse, you want to immediately retrieve the as
 
 ```stormdoc
 storm> trigger.add node:add --name 'Basic IP enrichment' --form inet:ip { maxmind | nettools.dns }
-Added trigger: d81d76e782458fa408dbc430e82613b7
+Added trigger: f169d3b6b9cb3619b261fe1ed8398291
 ```
 
 > [!TIP]
@@ -413,7 +413,7 @@ If the object `-(used)>` in the attack has an associated TTP tag (such as `#cno.
 
 ```stormdoc
 storm> trigger.add edge:add --name 'Link technique with attack'--verb used --form risk:attack { $attack=$node { yield $auto.opts.n2nid -> # -> meta:technique:tag [ <(used)+ $attack ] } }
-Added trigger: 42ea923548c2f03d4ba72bb3ef7a8abd
+Added trigger: 46e349fffe7dec400b7a5178b4b63b1b
 ```
 
 > [!TIP]
@@ -448,7 +448,7 @@ When you associate a file with a malware family, you record that assessment on t
 
 ```stormdoc
 storm> trigger.add tag:add --name 'Push malware tags from file to hashes' --form file:bytes --tag cno.mal.** { tee { :md5 -> crypto:hash:md5 } { :sha1 -> crypto:hash:sha1 } { :sha256 -> crypto:hash:sha256 } { :sha512 -> crypto:hash:sha512 } | [ +#$auto.opts.tag ] }
-Added trigger: 4b4e6a02e18f2cfa0ba0e97bb472dbca
+Added trigger: 92a9db9e531dbd7679f00120513cfb19
 ```
 
 > [!TIP]
@@ -462,7 +462,7 @@ Similar to the example above, when your assessment changes and you want to **rem
 
 ```stormdoc
 storm> trigger.add tag:add --name 'Untag hashes when untagging a file' --form file:bytes --tag cno.mal.** { tee { :md5 -> crypto:hash:md5 } { :sha1 -> crypto:hash:sha1 } { :sha256 -> crypto:hash:sha256 } { :sha512 -> crypto:hash:sha512 } | [ -#$auto.opts.tag ] }
-Added trigger: aa09a4c10e42b87e859bada050aa5095
+Added trigger: 540adc397c975495f8d45ea574990cb6
 ```
 
 > [!TIP]

@@ -1,5 +1,5 @@
 
 [inet:fqdn=vertex.link]
-spin
+spin // noqa: P001
 // coverage: 2, 3
 // lines:    2, 3

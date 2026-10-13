@@ -27,8 +27,9 @@ Key types that have been optimized in various ways are documented below along wi
 - [loc](storm_ref_type_specific.md#type-loc) (location)
 - [str](storm_ref_type_specific.md#type-str) (string)
 - [syn:tag](storm_ref_type_specific.md#type-syn-tag) (tag)
-- [taxonomy](storm_ref_type_specific.md#type-taxoxnomy) (taxonomy)
+- [taxonomy](storm_ref_type_specific.md#type-taxonomy) (taxonomy)
 - [time](storm_ref_type_specific.md#type-time) (date/time)
+- [timeprecision](storm_ref_type_specific.md#type-timeprecision) (time precision)
 
 <a id="type-array"></a>
 
@@ -76,8 +77,8 @@ ou:org=7918de6a997e984dbf966f8002df95ad
         :names.size = 1
         :websites = ['https://vertex.link/']
         :websites.size = 1
-        .created = 2026-10-08T12:52:38.28728Z
-        .updated = 2026-10-08T12:52:38.311482Z
+        .created = 2026-10-12T19:52:19.075862Z
+        .updated = 2026-10-12T19:52:19.127598Z
 ```
 
 Set the `:names` property of an organization (`ou:org`) node to contain multiple variations of the organization name:
@@ -90,8 +91,8 @@ ou:org=7918de6a997e984dbf966f8002df95ad
         :names.size = 2
         :websites = ['https://vertex.link/']
         :websites.size = 1
-        .created = 2026-10-08T12:52:38.28728Z
-        .updated = 2026-10-08T12:52:38.315575Z
+        .created = 2026-10-12T19:52:19.075862Z
+        .updated = 2026-10-12T19:52:19.133391Z
 ```
 
 > [!WARNING]
@@ -105,8 +106,8 @@ ou:org=96df93d36ef3399ca05a49a3e8a3e3ad
         :name = Monty Python
         :names = ["Monty Python's Flying Circus", 'The Spanish Inquisition']
         :names.size = 2
-        .created = 2026-10-08T12:52:38.319784Z
-        .updated = 2026-10-08T12:52:38.323526Z
+        .created = 2026-10-12T19:52:19.140166Z
+        .updated = 2026-10-12T19:52:19.145804Z
 ```
 
 Remove a name from the array of names associated with an organization:
@@ -117,8 +118,8 @@ ou:org=96df93d36ef3399ca05a49a3e8a3e3ad
         :name = Monty Python
         :names = ["Monty Python's Flying Circus"]
         :names.size = 1
-        .created = 2026-10-08T12:52:38.319784Z
-        .updated = 2026-10-08T12:52:38.326877Z
+        .created = 2026-10-12T19:52:19.140166Z
+        .updated = 2026-10-12T19:52:19.151169Z
 ```
 
 Add multiple values to the array of names associated with an organization:
@@ -129,8 +130,8 @@ ou:org=96df93d36ef3399ca05a49a3e8a3e3ad
         :name = Monty Python
         :names = ["Monty Python's Flying Circus", 'Spamalot', 'The Spanish Inquisition']
         :names.size = 3
-        .created = 2026-10-08T12:52:38.319784Z
-        .updated = 2026-10-08T12:52:38.330274Z
+        .created = 2026-10-12T19:52:19.140166Z
+        .updated = 2026-10-12T19:52:19.155709Z
 ```
 
 Remove multiple values from the array of names associated with an organization:
@@ -141,8 +142,8 @@ ou:org=96df93d36ef3399ca05a49a3e8a3e3ad
         :name = Monty Python
         :names = ["Monty Python's Flying Circus"]
         :names.size = 1
-        .created = 2026-10-08T12:52:38.319784Z
-        .updated = 2026-10-08T12:52:38.334043Z
+        .created = 2026-10-12T19:52:19.140166Z
+        .updated = 2026-10-12T19:52:19.161616Z
 ```
 
 > [!TIP]
@@ -157,8 +158,8 @@ entity:contact=eb141bade0f7833c7998d9871f7dd871
         :emails.size = 1
         :name = ron the cat
         :type = vertex.employee
-        .created = 2026-10-08T12:52:38.339941Z
-        .updated = 2026-10-08T12:52:38.340581Z
+        .created = 2026-10-12T19:52:19.171323Z
+        .updated = 2026-10-12T19:52:19.173087Z
 ```
 
 **Usage Notes:**
@@ -180,8 +181,8 @@ ou:org=7918de6a997e984dbf966f8002df95ad
         :names.size = 2
         :websites = ['https://vertex.link/']
         :websites.size = 1
-        .created = 2026-10-08T12:52:38.28728Z
-        .updated = 2026-10-08T12:52:38.315575Z
+        .created = 2026-10-12T19:52:19.075862Z
+        .updated = 2026-10-12T19:52:19.133391Z
 ```
 
 For this reason, Storm offers a special syntax for lifting and filtering with `array` types. The syntax consists of an asterisk ( `*` ) followed by a set of square brackets ( `[ ]` ), where the square brackets contain a comparison operator and a value that can match one or more elements in the array. This allows users to match elements in the array similarly to how they would match individual property values.
@@ -201,8 +202,8 @@ ou:org=7918de6a997e984dbf966f8002df95ad
         :names.size = 2
         :websites = ['https://vertex.link/']
         :websites.size = 1
-        .created = 2026-10-08T12:52:38.28728Z
-        .updated = 2026-10-08T12:52:38.315575Z
+        .created = 2026-10-12T19:52:19.075862Z
+        .updated = 2026-10-12T19:52:19.133391Z
 ```
 
 Lift the `ou:org` node(s) whose `:names` property contains a name that includes the string `vertex`:
@@ -215,16 +216,16 @@ ou:org=7918de6a997e984dbf966f8002df95ad
         :names.size = 2
         :websites = ['https://vertex.link/']
         :websites.size = 1
-        .created = 2026-10-08T12:52:38.28728Z
-        .updated = 2026-10-08T12:52:38.315575Z
+        .created = 2026-10-12T19:52:19.075862Z
+        .updated = 2026-10-12T19:52:19.133391Z
 ou:org=7918de6a997e984dbf966f8002df95ad
         :name = vertex
         :names = ['The Vertex Project', 'The Vertex Project, LLC']
         :names.size = 2
         :websites = ['https://vertex.link/']
         :websites.size = 1
-        .created = 2026-10-08T12:52:38.28728Z
-        .updated = 2026-10-08T12:52:38.315575Z
+        .created = 2026-10-12T19:52:19.075862Z
+        .updated = 2026-10-12T19:52:19.133391Z
 ```
 
 > [!TIP]
@@ -239,8 +240,8 @@ crypto:x509:cert=1239ca963e0bf5801029ee309279af85
         :identities:fqdns.size = 2
         :issuer = CN=Microsoft Certificate Authority
         :sha256 = 6b60c1c833979494caff32bf02391793ac85f533516367f12a1cea857bbacba7
-        .created = 2026-10-08T12:52:38.355566Z
-        .updated = 2026-10-08T12:52:38.35664Z
+        .created = 2026-10-12T19:52:19.200545Z
+        .updated = 2026-10-12T19:52:19.201403Z
 ```
 
 Filter a set of articles (`doc:report` nodes) by Proofpoint to include only those with a topic that starts with "cyber":
@@ -252,15 +253,15 @@ doc:report=35f46fad2d9c564cd9f6164b15a65ae3
         :title = more things happened today
         :topics = ['cybersecurity', 'zero trust']
         :topics.size = 2
-        .created = 2026-10-08T12:52:38.369884Z
-        .updated = 2026-10-08T12:52:38.37069Z
+        .created = 2026-10-12T19:52:19.213882Z
+        .updated = 2026-10-12T19:52:19.214395Z
 doc:report=8856a1e346dbac855fc30a8e1478bf8a
         :publisher:name = proofpoint
         :title = report about stuff
         :topics = ['cybercrime', 'ransomware']
         :topics.size = 2
-        .created = 2026-10-08T12:52:38.371953Z
-        .updated = 2026-10-08T12:52:38.372459Z
+        .created = 2026-10-12T19:52:19.215469Z
+        .updated = 2026-10-12T19:52:19.215766Z
 ```
 
 See [Lift by (Arrays) (*[ ])](storm_ref_lift.md#lift-by-arrays) and [Filter by (Arrays) (*[ ])](storm_ref_filter.md#filter-by-arrays) for additional details.
@@ -281,16 +282,16 @@ inet:fqdn=microsoft.com
         :issuffix = false
         :iszone = true
         :zone = microsoft.com
-        .created = 2026-10-08T12:52:38.35664Z
-        .updated = 2026-10-08T12:52:38.357083Z
+        .created = 2026-10-12T19:52:19.201403Z
+        .updated = 2026-10-12T19:52:19.201915Z
 inet:fqdn=office365.com
         :domain = com
         :host = office365
         :issuffix = false
         :iszone = true
         :zone = office365.com
-        .created = 2026-10-08T12:52:38.35664Z
-        .updated = 2026-10-08T12:52:38.358107Z
+        .created = 2026-10-12T19:52:19.201403Z
+        .updated = 2026-10-12T19:52:19.203129Z
 ```
 
 Pivot from a set of `entity:name` nodes to any nodes that reference those names (e.g., `ou:org` nodes where the `entity:name` is present in the `:name` property or `:names` array):
@@ -301,14 +302,14 @@ ou:org=e365491864a971d208683af6d0c5258a
         :name = valisministeerium
         :names = ['ministry of foreign affairs of estonia']
         :names.size = 1
-        .created = 2026-10-08T12:52:38.389014Z
-        .updated = 2026-10-08T12:52:38.389377Z
+        .created = 2026-10-12T19:52:19.232264Z
+        .updated = 2026-10-12T19:52:19.23272Z
 ou:org=d9a396b7dbd4be115c04961f650a239c
         :name = ministry of public security
         :names = ['mps']
         :names.size = 1
-        .created = 2026-10-08T12:52:38.387644Z
-        .updated = 2026-10-08T12:52:38.388102Z
+        .created = 2026-10-12T19:52:19.230779Z
+        .updated = 2026-10-12T19:52:19.231241Z
 ```
 
 <a id="type-duration"></a>
@@ -368,7 +369,7 @@ A `duration` can also be specified as the number of microseconds expressed as an
 `(218262777)`
 
 > [!TIP]
-> This parentheses syntax only applies when setting or updating a `duration` property using Storm. When setting or updating a property in the [Optic UI](/docs/synapse-enterprise-optic/latest/index.md) by editing a field, you must enter a duration string value.
+> This [expression syntax](../glossary.md#gloss-expression-syntax) only applies when setting or updating a `duration` property using Storm. When setting or updating a property in the [Optic UI](/docs/synapse-enterprise-optic/latest/index.md) by editing a field, you must enter a duration string value.
 
 **Special time values**
 
@@ -402,8 +403,8 @@ it:sec:c2:config=d55ce84c26e688c9739c96398f289788
         :connect:delay = 00:17:00
         :family = redtree
         :file = f46d3ee70e8824a45370cbeed445289f
-        .created = 2026-10-08T12:52:38.40652Z
-        .updated = 2026-10-08T12:52:38.412563Z
+        .created = 2026-10-12T19:52:19.253527Z
+        .updated = 2026-10-12T19:52:19.25878Z
 ```
 
 Set the duration of a compromise (`risk:compromise` node) to six days, six hours, 46 minutes, and 23 seconds:
@@ -418,8 +419,8 @@ risk:compromise=7e85e3476e8c18bdbf6aec4289361a68
         :period.duration = 6D 06:46:23
         :period.precision = microsecond
         :reporter:name = vertex
-        .created = 2026-10-08T12:52:38.417922Z
-        .updated = 2026-10-08T12:52:38.43417Z
+        .created = 2026-10-12T19:52:19.272889Z
+        .updated = 2026-10-12T19:52:19.290992Z
 ```
 
 Or:
@@ -434,8 +435,8 @@ risk:compromise=7e85e3476e8c18bdbf6aec4289361a68
         :period.duration = 6D 06:46:23
         :period.precision = microsecond
         :reporter:name = vertex
-        .created = 2026-10-08T12:52:38.417922Z
-        .updated = 2026-10-08T12:52:38.43417Z
+        .created = 2026-10-12T19:52:19.272889Z
+        .updated = 2026-10-12T19:52:19.290992Z
 ```
 
 **Usage Notes:**
@@ -523,8 +524,8 @@ ou:org=7918de6a997e984dbf966f8002df95ad
         :names.size = 2
         :websites = ['https://vertex.link/']
         :websites.size = 1
-        .created = 2026-10-08T12:52:38.28728Z
-        .updated = 2026-10-08T12:52:38.315575Z
+        .created = 2026-10-12T19:52:19.075862Z
+        .updated = 2026-10-12T19:52:19.133391Z
 ```
 
 Alternatively, the guid value can be copied and pasted.
@@ -548,8 +549,8 @@ storm> [ inet:email=training@vertex.link ]
 inet:email=training@vertex.link
         :fqdn = vertex.link
         :username = training
-        .created = 2026-10-08T12:52:38.445276Z
-        .updated = 2026-10-08T12:52:38.445276Z
+        .created = 2026-10-12T19:52:19.303058Z
+        .updated = 2026-10-12T19:52:19.303058Z
 ```
 
 Guid forms are notable in that their primary property - a 128-bit value represented in hex - has no obvious relationship to whatever the form represents. For example, the primary property of an organization node (e.g., `ou:org=0efcf9b86fa373fab26112f2b29b94ca`) does not tell you anything about the organization itself, such as its name, location, or URL. This means that guids are useful for guaranteeing that nodes are **unique** (you cannot create two different `ou:org` nodes in Synapse with the same guid), but less useful for **deconfliction**.
@@ -558,18 +559,18 @@ Most importantly, it is still possible for users or processes to inadvertently c
 
 ```stormdoc
 storm> ou:org:name='the vertex project'
-ou:org=89969ca4455a10b28f19a9ace7b57897
+ou:org=9b4306d372fe6afe47aa13ade6dee75f
         :name = the vertex project
         :websites = ['https://vertex.link/']
         :websites.size = 1
-        .created = 2026-10-08T12:52:38.46917Z
-        .updated = 2026-10-08T12:52:38.469861Z
-ou:org=e4e20ad3eee3e07a6f25283864a23d13
+        .created = 2026-10-12T19:52:19.326248Z
+        .updated = 2026-10-12T19:52:19.326999Z
+ou:org=6595b19a6ef4cf7debd567a22fb4e7df
         :name = the vertex project
         :websites = ['https://vertex.link/']
         :websites.size = 1
-        .created = 2026-10-08T12:52:38.470457Z
-        .updated = 2026-10-08T12:52:38.470997Z
+        .created = 2026-10-12T19:52:19.327707Z
+        .updated = 2026-10-12T19:52:19.328446Z
 ```
 
 The nodes above have different guid values - they are unique and have been deconflicted based on their primary property. But looking at the secondary properties, it is clear (to a human) that both `ou:org` nodes are meant to represent The Vertex Project - this is a problem, because we do not want two different nodes for one organization.
@@ -608,8 +609,8 @@ storm> [ ou:org=( { "name": "the vertex project", "email": "info@vertex.link" } 
 ou:org=4d6e7a274a2cb69edf7d01922b85fdc7
         :email = info@vertex.link
         :name = the vertex project
-        .created = 2026-10-08T12:52:38.488262Z
-        .updated = 2026-10-08T12:52:38.488262Z
+        .created = 2026-10-12T19:52:19.345577Z
+        .updated = 2026-10-12T19:52:19.345577Z
 ```
 
 In the query above:
@@ -638,8 +639,8 @@ storm> [ ou:org=( { "name": "the vertex project", "email": "info@vertex.link" } 
 ou:org=4d6e7a274a2cb69edf7d01922b85fdc7
         :email = info@vertex.link
         :name = the vertex project
-        .created = 2026-10-08T12:52:38.492585Z
-        .updated = 2026-10-08T12:52:38.492585Z
+        .created = 2026-10-12T19:52:19.353862Z
+        .updated = 2026-10-12T19:52:19.353862Z
 ```
 
 ```stormdoc
@@ -647,8 +648,8 @@ storm> $name='the vertex project' $email=info@vertex.link [ ou:org=( { "name": $
 ou:org=4d6e7a274a2cb69edf7d01922b85fdc7
         :email = info@vertex.link
         :name = the vertex project
-        .created = 2026-10-08T12:52:38.492585Z
-        .updated = 2026-10-08T12:52:38.492585Z
+        .created = 2026-10-12T19:52:19.353862Z
+        .updated = 2026-10-12T19:52:19.353862Z
 ```
 
 - When creating a new node using dictionary syntax, Synapse uses an algorithm (the guid generator or "guid grinder") to generate a predictable guid using the dictionary content as input. The dictionary is converted to a sorted (alphabetical) list of `(<key>, <normalized value>)` tuples that are fed to the algorithm (the same algorithm is implemented by the `$lib.guid()` library (see [`$lib.guid()`](../stormtypes_libs.md#stormlibs-lib-guid)).
@@ -678,8 +679,8 @@ ou:org=4d6e7a274a2cb69edf7d01922b85fdc7
         :dns:mx.size = 2
         :email = info@vertex.link
         :name = the vertex project
-        .created = 2026-10-08T12:52:38.492585Z
-        .updated = 2026-10-08T12:52:38.499696Z
+        .created = 2026-10-12T19:52:19.353862Z
+        .updated = 2026-10-12T19:52:19.366686Z
 ```
 
 The following dictionary syntax identifies and lifts the existing node (note the guid value), because **both** MX FQDNs in the JSON dictionary are present on the existing node:
@@ -691,8 +692,8 @@ ou:org=4d6e7a274a2cb69edf7d01922b85fdc7
         :dns:mx.size = 2
         :email = info@vertex.link
         :name = the vertex project
-        .created = 2026-10-08T12:52:38.492585Z
-        .updated = 2026-10-08T12:52:38.499696Z
+        .created = 2026-10-12T19:52:19.353862Z
+        .updated = 2026-10-12T19:52:19.366686Z
 ```
 
 In contrast, the following dictionary syntax only contains one of the `:dns:mx` values, so fails to deconflict and creates a new node with a different guid:
@@ -703,8 +704,8 @@ ou:org=8621515203b49ce5a95800989f9a783b
         :dns:mx = ['vertex.link']
         :dns:mx.size = 1
         :name = vertex
-        .created = 2026-10-08T12:52:38.512425Z
-        .updated = 2026-10-08T12:52:38.512425Z
+        .created = 2026-10-12T19:52:19.387238Z
+        .updated = 2026-10-12T19:52:19.387238Z
 ```
 
 <a id="guid-dictionary-special-keys"></a>
@@ -723,8 +724,8 @@ meta:note=ff21a3dc1182a8bd1ad0bc79800513a4
         :creator = 4d2217d714db5e75719c988bf1798895
         :creator:name = alice liddell
         :text = example note
-        .created = 2026-10-08T12:52:38.517392Z
-        .updated = 2026-10-08T12:52:38.521747Z
+        .created = 2026-10-12T19:52:19.394039Z
+        .updated = 2026-10-12T19:52:19.401966Z
 ```
 
 The named form must be allowed by the target. If it is not (or it is not a guid form), normalization raises an error, which the `?=` operator and `$try` (see below) suppress. When `$as` is provided where the form is already fixed by context, it must match that form.
@@ -741,8 +742,8 @@ ou:org=53dc5b6083904309a43641eb7b74e444
         :desc = a great org
         :name = vertex project
         :phone = +1 (555) 123-4567
-        .created = 2026-10-08T12:52:38.530121Z
-        .updated = 2026-10-08T12:52:38.530121Z
+        .created = 2026-10-12T19:52:19.41217Z
+        .updated = 2026-10-12T19:52:19.41217Z
 ```
 
 **Virtual property keys**
@@ -774,8 +775,8 @@ biz:listing=d9efd209ec0c275beaae1ae42aa2ac26
         :name = widget
         :price = 10USD
         :price.currency = USD
-        .created = 2026-10-08T12:52:38.536781Z
-        .updated = 2026-10-08T12:52:38.536781Z
+        .created = 2026-10-12T19:52:19.421632Z
+        .updated = 2026-10-12T19:52:19.421632Z
 ```
 
 *Example -- econ:price virtual key in \`\`\$props\`\`*:
@@ -786,8 +787,8 @@ biz:listing=e3fd0b6a1d41ad7196f2855d54b65290
         :name = widget2
         :price = 5USD
         :price.currency = USD
-        .created = 2026-10-08T12:52:38.54305Z
-        .updated = 2026-10-08T12:52:38.54305Z
+        .created = 2026-10-12T19:52:19.430167Z
+        .updated = 2026-10-12T19:52:19.430167Z
 ```
 
 **\$try**
@@ -799,8 +800,8 @@ storm> [ ou:org=( { "name": "vertex project", "$try": true, "$props": { "phone":
 ou:org=53dc5b6083904309a43641eb7b74e444
         :desc = fine value
         :name = vertex project
-        .created = 2026-10-08T12:52:38.552397Z
-        .updated = 2026-10-08T12:52:38.552397Z
+        .created = 2026-10-12T19:52:19.438826Z
+        .updated = 2026-10-12T19:52:19.438826Z
 ```
 
 **\$salt**
@@ -813,8 +814,8 @@ The `$salt` value itself is not stored on the node.
 storm> [ ou:org=( { "name": "salty org", "$salt": "source-a" } ) ]
 ou:org=31dcb02de25cf801c504649249da2b51
         :name = salty org
-        .created = 2026-10-08T12:52:38.55882Z
-        .updated = 2026-10-08T12:52:38.55882Z
+        .created = 2026-10-12T19:52:19.449895Z
+        .updated = 2026-10-12T19:52:19.449895Z
 ```
 
 **\$unsets**
@@ -829,16 +830,16 @@ Each name in `$unsets` must be a valid property on the form. Specifying a proper
 storm> [ ou:org=( { "name": "example org" } ) ]
 ou:org=5b35796aed18ace44190dbabb6067ffc
         :name = example org
-        .created = 2026-10-08T12:52:38.562511Z
-        .updated = 2026-10-08T12:52:38.562511Z
+        .created = 2026-10-12T19:52:19.45437Z
+        .updated = 2026-10-12T19:52:19.45437Z
 ```
 
 ```stormdoc
 storm> [ ou:org=( { "name": "example org", "$unsets": ["desc"] } ) ]
 ou:org=5b35796aed18ace44190dbabb6067ffc
         :name = example org
-        .created = 2026-10-08T12:52:38.562511Z
-        .updated = 2026-10-08T12:52:38.562511Z
+        .created = 2026-10-12T19:52:19.45437Z
+        .updated = 2026-10-12T19:52:19.45437Z
 ```
 
 <a id="guid-predictable"></a>
@@ -852,8 +853,8 @@ To create a predictable guid, provide a list of ordered inputs (enclosed in pare
 ```stormdoc
 storm> [ ou:org=('the vertex project', 'https://vertex.link/') ]
 ou:org=d7f0d5bd78b358a74147995fc9b2e1b2
-        .created = 2026-10-08T12:52:38.571014Z
-        .updated = 2026-10-08T12:52:38.571014Z
+        .created = 2026-10-12T19:52:19.47056Z
+        .updated = 2026-10-12T19:52:19.47056Z
 ```
 
 Note that this is a "blank" node with no secondary properties set. Unlike dictionary syntax where the JSON dictionary lists properties and values as `key:value` pairs, the syntax for predictable guids simply provides a list of strings to the algorithm. You can set the properties once the node has been created, or set them as part of your original query:
@@ -864,8 +865,8 @@ ou:org=d7f0d5bd78b358a74147995fc9b2e1b2
         :name = the vertex project
         :websites = ['https://vertex.link/']
         :websites.size = 1
-        .created = 2026-10-08T12:52:38.571014Z
-        .updated = 2026-10-08T12:52:38.574763Z
+        .created = 2026-10-12T19:52:19.47056Z
+        .updated = 2026-10-12T19:52:19.478232Z
 ```
 
 Secondary property deconfliction (provided by dictionary syntax and described above) is the preferred deconfliction method to avoid duplicate nodes. However, predictable guids may be useful when:
@@ -883,39 +884,40 @@ Secondary property deconfliction (provided by dictionary syntax and described ab
 ```stormdoc
 storm> [ ou:org=('the vertex project', https://vertex.link/) ]
 ou:org=d7f0d5bd78b358a74147995fc9b2e1b2
-        .created = 2026-10-08T12:52:38.583187Z
-        .updated = 2026-10-08T12:52:38.583187Z
+        .created = 2026-10-12T19:52:19.488932Z
+        .updated = 2026-10-12T19:52:19.488932Z
 ```
 
 ```stormdoc
 storm> $name='the vertex project' $url=https://vertex.link/ [ ou:org=($name, $url) ]
 ou:org=d7f0d5bd78b358a74147995fc9b2e1b2
-        .created = 2026-10-08T12:52:38.583187Z
-        .updated = 2026-10-08T12:52:38.583187Z
+        .created = 2026-10-12T19:52:19.488932Z
+        .updated = 2026-10-12T19:52:19.488932Z
 ```
 
 ```stormdoc
 storm> $guid=$lib.guid('the vertex project', https://vertex.link/) [ ou:org=$guid ]
 ou:org=d7f0d5bd78b358a74147995fc9b2e1b2
-        .created = 2026-10-08T12:52:38.583187Z
-        .updated = 2026-10-08T12:52:38.583187Z
+        .created = 2026-10-12T19:52:19.488932Z
+        .updated = 2026-10-12T19:52:19.488932Z
 ```
 
 ```stormdoc
 storm> $name='the vertex project' $url=https://vertex.link/ $guid=$lib.guid($name, $url) [ ou:org=$guid ]
 ou:org=d7f0d5bd78b358a74147995fc9b2e1b2
-        .created = 2026-10-08T12:52:38.583187Z
-        .updated = 2026-10-08T12:52:38.583187Z
+        .created = 2026-10-12T19:52:19.488932Z
+        .updated = 2026-10-12T19:52:19.488932Z
 ```
 
 ```stormdoc
 storm> $name='the vertex project' $url=https://vertex.link/ [ ou:org=$lib.guid($name, $url) ]
 ou:org=d7f0d5bd78b358a74147995fc9b2e1b2
-        .created = 2026-10-08T12:52:38.583187Z
-        .updated = 2026-10-08T12:52:38.583187Z
+        .created = 2026-10-12T19:52:19.488932Z
+        .updated = 2026-10-12T19:52:19.488932Z
 ```
 
 - The input to the algorithm is interpreted as a structured list of **string values** (i.e., `(str_0, str_1, str_2...str_n)`). To consistently generate the same guid, each string must be **identical** (note that strings are case sensitive) and in the **same order** each time.
+- Typed values (such as property values or `$lib.cast()` results) are normalized for deconfliction the same way `$lib.guid()` normalizes them: values of the data model `text` type are case-folded, including inside comp and array values. Untyped literals are used as-is.
 
 <a id="guid-arbitrary"></a>
 
@@ -925,19 +927,19 @@ You can specify the asterisk ( `*` ) as the primary property value when creating
 
 ```stormdoc
 storm> [ ou:org=* ]
-ou:org=ce7fa28d9025eb05dc60c060d5bd4702
-        .created = 2026-10-08T12:52:38.600091Z
-        .updated = 2026-10-08T12:52:38.600091Z
+ou:org=1b4a3ea08e327b6ff7bc248514e7e0a2
+        .created = 2026-10-12T19:52:19.518319Z
+        .updated = 2026-10-12T19:52:19.518319Z
 ```
 
 Note that this is a "blank" node with no secondary properties set. You can set the properties once the node has been created, or set them as part of your original query:
 
 ```stormdoc
 storm> [ ou:org=* :name='the vertex project' ]
-ou:org=63ddbb72acb34726810ff9e5a6654713
+ou:org=b49c258453d0fac8be5c9cb13a884fd8
         :name = the vertex project
-        .created = 2026-10-08T12:52:38.603094Z
-        .updated = 2026-10-08T12:52:38.603323Z
+        .created = 2026-10-12T19:52:19.524445Z
+        .updated = 2026-10-12T19:52:19.525101Z
 ```
 
 > [!WARNING]
@@ -969,8 +971,8 @@ Lift an org node by its name:
 storm> ou:org:name='foo corporation'
 ou:org=911df639e39ea5756ada95e7285c31d2
         :name = foo corporation
-        .created = 2026-10-08T12:52:38.606298Z
-        .updated = 2026-10-08T12:52:38.606298Z
+        .created = 2026-10-12T19:52:19.531584Z
+        .updated = 2026-10-12T19:52:19.531584Z
 ```
 
 Lift a DNS request node by the name used in the DNS query:
@@ -980,8 +982,8 @@ storm> inet:dns:request:query:name=pop.seznam.cz
 inet:dns:request=e24e2348a8e3ccc2ce7002aaecdb7376
         :query:name = pop.seznam.cz
         :time = 2020-04-30T09:30:33Z
-        .created = 2026-10-08T12:52:38.633035Z
-        .updated = 2026-10-08T12:52:38.633035Z
+        .created = 2026-10-12T19:52:19.543904Z
+        .updated = 2026-10-12T19:52:19.543904Z
 ```
 
 It is also possible to lift and filter guid nodes using a "sufficiently unique" prefix match of the guid value.
@@ -996,8 +998,8 @@ entity:contact=92a43adc904c5e62c4cc80817004c7f5
         :name = ozzie the pony
         :org:name = vertex
         :type = vertex.employee
-        .created = 2026-10-08T12:52:38.641188Z
-        .updated = 2026-10-08T12:52:38.641756Z
+        .created = 2026-10-12T19:52:19.559263Z
+        .updated = 2026-10-12T19:52:19.560028Z
 ```
 
 The length of the value that is "sufficiently unique" will vary depending on the data in your instance of Synapse. If your selection criteria matches more than one node, Synapse will return all matches.
@@ -1014,11 +1016,11 @@ entity:contact=eb141bade0f7833c7998d9871f7dd871
         :emails = ['ron@vertex.link']
         :emails.size = 1
         :name = ron the cat
-        :org = 63ddbb72acb34726810ff9e5a6654713
+        :org = b49c258453d0fac8be5c9cb13a884fd8
         :title = cattribution analyst
         :type = vertex.employee
-        .created = 2026-10-08T12:52:38.339941Z
-        .updated = 2026-10-08T12:52:38.655048Z
+        .created = 2026-10-12T19:52:19.171323Z
+        .updated = 2026-10-12T19:52:19.577108Z
 ```
 
 > [!NOTE]
@@ -1115,24 +1117,24 @@ inet:fqdn=ayuisyahooapis.com
         :issuffix = false
         :iszone = true
         :zone = ayuisyahooapis.com
-        .created = 2026-10-08T12:52:38.658217Z
-        .updated = 2026-10-08T12:52:38.658713Z
+        .created = 2026-10-12T19:52:19.582936Z
+        .updated = 2026-10-12T19:52:19.583652Z
 inet:fqdn=micyuisyahooapis.com
         :domain = com
         :host = micyuisyahooapis
         :issuffix = false
         :iszone = true
         :zone = micyuisyahooapis.com
-        .created = 2026-10-08T12:52:38.660118Z
-        .updated = 2026-10-08T12:52:38.660572Z
+        .created = 2026-10-12T19:52:19.585435Z
+        .updated = 2026-10-12T19:52:19.586125Z
 inet:fqdn=usyahooapis.com
         :domain = com
         :host = usyahooapis
         :issuffix = false
         :iszone = true
         :zone = usyahooapis.com
-        .created = 2026-10-08T12:52:38.661898Z
-        .updated = 2026-10-08T12:52:38.662333Z
+        .created = 2026-10-12T19:52:19.587261Z
+        .updated = 2026-10-12T19:52:19.587608Z
 ```
 
 Lift all domains ending with `s.wordpress.com`:
@@ -1145,32 +1147,32 @@ inet:fqdn=dogs.wordpress.com
         :issuffix = false
         :iszone = false
         :zone = wordpress.com
-        .created = 2026-10-08T12:52:38.672382Z
-        .updated = 2026-10-08T12:52:38.672618Z
+        .created = 2026-10-12T19:52:19.603231Z
+        .updated = 2026-10-12T19:52:19.603955Z
 inet:fqdn=sss.wordpress.com
         :domain = wordpress.com
         :host = sss
         :issuffix = false
         :iszone = false
         :zone = wordpress.com
-        .created = 2026-10-08T12:52:38.673436Z
-        .updated = 2026-10-08T12:52:38.674017Z
+        .created = 2026-10-12T19:52:19.606147Z
+        .updated = 2026-10-12T19:52:19.607662Z
 inet:fqdn=www.sss.wordpress.com
         :domain = sss.wordpress.com
         :host = www
         :issuffix = false
         :iszone = false
         :zone = wordpress.com
-        .created = 2026-10-08T12:52:38.673436Z
-        .updated = 2026-10-08T12:52:38.674417Z
+        .created = 2026-10-12T19:52:19.606147Z
+        .updated = 2026-10-12T19:52:19.608138Z
 inet:fqdn=cats.wordpress.com
         :domain = wordpress.com
         :host = cats
         :issuffix = false
         :iszone = false
         :zone = wordpress.com
-        .created = 2026-10-08T12:52:38.670396Z
-        .updated = 2026-10-08T12:52:38.671762Z
+        .created = 2026-10-12T19:52:19.598888Z
+        .updated = 2026-10-12T19:52:19.601501Z
 ```
 
 Filter a set of DNS A records to those with domains ending with `.museum`:
@@ -1180,8 +1182,8 @@ storm> inet:dns:a +:fqdn='*.museum'
 inet:dns:a=('woot.museum', '5.6.7.8')
         :fqdn = woot.museum
         :ip = 5.6.7.8
-        .created = 2026-10-08T12:52:38.685181Z
-        .updated = 2026-10-08T12:52:38.685181Z
+        .created = 2026-10-12T19:52:19.619908Z
+        .updated = 2026-10-12T19:52:19.619908Z
 ```
 
 **Usage Notes**
@@ -1285,20 +1287,20 @@ inet:ip=2606:4700:3031::6815:1c72
         :scope = global
         :type = unicast
         :version = 6
-        .created = 2026-10-08T12:52:38.784409Z
-        .updated = 2026-10-08T12:52:38.784409Z
+        .created = 2026-10-12T19:52:19.73584Z
+        .updated = 2026-10-12T19:52:19.73584Z
 inet:ip=2606:4700:3031::6815:1c76
         :scope = global
         :type = unicast
         :version = 6
-        .created = 2026-10-08T12:52:38.785535Z
-        .updated = 2026-10-08T12:52:38.785535Z
+        .created = 2026-10-12T19:52:19.736803Z
+        .updated = 2026-10-12T19:52:19.736803Z
 inet:ip=2606:4700:3031::6815:1c77
         :scope = global
         :type = unicast
         :version = 6
-        .created = 2026-10-08T12:52:38.786551Z
-        .updated = 2026-10-08T12:52:38.786551Z
+        .created = 2026-10-12T19:52:19.737542Z
+        .updated = 2026-10-12T19:52:19.737542Z
 ```
 
 Filter a set of DNS A records to only include those whose IP value is within the 172.16.\* RFC1918 range:
@@ -1308,8 +1310,8 @@ storm> inet:dns:a:fqdn=woot.com +:ip=172.16.0.0/12
 inet:dns:a=('woot.com', '172.16.47.12')
         :fqdn = woot.com
         :ip = 172.16.47.12
-        .created = 2026-10-08T12:52:38.794475Z
-        .updated = 2026-10-08T12:52:38.794475Z
+        .created = 2026-10-12T19:52:19.746253Z
+        .updated = 2026-10-12T19:52:19.746253Z
 ```
 
 <a id="type-int"></a>
@@ -1337,8 +1339,8 @@ biz:listing=09b216f462057dd2018e92695231a1a6
         :name = widgets for sale
         :price = 10USD
         :price.currency = USD
-        .created = 2026-10-08T12:52:38.801576Z
-        .updated = 2026-10-08T12:52:38.805331Z
+        .created = 2026-10-12T19:52:19.752736Z
+        .updated = 2026-10-12T19:52:19.756492Z
 ```
 
 Use a hex value to set the `:ip:proto` property for an `inet:flow` node to 6:
@@ -1355,8 +1357,8 @@ inet:flow=4e43f635884ea6c381992ae0c78a964e
         :server = tcp://142.118.95.50:8888
         :server.ip = 142.118.95.50
         :server.port = 8888
-        .created = 2026-10-08T12:52:38.81061Z
-        .updated = 2026-10-08T12:52:38.813898Z
+        .created = 2026-10-12T19:52:19.762015Z
+        .updated = 2026-10-12T19:52:19.766515Z
 ```
 
 Use the octal value 755 to set the POSIX permissions for a RAR archive entry:
@@ -1368,8 +1370,8 @@ file:mime:rar:entry=20271c769d69a6db5c691dbe391214e9
         :extra:posix:perms = 493
         :file = a1ad3c4eb92948a788eb3b60246984c2
         :parent = 2030fb2331688d4b6d55afb26828dd8e
-        .created = 2026-10-08T12:52:38.823109Z
-        .updated = 2026-10-08T12:52:38.826667Z
+        .created = 2026-10-12T19:52:19.777577Z
+        .updated = 2026-10-12T19:52:19.781878Z
 ```
 
 Posix permissions are commonly represented in octal (e.g., 755), which is decimal 493.
@@ -1392,8 +1394,8 @@ risk:alert=c0266bc76a31e37bab40b8a4dd78736b
         :created = 2023-08-01T09:00:00Z
         :name = outbound traffic to SOC-reported IP
         :priority = 9
-        .created = 2026-10-08T12:52:38.830712Z
-        .updated = 2026-10-08T12:52:38.830712Z
+        .created = 2026-10-12T19:52:19.78653Z
+        .updated = 2026-10-12T19:52:19.78653Z
 ```
 
 Lift all `inet:flow` nodes tagged with `#my.tag` and filter to include only those where the `:ip:proto` property is set to the hex equivalent of 6:
@@ -1410,8 +1412,8 @@ inet:flow=dc28a73bb22ed29d5cd258f3d5fd207c
         :server = tcp://62.152.42.139:1234
         :server.ip = 62.152.42.139
         :server.port = 1234
-        .created = 2026-10-08T12:52:38.845982Z
-        .updated = 2026-10-08T12:52:38.846751Z
+        .created = 2026-10-12T19:52:19.809093Z
+        .updated = 2026-10-12T19:52:19.809887Z
         #my.tag
 ```
 
@@ -1424,8 +1426,8 @@ file:mime:rar:entry=20271c769d69a6db5c691dbe391214e9
         :extra:posix:perms = 493
         :file = a1ad3c4eb92948a788eb3b60246984c2
         :parent = 2030fb2331688d4b6d55afb26828dd8e
-        .created = 2026-10-08T12:52:38.823109Z
-        .updated = 2026-10-08T12:52:38.826667Z
+        .created = 2026-10-12T19:52:19.777577Z
+        .updated = 2026-10-12T19:52:19.781878Z
 ```
 
 <a id="type-ival"></a>
@@ -1518,8 +1520,8 @@ inet:dns:a=('yoyodyne.com', '16.16.16.16')
         :seen.max = 2018-12-16T12:57:00Z
         :seen.duration = 3D 11:52:00
         :seen.precision = microsecond
-        .created = 2026-10-08T12:52:38.857683Z
-        .updated = 2026-10-08T12:52:38.859541Z
+        .created = 2026-10-12T19:52:19.819369Z
+        .updated = 2026-10-12T19:52:19.821459Z
 ```
 
 `ival` types cannot be used with comparison operators such as "less than" or "greater than or equal to".
@@ -1540,8 +1542,8 @@ inet:dns:a=('hurr.com', '4.4.4.4')
         :seen.max = 2019-03-12T18:17:00Z
         :seen.duration = 66D 08:39:00
         :seen.precision = microsecond
-        .created = 2026-10-08T12:52:38.867999Z
-        .updated = 2026-10-08T12:52:38.868901Z
+        .created = 2026-10-12T19:52:19.833924Z
+        .updated = 2026-10-12T19:52:19.835402Z
 inet:dns:a=('derp.net', '8.8.8.8')
         :fqdn = derp.net
         :ip = 8.8.8.8
@@ -1550,8 +1552,8 @@ inet:dns:a=('derp.net', '8.8.8.8')
         :seen.max = 2019-03-22T10:14:00Z
         :seen.duration = 14D 02:48:00
         :seen.precision = microsecond
-        .created = 2026-10-08T12:52:38.869621Z
-        .updated = 2026-10-08T12:52:38.870619Z
+        .created = 2026-10-12T19:52:19.836341Z
+        .updated = 2026-10-12T19:52:19.837401Z
 inet:dns:a=('blergh.org', '2.2.2.2')
         :fqdn = blergh.org
         :ip = 2.2.2.2
@@ -1560,8 +1562,8 @@ inet:dns:a=('blergh.org', '2.2.2.2')
         :seen.max = 2019-04-27T00:03:00Z
         :seen.duration = 29D 01:41:00
         :seen.precision = microsecond
-        .created = 2026-10-08T12:52:38.871255Z
-        .updated = 2026-10-08T12:52:38.872261Z
+        .created = 2026-10-12T19:52:19.838077Z
+        .updated = 2026-10-12T19:52:19.839087Z
 ```
 
 `ival` types cannot be used with the `*range=` custom comparator. `*range=` can only be used to specify a range of individual values (such as `time` or `int`).
@@ -1635,13 +1637,13 @@ storm> ou:org:place:loc^=tr
 ou:org=729523c7015f7601feb284e1fdbaf64c
         :name = republic of turkey ministry of foreign affairs
         :place:loc = tr.ankara
-        .created = 2026-10-08T12:52:38.879458Z
-        .updated = 2026-10-08T12:52:38.879934Z
+        .created = 2026-10-12T19:52:19.84818Z
+        .updated = 2026-10-12T19:52:19.848973Z
 ou:org=152b0923ee4d4fab577cd887433ba66f
         :name = adeo it consulting services
         :place:loc = tr.istanbul
-        .created = 2026-10-08T12:52:38.880917Z
-        .updated = 2026-10-08T12:52:38.881362Z
+        .created = 2026-10-12T19:52:19.850227Z
+        .updated = 2026-10-12T19:52:19.850602Z
 ```
 
 Lift all IP addresses geolocated in the province of Ontario, Canada (`ca.on`):
@@ -1652,20 +1654,20 @@ inet:ip=149.248.52.240
         :place:loc = ca.on
         :type = unicast
         :version = 4
-        .created = 2026-10-08T12:52:38.888006Z
-        .updated = 2026-10-08T12:52:38.88846Z
+        .created = 2026-10-12T19:52:19.860341Z
+        .updated = 2026-10-12T19:52:19.861161Z
 inet:ip=49.51.12.195
         :place:loc = ca.on.barrie
         :type = unicast
         :version = 4
-        .created = 2026-10-08T12:52:38.88933Z
-        .updated = 2026-10-08T12:52:38.889853Z
+        .created = 2026-10-12T19:52:19.862474Z
+        .updated = 2026-10-12T19:52:19.863587Z
 inet:ip=199.201.123.200
         :place:loc = ca.on.keswick
         :type = unicast
         :version = 4
-        .created = 2026-10-08T12:52:38.890368Z
-        .updated = 2026-10-08T12:52:38.890598Z
+        .created = 2026-10-12T19:52:19.864485Z
+        .updated = 2026-10-12T19:52:19.865223Z
 ```
 
 > [!NOTE]
@@ -1683,14 +1685,14 @@ geo:place=965638e363dcca0e7148136ad68551aa
         :latlong = 47.6205099,-122.3514714
         :loc = us.wa.seattle
         :name = space needle
-        .created = 2026-10-08T12:52:38.897963Z
-        .updated = 2026-10-08T12:52:38.898316Z
+        .created = 2026-10-12T19:52:19.87484Z
+        .updated = 2026-10-12T19:52:19.875321Z
 geo:place=c50de88c5787c9eaae2697544cc679f2
         :latlong = 47.4502535,-122.3110105
         :loc = us.wa.seattle
         :name = seattle-tacoma international airport
-        .created = 2026-10-08T12:52:38.898937Z
-        .updated = 2026-10-08T12:52:38.899201Z
+        .created = 2026-10-12T19:52:19.876069Z
+        .updated = 2026-10-12T19:52:19.876342Z
 ```
 
 When **lifting** on `:loc` property values using the equals operator ( `=` ), a single asterisk ( `*` ) can be used as a wildcard to represent any trailing string following a dot boundary (including no trailing string - `:loc=us.*` will match `:loc=us` as well as `:loc=us.tx.austin`). The asterisk must immediately follow a dot boundary and must be the final character in the expression (e.g., expressions such as `:loc=us.*.rochester` and `:loc=us.m*` are invalid; the expressions will not generate an error but will fail to return any nodes).
@@ -1702,13 +1704,13 @@ storm> ou:org:place:loc=tr.*
 ou:org=729523c7015f7601feb284e1fdbaf64c
         :name = republic of turkey ministry of foreign affairs
         :place:loc = tr.ankara
-        .created = 2026-10-08T12:52:38.879458Z
-        .updated = 2026-10-08T12:52:38.879934Z
+        .created = 2026-10-12T19:52:19.84818Z
+        .updated = 2026-10-12T19:52:19.848973Z
 ou:org=152b0923ee4d4fab577cd887433ba66f
         :name = adeo it consulting services
         :place:loc = tr.istanbul
-        .created = 2026-10-08T12:52:38.880917Z
-        .updated = 2026-10-08T12:52:38.881362Z
+        .created = 2026-10-12T19:52:19.850227Z
+        .updated = 2026-10-12T19:52:19.850602Z
 ```
 
 Lift all IP addresses geolocated in the province of Ontario, Canada:
@@ -1719,20 +1721,20 @@ inet:ip=149.248.52.240
         :place:loc = ca.on
         :type = unicast
         :version = 4
-        .created = 2026-10-08T12:52:38.888006Z
-        .updated = 2026-10-08T12:52:38.88846Z
+        .created = 2026-10-12T19:52:19.860341Z
+        .updated = 2026-10-12T19:52:19.861161Z
 inet:ip=49.51.12.195
         :place:loc = ca.on.barrie
         :type = unicast
         :version = 4
-        .created = 2026-10-08T12:52:38.88933Z
-        .updated = 2026-10-08T12:52:38.889853Z
+        .created = 2026-10-12T19:52:19.862474Z
+        .updated = 2026-10-12T19:52:19.863587Z
 inet:ip=199.201.123.200
         :place:loc = ca.on.keswick
         :type = unicast
         :version = 4
-        .created = 2026-10-08T12:52:38.890368Z
-        .updated = 2026-10-08T12:52:38.890598Z
+        .created = 2026-10-12T19:52:19.864485Z
+        .updated = 2026-10-12T19:52:19.865223Z
 ```
 
 > [!NOTE]
@@ -1774,12 +1776,12 @@ Lift all organizations whose name starts with the word "Acme":
 storm> ou:org:name^=acme
 ou:org=70a48c4618332a7d6e9251a9b02699c3
         :name = acme construction
-        .created = 2026-10-08T12:52:38.914056Z
-        .updated = 2026-10-08T12:52:38.914056Z
+        .created = 2026-10-12T19:52:19.890158Z
+        .updated = 2026-10-12T19:52:19.890158Z
 ou:org=fa605964cccb6209733f50ca547f41f2
         :name = acme practical joke products
-        .created = 2026-10-08T12:52:38.914696Z
-        .updated = 2026-10-08T12:52:38.914696Z
+        .created = 2026-10-12T19:52:19.890953Z
+        .updated = 2026-10-12T19:52:19.890953Z
 ```
 
 Strings and string-derived types can also be lifted or filtered using the regular expression extended comparator ( `~=`) (see [Lift by Regular Expression (~=)](storm_ref_lift.md#lift-regex) and [Filter by Regular Expression (~=)](storm_ref_filter.md#filter-regex)).
@@ -1824,8 +1826,8 @@ syn:tag=rep.us_cisa.lapsus
         :base = lapsus
         :depth = 2
         :up = rep.us_cisa
-        .created = 2026-10-08T12:52:38.920065Z
-        .updated = 2026-10-08T12:52:38.920065Z
+        .created = 2026-10-12T19:52:19.898075Z
+        .updated = 2026-10-12T19:52:19.898075Z
 ```
 
 In the above example:
@@ -1853,8 +1855,8 @@ inet:fqdn=woot.com
         :issuffix = false
         :iszone = true
         :zone = woot.com
-        .created = 2026-10-08T12:52:38.682858Z
-        .updated = 2026-10-08T12:52:38.924905Z
+        .created = 2026-10-12T19:52:19.617294Z
+        .updated = 2026-10-12T19:52:19.903559Z
         #some.new.tag
 ```
 
@@ -1877,32 +1879,32 @@ storm> syn:tag^=cno
 syn:tag=cno
         :base = cno
         :depth = 0
-        .created = 2026-10-08T12:52:38.929592Z
-        .updated = 2026-10-08T12:52:38.929592Z
+        .created = 2026-10-12T19:52:19.908393Z
+        .updated = 2026-10-12T19:52:19.908393Z
 syn:tag=cno.mal
         :base = mal
         :depth = 1
         :up = cno
-        .created = 2026-10-08T12:52:38.930901Z
-        .updated = 2026-10-08T12:52:38.930901Z
+        .created = 2026-10-12T19:52:19.909917Z
+        .updated = 2026-10-12T19:52:19.909917Z
 syn:tag=cno.mal.redtree
         :base = redtree
         :depth = 2
         :up = cno.mal
-        .created = 2026-10-08T12:52:38.930901Z
-        .updated = 2026-10-08T12:52:38.930901Z
+        .created = 2026-10-12T19:52:19.909917Z
+        .updated = 2026-10-12T19:52:19.909917Z
 syn:tag=cno.threat
         :base = threat
         :depth = 1
         :up = cno
-        .created = 2026-10-08T12:52:38.929592Z
-        .updated = 2026-10-08T12:52:38.929592Z
+        .created = 2026-10-12T19:52:19.908393Z
+        .updated = 2026-10-12T19:52:19.908393Z
 syn:tag=cno.threat.t27
         :base = t27
         :depth = 2
         :up = cno.threat
-        .created = 2026-10-08T12:52:38.929592Z
-        .updated = 2026-10-08T12:52:38.929592Z
+        .created = 2026-10-12T19:52:19.908393Z
+        .updated = 2026-10-12T19:52:19.908393Z
 ```
 
 Lift all tags associated with data reported by Sophos where the final tag element starts with `co`:
@@ -1914,15 +1916,15 @@ syn:tag=rep.sophos.cobalt_shadow
         :depth = 2
         :title = COBALT SHADOW (Sophos)
         :up = rep.sophos
-        .created = 2026-10-08T12:52:38.937905Z
-        .updated = 2026-10-08T12:52:38.938197Z
+        .created = 2026-10-12T19:52:19.917342Z
+        .updated = 2026-10-12T19:52:19.917952Z
 syn:tag=rep.sophos.copper_fieldstone
         :base = copper_fieldstone
         :depth = 2
         :title = COPPER FIELDSTONE (Sophos)
         :up = rep.sophos
-        .created = 2026-10-08T12:52:38.938734Z
-        .updated = 2026-10-08T12:52:38.938941Z
+        .created = 2026-10-12T19:52:19.91889Z
+        .updated = 2026-10-12T19:52:19.919286Z
 ```
 
 **Usage notes:**
@@ -1934,7 +1936,7 @@ syn:tag=rep.sophos.copper_fieldstone
 > [!NOTE]
 > Working with (lifting, filtering, etc.) `syn:tag` **types** (`syn:tag` forms or property values) is different from working with **tags** applied to nodes. In particular, when filtering based on the tag(s) applied to a set of nodes, you can filter using single or double asterisks ( `*` or `**`). See [Filter by Tag Globs](storm_ref_filter.md#filter-tag-globs) or the general [Tag Filters](storm_ref_filter.md#tag-filter) or [Tag Lifts](storm_ref_lift.md#tag-lifts) sections for details on working with tags applied to nodes.
 
-<a id="type-taxoxnomy"></a>
+<a id="type-taxonomy"></a>
 
 ## taxonomy
 
@@ -1988,8 +1990,8 @@ financial_gain.
 entity:goal:type:taxonomy=financial_gain
         :base = financial_gain
         :depth = 0
-        .created = 2026-10-08T12:52:38.944502Z
-        .updated = 2026-10-08T12:52:38.944502Z
+        .created = 2026-10-12T19:52:19.92834Z
+        .updated = 2026-10-12T19:52:19.92834Z
 ```
 
 ### Parsing
@@ -2026,33 +2028,33 @@ storm> ind:industry:type^=media
 ind:industry=7ae4b38ab2f6ff357ccc3af9f2fe08eb
         :name = media
         :type = media
-        .created = 2026-10-08T12:52:38.95472Z
-        .updated = 2026-10-08T12:52:38.95472Z
+        .created = 2026-10-12T19:52:19.940047Z
+        .updated = 2026-10-12T19:52:19.940047Z
 ind:industry=6942ca4b2a116555a05a8a61df2f95ae
         :name = entertainment
         :type = media.entertainment
-        .created = 2026-10-08T12:52:38.958878Z
-        .updated = 2026-10-08T12:52:38.958878Z
+        .created = 2026-10-12T19:52:19.944362Z
+        .updated = 2026-10-12T19:52:19.944362Z
 ind:industry=3012dd13ad13769abb640315e0268b50
         :name = journalism and news media
         :type = media.journalism
-        .created = 2026-10-08T12:52:38.955941Z
-        .updated = 2026-10-08T12:52:38.955941Z
+        .created = 2026-10-12T19:52:19.941023Z
+        .updated = 2026-10-12T19:52:19.941023Z
 ind:industry=856018e7b0b5666acc29c93f96031e0c
         :name = journalists and reporters
         :type = media.journalism.reporters
-        .created = 2026-10-08T12:52:38.956746Z
-        .updated = 2026-10-08T12:52:38.956746Z
+        .created = 2026-10-12T19:52:19.941837Z
+        .updated = 2026-10-12T19:52:19.941837Z
 ind:industry=54c66062e7d30a118d7e5d0e61948cfd
         :name = publishing
         :type = media.publishing
-        .created = 2026-10-08T12:52:38.957489Z
-        .updated = 2026-10-08T12:52:38.957489Z
+        .created = 2026-10-12T19:52:19.942658Z
+        .updated = 2026-10-12T19:52:19.942658Z
 ind:industry=5a5686c1c34b3dea70b97631a4abd710
         :name = print media
         :type = media.publishing.print
-        .created = 2026-10-08T12:52:38.958197Z
-        .updated = 2026-10-08T12:52:38.958197Z
+        .created = 2026-10-12T19:52:19.943526Z
+        .updated = 2026-10-12T19:52:19.943526Z
 ```
 
 Lift all industries (`ind:industry` nodes) within the "media" category / taxonomy whose subcategory starts with "j":
@@ -2062,13 +2064,13 @@ storm> ind:industry:type^=media.j
 ind:industry=3012dd13ad13769abb640315e0268b50
         :name = journalism and news media
         :type = media.journalism
-        .created = 2026-10-08T12:52:38.955941Z
-        .updated = 2026-10-08T12:52:38.955941Z
+        .created = 2026-10-12T19:52:19.941023Z
+        .updated = 2026-10-12T19:52:19.941023Z
 ind:industry=856018e7b0b5666acc29c93f96031e0c
         :name = journalists and reporters
         :type = media.journalism.reporters
-        .created = 2026-10-08T12:52:38.956746Z
-        .updated = 2026-10-08T12:52:38.956746Z
+        .created = 2026-10-12T19:52:19.941837Z
+        .updated = 2026-10-12T19:52:19.941837Z
 ```
 
 **Usage notes:**
@@ -2081,167 +2083,162 @@ ind:industry=856018e7b0b5666acc29c93f96031e0c
 
 ## time
 
-Synapse stores `time` types in Epoch microseconds (micros) - that is, the number of microseconds since January 1, 1970. The `time` type is technically a date/time because it encompasses both a date and a time. A time value alone, such as 12:37 PM (12:37:00.000000), is invalid.
+Synapse stores `time` types as an epoch microseconds (micros) integer - that is, the number of microseconds since January 1, 1970. This includes negative values to represent times prior to January 1, 1970 (e.g., `-435531600000000` for March 14, 1956 at 03:00).
+
+The `time` type is technically a date/time because it encompasses both a date and a time. A time value alone, such as 12:37 PM (12:37:00.000000), is invalid.
 
 See also the section on [ival](storm_ref_type_specific.md#type-ival) (interval) types for details on how `time` types are used as minimum / maximum pairs.
 
+**Virtual Properties**
+
+All `time` types have a `.precision` [virtual property](data_model.md#virtual-property) (of type `timeprecision`) that stores the precision for the time value. The default precision is `microsecond`, but the value can be set to any supported value.
+
+See the [timeprecision](storm_ref_type_specific.md#type-timeprecision) section for additional details on the `timeprecision` type.
+
+See the `time` [Insertion](storm_ref_type_specific.md#type-time-insert) section below for additional details on how `.precision` interacts with `time` values.
+
+<a id="type-time-index"></a>
+
 ### Indexing
 
-N/A
+`Time` values are stored as epoch microsecond integers.
+
+A `time` value's `.precision` is stored with the `time` but not indexed. If the `.precision` value matches the type's defined default (`microsecond` unless the type specifies otherwise), Synapse stores a null value to represent the default.
+
+<a id="type-time-parse"></a>
 
 ### Parsing
 
-`time` values can be input into Storm as any of the following:
+`time` values can be input into Storm using any of the following formats. Standard rules regarding the use of [Whitespace and Literals in Storm](storm_ref_intro.md#storm-whitespace-literals) apply.
 
-- **Explicit** times:
+<a id="type-time-parse-explicit"></a>
 
-  - Human-readable (YYYY/MM/DD hh:mm:ss.mmmmmm):
+**Explicit** times:
 
-    `'2018/12/16 09:37:52.324'`
+When entering explicit `time` values, you can enter them at any level of precision; you do not have to use the full microsecond format. See [Insertion](storm_ref_type_specific.md#type-time-insert) below for details on how Synapse interprets and stores `time` and `.precision` values for lower precision values (e.g., second, day).
 
-  - Human-readable "Zulu" (YYYY/MM/DDThh:mm:ss.mmmmmmZ):
+- Human-readable (`YYYY/MM/DD hh:mm:ss.mmmmmm`):
+  
+  `'2018/12/16 09:37:52.324873'`
 
-    `2018/12/16T09:37:52.324Z`
+- Human-readable "Zulu" (`YYYY/MM/DDThh:mm:ss.mmmmmmZ`):
+  
+  `2018/12/16T09:37:52.324873Z`
 
-  - Human-readable with time zone (YYYY-MM-DD hh:mm:ss.mmmmmm+/-hh:mm). No spaces are allowed between the time value and the time zone offset:
+- Human-readable with time zone (`YYYY-MM-DD hh:mm:ss.mmmmmm +/-hh:mm`). A space between the value and the time zone offset is optional:
+  
+  `'2018-12-16 09:37:52.324873 -04:00'`
+  
+  `'2018-12-16 09:37:52.324873-04:00'`
+  
+  > [!NOTE]
+  > Synapse does not support the **storage** of a time zone (e.g., `+0800`) with a `time` value. Synapse stores all `time` values in UTC for consistency. If a time zone is specified using an acceptable time zone offset format on input, Synapse will automatically convert the value to UTC for storage. If no time zone is specified, Synapse will assume the value is in UTC.
 
-    `2018-12-16 09:37:52.324-04:00`
+- No formatting (`YYYYMMDDhhmmssmmmmmm`):
+  
+  `20181216093752324873`
 
-    > [!NOTE]
-    > Synapse does not support the **storage** of an explicit time zone with a time value (i.e., +0800). Synapse stores time values in UTC for consistency. If a time zone is specified using an acceptable time zone offset format on input, Synapse will automatically convert the value to UTC for storage. If no time zone is specified, Synapse will assume the value is in UTC.
+- Epoch micros:
+  
+  `(1544953072324873)`
+  
+  > [!TIP]
+  > Synapse attempts to parse time values as human-readable strings (the format most likely to be entered by users) by default. Using parentheses tells Synapse to interpret the value as a raw integer.
+  >
+  > [Expression syntax](../glossary.md#gloss-expression-syntax) can only be used when setting or updating a `time` property using Storm. When setting or updating a property in the [Optic UI](/docs/synapse-enterprise-optic/latest/index.md) by editing a field, you must enter a time string value.
 
-  - No formatting (YYYYMMDDhhmmssmmmmmm):
+<a id="type-time-parse-relative"></a>
 
-    `20181216093752324000`
+**Relative** (offset) time values.
 
-  - Epoch micros:
+Synapse and Storm support the use of relative time expressions in the following format:
 
-    `(1544953072324000)`
+**+** \| **-** \| **+-** *\<count\>* *\<unit\>*
 
-    > [!TIP]
-    > Synapse expects that users will generally enter time values using human-friendly strings, and will attempt to parse the input as such. Using parentheses tells Synapse to interpret the value as a raw integer.
-    >
-    > Note that this parentheses syntax only applies when setting or updating a `time` property using Storm. When setting or updating a property in the [Optic UI](/docs/synapse-enterprise-optic/latest/index.md) by editing a field, you must enter a time string value.
+where *\<count\>* is a numeric value and *\<unit\>* is one of the following:
 
-- **Relative** (offset) time values in the format:
+- `sec`, `secs`, or `seconds`
+- `min`, `mins`, `minute`, or `minutes`
+- `hour` or `hours`
+- `day` or `days`
 
-  **+** \| **-** \| **+-** *\<count\>* *\<unit\>*
+**Usage Notes**
 
-  where *\<count\>* is a numeric value and *\<unit\>* is one of the following:
+- The units do not need to be "grammatically correct" - Synapse will accept both `'+2 days'` and `'+2 day'`.
+- A space between the `+` | `-` | `+-` and *\<count\>* is optional. Synapse will accept both `'+10 seconds'` and `'+ 10 seconds'`.
+- A space between the *\<count\>* and *\<unit\>* is optional. Synapse will accept both `+3hours` and `'+3 hours'`
+- For `time` values, the time used to calculate the offset varies based on the use case:
+  
+  - If you specify a `time` value using a relative value only (e.g., `[ :time='+1 hour' ]`), the offset is calculated relative to the current time (`now`).
+  - If you specify a `time` value using an "anchor" time (e.g., `[ :time='2026/10/03 12:00 +1 hour' ]`), the offset is calculated from the anchor.
+  - If a relative time is used as the second value of a range (e.g., `*range=('2026/10/02 12:00', '+1 hour')`) or an `ival` (e.g., `[ :seen=('2026/10/02 12:00', '+1 hour') ]`), the offset is calculated from the first value.
 
-  - `minute(s)`
-  - `hour(s)`
-  - `day(s)`
+- A relative value that uses `+-` (e.g., `'+-30 seconds'`) results in two offsets (two `time` values) and cannot be used with a `time` type. A `+-` offset can only be used with [ival](storm_ref_type_specific.md#type-ival) (interval) types or as the second value of a range (e.g., `*range=('2021/05/13 12:00', '+-12 hours')`).
 
-  **Examples:**
+<a id="type-time-parse-special"></a>
 
-  - `'+7 days'`
-  - `'-15 minutes'`
-  - `'+-1 hour'`
+**Special** time values:
 
-- **Special** time values:
+The following terms and symbols have specialized meanings with respect to time in Synapse and Storm:
 
-  - the keyword `now` is used to represent the current date/time.
+- the keyword `now` is used to represent the current date/time.
+- a question mark ( `?` ) represents **unknown**. Synapse stores this value as `0x7fffffffffffffff`.
+- an asterisk ( `*` ) represents **ongoing**. Synapse stores this value as `0x7ffffffffffffffe`.
 
-  - a question mark ( `?` ) is used to effectively represent an unspecified / indefinite time in the future (technically equivalent to 9223372036854775807 micros, i.e., "some really high value in the future". Note that technically the largest valid micros value is 253402300799999999, which represents 9999/12/31 23:59:59.999999).
+**Usage Notes**
 
-    The question mark can be used as the maximum value of an interval ([ival](storm_ref_type_specific.md#type-ival)) type to specify that the data or assessment associated with the `ival` should be considered valid indefinitely. (Contrast that with a maximum interval value set to the equivalent of `now` that would need to be continually updated over time in order to remain current.)
-
-Standard rules regarding using [Whitespace and Literals in Storm](storm_ref_intro.md#storm-whitespace-literals) apply. For example, `'2018/12/16 09:37:52.324'` needs to be entered in single or double quotes, but `2018/12/16` does not. Similarly, relative times starting with `+` or `-` and the special time value `?` need to be placed in single or double quotes.
-
-#### Lower Resolution Time Values and Wildcard Time Values
-
-`time` values (including tag timestamps) must be entered at a minimum resolution of year (`YYYY`) and can be entered up to a maximum resolution of microseconds (`YYYY/MM/DD hh:mm:ss.mmmmmm`).
-
-Where lower resolution values are entered, Synapse will make logical assumptions about the intended date / time value and zero-fill the remainder of the equivalent epoch mills date / time. For example:
-
-- A value of `2016` will be interpreted as 12:00 AM on January 1, 2016 (`2016/01/01 00:00:00.000000`).
-- A value of `2018/10/27` will be interpreted as 12:00 AM on that date (`2018/10/27 00:00:00.000000`).
-- A value of `'2020/03/16 05'` will be interpreted as 05:00 AM on that date (`2020/03/16 05:00:00.000000`).
-- A value of `'2018/10/27 14:00-04:00'` will be interpreted as 14:00 (2:00 PM) on that date with a 4 hour offset from UTC (`2018/10/27 14:00:00.000-04:00`, stored in UTC as `2018/10/27 18:00:00.000000`).
-
-Synapse also supports the use of the wildcard ( `*` ) character to specify a partial time value match:
-
-- A value of `2016*` will be interpreted as "any date / time within the year 2016".
-- A value of `2018/10/27*` will be interpreted as "any time on October 27, 2018".
-- A value of `'2020/03/16 05*'` will be interpreted as "any time within the hour of 05:00 on March 16, 2020".
+- The question mark ( `?` ) for "unknown" is most useful when setting the `.min` and / or `.max` value of an [ival](storm_ref_type_specific.md#type-ival), where the start and / or end time are not known.
+- The asterisk ( `*` ) for "ongoing" is most useful when setting the `.max` value of an [ival](storm_ref_type_specific.md#type-ival) to indicate that the activity is known (or assumed) to be continuing indefinitely.
 
 > [!NOTE]
-> When using wildcard syntax, the wildcard must be used on a sensible time value boundary, such as `YYYYMM*`. You cannot us a wildcard to "split" values (i.e., `YYMMD*` is invaild syntax).
+> "Ongoing" and "unknown" are represented **differently** in Synapse v3 and Synapse v2. Synapse v2 uses the question mark (not the asterisk) for "ongoing", and there is no symbol to represent "unknown".
 
-**Examples:**
-
-Set the time of a DNS request to the current time:
-
-```stormdoc
-storm> inet:dns:request:query:name=woot.com [ :time=now ]
-inet:dns:request=a8569961179b0f059054dd9531019b9a
-        :query:name = woot.com
-        :time = 2026-10-08T12:52:38.97406Z
-        .created = 2026-10-08T12:52:38.969555Z
-        .updated = 2026-10-08T12:52:38.974094Z
-```
-
-Set the observed time window (technically an `ival` type) for when an IP address was a known sinkhole (via the `#cno.infra.dns.sink.hole` tag) from its known start date to an indefinite future time (i.e., the sinkhole is presumed to remain a sinkhole indefinitely / until the values are manually updated with an explicit end date):
-
-```stormdoc
-storm> [ inet:ip=1.2.3.4 +#cno.infra.dns.sink.hole=(2017/06/13, '?') ]
-inet:ip=1.2.3.4
-        :type = unicast
-        :version = 4
-        .created = 2026-10-08T12:52:38.682858Z
-        .updated = 2026-10-08T12:52:38.982839Z
-        #cno.infra.dns.sink.hole = 2017-06-13T00:00:00Z - ?
-```
-
-- Set the observed time window using a time zone offset:
-
-```stormdoc
-storm> [ inet:ip=5.6.7.8 +#cno.infra.dns.sink.hole=(2017/06/13 09:46+04:00, '?') ]
-inet:ip=5.6.7.8
-        :type = unicast
-        :version = 4
-        .created = 2026-10-08T12:52:38.685181Z
-        .updated = 2026-10-08T12:52:38.988302Z
-        #cno.infra.dns.sink.hole = 2017-06-13T05:46:00Z - ?
-```
+<a id="type-time-insert"></a>
 
 ### Insertion
 
-When adding or modifying `time` types, any of the above formats (explicit / relative / special terms) can be specified.
+`time` values (including tag timestamps) can be inserted using any of the formats described above.
 
-In addition, when adding or modifying `time` types, a lower resolution time and a wildcard time behave identically. In other words, the following are equivalent Storm queries (both will set the `:time` value of the newly created DNS request node to `2021/01/23 00:00:00.000000`):
+Note that `time` values can be inserted at any precision, from year (`YYYY`) through microseconds (`YYYY/MM/DD hh:mm:ss.mmmmmm`); you do not have to specify the full microsecond format.
+
+Users should be aware of how Synapse interprets, sets, and stores lower precision time values and their associated `.precision` virtual properties.
+
+#### Lower Precision Time Values
+
+When you insert a `time` value using a lower (less than microsecond) precision, Synapse will **0-extend** the remainder of the value for normalization and storage purposes. For example:
+
+- A value of `2025` is stored as `2025-01-01T00:00:00.000000Z` (`1735689600000000` in epoch micros).
+- A value of `2025/10/27` is stored as `2025-10-27T00:00:00.000000Z` (`1761523200000000` in epoch micros).
+- A value of `'2025/10/27 05'` is stored as `2025-10-27T05:00:00.000000Z` (`1761541200000000` in epoch micros).
+- A value of `'2025/10/27 01:22-04:00'` is converted to UTC and stored as `2025-10-27T05:22:00.000000Z` (`1761542520000000` in epoch micros).
+
+#### Times and .precision
+
+The default precision for `time` types is `microsecond`. The `.precision` virtual property can be set to any allowed value. Synapse will update the associated `time` value to match the specified precision, if necessary.
+
+Setting a higher resolution precision (e.g., `microsecond`) on a lower resolution time (e.g., '2026/08/14 09:32') will **not** affect the `time` value (it is already 0-extended to microsecond precision, so only the `.precision` is updated).
+
+However, setting a lower resolution `.precision` on a higher resolution `time` will **truncate** and 0-extend the value to match the precision. For example, if you have a value of '2024/03/27 15:32:43' and set the `.precision` virtual property to `day`, Synapse will update the value to `2024/03/27` (technically, to `2024/03/27 00:00:00.000000`).
+
+#### The Wildcard ( \* ) and Time Values
+
+Synapse supports the use of the asterisk ( `*` ) as a "wildcard" character to partially match `time` values (e.g., `2026/05*`). (This is separate from the use of the asterisk on its own to represent the special value "ongoing".)
+
+The wildcard asterisk can be used when **inserting** a `time` value (setting or updating a `time` property), but behaves the same as the identical expression **without** the asterisk. In other words, Synapse interprets (and sets) both of the following in the same way:
 
 ```stormdoc
-storm> inet:dns:request:query:name=example.com [ :time=2021/01/23 ]
-inet:dns:request=4e584c97fa99b1cc81ee966b489ccd43
-        :query:name = example.com
-        :time = 2021-01-23T00:00:00Z
-        .created = 2026-10-08T12:52:38.992029Z
-        .updated = 2026-10-08T12:52:38.998072Z
+storm> inet:dns:request:query:name=vertex.link [ :time=2025/10/27 ]
 ```
 
 ```stormdoc
-storm> inet:dns:request:query:name=example.com [ :time=2021/01/23* ]
-inet:dns:request=4e584c97fa99b1cc81ee966b489ccd43
-        :query:name = example.com
-        :time = 2021-01-23T00:00:00Z
-        .created = 2026-10-08T12:52:38.992029Z
-        .updated = 2026-10-08T12:52:38.998072Z
+storm> inet:dns:request:query:name=vertex.link [ :time=2025/10/27* ]
 ```
 
-When specifying a relative time for a `time` value, **the offset will be calculated from the current time** (`now`):
+#### Relative Time Values
 
-```stormdoc
-storm> inet:dns:request:query:name=woot.com [ :time='-5 minutes' ]
-inet:dns:request=a8569961179b0f059054dd9531019b9a
-        :query:name = woot.com
-        :time = 2026-10-08T12:47:39.005185Z
-        .created = 2026-10-08T12:52:38.969555Z
-        .updated = 2026-10-08T12:52:39.005213Z
-```
+See the **Parsing** section on [relative times](storm_ref_type_specific.md#type-time-parse-relative) for examples of setting a `time` type property with relative values.
 
-Plus / minus ( `+-` ) relative times cannot be specified for `time` types, as the type requires a single value. See the section on [ival](storm_ref_type_specific.md#type-ival) (interval) types for details on using `+-` times with `ival` types.
+<a id="type-time-operate"></a>
 
 ### Operations
 
@@ -2260,129 +2257,131 @@ Arithmetic on typed values preserves the `time` type:
 
 `time` types can be lifted and filtered with the standard logical and mathematical comparators (see [Storm Reference - Lifting](storm_ref_lift.md#storm-ref-lift) and [Storm Reference - Filtering](storm_ref_filter.md#storm-ref-filter)). This includes the use of lower resolution time values and wildcard time values.
 
-**Example:**
+**Example**
 
-Filter a set of DNS request nodes to those that occurred prior to June 1, 2019:
+Filter a set of DNS request nodes to those that occurred on or after May 3, 2026:
 
 ```stormdoc
-storm> inet:dns:request +:time<2019/06/01
-inet:dns:request=947d62a0a3af257f8c19ffbbb631a0ff
+storm> inet:dns:request +:time>=2026/05/03
+inet:dns:request=f80daf2844fb74ee9c7eacbf1dcc1ab9
         :query:name = derp.net
-        :time = 2015-12-14T19:22:00Z
-        .created = 2026-10-08T12:52:39.013137Z
-        .updated = 2026-10-08T12:52:39.013137Z
-inet:dns:request=b7937c1d4e3159f6bbe83b15f9c84d23
-        :query:name = hurr.com
-        :time = 2018-06-28T17:43:00Z
-        .created = 2026-10-08T12:52:39.011128Z
-        .updated = 2026-10-08T12:52:39.011128Z
+        :time = 2026-05-27T19:22:00Z
+        .created = 2026-10-12T19:52:19.960329Z
+        .updated = 2026-10-12T19:52:19.960329Z
 ```
 
 > [!NOTE]
-> It is important to understand the differences in behavior when lifting and filtering `time` types using lower resolution time values (which Synpase zero-fills) or wildcard time values (which Synpase wildcard-matches). These behaviors vary based on the specific operator used.
+> It is important to understand the differences in behavior when lifting and filtering `time` types using lower resolution `time` values (which are always 0-extended) or wildcard time values (which may be 0-extended or 1-extended, based on the specific operation).
 
-- When lifting or filtering using the equivalent ( `=` ) operator, behavior is **different:**
+- When lifting or filtering using the equivalent ( `=` ) operator, behavior is **different**:
 
-  - `:time=2021/05/13` means equal to **the exact date/time value** `2021/05/13 00:00:00.000`.
-  - `:time=2021/05/13*` means equal to **any** time on that date (`2021/05/13 00:00:00.000` through `2021/05/13 23:59:59.999`).
+  - `:time=2021/05/13` means equal to **the exact date/time value** `2021/05/13 00:00:00.000000` (0-extended).
+  - `:time=2021/05/13*` means equal to **any** time on that date - that is, `2021/05/13 00:00:00.000000` through `2021/05/13 23:59:59.999999` (1-extended).
 
-- When lifting or filtering using the greater than ( `>`) / greater than or equal to ( `>=`) operators, behavior is **equivalent:**
+- When lifting or filtering using the greater than ( `>`) / greater than or equal to ( `>=`) operators, behavior is **the same**:
 
-  - `:time>2021/05/13` and `:time>2021/05/13*` **both** mean any date / time greater than `2021/05/13 00:00:00.000`.
-  - `:time>=2021/05/13` and `:time>=2021/05/13*` **both** mean any date / time greater than or equal to `2021/05/13 00:00:00.000`.
+  - `:time>2021/05/13` and `:time>2021/05/13*` **both** mean any date / time greater than `2021/05/13 00:00:00.000000` (both are 0-extended).
+  - `:time>=2021/05/13` and `:time>=2021/05/13*` **both** mean any date / time greater than or equal to `2021/05/13 00:00:00.000000` (both are 0-extended).
 
-  Both are equivalent because in this case Synapse interprets the wildcard syntax as "greater than or equal to the **lowest** possible wildcard match", which in this case is `2021/05/13 00:00:00.000`.
+  Synapse interprets the wildcard syntax as "greater than or equal to the **lowest** possible wildcard match", which in this case is `2021/05/13 00:00:00.000000`.
 
-- When lifting or filtering using the less than ( `<` ) / less than or equal to ( `<=` ) operators, behavior is **different:**
+- When lifting or filtering using the less than ( `<` ) / less than or equal to ( `<=` ) operators, behavior is **different**:
 
-  - `:time<2021/05/13` / `:time<=2021/05/13` mean any date / time less than (or less than or equal to) `2021/05/13 00:00:00.000`.
-  - `:time<2021/05/13*` / `:time<=2021/05/13*` both mean any date / time less than (or less than or equal to) `2021/05/13 23:59:59.999`.
+  - `:time<2021/05/13` / `:time<=2021/05/13` mean any date / time less than (or less than or equal to) `2021/05/13 00:00:00.000000` (0-extended).
+  - `:time<2021/05/13*` / `:time<=2021/05/13*` both mean any date / time less than or equal to `2021/05/13 23:59:59.999999` (1-extended).
 
-  The behavior differs because in this case Synapse interprets the wildcard syntax as "less than or equal to the **highest** possible wildcard match", which in this case is `2021/05/13 23:59:59.999`.
+  Synapse interprets the wildcard syntax as "less than or equal to the **highest** possible wildcard match", which in this case is `2021/05/13 23:59:59.999999`.
 
 > [!TIP]
 > The wildcard syntax is useful because it can provide a simplified, more intuitive means to specify certain time ranges / time intervals without needing to use the range ( `*range=` ) or interval ( `@=` ) operators. For example, the following three Storm queries are equivalent and will return all files compiled at any time within the year 2019:
 >
 > ```storm
-> file:bytes:mime:pe:compiled=2019*
+> file:mime:pe:compiled=2019*
 >
-> file:bytes:mime:pe:compiled*range=('2019/01/01 00:00:00.000', '2019/12/31 23:59:59.999')
+> file:mime:pe:compiled*range=('2019/01/01 00:00:00.000000', '2019/12/31 23:59:59.999999')
 >
-> file:bytes:mime:pe:compiled@=('2019/01/01', '2020/01/01')
+> file:mime:pe:compiled@=('2019/01/01', '2020/01/01')
 > ```
 >
 > (A **range** maximum value represents "less than or equal to" that value, while an **interval** maximum value represents "less than" that value.)
 
 #### Range Custom Operator
 
-`time` types can lifted and filtered using the `*range=` custom comparator (see [Lift by Range (*range=)](storm_ref_lift.md#lift-range) and [Filter by Range (*range=)](storm_ref_filter.md#filter-range)).
-
-**Example:**
-
-Lift a set of `file:bytes` nodes whose PE compiled time is between January 1, 2019 and today:
-
-```stormdoc
-storm> file:mime:pe:compiled*range=(2021/01/01, now)
-file:mime:pe=7f9899adcfd3c62d98cf70fe06daaf40
-        :compiled = 2021-04-13T00:23:14Z
-        :file = e96796b9016d801ac201d720e3544e13
-        .created = 2026-10-08T12:52:39.032534Z
-        .updated = 2026-10-08T12:52:39.032534Z
-file:mime:pe=d35f5ed5b10b8d1c3333d621a1ece572
-        :compiled = 2023-10-30T05:34:22Z
-        :file = 25ec0d9ba759244aa39ecfb182cb8c47
-        .created = 2026-10-08T12:52:39.033271Z
-        .updated = 2026-10-08T12:52:39.033271Z
-```
-
-> [!NOTE]
-> Both lower resolution times (`2025`) and wildcard times (`2025*`) can be used for values specified within the `*range=` operator. Because the range operator is a shorthand syntax for "greater than or equal to `<range_min>` and less than or equal to `<range_max>`", users should be aware of differences in behavior between each kind of time value with greater than / less than operators.
-
-See the Storm documents referenced above for additional examples using the range (`*range=`) comparator.
+`time` types can be lifted and filtered using the `*range=` custom comparator. See [Lift by Range (*range=)](storm_ref_lift.md#lift-range) and [Filter by Range (*range=)](storm_ref_filter.md#filter-range) for a detailed discussion.
 
 #### Interval Custom Operator
 
-`time` types can be lifted and filtered using the interval ( `@=` ) custom comparator (see [Lift by Time or Interval (@=)](storm_ref_lift.md#lift-interval) and [Filter by Time or Interval (@=)](storm_ref_filter.md#filter-interval)). The comparator is specifically designed to compare `time` types and `ival` types, which can be useful (for example) for filtering to a set of nodes whose `time` properties fall within a specified interval.
+`time` types can be lifted and filtered using the interval ( `@=` ) custom comparator. See [Lift by Time or Interval (@=)](storm_ref_lift.md#lift-interval) and [Filter by Time or Interval (@=)](storm_ref_filter.md#filter-interval) for a detailed discussion.
 
-**Example:**
+<a id="type-timeprecision"></a>
 
-Lift a set of DNS A records whose window of observation includes March 16, 2019 at 13:00 UTC:
+## timeprecision
+
+The `timeprecision` type is a set of values used to specify the known precision of a time-related property value. Because the precision of a time (e.g., "milliseconds") is meaningless without the time itself, `timeprecision` is typically defined as a [virtual property](data_model.md#virtual-property) on a time-related type. For example, both [time](storm_ref_type_specific.md#type-time) and [ival](storm_ref_type_specific.md#type-ival) define a `.precision` virtual property. 
+
+Synapse supports `time` values to a microsecond (`YYYY/MM/DD hh:mm:ss.mmmmmm`) degree of precision. When we have time values with lower precision, Synapse has to extend the precision to normalize the value into epoch microseconds and store it as an integer. In most cases, lower precision times are **0-extended**. So a `time` value of `2024/06` is normalized as `2024/06/01 00:00:00.000000` and stored as the integer `1717200000000000`.
+
+This process allows us to store `time` values consistently, but introduces a problem: does the value `2024/06/01 00:00:00.000000` mean an event occurred in June 2024, and we normalized the value for storage? Or does it mean an event occurred **exactly** at midnight on June 1, 2024? 
+
+`timeprecision` allows Synapse to distinguish between the two by specifying the level of precision (in this case, `month` vs. `microsecond`) associated with the value.
+
+<a id="type-timeprecision-index"></a>
+
+### Indexing
+
+`timeprecision` values are virtual properties and are not indexed independently. They are stored with their associated type values (`time`, `ival`, etc.)
+
+<a id="type-timeprecision-parse"></a>
+
+### Parsing
+
+`timeprecision` values are integers (so they can be compared) that have corresponding name strings. You can input a `timeprecision` using its name or integer (as either an integer or numeric string):
+
+| Name | Integer |
+|---|---|
+| `year` | 4 |
+| `month` | 8 |
+| `day` | 12 |
+| `hour` | 16 |
+| `minute` | 20 |
+| `second` | 24 |
+| `millisecond` | 27 |
+| `microsecond` | 30 |
+
+Most time-related types (e.g., `time`, `ival`) use a default `timeprecision` of `microsecond`. However, types can declare their own lower-resolution default. For example, `date` (a `time` type) and `activity:day` (an `ival` type) both use a default precision of `day`.
+
+<a id="type-timeprecision-insert"></a>
+
+### Insertion
+
+A `timeprecision` type can be set by explicitly specifying the associated virtual property. The following example shows setting the `.precision` associated with a `time` type:
 
 ```stormdoc
-storm> inet:dns:a:seen@='2019/03/16 13:00'
-inet:dns:a=('aaaa.org', '1.2.3.4')
-        :fqdn = aaaa.org
-        :ip = 1.2.3.4
-        :seen = 2018-12-29T12:36:27Z - 2019-06-03T18:14:33Z
-        :seen.min = 2018-12-29T12:36:27Z
-        :seen.max = 2019-06-03T18:14:33Z
-        :seen.duration = 156D 05:38:06
-        :seen.precision = microsecond
-        .created = 2026-10-08T12:52:39.038736Z
-        .updated = 2026-10-08T12:52:39.039513Z
-inet:dns:a=('derp.net', '8.8.8.8')
-        :fqdn = derp.net
-        :ip = 8.8.8.8
-        :seen = 2019-03-08T07:26:00Z - 2019-03-22T10:14:00Z
-        :seen.min = 2019-03-08T07:26:00Z
-        :seen.max = 2019-03-22T10:14:00Z
-        :seen.duration = 14D 02:48:00
-        :seen.precision = microsecond
-        .created = 2026-10-08T12:52:38.869621Z
-        .updated = 2026-10-08T12:52:38.870619Z
-inet:dns:a=('bbbb.edu', '5.6.7.8')
-        :fqdn = bbbb.edu
-        :ip = 5.6.7.8
-        :seen = 2019-03-16T12:59:59Z - 2019-03-16T13:01:01Z
-        :seen.min = 2019-03-16T12:59:59Z
-        :seen.max = 2019-03-16T13:01:01Z
-        :seen.duration = 00:01:02
-        :seen.precision = microsecond
-        .created = 2026-10-08T12:52:39.040237Z
-        .updated = 2026-10-08T12:52:39.041351Z
+storm> econ:purchase:actor:name='ron the cat' [ :time=2026/04/22 :time.precision=day ]
+econ:purchase=d0ebab858783087921a6d4b34ea1c82b
+        :actor:name = ron the cat
+        :seller:name = swanson
+        :time = 2026-04-22T00:00:00Z
+        :time.precision = day
+        .created = 2026-10-12T19:52:19.968026Z
+        .updated = 2026-10-12T19:52:19.971276Z
 ```
 
 > [!NOTE]
-> Both lower resolution times (`2025`) and wildcard time (`2025*`) can be used for values specified within the `@=` operator. Because the interval operator is a shorthand syntax for "greater than or equal to `<ival_min>` and less than `<ival_max>`", users should be aware of differences in behavior between each kind of time value with greater than / less than operators.
+> Individual types may vary in how they implement `timeprecision` (`.precision`), including:
+> - whether the type defines a default value for `.precision`;
+> - whether / when inserting the type's value will automatically set `.precision`;
+> - whether / how setting the type's `.precision` affects the type's value.
+>
+> See the type-specific information for [time](storm_ref_type_specific.md#type-time) and [ival](storm_ref_type_specific.md#type-ival) types for details.
 
-See the Storm documents referenced above for additional examples using the interval (`@=`) comparator.
+<a id="type-timeprecision-operate"></a>
+
+### Operations
+
+`timeprecision` values can be used to filter nodes, but cannot be used to lift nodes because they are not indexed.
+
+Because `timeprecision` values are integers, you can filter them using the standard comparison operators, using either the name or the integer. Higher integer values represent finer precision. For example:
+
+- `+:time.precision>=day` keeps nodes whose `:time` has a precision of `day` or finer.
+- `+:time.precision<day` keeps nodes whose `:time` has a precision of `month` or `year`.

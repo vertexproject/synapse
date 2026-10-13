@@ -259,15 +259,15 @@ Examples:
 storm> file:base='windows update.exe'
 file:base=windows update.exe
         :ext = exe
-        .created = 2026-10-05T18:01:47.969445Z
-        .updated = 2026-10-05T18:01:47.969445Z
+        .created = 2026-10-09T14:41:34.021937Z
+        .updated = 2026-10-09T14:41:34.021937Z
 ```
 
 ```stormdoc
 storm> entity:name='The Vertex Project, LLC'
 entity:name=The Vertex Project, LLC
-        .created = 2026-10-05T18:01:47.971517Z
-        .updated = 2026-10-05T18:01:47.971517Z
+        .created = 2026-10-09T14:41:34.026881Z
+        .updated = 2026-10-09T14:41:34.026881Z
 ```
 
 If a literal (such as a string) **includes** a single quotation mark, it must be enclosed in double quotes.
@@ -278,7 +278,7 @@ Wrong:
 storm> it:dev:str='Storm's intuitive syntax makes it easy to learn and use.'
 it:dev:str='Storm's intuitive syntax makes it ea...
                   ^
-Syntax Error: Unexpected token 'unquoted list value' at line 1, column 19, expecting one of: #, $, (, ), )+, )-, )>, *, +, +(, ,, -, -(, -+>, --+>, -->, ->, ., :$, :(, <(, <+(, <+-, <+--, <-, [, ], absolute property name, absolute property name with embed properties, and, as, break, class, command name, continue, emit, empty, fini, for, function, if, init, or, property name potentially with wildcards, relative property name, return, reverse, stop, switch, try, while, yield, {, |, }
+Syntax Error: Unexpected token 'unquoted list value' at line 1, column 19, expecting one of: #, $, (, ), )+, )-, )>, *, +, +(, ,, -, -(, -+>, --+>, -->, ->, ., :$, :(, <(, <+(, <+-, <+--, <-, [, ], absolute property name, absolute property name with embed properties, and, as, break, class, command name, continue, emit, empty, exec, fini, for, function, if, init, or, property name potentially with wildcards, relative property name, return, reverse, stop, switch, try, while, yield, {, |, }
 ```
 
 Right:
@@ -286,8 +286,8 @@ Right:
 ```stormdoc
 storm> it:dev:str="Storm's intuitive syntax makes it easy to learn and use."
 it:dev:str=Storm's intuitive syntax makes it easy to learn and use.
-        .created = 2026-10-05T18:01:47.973535Z
-        .updated = 2026-10-05T18:01:47.973535Z
+        .created = 2026-10-09T14:41:34.030675Z
+        .updated = 2026-10-09T14:41:34.030675Z
 ```
 
 **Double Quotes**
@@ -304,8 +304,8 @@ file:path=C:/Program Files/Mozilla Firefoxirefox.exe
         .dir = C:/Program Files
         .base = Mozilla Firefoxirefox.exe
         .ext = exe
-        .created = 2026-10-05T18:01:47.989872Z
-        .updated = 2026-10-05T18:01:47.989872Z
+        .created = 2026-10-09T14:41:34.058793Z
+        .updated = 2026-10-09T14:41:34.058793Z
 ```
 
 In the output above Synapse interpreted the `\f` within the double quotes as the form feed character, which resulted in an incorrectly constructed file path.
@@ -318,8 +318,8 @@ file:path=C:/Program Files/Mozilla Firefox/firefox.exe
         .dir = C:/Program Files/Mozilla Firefox
         .base = firefox.exe
         .ext = exe
-        .created = 2026-10-05T18:01:47.991454Z
-        .updated = 2026-10-05T18:01:47.991454Z
+        .created = 2026-10-09T14:41:34.061724Z
+        .updated = 2026-10-09T14:41:34.061724Z
 ```
 
 Note that if a literal containing backslashes does not include a single quote, you can simply enclose the file path in single quotes:
@@ -332,8 +332,8 @@ file:path=C:/Program Files/Mozilla Firefox/firefox.exe
         .dir = C:/Program Files/Mozilla Firefox
         .base = firefox.exe
         .ext = exe
-        .created = 2026-10-05T18:01:47.991454Z
-        .updated = 2026-10-05T18:01:47.991454Z
+        .created = 2026-10-09T14:41:34.061724Z
+        .updated = 2026-10-09T14:41:34.061724Z
 ```
 
 <a id="storm-backtick-format-strings"></a>
@@ -356,8 +356,8 @@ inet:client=tcp://1.2.3.4:22
         .ip = 1.2.3.4
         .port = 22
         :proto = tcp
-        .created = 2026-10-05T18:01:47.995042Z
-        .updated = 2026-10-05T18:01:47.995042Z
+        .created = 2026-10-09T14:41:34.068936Z
+        .updated = 2026-10-09T14:41:34.068936Z
 ```
 
 - Use node properties in a string:

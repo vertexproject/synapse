@@ -546,8 +546,8 @@ inet:fqdn=vertex.link
         :issuffix = false
         :iszone = true
         :zone = vertex.link
-        .created = 2026-10-08T14:55:23.926595Z
-        .updated = 2026-10-08T14:55:23.926845Z
+        .created = 2026-10-09T14:39:59.307145Z
+        .updated = 2026-10-09T14:39:59.309261Z
 bar
 And we're done!
 inet:fqdn=vertex.link
@@ -556,8 +556,8 @@ inet:fqdn=vertex.link
         :issuffix = false
         :iszone = true
         :zone = vertex.link
-        .created = 2026-10-08T14:55:23.926595Z
-        .updated = 2026-10-08T14:55:23.926845Z
+        .created = 2026-10-09T14:39:59.307145Z
+        .updated = 2026-10-09T14:39:59.309261Z
 baz
 And we're done!
 inet:fqdn=vertex.link
@@ -566,8 +566,8 @@ inet:fqdn=vertex.link
         :issuffix = false
         :iszone = true
         :zone = vertex.link
-        .created = 2026-10-08T14:55:23.926595Z
-        .updated = 2026-10-08T14:55:23.926845Z
+        .created = 2026-10-09T14:39:59.307145Z
+        .updated = 2026-10-09T14:39:59.309261Z
 ```
 
 What's going on here? Why does `And we're done!` print three times? Why do we apparently have three copies of our FQDN node? The reason has to do with Storm's pipeline behavior, and how our FQDN node travels through the pipeline when the pipeline loops.
@@ -624,8 +624,8 @@ inet:fqdn=vertex.link
         :issuffix = false
         :iszone = true
         :zone = vertex.link
-        .created = 2026-10-08T14:55:23.926595Z
-        .updated = 2026-10-08T14:55:23.926845Z
+        .created = 2026-10-09T14:39:59.307145Z
+        .updated = 2026-10-09T14:39:59.309261Z
 ```
 
 In this case, the query behaves more "as expected" - the strings within the for loop print once for each item / iteration of the loop, `And we're done!` prints once, and a single FQDN node exits our pipeline when our query completes. So what's different?

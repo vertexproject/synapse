@@ -31,5 +31,6 @@ syn_tools_service_snapshot.md
 syn_tools_storm.md
 syn_tools_storm_pkg_gen.md
 syn_tools_storm_pkg_docs.md
+syn_tools_storm_lint.md
 syn_tools_utils_easycert.md
 ```

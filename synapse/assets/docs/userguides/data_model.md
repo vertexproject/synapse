@@ -150,8 +150,8 @@ inet:fqdn=www.google.com
         :_virustotal:reputation = 497
         :_virustotal:votes:harmless = 318
         :_virustotal:votes:malicious = 53
-        .created = 2026-10-05T18:01:19.947994Z
-        .updated = 2026-10-05T18:01:19.950008Z
+        .created = 2026-10-09T14:39:38.64517Z
+        .updated = 2026-10-09T14:39:38.648524Z
         #rep.moz.500
 ```
 
@@ -313,8 +313,8 @@ syn:tag=cno.infra.dns.sink.holed
         :doc = A domain (zone) that has been sinkholed.
         :title = Sinkholed domain
         :up = cno.infra.dns.sink
-        .created = 2026-10-05T18:01:19.958143Z
-        .updated = 2026-10-05T18:01:19.958617Z
+        .created = 2026-10-09T14:39:38.663787Z
+        .updated = 2026-10-09T14:39:38.664541Z
 ```
 
 The Storm query below displays the **tag** `cno.infra.dns.sink.holed` applied to the node `inet:fqdn=hugesoft.org`:
@@ -327,8 +327,8 @@ inet:fqdn=hugesoft.org
         :issuffix = false
         :iszone = true
         :zone = hugesoft.org
-        .created = 2026-10-05T18:01:19.960133Z
-        .updated = 2026-10-05T18:01:19.960941Z
+        .created = 2026-10-09T14:39:38.667687Z
+        .updated = 2026-10-09T14:39:38.669018Z
         #cno.infra.dns.sink.holed
 ```
 
@@ -411,8 +411,8 @@ storm> inet:email=kilkys@yandex.ru
 inet:email=kilkys@yandex.ru
         :fqdn = yandex.ru
         :username = kilkys
-        .created = 2026-10-05T18:01:19.964436Z
-        .updated = 2026-10-05T18:01:19.964436Z
+        .created = 2026-10-09T14:39:38.677523Z
+        .updated = 2026-10-09T14:39:38.677523Z
 ```
 
 <a id="node-relationship"></a>
@@ -428,8 +428,8 @@ storm> inet:dns:a=(google.com, 172.217.9.142)
 inet:dns:a=('google.com', '172.217.9.142')
         :fqdn = google.com
         :ip = 172.217.9.142
-        .created = 2026-10-05T18:01:19.967618Z
-        .updated = 2026-10-05T18:01:19.967618Z
+        .created = 2026-10-09T14:39:38.683751Z
+        .updated = 2026-10-09T14:39:38.683751Z
 ```
 
 <a id="node-event"></a>
@@ -455,8 +455,8 @@ inet:dns:request=87c46bee95e2e6a147241e226920c21e
         :server = tcp://178.62.239.55
         :server.ip = 178.62.239.55
         :time = 2024-09-30T16:01:27.506Z
-        .created = 2026-10-05T18:01:19.972234Z
-        .updated = 2026-10-05T18:01:19.972234Z
+        .created = 2026-10-09T14:39:38.691043Z
+        .updated = 2026-10-09T14:39:38.691043Z
 ```
 
 Some network-based operations are **activities** (e.g., `inet:flow`, `inet:http:session`), as are most human occurrences (e.g., `ou:conference`, `proj:project`). For example:
@@ -471,8 +471,8 @@ ou:conference=782fcd10d3a0ba2a2312e3fed16d4c35
         :period.duration = 5D 00:00:00
         :period.precision = microsecond
         :place:country:code = cw
-        .created = 2026-10-05T18:01:19.976176Z
-        .updated = 2026-10-05T18:01:19.976565Z
+        .created = 2026-10-09T14:39:38.699192Z
+        .updated = 2026-10-09T14:39:38.699851Z
 ```
 
 <a id="instance-fused"></a>

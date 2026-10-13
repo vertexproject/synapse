@@ -11,6 +11,7 @@ import regex
 import coverage
 import coverage.exceptions
 
+import synapse.lib.json as s_json
 import synapse.lib.parser as s_parser
 import synapse.tests.files as s_files
 import synapse.tests.utils as s_utils
@@ -33,6 +34,7 @@ class StormcovConfig:
             'stormembedexts': ','.join(s_stormcov.DEFAULT_EMBED_EXTS),
             'stormpykeys': ','.join(s_stormcov.DEFAULT_PY_KEYS),
             'stormyamlkeys': ','.join(s_stormcov.DEFAULT_YAML_KEYS),
+            'stormmanifests': '',
             'stormcov_data': s_stormcov.DEFAULT_DATA,
             'stormcov_branch': False,
         }
@@ -499,6 +501,72 @@ class TestUtilsStormcov(s_utils.SynTest):
             ))
             self.eq(getstorm(multi), [('foo', 1), ('bar', 3), ('baz', 12)])
 
+    async def test_stormcov_manifest_load(self):
+        tspath = s_files.getAssetPath('stormcov/embed/embed.ts')
+        manifest = s_files.getAssetPath('stormcov/embed/embed.json')
+
+        # Paths are relative to the manifest and lines are offsets into the host
+        hosts = s_stormcov.loadManifests([manifest])
+        self.eq(list(hosts), [tspath])
+        self.eq([offs for _, offs in hosts[tspath]], [4, 12])
+        self.eq(hosts[tspath][1][0], 'inet:fqdn=ts.link | limit 1')
+
+        # Text embedded in a file is not found by its extension alone
+        self.eq([], list(s_stormcov.getEmbeddedStorm(tspath, frozenset(), frozenset())))
+
+        with self.getTestDir() as dirn:
+
+            def write(name, text):
+                path = os.path.join(dirn, name)
+                with open(path, 'w') as fd:
+                    fd.write(text)
+                return path
+
+            # Absolute paths are kept, entries are ordered by line, and repeats or blank text are dropped
+            abspath = os.path.join(dirn, 'other', 'app.ts')
+            good = write('good.json', s_json.dumps({'queries': [
+                {'path': abspath, 'line': 9, 'text': 'inet:fqdn=b.link'},
+                {'path': 'app.ts', 'line': 3, 'text': 'inet:fqdn=a.link'},
+                {'path': 'app.ts', 'line': 3, 'text': 'inet:fqdn=a.link'},
+                {'path': 'app.ts', 'line': 1, 'text': '  '},
+                {'path': 'x/../other/app.ts', 'line': 2, 'text': 'inet:fqdn=c.link'},
+            ]}).decode())
+
+            hosts = s_stormcov.loadManifests([good])
+            self.eq(hosts, {
+                abspath: [('inet:fqdn=c.link', 1), ('inet:fqdn=b.link', 8)],
+                os.path.join(dirn, 'app.ts'): [('inet:fqdn=a.link', 2)],
+            })
+
+            # A manifest which is missing, is not JSON or does not match the schema is skipped
+            missing = os.path.join(dirn, 'missing.json')
+            badjson = write('bad.json', '{"queries": [')
+            empty = write('empty.json', '')
+            noline = write('noline.json', '{"queries": [{"path": "a.ts", "text": "inet:fqdn"}]}')
+            zeroline = write('zeroline.json', '{"queries": [{"path": "a.ts", "line": 0, "text": "inet:fqdn"}]}')
+            extra = write('extra.json', '{"queries": [], "newp": 1}')
+            extraq = write('extraq.json', '{"queries": [{"path": "a.ts", "line": 1, "text": "x", "newp": 1}]}')
+
+            for path in (missing, badjson, empty, noline, zeroline, extraq):
+                with self.getLoggerStream('synapse.utils.stormcov') as stream:
+                    self.eq(s_stormcov.loadManifests([path]), {})
+                await stream.expect(f'Skipping invalid storm manifest {path}', timeout=1)
+
+            # Unknown top level keys are allowed, and the others still load
+            self.eq(s_stormcov.loadManifests([extra, missing, good]), hosts)
+
+            # Only entries which name a call site are sites
+            sited = write('sited.json', s_json.dumps({'queries': [
+                {'path': 'app.ts', 'line': 3, 'text': 'inet:fqdn=a.link', 'site': 'app.ts:3:4'},
+                {'path': 'app.ts', 'line': 5, 'text': '  ', 'site': 'app.ts:5:4'},
+                {'path': 'app.ts', 'line': 7, 'text': 'inet:fqdn=b.link'},
+            ]}).decode())
+
+            self.eq(s_stormcov.loadManifestSites([missing, badjson, sited]), {
+                'app.ts:3:4': (os.path.join(dirn, 'app.ts'), 'inet:fqdn=a.link', 2),
+            })
+            self.eq(s_stormcov.loadManifestSites([good]), {})
+
     async def test_stormcov_embedded_discovery(self):
         basedir = s_files.ASSETS
         embeddir = os.path.join(basedir, 'stormcov', 'embed')
@@ -534,6 +602,21 @@ class TestUtilsStormcov(s_utils.SynTest):
 
         # The two identical subqueries are tracked by their position in the embedded text
         self.eq([sorted(v) for v in stormcov.subq_map.values()], [[(yamlpath, 17, 0), (yamlpath, 20, 3)]])
+
+        # Manifests are loaded whatever the storm dirs are, and only ever add their own hosts
+        tspath = s_files.getAssetPath('stormcov/embed/embed.ts')
+        manifest = s_files.getAssetPath('stormcov/embed/embed.json')
+
+        opts = StormcovConfig(stormdirs=embeddir, stormcov_basedir=basedir, stormembedexts='', stormmanifests=manifest)
+        stormcov = s_stormcov.StormcovPlugin(opts)
+        self.eq(stormcov.manifests, [manifest])
+        stormcov.discoverStormdirs([])
+        self.eq(stormcov.embed_hosts, {tspath})
+        self.sorteq([loc for v in stormcov.embed_map.values() for loc in v], [(tspath, 4), (tspath, 12)])
+
+        # Discovering again does not repeat the locations
+        stormcov.discoverStormdirs([])
+        self.sorteq([loc for v in stormcov.embed_map.values() for loc in v], [(tspath, 4), (tspath, 12)])
 
         with self.getTestDir() as dirn:
 
@@ -607,6 +690,20 @@ class TestUtilsStormcov(s_utils.SynTest):
                     self.eq(dict(stormcov.lines_hit), {path: snips[offs]}, msg=f'{path} {offs}')
                     stormcov.reset()
 
+            manifest = s_files.getAssetPath('stormcov/embed/embed.json')
+            tspath = s_files.getAssetPath('stormcov/embed/embed.ts')
+            stormcov.manifests = [manifest]
+            stormcov.findManifestStorm()
+
+            tssnips = {4: {6, 7, 8}, 12: {13}}
+            for text, offs in s_stormcov.loadManifests([manifest])[tspath]:
+                stormcov._startSysmon()
+                await core.stormlist(text, opts={'vars': {'fqdn': 'vertex.link'}})
+                stormcov._stopSysmon()
+
+                self.eq(dict(stormcov.lines_hit), {tspath: tssnips[offs]}, msg=f'{tspath} {offs}')
+                stormcov.reset()
+
             # Storm which is not embedded anywhere is not attributed
             stormcov._startSysmon()
             await core.stormlist('inet:fqdn=nothing.link')
@@ -670,6 +767,28 @@ class TestUtilsStormcov(s_utils.SynTest):
         self.eq(plugin.file_reporter(pypath).lines(), {18})
         self.eq(plugin.file_reporter(yamlpath).lines(), {34})
 
+        # Hosts listed in a manifest are reported from it, and a manifest which does not exist is skipped
+        tspath = s_files.getAssetPath('stormcov/embed/embed.ts')
+        manifest = s_files.getAssetPath('stormcov/embed/embed.json')
+
+        with self.getLoggerStream('synapse.utils.stormcov') as stream:
+            plugin = s_stormcov.StormReporterPlugin(manifests=('newp.json', manifest))
+            self.eq(list(plugin.manifests), [tspath])
+        self.notin('newp.json', stream.read())
+
+        reporter = plugin.file_reporter(tspath)
+        self.isinstance(reporter, s_stormcov.EmbeddedStormReporter)
+        self.eq(reporter.source(), s_files.getAssetStr('stormcov/embed/embed.ts'))
+        self.eq(reporter.lines(), {6, 7, 8, 13})
+        self.eq(reporter.arcs(), {(-1, 6), (6, 7), (7, 8), (7, -1), (8, -1), (-1, 13), (13, 13), (13, -1)})
+
+        # The manifest is used even when the host has an embedding extension of its own
+        plugin = s_stormcov.StormReporterPlugin()
+        self.eq(plugin.manifests, {})
+        reporter = plugin.file_reporter(pypath)
+        reporter._items = [('inet:fqdn=only.link', 0)]
+        self.eq(reporter.lines(), {1})
+
         # Other files are not embedded hosts
         reporter = plugin.file_reporter(s_files.getAssetPath('stormcov/ifelse.storm'))
         self.false(isinstance(reporter, s_stormcov.EmbeddedStormReporter))
@@ -695,6 +814,15 @@ class TestUtilsStormcov(s_utils.SynTest):
         self.true(stormcov.isEmbedHost('/a/b.yml'))
         self.false(stormcov.isEmbedHost('/a/b.storm'))
         self.false(stormcov.isEmbedHost('/a/b'))
+        self.false(stormcov.isEmbedHost('/a/b.ts'))
+
+        # A manifest host is an embedded host whatever its extension
+        stormcov.addEmbeddedStorm('/a/b.ts', 'inet:fqdn', 0)
+        self.true(stormcov.isEmbedHost('/a/b.ts'))
+
+        # Invalid Storm in a manifest adds nothing
+        stormcov.addEmbeddedStorm('/a/c.ts', 'not storm |||', 0)
+        self.false(stormcov.isEmbedHost('/a/c.ts'))
 
         with self.getTestDir() as dirn:
             embeddata = os.path.join(dirn, 'stormembed')
@@ -794,6 +922,66 @@ class TestUtilsStormcov(s_utils.SynTest):
                 self.isin(sub1, stormcov.lines_hit)
                 self.isin(sub2, stormcov.lines_hit)
                 self.notin(one, stormcov.lines_hit)
+                stormcov.reset()
+
+            # The same text at two call sites is told apart by the site marker
+            text = 'inet:fqdn=dup.link\ntee ${\n    inet:fqdn=sub.link\n}'
+            host = write('site.ts', f'q1 = sq`{text}`\n\nq2 = sq`{text}`\n')
+            manifest = write('site.json', s_json.dumps({'queries': [
+                {'path': 'site.ts', 'line': 1, 'text': text, 'site': 'site.ts:1:5'},
+                {'path': 'site.ts', 'line': 6, 'text': text, 'site': 'site.ts:6:5'},
+                {'path': 'site.ts', 'line': 9, 'text': 'inet:fqdn=(', 'site': 'site.ts:9:5'},
+            ]}).decode())
+
+            sitecov = s_stormcov.StormcovPlugin(StormcovConfig(stormmanifests=manifest, stormcov_basedir=basedir))
+            sitecov.findManifestStorm()
+            self.sorteq(list(sitecov.site_map), ['site.ts:1:5', 'site.ts:6:5'])
+
+            # A sited query is only reachable through its marker
+            self.isin(host, sitecov.embed_hosts)
+            self.notin(host, [loc[0] for locs in sitecov.embed_map.values() for loc in locs])
+
+            async with self.getTestCore() as core:
+
+                async def run(query):
+                    sitecov._startSysmon()
+                    await core.stormlist(query)
+                    sitecov._stopSysmon()
+                    hits = dict(sitecov.lines_hit)
+                    sitecov.reset()
+                    return hits
+
+                # Unmarked text, an unknown site and a marker on other Storm credit nothing
+                self.eq({}, await run(text))
+                self.eq({}, await run(f'{text} /* stormcov:site.ts:9:5 */'))
+                self.eq({}, await run('inet:fqdn=other.link /* stormcov:site.ts:1:5 */'))
+
+                # The outer query and its subquery are credited at the marked site only
+                self.eq({host: {1, 2, 3}}, await run(f'{text} /* stormcov:site.ts:1:5 */'))
+                self.eq({host: {6, 7, 8}}, await run(f'{text}  /* stormcov:site.ts:6:5 */\n'))
+
+            # A runtime finds its site through its outermost query, and caches it
+            ns = types.SimpleNamespace
+            self.none(sitecov.getRuntSite(None))
+            self.eq('cached', sitecov.getRuntSite(ns(_stormcov_site='cached')))
+
+            top = ns(query=ns(text=f'{text} /* stormcov:site.ts:1:5 */'))
+            subr = ns(root=ns(root=top))
+            self.eq('site.ts:1:5', sitecov.getRuntSite(subr))
+            self.eq('site.ts:1:5', subr._stormcov_site)
+
+            self.none(sitecov.getRuntSite(ns(root=ns(query=ns(text=text)))))
+            self.none(sitecov.getRuntSite(ns(root=None)))
+
+            # A site maps its own query to its host offset, and a subquery to its entries
+            sguid, shost, soffs, subqs = sitecov.site_map['site.ts:1:5']
+            self.eq([], sitecov.getSiteLocs('newp.ts:1:1', sguid, 0))
+            self.eq([(shost, soffs)], sitecov.getSiteLocs('site.ts:1:5', sguid, 0))
+            self.eq([], sitecov.getSiteLocs('site.ts:1:5', 'newp', 0))
+
+            sitecov.site_map['two.ts:1:1'] = ('newp', host, 0, {'subg': [(host, 3, 1), (host, 7, 5)]})
+            self.eq([(host, 7)], sitecov.getSiteLocs('two.ts:1:1', 'subg', 5))
+            self.eq([(host, 3), (host, 7)], sitecov.getSiteLocs('two.ts:1:1', 'subg', 9))
 
     async def test_stormcov_embedded_nonstorm(self):
         basedir = s_files.ASSETS

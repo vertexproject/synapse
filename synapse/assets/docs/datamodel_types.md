@@ -3761,6 +3761,34 @@ This type has the following options set:
 - signed: `True`
 - size: `8`
 
+<a id="dm-type-econ-pay-card-funding-type"></a>
+
+### econ:pay:card:funding:type
+
+A payment card funding type.
+The `econ:pay:card:funding:type` type is derived from the base type: [`str`](#dm-type-str).
+
+This type has the following options set:
+
+- enums:
+
+| valu |
+|------|
+| credit |
+| debit |
+| prepaid |
+| charge |
+| deferreddebit |
+
+- globsuffix: `False`
+- lower: `True`
+- mapping: `None`
+- onespace: `False`
+- regex: `None`
+- replace: `()`
+- strip: `True`
+- upper: `False`
+
 <a id="dm-type-econ-pay-pan"></a>
 
 ### econ:pay:pan
@@ -4614,6 +4642,17 @@ This type implements the following interfaces:
 
 An activity where an actor helped to create an item.
 The `entity:created` type is derived from the base type: [`guid`](#dm-type-guid).
+
+This type implements the following interfaces:
+
+- `('entity:activity', {})`
+
+<a id="dm-type-entity-authored"></a>
+
+### entity:authored
+
+An activity where an actor authored, contributed to, or developed an authorable item such as a document or software.
+The `entity:authored` type is derived from the base type: [`guid`](#dm-type-guid).
 
 This type implements the following interfaces:
 

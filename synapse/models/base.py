@@ -309,6 +309,17 @@ modeldefs = (
                     ('doc:document', {}),
                     ('doc:published', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'id'}},
+                        {'type': 'prop', 'opts': {'name': 'title'}},
+                        {'type': 'prop', 'opts': {'name': 'desc'}},
+                        {'type': 'prop', 'opts': {'name': 'version'}},
+                        {'type': 'prop', 'opts': {'name': 'creator:name'}},
+                        {'type': 'prop', 'opts': {'name': 'created'}},
+                        {'type': 'prop', 'opts': {'name': 'updated'}},
+                    ),
+                },
                 'props': (
                     ('status', ('title', {}), {
                         'doc': 'The status of the story.'}),

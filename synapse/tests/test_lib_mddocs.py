@@ -2464,6 +2464,11 @@ class MdDocsManifestTest(s_test.SynTest):
             self.true(text.endswith('\n'))
             self.false(text.endswith('\n\n'))
 
+            # a comment line separates entries so neighbors never share a diff hunk
+            s_mddocs.saveManifest(path, [('b.md', 'b' * 64), ('a.md', 'a' * 64)])
+            lines = open(path).read().splitlines()
+            self.eq([f'{"a" * 64}  a.md', '#', f'{"b" * 64}  b.md'], lines[-3:])
+
     # loadManifest's own parsing -- header and blank-line skipping, the GNU sha256sum
     # binary-mode " *" separator, the malformed-line raise -- is covered by
     # test_loadmanifest_roundtrips_and_rejects_malformed_line above. What this covers

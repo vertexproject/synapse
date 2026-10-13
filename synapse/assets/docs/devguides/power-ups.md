@@ -79,7 +79,7 @@ storm/
 ```text
 function woot(text) {
     $lib.print($text)
-    return((null))
+    return()
 }
 ```
 
@@ -199,7 +199,7 @@ function getFooByBar(bar) {
     $resp = $lib.inet.http.get($url, headers=$headers)
     if ($resp.code != 200) {
         $lib.warn(`/api/v1/foo returned HTTP code: {$resp.code}`)
-        return((null))
+        return()
     }
 
     // Return the JSON response (but not the API key)
@@ -425,7 +425,7 @@ Pages are ordinary Markdown, except that a fenced code block may name a directiv
 :   Executes a **Storm** query and captures its output into the built page.
 
 ` ```mdautodoc `
-:   Generates reference content. `--stormpkg ../acme-hello.yaml` renders the package's own command and module reference from the pkgdef, so it never drifts from what the package actually declares. Commands are rendered from `cmdargs`; a module appears only if it declares `apidefs`, since that is what says which of its functions are exported and what they take. It is conventionally a page of its own, and in the example it is the whole of `stormpackage.md`:
+:   Generates reference content. `--stormpkg ../acme-hello.yaml` renders the package's own command and module reference from the pkgdef, so it never drifts from what the package actually declares. Commands are rendered from `cmdargs`; a module appears only if it declares `apidefs`, since that is what says which of its functions are exported and what they take. An apidef whose `type` is a `class` documents a [class](../userguides/storm_adv_classes.md#storm-class-modules) the module exports: its `args` are the constructor's, and each entry in its `methods` is documented the way a function is. It is conventionally a page of its own, and in the example it is the whole of `stormpackage.md`:
 
     ````text
     ```mdautodoc --stormpkg ../acme-hello.yaml
@@ -596,6 +596,10 @@ optic:
         desc: This description is displayed as the tooltip in the menu
         forms: [ inet:ip, inet:fqdn ]
 ```
+
+An action may also have an `iden`, unique among the package's actions (letters, digits, `-` and `_`), and an `icon`, the
+name of an **Optic** icon. Only an action with an `iden` can be pinned to the buttons of the node context menu, so keep
+it the same across versions of the package, even when you rename the action.
 
 By specifying the `forms:` key, you can control which node actions will be presented on different forms. For example, if you are writing a DNS power-up, you may want to limit the specified actions to `inet:ip` and `inet:fqdn` nodes.
 

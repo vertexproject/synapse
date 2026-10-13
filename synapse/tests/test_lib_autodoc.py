@@ -8,6 +8,7 @@ import synapse.common as s_common
 import synapse.lib.cell as s_cell
 import synapse.lib.parser as s_parser
 import synapse.lib.autodoc as s_autodoc
+import synapse.lib.schemas as s_schemas
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tests.files as s_t_files
@@ -993,6 +994,109 @@ class AutodocMdGeneratorsTest(s_t_utils.SynTest):
         md = s_autodoc.MdHelp()
         await s_autodoc.processStormModulesMd(md, 'foo', [])
         self.isin('This package does not export any Storm APIs.', md.getMdText())
+
+    async def test_processstormmodulesmd_class(self):
+
+        modules = [{
+            'name': 'classmod',
+            'storm': '',
+            'apidefs': [
+                {
+                    'name': 'Tally',
+                    'desc': 'Count things by key.',
+                    'type': {
+                        'type': 'class',
+                        'args': [
+                            {'name': 'name', 'type': 'str', 'desc': 'The name of the tally.'},
+                            {'name': 'size', 'type': 'int', 'desc': 'The initial size.', 'default': 10},
+                        ],
+                        'methods': [
+                            {
+                                'name': 'add',
+                                'desc': 'Count a key.',
+                                'type': {
+                                    'type': 'function',
+                                    'args': [{'name': 'key', 'type': 'str', 'desc': 'The key to count.'}],
+                                    'returns': {'type': 'null', 'desc': 'Returns nothing.'},
+                                },
+                            },
+                            {
+                                'name': 'keys',
+                                'desc': 'The keys counted so far.',
+                                'deprecated': {'eoldate': '2027-01-01', 'mesg': 'Use counts() instead.'},
+                                'type': {
+                                    'type': 'function',
+                                    'returns': {'name': 'yields', 'type': 'str', 'desc': 'Yields each key.'},
+                                },
+                            },
+                        ],
+                    },
+                },
+                {
+                    'name': 'open',
+                    'desc': 'Open a tally.',
+                    'type': {
+                        'type': 'function',
+                        'returns': {'type': 'Tally', 'desc': 'The tally.'},
+                    },
+                },
+            ],
+        }]
+
+        # the pkgdef schema accepts a class apidef...
+        pkgdef = {'name': 'classpkg', 'version': '0.0.1', 'modules': modules}
+        s_schemas.reqValidPkgdef(pkgdef)
+
+        md = s_autodoc.MdHelp()
+        await s_autodoc.processStormModulesMd(md, 'foo', modules)
+        text = md.getMdText()
+
+        # the class heading carries its constructor signature, and its methods nest one level down
+        self.isin('#### Tally(name, size=(10))', text)
+        self.isin('Count things by key.', text)
+        self.isin('- `name` (`str`): The name of the tally.', text)
+        self.isin('##### add(key)', text)
+        self.isin('- `key` (`str`): The key to count.', text)
+        self.isin('##### keys()', text)
+        self.isin('`keys` has been deprecated and will be removed on or after 2027-01-01.', text)
+        self.isin('**Yields:**', text)
+
+        # a function after the class is back at the module level
+        self.isin('#### open()', text)
+
+        # the class itself documents no returns
+        clss = text.split('#### Tally(name, size=(10))', 1)[1]
+        self.notin('**Returns:**', clss.split('##### add(key)', 1)[0])
+
+        # ...and refuses a class without methods, a method which is itself a class, or a nested returns
+        badclass = copy.deepcopy(modules)
+        del badclass[0]['apidefs'][0]['type']['methods']
+        with self.raises(s_exc.SchemaViolation) as cm:
+            s_schemas.reqValidPkgdef({'name': 'classpkg', 'version': '0.0.1', 'modules': badclass})
+        self.eq(cm.exception.get('mesg'), "data.modules[0].apidefs[0].type must contain ['methods'] properties")
+
+        # a function error names the field, too
+        badfunc = copy.deepcopy(modules)
+        del badfunc[0]['apidefs'][1]['type']['returns']
+        with self.raises(s_exc.SchemaViolation) as cm:
+            s_schemas.reqValidPkgdef({'name': 'classpkg', 'version': '0.0.1', 'modules': badfunc})
+        self.eq(cm.exception.get('mesg'), "data.modules[0].apidefs[1].type must contain ['returns'] properties")
+
+        badfunc = copy.deepcopy(modules)
+        badfunc[0]['apidefs'][1]['type']['type'] = 'newp'
+        with self.raises(s_exc.SchemaViolation) as cm:
+            s_schemas.reqValidPkgdef({'name': 'classpkg', 'version': '0.0.1', 'modules': badfunc})
+        self.eq(cm.exception.get('mesg'), "data.modules[0].apidefs[1].type.type must be one of ['function']")
+
+        badclass = copy.deepcopy(modules)
+        badclass[0]['apidefs'][0]['type']['methods'][0]['type'] = {'type': 'class', 'methods': []}
+        with self.raises(s_exc.SchemaViolation):
+            s_schemas.reqValidPkgdef({'name': 'classpkg', 'version': '0.0.1', 'modules': badclass})
+
+        badclass = copy.deepcopy(modules)
+        badclass[0]['apidefs'][0]['type']['returns'] = {'type': 'null', 'desc': 'newp'}
+        with self.raises(s_exc.SchemaViolation):
+            s_schemas.reqValidPkgdef({'name': 'classpkg', 'version': '0.0.1', 'modules': badclass})
 
     async def test_docstormpkgmd(self):
         ymlpath = s_t_files.getAssetPath('stormpkg/testpkg.yaml')

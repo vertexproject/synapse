@@ -231,7 +231,7 @@ syn:prop=auth:apikey:issuer
         :extmodel = false
         :form = auth:apikey
         :relname = issuer
-        :type = ['ou:org', 'entity:contact', 'ps:person', 'inet:service:account', 'inet:service:agent', 'risk:threat', 'syn:user']
+        :type = ['syn:user', 'ou:org', 'entity:contact', 'inet:service:agent', 'ps:person', 'inet:service:account', 'risk:threat']
 syn:prop=auth:apikey:period
         :array = false
         :base = period
@@ -563,8 +563,8 @@ syn:tag=cno.infra.anon.tor
         :doc = Infrastructure associated with the TOR network.
         :title = TOR infrastructure
         :up = cno.infra.anon
-        .created = 2026-10-05T18:01:56.128881Z
-        .updated = 2026-10-05T18:01:56.129162Z
+        .created = 2026-10-09T14:41:50.219992Z
+        .updated = 2026-10-09T14:41:50.22049Z
 ```
 
 Lift all root tags:
@@ -574,8 +574,8 @@ storm> syn:tag:depth=0
 syn:tag=cno
         :base = cno
         :depth = 0
-        .created = 2026-10-05T18:01:56.021581Z
-        .updated = 2026-10-05T18:01:56.021581Z
+        .created = 2026-10-09T14:41:49.95787Z
+        .updated = 2026-10-09T14:41:49.95787Z
 ```
 
 Lift all tags one level "down" from the specified tag:
@@ -588,16 +588,16 @@ syn:tag=cno.infra.anon.tor
         :doc = Infrastructure associated with the TOR network.
         :title = TOR infrastructure
         :up = cno.infra.anon
-        .created = 2026-10-05T18:01:56.128881Z
-        .updated = 2026-10-05T18:01:56.129162Z
+        .created = 2026-10-09T14:41:50.219992Z
+        .updated = 2026-10-09T14:41:50.22049Z
 syn:tag=cno.infra.anon.vpn
         :base = vpn
         :depth = 3
         :doc = A server representing an anonymous VPN service, or the associated IP address. Alternately, an FQDN explicitly denoting an anonymous VPN that resolves to the associated IP.
         :title = Anonymous VPN
         :up = cno.infra.anon
-        .created = 2026-10-05T18:01:56.129535Z
-        .updated = 2026-10-05T18:01:56.129819Z
+        .created = 2026-10-09T14:41:50.221192Z
+        .updated = 2026-10-09T14:41:50.221728Z
 ```
 
 Lift all tags that start with a given prefix, regardless of depth:
@@ -610,32 +610,32 @@ syn:tag=cno.infra
         :doc = Top-level tag for infrastructure.
         :title = Infrastructure
         :up = cno
-        .created = 2026-10-05T18:01:56.127413Z
-        .updated = 2026-10-05T18:01:56.127815Z
+        .created = 2026-10-09T14:41:50.217216Z
+        .updated = 2026-10-09T14:41:50.217889Z
 syn:tag=cno.infra.anon
         :base = anon
         :depth = 2
         :doc = Top-level tag for anonymization services.
         :title = Anonymization services
         :up = cno.infra
-        .created = 2026-10-05T18:01:56.128251Z
-        .updated = 2026-10-05T18:01:56.128505Z
+        .created = 2026-10-09T14:41:50.218734Z
+        .updated = 2026-10-09T14:41:50.219274Z
 syn:tag=cno.infra.anon.tor
         :base = tor
         :depth = 3
         :doc = Infrastructure associated with the TOR network.
         :title = TOR infrastructure
         :up = cno.infra.anon
-        .created = 2026-10-05T18:01:56.128881Z
-        .updated = 2026-10-05T18:01:56.129162Z
+        .created = 2026-10-09T14:41:50.219992Z
+        .updated = 2026-10-09T14:41:50.22049Z
 syn:tag=cno.infra.anon.vpn
         :base = vpn
         :depth = 3
         :doc = A server representing an anonymous VPN service, or the associated IP address. Alternately, an FQDN explicitly denoting an anonymous VPN that resolves to the associated IP.
         :title = Anonymous VPN
         :up = cno.infra.anon
-        .created = 2026-10-05T18:01:56.129535Z
-        .updated = 2026-10-05T18:01:56.129819Z
+        .created = 2026-10-09T14:41:50.221192Z
+        .updated = 2026-10-09T14:41:50.221728Z
 ```
 
 Lift all tags that share the same base (rightmost) element:
@@ -648,14 +648,14 @@ syn:tag=rep.uscisa.salt_typhoon
         :doc = Indicator or activity US-CISA calls (or associates with) Salt Typhoon.
         :title = Salt Typhoon (US-CISA)
         :up = rep.uscisa
-        .created = 2026-10-05T18:01:56.136709Z
-        .updated = 2026-10-05T18:01:56.137095Z
+        .created = 2026-10-09T14:41:50.24081Z
+        .updated = 2026-10-09T14:41:50.241609Z
 syn:tag=rep.microsoft.salt_typhoon
         :base = salt_typhoon
         :depth = 2
         :doc = Indicator or activity Microsoft calls (or associates with) Salt Typhoon.
         :title = Salt Typhoon (Microsoft)
         :up = rep.microsoft
-        .created = 2026-10-05T18:01:56.137492Z
-        .updated = 2026-10-05T18:01:56.137773Z
+        .created = 2026-10-09T14:41:50.242397Z
+        .updated = 2026-10-09T14:41:50.242987Z
 ```

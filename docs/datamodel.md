@@ -1448,7 +1448,11 @@ A single payment card.
 | `:account` | `econ:account` | The account that contains the funds used by the payment card. |
 | `:cvv` | `econ:pay:cvv` | The Card Verification Value on the card. |
 | `:expr` | `time` | The expiration date for the card. |
+| `:funding:reloadable` | `bool` | Set to true if the prepaid card can be reloaded. |
+| `:funding:type` | `econ:pay:card:funding:type` | The funding type of the card. |
 | `:name` | `entity:name` | The name as it appears on the card. |
+| `:network` | `entity:actor` | The payment network which processes transactions for the card. |
+| `:network:name` | `entity:name` | The name of the payment network which processes transactions for the card. |
 | `:pan` | `econ:pay:pan` | The payment card number. |
 | `:pan:iin` | `econ:pay:iin` | The payment card IIN. |
 | `:pan:mii` | `econ:pay:mii` | The payment card MII. |
@@ -1785,6 +1789,25 @@ A period where an actor attended an event or activity.
 | `:inperson` | `bool` | Set if the actor attended the activity in person. |
 | `:period` | `activity` | The period over which the activity occurred. |
 | `:role` | `entity:title` | The role the actor played in attending the activity. |
+
+### `entity:authored`
+
+An activity where an actor authored, contributed to, or developed an authorable item such as a document or software.
+
+| Interface |
+|-----------|
+| `base:activity` |
+| `entity:action` |
+| `entity:activity` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `base:activity` | A parent activity which includes this activity. |
+| `:actor` | `entity:actor` | The actor who carried out the action. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the action. |
+| `:authorable` | `doc:authorable` | The item which the actor authored. |
+| `:period` | `activity` | The period over which the activity occurred. |
 
 ### `entity:believed`
 
@@ -11775,6 +11798,7 @@ Properties common to activity carried out by an actor.
 | `doc:contract` |
 | `econ:budget` |
 | `entity:attended` |
+| `entity:authored` |
 | `entity:believed` |
 | `entity:campaign` |
 | `entity:created` |

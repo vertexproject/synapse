@@ -2,36 +2,39 @@
 
 TRIGGER: When writing, editing, reviewing, validating, debugging, or running Storm (.storm) files, Storm queries, Storm packages, or Synapse query language code. Also triggered when fixing BadSyntax exceptions, troubleshooting Storm parse errors, or running Storm queries against a local Cortex.
 
-The Storm language reference shipped with Synapse, `synsrc/synapse/data/skills/storm/SKILL.md`,
+The Storm language reference shipped with Synapse, `synapse/data/skills/storm/SKILL.md`,
 is the canonical one for syntax and type/property behavior -- read it for anything this skill
 does not cover, and add new language notes there rather than duplicating them here.
 
 ## Validating Storm Syntax
 
-**IMPORTANT: Claude MUST validate ALL Storm query logic it generates using the validation tool below. Every Storm query written to a file, embedded in a test, or included in a Storm package MUST be validated before being considered complete. No exceptions.**
+**IMPORTANT: Claude MUST lint ALL Storm query logic it generates using the tool below. Every Storm query written to a file, embedded in a test, or included in a Storm package MUST lint clean before being considered complete. No exceptions.**
 
-### Using the CLI Validation Tool (Required)
+### Using the CLI Lint Tool (Required)
 
-The `synapse.tools.storm.validate` tool validates Storm syntax without requiring a running Cortex. Always use this tool to validate Storm queries.
+The `synapse.tools.storm.lint` tool checks Storm without a running Cortex: parse errors (`E001`), code which
+does not run as intended on 3.x (`R*`), questionable pipeline use (`P*`), and simpler forms (`S*`).
 
 ```bash
-# Validate a .storm file
-python -m synapse.tools.storm.validate path/to/query.storm
+# Lint .storm files, or every *.storm under a directory
+python -m synapse.tools.storm.lint path/to/query.storm path/to/pkg/storm/
 
-# Validate from stdin (use - as the file argument)
-echo 'inet:fqdn=example.com' | python -m synapse.tools.storm.validate -
+# Lint a query from stdin (use - as the path)
+printf '%s' "$q" | python -m synapse.tools.storm.lint -
 
-# Validate with a specific parse mode
-python -m synapse.tools.storm.validate --mode lookup path/to/lookup.storm
-python -m synapse.tools.storm.validate --mode search path/to/search.storm
+# List every rule
+python -m synapse.tools.storm.lint --show-rules
 ```
 
-Exit codes: `0` = valid syntax (prints `ok`), `1` = invalid syntax (prints error with line/column info).
+Each finding prints as `<path>:<line>:<column>: <rule> <message>`. Exit codes: `0` = clean (prints
+`All checks passed!`), `1` = findings, `2` = usage/config error. Suppress a deliberate finding on its line with
+`// noqa: <ID>` (`E001` cannot be suppressed). CI lints every tracked `.storm` file, using the
+`[tool.stormlint]` table in `pyproject.toml`.
 
-**Workflow for validating generated Storm:**
-1. Write the Storm query to a temporary file.
-2. Run `python -m synapse.tools.storm.validate <file>` to check syntax.
-3. If validation fails, fix the query and re-validate before proceeding.
+**Workflow for checking generated Storm:**
+1. Write the Storm query to a temporary file (or pipe it on stdin).
+2. Run `python -m synapse.tools.storm.lint <file>`.
+3. Fix every finding and re-lint before proceeding.
 
 ### Running Storm Queries Locally
 
@@ -318,6 +321,7 @@ inet:fqdn { -> inet:dns:a [ +#reviewed ] } // still has inet:fqdn nodes in the p
 init { ... }                                  // runs once before any nodes are allowed through the pipeline
 empty { ... }                                 // runs if pipeline is empty
 fini { ... }                                  // runs once after all nodes have passed through the pipeline
+exec { ... }                                  // runs once, discarding the nodes it yields; inbound nodes pass through
 ```
 
 ### Built-in Commands
@@ -326,7 +330,6 @@ fini { ... }                                  // runs once after all nodes have 
 limit 10                                      // limit output count
 count                                         // count nodes
 uniq                                          // deduplicate
-spin                                          // consume without output
 max :prop                                     // keep max by property
 min :prop                                     // keep min by property
 tee { query1 } { query2 }                   // branch pipeline
@@ -641,7 +644,8 @@ $func("positional", key=1)
 - Use `$lib.raise(ErrName, "message")` for errors, `$lib.exit("message")` for fatal exits
 - Use `return()` with empty parens to return `(null)`
 - Comparison uses single `=` (not `==`): `if ($code = 200)`
-- Use `(true)`, `(false)`, `(null)` -- not `$lib.true`, `$lib.false`, `$lib.null`
+- Use `(true)`, `(false)`, `(null)` -- not `$lib.true`, `$lib.false`, `$lib.null` (lint `R001`)
+- Do not use `spin` (lint `P001`): run a query whose nodes are not needed in an `exec { ... }` block, or isolate it in a function, and a query that returns a value uses `return()`, or `fini { return() }` when more than one node can flow
 - Prefer structured relationships such as property pivots or verb specific pivots over wild cards.
 - Use the most specific syntax which makes sense. (`-(refs)> inet:fqdn` is better than `--> *`)
 - Do not guard an operation that already no-ops on a null -- see "Redundant Guards" below.
@@ -811,7 +815,8 @@ answer is "nothing happens", the guard was noise.
 
 | File | Purpose |
 |------|---------|
-| `synapse/tools/storm/validate.py` | CLI tool for validating Storm syntax without a Cortex |
+| `synapse/tools/storm/lint.py` | CLI tool for linting Storm (syntax and style) without a Cortex |
+| `synapse/lib/stormlint.py` | Storm lint rules (`StormLinter`) |
 | `synapse/tools/storm/tester.py` | CLI tool for running Storm queries against a local Cortex |
 | `synapse/lib/parser.py` | Storm parser, AST converter, error handling |
 | `synapse/data/lark/storm.lark` | Lark grammar definition |

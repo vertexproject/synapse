@@ -398,6 +398,8 @@ Batcher sent 1 items
 
 A class declared at the top level of a Storm module is exported the same way a function is, so a module may hand out classes to its callers. This is how a power-up can give its users an object, such as a client for an external API, which does its work without exposing the secrets it relies on.
 
+A power-up documents a class it exports in the module's `apidefs`, as an entry whose `type` is a `class`, listing the arguments of its constructor and each of its methods. See [Package Documentation](../devguides/power-ups.md#package-documentation).
+
 A class whose name begins with `__` is private to its module: it is not exported, but the module's own code may still use it. A module which hands out instances from a function, and keeps the class itself private, stops its callers from constructing the class with arguments of their choosing or declaring a subclass of it, which also rules out the subclass override described under [Privileges](#storm-class-privileges).
 
 Given an `acme-intel` package with a privileged `acme.intel.client` module which reads an API key from the `acme-intel` [vault](storm_ref_cmd.md#storm-vault), whose secrets its users may not read:

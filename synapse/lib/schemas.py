@@ -1195,42 +1195,80 @@ _reqValidPkgdefSchema = {
                 'name': {'type': 'string'},
                 'desc': {'type': 'string'},
                 'deprecated': {'$ref': '#/definitions/deprecatedItem'},
+                # branched on type.type rather than oneOf, so an error names the field that failed
                 'type': {
-                    'type': 'object',
-                    'properties': {
-                        'type': {
-                            'type': 'string',
-                            'enum': ['function']
-                        },
-                        'args': {
-                            'type': 'array',
-                            'items': {'$ref': '#/definitions/apiarg'},
-                        },
-                        'returns': {
-                            'type': 'object',
-                            'properties': {
-                                'name': {
-                                    'type': 'string',
-                                    'enum': ['yields'],
-                                },
-                                'desc': {'type': 'string'},
-                                'type': {
-                                    'oneOf': [
-                                        {'$ref': '#/definitions/apitype'},
-                                        {'type': 'array', 'items': {'$ref': '#/definitions/apitype'}},
-                                    ],
-                                },
-                            },
-                            'additionalProperties': False,
-                            'required': ['type', 'desc']
-                        },
-                    },
-                    'additionalProperties': False,
-                    'required': ['type', 'returns'],
+                    'if': {'properties': {'type': {'const': 'class'}}, 'required': ['type']},
+                    'then': {'$ref': '#/definitions/apiclass'},
+                    'else': {'$ref': '#/definitions/apifunc'},
                 },
             },
             'additionalProperties': False,
             'required': ['name', 'desc', 'type']
+        },
+        # a method of a class apidef: a function, which may be deprecated on its own
+        'apimethod': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'desc': {'type': 'string'},
+                'deprecated': {'$ref': '#/definitions/deprecatedItem'},
+                'type': {'$ref': '#/definitions/apifunc'},
+            },
+            'additionalProperties': False,
+            'required': ['name', 'desc', 'type']
+        },
+        'apifunc': {
+            'type': 'object',
+            'properties': {
+                'type': {
+                    'type': 'string',
+                    'enum': ['function']
+                },
+                'args': {
+                    'type': 'array',
+                    'items': {'$ref': '#/definitions/apiarg'},
+                },
+                'returns': {
+                    'type': 'object',
+                    'properties': {
+                        'name': {
+                            'type': 'string',
+                            'enum': ['yields'],
+                        },
+                        'desc': {'type': 'string'},
+                        'type': {
+                            'oneOf': [
+                                {'$ref': '#/definitions/apitype'},
+                                {'type': 'array', 'items': {'$ref': '#/definitions/apitype'}},
+                            ],
+                        },
+                    },
+                    'additionalProperties': False,
+                    'required': ['type', 'desc']
+                },
+            },
+            'additionalProperties': False,
+            'required': ['type', 'returns'],
+        },
+        'apiclass': {
+            'type': 'object',
+            'properties': {
+                'type': {
+                    'type': 'string',
+                    'enum': ['class']
+                },
+                # the arguments the class constructor takes
+                'args': {
+                    'type': 'array',
+                    'items': {'$ref': '#/definitions/apiarg'},
+                },
+                'methods': {
+                    'type': 'array',
+                    'items': {'$ref': '#/definitions/apimethod'},
+                },
+            },
+            'additionalProperties': False,
+            'required': ['type', 'methods'],
         },
         'apiarg': {
             'type': 'object',
@@ -1725,3 +1763,17 @@ _jwtclaimschema = {
 }
 reqValidJwtClaims = s_config.getJsValidator(_jwtclaimschema)
 jwtRegisteredClaims = frozenset(_jwtclaimschema['properties'])
+
+_stormLintStrList = {'type': 'array', 'items': {'type': 'string'}}
+
+_stormLintConfSchema = {
+    'type': 'object',
+    'properties': {
+        'select': _stormLintStrList,
+        'ignore': _stormLintStrList,
+        'enable': _stormLintStrList,
+        'exclude': _stormLintStrList,
+    },
+    'additionalProperties': False,
+}
+reqValidStormLintConf = s_config.getJsValidator(_stormLintConfSchema)

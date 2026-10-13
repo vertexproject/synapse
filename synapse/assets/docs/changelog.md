@@ -1,5 +1,46 @@
 # Synapse Changelog
 
+## v3.6.0 - 2026-10-13
+
+### Model Changes
+
+- Added the `:funding:type`, `:funding:reloadable`, `:network` and
+  `:network:name` properties to the `econ:pay:card` form.
+- Added the `entity:authored` form to record an actor authoring an item, such
+  as software.
+- Updated `meta:story` to display its title, version and creator by default.
+
+### Features and Enhancements
+
+- Added a `--storm-manifests` option to `stormcov` for measuring Storm listed
+  in JSON manifests, such as Storm embedded in TypeScript. An entry which names
+  a `site` is credited only to the call site its query marks.
+- Added the `synapse.tools.storm.lint` tool to lint Storm code.
+- Added `class` entries to Storm package `apidefs`, documenting a class a
+  module exports and its methods.
+
+### Bugfixes
+
+- Fixed an issue which caused list guid constructors to ignore the
+  deconfliction normalization of typed values.
+- Fixed an issue which caused `Axon.get()`, `Axon.unpack()`,
+  `$lib.axon.read()`, `$lib.axon.unpack()`, and HTTP `Range` downloads from
+  `/api/v3/axon/files/by/sha256/<sha256>` to return bytes from the previous
+  chunk when the offset was a multiple of 16 MiB.
+- Fixed an issue which caused the `inet:ip` unsupported IP version error to
+  omit the version.
+- Fixed the boot error for an unreachable AHA server to list the configured
+  `aha:servers` URLs.
+- Fixed `demote()` API calls failing when two mirrors are at the same Nexus
+  index, and changed it to try the most current mirror first.
+
+### Improved documentation
+
+- Updated the `time` section and added a `timeprecision` section to the Storm
+  type-specific behavior guide.
+- Updated the `aha:promotable` configuration description to say it only
+  excludes a service from automatic leader selection during demotion.
+
 ## v3.5.0 - 2026-10-08
 
 ### Flag Day

@@ -93,14 +93,14 @@ crypto:hash:*
 ```stormdoc
 storm> crypto:hash:*
 crypto:hash:md5=cf30b7550f04a9372c3257c9b5cff3e9
-        .created = 2026-10-05T18:01:51.492178Z
-        .updated = 2026-10-05T18:01:51.492178Z
+        .created = 2026-10-09T14:41:43.832813Z
+        .updated = 2026-10-09T14:41:43.832813Z
 crypto:hash:sha1=04301b59c6eb71db2f701086b617a98c6e026872
-        .created = 2026-10-05T18:01:51.492533Z
-        .updated = 2026-10-05T18:01:51.492533Z
+        .created = 2026-10-09T14:41:43.833307Z
+        .updated = 2026-10-09T14:41:43.833307Z
 crypto:hash:ssdeep=384:XgUIheHmcKKkBIGBGHEBZrK8gFJNFpmX:Q8mIkAw+lFJnsX
-        .created = 2026-10-05T18:01:51.492866Z
-        .updated = 2026-10-05T18:01:51.492866Z
+        .created = 2026-10-09T14:41:43.833778Z
+        .updated = 2026-10-09T14:41:43.833778Z
 ```
 
 **Note**: cryptographic hashes in Synapse implement the `crypto:hash` interface, and can alternatively be lifted using the [interface name](../glossary.md#gloss-interface).
@@ -116,8 +116,8 @@ storm> it:host:acc*
 it:host:account=24366fa03b2c8bba7d1deee66fc57885
         :host = 8bf2679451e16f64961e283c797df23c
         :username = ozzie
-        .created = 2026-10-05T18:01:51.4991Z
-        .updated = 2026-10-05T18:01:51.4991Z
+        .created = 2026-10-09T14:41:43.845871Z
+        .updated = 2026-10-09T14:41:43.845871Z
 it:host:posix:account=41c3a2889c7e549f07c80e9a59433685
         :home = /home/ozzie
         :home.dir = /home
@@ -127,8 +127,8 @@ it:host:posix:account=41c3a2889c7e549f07c80e9a59433685
         :shell.dir = /bin
         :shell.base = bash
         :username = ozzie
-        .created = 2026-10-05T18:01:51.499674Z
-        .updated = 2026-10-05T18:01:51.499674Z
+        .created = 2026-10-09T14:41:43.846649Z
+        .updated = 2026-10-09T14:41:43.846649Z
 it:host:windows:account=57ed60ffc7846d6dbbbde3e5ee2c6259
         :home = c:/users/ron the cat
         :home.dir = c:/users
@@ -136,8 +136,8 @@ it:host:windows:account=57ed60ffc7846d6dbbbde3e5ee2c6259
         :host = 786d4cb9ca06c4a0ccb781d92be294c3
         :id = S-1-5-21-4772941793-982498634-1278416829-1074
         :username = ron the cat
-        .created = 2026-10-05T18:01:51.500491Z
-        .updated = 2026-10-05T18:01:51.500491Z
+        .created = 2026-10-09T14:41:43.84775Z
+        .updated = 2026-10-09T14:41:43.84775Z
 ```
 
 > [!TIP]
@@ -154,24 +154,24 @@ storm> inet:dns:a*
 inet:dns:a=('woot.com', '1.1.1.1')
         :fqdn = woot.com
         :ip = 1.1.1.1
-        .created = 2026-10-05T18:01:51.507494Z
-        .updated = 2026-10-05T18:01:51.507494Z
+        .created = 2026-10-09T14:41:43.858744Z
+        .updated = 2026-10-09T14:41:43.858744Z
 inet:dns:aaaa=('woot.com', '2600:1419:9c00:283::356e')
         :fqdn = woot.com
         :ip = 2600:1419:9c00:283::356e
-        .created = 2026-10-05T18:01:51.508164Z
-        .updated = 2026-10-05T18:01:51.508164Z
+        .created = 2026-10-09T14:41:43.859666Z
+        .updated = 2026-10-09T14:41:43.859666Z
 inet:dns:answer=069c4148e4befa0c387148f87d3a0027
         :record = ('onemm.net', 'dns1.registrar-servers.com')
         :ttl = 00:05:00
-        .created = 2026-10-05T18:01:51.508759Z
-        .updated = 2026-10-05T18:01:51.508759Z
+        .created = 2026-10-09T14:41:43.860472Z
+        .updated = 2026-10-09T14:41:43.860472Z
 inet:dns:mx:answer=7e186a61542ad58ce7ffb8f0541791a2
         :priority = 10
         :record = ('onemm.net', 'eforward1.registrar-servers.com')
         :ttl = 00:10:00
-        .created = 2026-10-05T18:01:51.509246Z
-        .updated = 2026-10-05T18:01:51.509246Z
+        .created = 2026-10-09T14:41:43.861154Z
+        .updated = 2026-10-09T14:41:43.861154Z
 ```
 > [!TIP]
 > The query above returns three nodes that match based on form name (`inet:dns:a`, `inet:dns:aaaa`, and `inet:dns:answer`). The query also returns an `inet:dns:mx:answer` node, whose form extends `inet:dns:answer`.
@@ -216,14 +216,14 @@ crypto:hash
 ```stormdoc
 storm> crypto:hash
 crypto:hash:md5=cf30b7550f04a9372c3257c9b5cff3e9
-        .created = 2026-10-05T18:01:51.492178Z
-        .updated = 2026-10-05T18:01:51.492178Z
+        .created = 2026-10-09T14:41:43.832813Z
+        .updated = 2026-10-09T14:41:43.832813Z
 crypto:hash:sha1=04301b59c6eb71db2f701086b617a98c6e026872
-        .created = 2026-10-05T18:01:51.492533Z
-        .updated = 2026-10-05T18:01:51.492533Z
+        .created = 2026-10-09T14:41:43.833307Z
+        .updated = 2026-10-09T14:41:43.833307Z
 crypto:hash:ssdeep=384:XgUIheHmcKKkBIGBGHEBZrK8gFJNFpmX:Q8mIkAw+lFJnsX
-        .created = 2026-10-05T18:01:51.492866Z
-        .updated = 2026-10-05T18:01:51.492866Z
+        .created = 2026-10-09T14:41:43.833778Z
+        .updated = 2026-10-09T14:41:43.833778Z
 ```
 
 Lift all host event nodes (all nodes of all forms that implement the `it:host:event` interface):
@@ -236,16 +236,16 @@ storm> it:host:event
 it:exec:fetch=f2ce4b194e58cccc9d2fce0aea614c3c
         :time = 2026-06-09T14:16:03Z
         :url = https://vertex.link/
-        .created = 2026-10-05T18:01:51.51398Z
-        .updated = 2026-10-05T18:01:51.51398Z
+        .created = 2026-10-09T14:41:43.868966Z
+        .updated = 2026-10-09T14:41:43.868966Z
 it:exec:file:add=3b31a6976c742df40c811807848e5d1a
         :path = c:/windows/system32/myfile.exe
         :path.dir = c:/windows/system32
         :path.base = myfile.exe
         :path.ext = exe
         :time = 2026-04-23T05:44:27Z
-        .created = 2026-10-05T18:01:51.513178Z
-        .updated = 2026-10-05T18:01:51.513178Z
+        .created = 2026-10-09T14:41:43.867823Z
+        .updated = 2026-10-09T14:41:43.867823Z
 ```
 
 <a id="lift-form-parent"></a>
@@ -280,8 +280,8 @@ it:host:windows:account=57ed60ffc7846d6dbbbde3e5ee2c6259
         :host = 786d4cb9ca06c4a0ccb781d92be294c3
         :id = S-1-5-21-4772941793-982498634-1278416829-1074
         :username = ron the cat
-        .created = 2026-10-05T18:01:51.500491Z
-        .updated = 2026-10-05T18:01:51.500491Z
+        .created = 2026-10-09T14:41:43.84775Z
+        .updated = 2026-10-09T14:41:43.84775Z
 it:host:posix:account=41c3a2889c7e549f07c80e9a59433685
         :home = /home/ozzie
         :home.dir = /home
@@ -291,13 +291,13 @@ it:host:posix:account=41c3a2889c7e549f07c80e9a59433685
         :shell.dir = /bin
         :shell.base = bash
         :username = ozzie
-        .created = 2026-10-05T18:01:51.499674Z
-        .updated = 2026-10-05T18:01:51.499674Z
+        .created = 2026-10-09T14:41:43.846649Z
+        .updated = 2026-10-09T14:41:43.846649Z
 it:host:account=24366fa03b2c8bba7d1deee66fc57885
         :host = 8bf2679451e16f64961e283c797df23c
         :username = ozzie
-        .created = 2026-10-05T18:01:51.4991Z
-        .updated = 2026-10-05T18:01:51.4991Z
+        .created = 2026-10-09T14:41:43.845871Z
+        .updated = 2026-10-09T14:41:43.845871Z
 ```
 
 <a id="lift-prop"></a>
@@ -340,20 +340,20 @@ risk:threat=e5839bf32585fb6615b8b3ee77b751f5
         :name = Storm-1125
         :place:name = Belarus
         :reporter:name = Microsoft
-        .created = 2026-10-05T18:01:51.524069Z
-        .updated = 2026-10-05T18:01:51.524069Z
+        .created = 2026-10-09T14:41:43.887928Z
+        .updated = 2026-10-09T14:41:43.887928Z
 risk:threat=8c482126cc73985ebb1fc18a4c313759
         :name = COSMIC WOLF
         :place:name = Türkiye
         :reporter:name = Crowdstrike
-        .created = 2026-10-05T18:01:51.524703Z
-        .updated = 2026-10-05T18:01:51.524703Z
+        .created = 2026-10-09T14:41:43.88877Z
+        .updated = 2026-10-09T14:41:43.88877Z
 risk:threat=2dc0a676301dbfbcee5a7d20b6ddf7f5
         :name = PLATINUM COLONY
         :place:name = United States
         :reporter:name = Sophos
-        .created = 2026-10-05T18:01:51.525249Z
-        .updated = 2026-10-05T18:01:51.525249Z
+        .created = 2026-10-09T14:41:43.889889Z
+        .updated = 2026-10-09T14:41:43.889889Z
 ```
 
 <a id="lift-prop-virt"></a>
@@ -380,20 +380,20 @@ file:path=c:/windows/system32/myfile.exe
         .dir = c:/windows/system32
         .base = myfile.exe
         .ext = exe
-        .created = 2026-10-05T18:01:51.513178Z
-        .updated = 2026-10-05T18:01:51.513178Z
+        .created = 2026-10-09T14:41:43.867823Z
+        .updated = 2026-10-09T14:41:43.867823Z
 file:path=/home/ozzie/Documents/myfile.txt
         .dir = /home/ozzie/Documents
         .base = myfile.txt
         .ext = txt
-        .created = 2026-10-05T18:01:51.527957Z
-        .updated = 2026-10-05T18:01:51.527957Z
+        .created = 2026-10-09T14:41:43.894341Z
+        .updated = 2026-10-09T14:41:43.894341Z
 file:path=c:/users/ron the cat/snack_budget.xlsx
         .dir = c:/users/ron the cat
         .base = snack_budget.xlsx
         .ext = xlsx
-        .created = 2026-10-05T18:01:51.528437Z
-        .updated = 2026-10-05T18:01:51.528437Z
+        .created = 2026-10-09T14:41:43.894968Z
+        .updated = 2026-10-09T14:41:43.894968Z
 ```
 
 Lift the network flows (`inet:flow`) where the client has an associated port (`.port`):
@@ -411,8 +411,8 @@ inet:flow=d2e1e775e1e5f071e0437e0ccc3269c5
         :server = tcp://23.76.57.252:443
         :server.ip = 23.76.57.252
         :server.port = 443
-        .created = 2026-10-05T18:01:51.534139Z
-        .updated = 2026-10-05T18:01:51.534139Z
+        .created = 2026-10-09T14:41:43.910397Z
+        .updated = 2026-10-09T14:41:43.910397Z
 ```
 
 <a id="lift-prop-meta"></a>
@@ -497,13 +497,13 @@ it:exec:file:add=3b31a6976c742df40c811807848e5d1a
         :path.base = myfile.exe
         :path.ext = exe
         :time = 2026-04-23T05:44:27Z
-        .created = 2026-10-05T18:01:51.513178Z
-        .updated = 2026-10-05T18:01:51.513178Z
+        .created = 2026-10-09T14:41:43.867823Z
+        .updated = 2026-10-09T14:41:43.867823Z
 it:exec:fetch=f2ce4b194e58cccc9d2fce0aea614c3c
         :time = 2026-06-09T14:16:03Z
         :url = https://vertex.link/
-        .created = 2026-10-05T18:01:51.51398Z
-        .updated = 2026-10-05T18:01:51.51398Z
+        .created = 2026-10-09T14:41:43.868966Z
+        .updated = 2026-10-09T14:41:43.868966Z
 ```
 
 Lift all "authorable" nodes (all nodes of all forms that implement the `doc:authorable` interface) that have a `:creator:name` property:
@@ -518,21 +518,21 @@ it:app:yara:rule=2bfbc10e0473443d3d8cad299e98b6fc
         :created = 2025-12-22T00:00:00Z
         :creator:name = ozzie
         :text = Here is some detection logic.
-        .created = 2026-10-05T18:01:51.549827Z
-        .updated = 2026-10-05T18:01:51.549827Z
+        .created = 2026-10-09T14:41:43.93756Z
+        .updated = 2026-10-09T14:41:43.93756Z
 doc:report=c31ea497ceb9093f65ac8404d8994c30
         :creator:name = ozzie
         :published = 2026-02-07T00:00:00Z
         :publisher:name = vertex
         :title = Finally Some Good News
-        .created = 2026-10-05T18:01:51.548734Z
-        .updated = 2026-10-05T18:01:51.548734Z
+        .created = 2026-10-09T14:41:43.936196Z
+        .updated = 2026-10-09T14:41:43.936196Z
 doc:resume=df8861a98ee3d7bf3fd7e1ed898be7c0
         :created = 2027-04-12T00:00:00Z
         :creator:name = ron the cat
         :summary = Very food-motivated, will work hard for snacks.
-        .created = 2026-10-05T18:01:51.549319Z
-        .updated = 2026-10-05T18:01:51.549319Z
+        .created = 2026-10-09T14:41:43.936909Z
+        .updated = 2026-10-09T14:41:43.936909Z
 ```
 
 <a id="lift-prop-parent"></a>
@@ -564,8 +564,8 @@ it:host:posix:account=41c3a2889c7e549f07c80e9a59433685
         :shell.dir = /bin
         :shell.base = bash
         :username = ozzie
-        .created = 2026-10-05T18:01:51.499674Z
-        .updated = 2026-10-05T18:01:51.499674Z
+        .created = 2026-10-09T14:41:43.846649Z
+        .updated = 2026-10-09T14:41:43.846649Z
 it:host:windows:account=57ed60ffc7846d6dbbbde3e5ee2c6259
         :home = c:/users/ron the cat
         :home.dir = c:/users
@@ -573,8 +573,8 @@ it:host:windows:account=57ed60ffc7846d6dbbbde3e5ee2c6259
         :host = 786d4cb9ca06c4a0ccb781d92be294c3
         :id = S-1-5-21-4772941793-982498634-1278416829-1074
         :username = ron the cat
-        .created = 2026-10-05T18:01:51.500491Z
-        .updated = 2026-10-05T18:01:51.500491Z
+        .created = 2026-10-09T14:41:43.84775Z
+        .updated = 2026-10-09T14:41:43.84775Z
 ```
 
 <a id="lift-prop-standard"></a>
@@ -731,8 +731,8 @@ risk:compromise=0ba9429212d4740a132fb542aa210092
         :actor = 83117756880f808061ec46cc24117e73
         :name = very bad compromise
         :reporter:name = vertex
-        .created = 2026-10-05T18:01:51.595451Z
-        .updated = 2026-10-05T18:01:51.595451Z
+        .created = 2026-10-09T14:41:44.003838Z
+        .updated = 2026-10-09T14:41:44.003838Z
 ```
 
 Lift all of the email messages (`inet:email:message` nodes) with three or more attachments:
@@ -821,15 +821,15 @@ it:app:yara:rule=2bfbc10e0473443d3d8cad299e98b6fc
         :created = 2025-12-22T00:00:00Z
         :creator:name = ozzie
         :text = Here is some detection logic.
-        .created = 2026-10-05T18:01:51.549827Z
-        .updated = 2026-10-05T18:01:51.549827Z
+        .created = 2026-10-09T14:41:43.93756Z
+        .updated = 2026-10-09T14:41:43.93756Z
 doc:report=c31ea497ceb9093f65ac8404d8994c30
         :creator:name = ozzie
         :published = 2026-02-07T00:00:00Z
         :publisher:name = vertex
         :title = Finally Some Good News
-        .created = 2026-10-05T18:01:51.548734Z
-        .updated = 2026-10-05T18:01:51.548734Z
+        .created = 2026-10-09T14:41:43.936196Z
+        .updated = 2026-10-09T14:41:43.936196Z
 ```
 
 Lift the host event nodes (all nodes of all forms that implement the `it:host:event` interface) associated with the host name `ron-pc`:
@@ -844,8 +844,8 @@ it:exec:fetch=b3b5ebdc5b2d709e271a8dcab2c3e090
         :host = 3f50d79de334c2c270d382549865e87a
         :time = 2026-05-27T23:11:42Z
         :url = https://www.allthesnacks.com/
-        .created = 2026-10-05T18:01:51.622661Z
-        .updated = 2026-10-05T18:01:51.622661Z
+        .created = 2026-10-09T14:41:44.045323Z
+        .updated = 2026-10-09T14:41:44.045323Z
 it:exec:file:add=fab981f0e11c794e27343d9317aef71d
         :host = 3f50d79de334c2c270d382549865e87a
         :path = c:/users/ron the cat/myfile.txt
@@ -853,8 +853,8 @@ it:exec:file:add=fab981f0e11c794e27343d9317aef71d
         :path.base = myfile.txt
         :path.ext = txt
         :time = 2026-03-17T02:44:17Z
-        .created = 2026-10-05T18:01:51.62201Z
-        .updated = 2026-10-05T18:01:51.62201Z
+        .created = 2026-10-09T14:41:44.044488Z
+        .updated = 2026-10-09T14:41:44.044488Z
 ```
 
 > [!TIP]
@@ -892,15 +892,15 @@ risk:mitigation=79adc931278339ec3c6e3c9b7b29e08b
         :id = M1043
         :name = credential access protection (enterprise)
         :reporter:name = mitre
-        .created = 2026-10-05T18:01:51.62764Z
-        .updated = 2026-10-05T18:01:51.62764Z
+        .created = 2026-10-09T14:41:44.052698Z
+        .updated = 2026-10-09T14:41:44.052698Z
 meta:technique=9e992f2ce89d28df3c95123668e7c246
         :desc = Adversaries may attempt to access credential material stored in the process memory of the Local Security Authority Subsystem Service (LSASS).
         :id = T1003.001
         :name = LSASS memory (enterprise)
         :reporter:name = mitre
-        .created = 2026-10-05T18:01:51.627025Z
-        .updated = 2026-10-05T18:01:51.627025Z
+        .created = 2026-10-09T14:41:44.051867Z
+        .updated = 2026-10-09T14:41:44.051867Z
 ```
 
 Lift every stored file entry node with the specified file path:
@@ -917,8 +917,8 @@ file:mime:rar:entry=98fac5c3aed98cec9689425b523925d3
         :path.dir = c:/windows/system32/fonts
         :path.base = cmd.exe
         :path.ext = exe
-        .created = 2026-10-05T18:01:51.631974Z
-        .updated = 2026-10-05T18:01:51.631974Z
+        .created = 2026-10-09T14:41:44.058908Z
+        .updated = 2026-10-09T14:41:44.058908Z
 file:system:entry=a0800e96b16871449fed2dd2826566ad
         :created = 2026-06-22T09:25:14Z
         :host = 3f50d79de334c2c270d382549865e87a
@@ -926,8 +926,8 @@ file:system:entry=a0800e96b16871449fed2dd2826566ad
         :path.dir = c:/windows/system32/fonts
         :path.base = cmd.exe
         :path.ext = exe
-        .created = 2026-10-05T18:01:51.631328Z
-        .updated = 2026-10-05T18:01:51.631328Z
+        .created = 2026-10-09T14:41:44.057982Z
+        .updated = 2026-10-09T14:41:44.057982Z
 ```
 
 The stored file entry (`file:stored:entry`) parent form represents a file (`file:bytes`) stored in a specific location, with optional associated timestamps (e.g., `:created`, `:accessed`, etc.). It is extended by forms including `file:system:entry` (a file on a host file system) and archive files such as `file:archive:entry` or `file:mime:rar:entry`.
@@ -991,12 +991,12 @@ ou:org:name~='^v.*x'
 storm> ou:org:name~='^v.*x'
 ou:org=0fbf25abeefbcf796de9bfd78ec917b3
         :name = Vertex
-        .created = 2026-10-05T18:01:51.638012Z
-        .updated = 2026-10-05T18:01:51.638012Z
+        .created = 2026-10-09T14:41:44.06802Z
+        .updated = 2026-10-09T14:41:44.06802Z
 ou:org=76a2c125510978776b41747a705aebc8
         :name = Vx Underground
-        .created = 2026-10-05T18:01:51.638445Z
-        .updated = 2026-10-05T18:01:51.638445Z
+        .created = 2026-10-09T14:41:44.068604Z
+        .updated = 2026-10-09T14:41:44.068604Z
 ```
 
 <a id="lift-prefix"></a>
@@ -1044,14 +1044,14 @@ file:mime:msdoc=c24d0127ad122c674fd1fa107ba479ca
         :application:name = Microsoft Word
         :author:name = DESKTOP-BCXJXDX
         :title = Perfectly Safe Document
-        .created = 2026-10-05T18:01:51.647854Z
-        .updated = 2026-10-05T18:01:51.647854Z
+        .created = 2026-10-09T14:41:44.084022Z
+        .updated = 2026-10-09T14:41:44.084022Z
 file:mime:msxls=c83dbc3bc82780aee5d62cc961e3fde7
         :application:name = Microsoft Excel
         :author:name = DESKTOP-KOCEDSI
         :title = Fine to Enable Macros
-        .created = 2026-10-05T18:01:51.648902Z
-        .updated = 2026-10-05T18:01:51.648902Z
+        .created = 2026-10-09T14:41:44.08541Z
+        .updated = 2026-10-09T14:41:44.08541Z
 ```
 
 Lift the tags (`syn:tag` nodes) in the `rep.alienvault` tree where the third tag element starts with the numeral `0`:
@@ -1066,14 +1066,14 @@ syn:tag=rep.alienvault.0_day
         :base = 0_day
         :depth = 2
         :up = rep.alienvault
-        .created = 2026-10-05T18:01:51.651363Z
-        .updated = 2026-10-05T18:01:51.651363Z
+        .created = 2026-10-09T14:41:44.089392Z
+        .updated = 2026-10-09T14:41:44.089392Z
 syn:tag=rep.alienvault.0ktapus
         :base = 0ktapus
         :depth = 2
         :up = rep.alienvault
-        .created = 2026-10-05T18:01:51.65191Z
-        .updated = 2026-10-05T18:01:51.65191Z
+        .created = 2026-10-09T14:41:44.09009Z
+        .updated = 2026-10-09T14:41:44.09009Z
 ```
 
 > [!TIP]
@@ -1115,8 +1115,8 @@ inet:dns:a=('geometrypath.com', '197.43.22.108')
         :seen.max = 2025-10-06T17:57:55Z
         :seen.duration = 200D 23:49:12
         :seen.precision = microsecond
-        .created = 2026-10-05T18:01:51.658703Z
-        .updated = 2026-10-05T18:01:51.659282Z
+        .created = 2026-10-09T14:41:44.099595Z
+        .updated = 2026-10-09T14:41:44.100391Z
 inet:dns:a=('easymathpath.com', '135.125.78.187')
         :fqdn = easymathpath.com
         :ip = 135.125.78.187
@@ -1125,8 +1125,8 @@ inet:dns:a=('easymathpath.com', '135.125.78.187')
         :seen.max = 2025-07-22T01:50:54Z
         :seen.duration = 23D 13:36:47
         :seen.precision = microsecond
-        .created = 2026-10-05T18:01:51.655307Z
-        .updated = 2026-10-05T18:01:51.655927Z
+        .created = 2026-10-09T14:41:44.095041Z
+        .updated = 2026-10-09T14:41:44.095854Z
 inet:dns:a=('mathpath.com', '206.57.19.28')
         :fqdn = mathpath.com
         :ip = 206.57.19.28
@@ -1135,8 +1135,8 @@ inet:dns:a=('mathpath.com', '206.57.19.28')
         :seen.max = 2025-07-28T23:29:15Z
         :seen.duration = 21D 08:42:11
         :seen.precision = microsecond
-        .created = 2026-10-05T18:01:51.657607Z
-        .updated = 2026-10-05T18:01:51.658168Z
+        .created = 2026-10-09T14:41:44.098089Z
+        .updated = 2026-10-09T14:41:44.098874Z
 inet:dns:a=('hardmathpath.com', '42.27.18.56')
         :fqdn = hardmathpath.com
         :ip = 42.27.18.56
@@ -1145,8 +1145,8 @@ inet:dns:a=('hardmathpath.com', '42.27.18.56')
         :seen.max = 2025-09-06T05:26:19Z
         :seen.duration = 53D 07:23:19
         :seen.precision = microsecond
-        .created = 2026-10-05T18:01:51.6565Z
-        .updated = 2026-10-05T18:01:51.657086Z
+        .created = 2026-10-09T14:41:44.096604Z
+        .updated = 2026-10-09T14:41:44.097386Z
 ```
 
 Lift the DNS requests that occurred on May 3, 2023 between 2100 and 2200:
@@ -1160,8 +1160,8 @@ storm> inet:dns:request:time@=('2023/05/03 21:00', '2023/05/03 22:00')
 inet:dns:request=cf6ef1bb3c260a805d08a1bc9c9cd312
         :query:name = vertex.link
         :time = 2023-05-03T21:09:04Z
-        .created = 2026-10-05T18:01:51.66226Z
-        .updated = 2026-10-05T18:01:51.66226Z
+        .created = 2026-10-09T14:41:44.104927Z
+        .updated = 2026-10-09T14:41:44.104927Z
 ```
 
 Lift the reports that were published within the past day:
@@ -1301,26 +1301,26 @@ syn:tag=rep.talos.plugx
         :base = plugx
         :depth = 2
         :up = rep.talos
-        .created = 2026-10-05T18:01:51.695899Z
-        .updated = 2026-10-05T18:01:51.695899Z
+        .created = 2026-10-09T14:41:44.153946Z
+        .updated = 2026-10-09T14:41:44.153946Z
 syn:tag=rep.eset.korplug
         :base = korplug
         :depth = 2
         :up = rep.eset
-        .created = 2026-10-05T18:01:51.696395Z
-        .updated = 2026-10-05T18:01:51.696395Z
+        .created = 2026-10-09T14:41:44.154618Z
+        .updated = 2026-10-09T14:41:44.154618Z
 syn:tag=rep.mandiant.sogu
         :base = sogu
         :depth = 2
         :up = rep.mandiant
-        .created = 2026-10-05T18:01:51.697082Z
-        .updated = 2026-10-05T18:01:51.697082Z
+        .created = 2026-10-09T14:41:44.155222Z
+        .updated = 2026-10-09T14:41:44.155222Z
 syn:tag=rep.alienvault.kaba
         :base = kaba
         :depth = 2
         :up = rep.alienvault
-        .created = 2026-10-05T18:01:51.697496Z
-        .updated = 2026-10-05T18:01:51.697496Z
+        .created = 2026-10-09T14:41:44.155994Z
+        .updated = 2026-10-09T14:41:44.155994Z
 ```
 
 <a id="lift-proximity"></a>
@@ -1385,15 +1385,15 @@ risk:threat=99c6229aa0975472a861462f6e16e5f3
         :names = ['double dragon']
         :names.size = 1
         :reporter:name = lookout
-        .created = 2026-10-05T18:01:51.708236Z
-        .updated = 2026-10-05T18:01:51.708481Z
+        .created = 2026-10-09T14:41:44.170823Z
+        .updated = 2026-10-09T14:41:44.171169Z
 risk:threat=e8eae5548b6e081db86d82daeca61849
         :name = iron liberty
         :names = ['dragonfly']
         :names.size = 1
         :reporter:name = sophos
-        .created = 2026-10-05T18:01:51.708995Z
-        .updated = 2026-10-05T18:01:51.709199Z
+        .created = 2026-10-09T14:41:44.17209Z
+        .updated = 2026-10-09T14:41:44.172374Z
 ```
 
 **Usage Notes:**
@@ -1447,14 +1447,14 @@ inet:fqdn=kg-news.org
         :issuffix = false
         :iszone = true
         :zone = kg-news.org
-        .created = 2026-10-05T18:01:51.711828Z
-        .updated = 2026-10-05T18:01:51.71239Z
+        .created = 2026-10-09T14:41:44.176614Z
+        .updated = 2026-10-09T14:41:44.17758Z
         #rep.eset.sednit
 inet:ip=92.114.92.125
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:51.712888Z
-        .updated = 2026-10-05T18:01:51.713075Z
+        .created = 2026-10-09T14:41:44.178376Z
+        .updated = 2026-10-09T14:41:44.178646Z
         #rep.eset.sednit
 ```
 
@@ -1472,14 +1472,14 @@ inet:fqdn=ca2.vpn.airdns.org
         :issuffix = false
         :iszone = false
         :zone = airdns.org
-        .created = 2026-10-05T18:01:51.715832Z
-        .updated = 2026-10-05T18:01:51.717282Z
+        .created = 2026-10-09T14:41:44.183259Z
+        .updated = 2026-10-09T14:41:44.185395Z
         #cno.infra.anon.vpn
 inet:ip=104.244.73.193
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:51.717913Z
-        .updated = 2026-10-05T18:01:51.718231Z
+        .created = 2026-10-09T14:41:44.18655Z
+        .updated = 2026-10-09T14:41:44.187012Z
         #cno.infra.anon.tor.exit
 ```
 
@@ -1527,8 +1527,8 @@ entity:campaign=a9bc5220a496202339356cf33e3442ed
         :period.duration = 5D 00:00:00
         :period.precision = microsecond
         :reporter:name = Vertex
-        .created = 2026-10-05T18:01:51.728141Z
-        .updated = 2026-10-05T18:01:51.728446Z
+        .created = 2026-10-09T14:41:44.204421Z
+        .updated = 2026-10-09T14:41:44.204805Z
         #cno.threat.wobbly_emu
 risk:attack=77a65b686c0478674eb9532a2aa09ea0
         :actor:name = Wobbly Emu
@@ -1539,8 +1539,8 @@ risk:attack=77a65b686c0478674eb9532a2aa09ea0
         :period.duration = 00:00:00.000001
         :period.precision = microsecond
         :reporter:name = Vertex
-        .created = 2026-10-05T18:01:51.727051Z
-        .updated = 2026-10-05T18:01:51.727455Z
+        .created = 2026-10-09T14:41:44.203045Z
+        .updated = 2026-10-09T14:41:44.203569Z
         #cno.threat.wobbly_emu
 risk:extortion=585c0a4a558126c7d22c2eab48808a05
         :actor:name = Wobbly Emu
@@ -1551,8 +1551,8 @@ risk:extortion=585c0a4a558126c7d22c2eab48808a05
         :period.duration = 00:00:00.000001
         :period.precision = microsecond
         :reporter:name = Vertex
-        .created = 2026-10-05T18:01:51.728993Z
-        .updated = 2026-10-05T18:01:51.729234Z
+        .created = 2026-10-09T14:41:44.205458Z
+        .updated = 2026-10-09T14:41:44.205752Z
         #cno.threat.wobbly_emu
 ```
 
@@ -1624,14 +1624,14 @@ inet:fqdn=marsupialsrule.com
         :issuffix = false
         :iszone = true
         :zone = marsupialsrule.com
-        .created = 2026-10-05T18:01:51.74542Z
-        .updated = 2026-10-05T18:01:51.74589Z
+        .created = 2026-10-09T14:41:44.228048Z
+        .updated = 2026-10-09T14:41:44.228701Z
         #cno.threat.vicious_wombat:tlp = amber
 inet:ip=5.6.7.8
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:51.532564Z
-        .updated = 2026-10-05T18:01:51.744878Z
+        .created = 2026-10-09T14:41:43.903485Z
+        .updated = 2026-10-09T14:41:44.227365Z
         #cno.threat.vicious_wombat:tlp = amber-strict
 ```
 
@@ -1646,14 +1646,14 @@ storm> inet:ip#cno.infra.dns.sink.hole:confidence
 inet:ip=45.56.77.175
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:51.749362Z
-        .updated = 2026-10-05T18:01:51.749538Z
+        .created = 2026-10-09T14:41:44.234454Z
+        .updated = 2026-10-09T14:41:44.234723Z
         #cno.infra.dns.sink.hole:confidence = low
 inet:ip=69.195.129.72
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:51.565006Z
-        .updated = 2026-10-05T18:01:51.748927Z
+        .created = 2026-10-09T14:41:43.960014Z
+        .updated = 2026-10-09T14:41:44.233804Z
         #cno.infra.dns.sink.hole:confidence = high
 ```
 
@@ -1687,8 +1687,8 @@ storm> #cno.threat.vicious_wombat:tlp<amber
 inet:email=fuzzywuzzy@cutebutdeadly.org
         :fqdn = cutebutdeadly.org
         :username = fuzzywuzzy
-        .created = 2026-10-05T18:01:51.754805Z
-        .updated = 2026-10-05T18:01:51.755346Z
+        .created = 2026-10-09T14:41:44.243567Z
+        .updated = 2026-10-09T14:41:44.244316Z
         #cno.threat.vicious_wombat:tlp = clear
 inet:fqdn=combatwombat.net
         :domain = net
@@ -1696,8 +1696,8 @@ inet:fqdn=combatwombat.net
         :issuffix = false
         :iszone = true
         :zone = combatwombat.net
-        .created = 2026-10-05T18:01:51.753788Z
-        .updated = 2026-10-05T18:01:51.754315Z
+        .created = 2026-10-09T14:41:44.242118Z
+        .updated = 2026-10-09T14:41:44.242892Z
         #cno.threat.vicious_wombat:tlp = green
 ```
 
@@ -1715,8 +1715,8 @@ storm> inet:ip#cno.infra.dns.sink.hole:confidence=high
 inet:ip=69.195.129.72
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:51.565006Z
-        .updated = 2026-10-05T18:01:51.748927Z
+        .created = 2026-10-09T14:41:43.960014Z
+        .updated = 2026-10-09T14:41:44.233804Z
         #cno.infra.dns.sink.hole:confidence = high
 ```
 
@@ -1801,34 +1801,34 @@ inet:ip=197.155.229.194
         :place:loc = zw.ha.harare
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:51.77194Z
-        .updated = 2026-10-05T18:01:51.772122Z
+        .created = 2026-10-09T14:41:44.273975Z
+        .updated = 2026-10-09T14:41:44.274204Z
 inet:ip=41.221.147.14
         :place:loc = zw
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:51.772526Z
-        .updated = 2026-10-05T18:01:51.772678Z
+        .created = 2026-10-09T14:41:44.274715Z
+        .updated = 2026-10-09T14:41:44.274918Z
 inet:ip=41.164.23.42
         :asn = 36937
         :place:loc = za.wc.worcester
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:51.520318Z
-        .updated = 2026-10-05T18:01:51.773034Z
+        .created = 2026-10-09T14:41:43.881454Z
+        .updated = 2026-10-09T14:41:44.275412Z
 inet:ip=155.254.9.3
         :asn = 19754
         :place:loc = us.mt.three forks
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:51.520917Z
-        .updated = 2026-10-05T18:01:51.773406Z
+        .created = 2026-10-09T14:41:43.883088Z
+        .updated = 2026-10-09T14:41:44.27592Z
 inet:ip=102.64.66.222
         :place:loc = tz.02.dar es salaam
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:51.773722Z
-        .updated = 2026-10-05T18:01:51.773865Z
+        .created = 2026-10-09T14:41:44.276394Z
+        .updated = 2026-10-09T14:41:44.276616Z
 ```
 
 Lift five IP addresses (`inet:ip` nodes) (sorted descending based on the integer value of the `inet:ip` primary property):
@@ -1843,31 +1843,31 @@ inet:ip=2607:9000:0:85:68a3:75b4:13ab:770a
         :scope = global
         :type = unicast
         :version = 6
-        .created = 2026-10-05T18:01:51.734018Z
-        .updated = 2026-10-05T18:01:51.734257Z
+        .created = 2026-10-09T14:41:44.212415Z
+        .updated = 2026-10-09T14:41:44.212728Z
         #cno.infra.anon.vpn = 2023-08-15T00:12:15Z - 2023-12-05T23:12:54Z
 inet:ip=2600:1419:9c00:283::356e
         :scope = global
         :type = unicast
         :version = 6
-        .created = 2026-10-05T18:01:51.508164Z
-        .updated = 2026-10-05T18:01:51.508164Z
+        .created = 2026-10-09T14:41:43.859666Z
+        .updated = 2026-10-09T14:41:43.859666Z
 inet:ip=255.255.255.255
         :type = private
         :version = 4
-        .created = 2026-10-05T18:01:51.777718Z
-        .updated = 2026-10-05T18:01:51.777718Z
+        .created = 2026-10-09T14:41:44.282482Z
+        .updated = 2026-10-09T14:41:44.282482Z
 inet:ip=223.159.33.195
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:51.778108Z
-        .updated = 2026-10-05T18:01:51.778108Z
+        .created = 2026-10-09T14:41:44.283Z
+        .updated = 2026-10-09T14:41:44.283Z
 inet:ip=217.148.143.196
         :asn = 9009
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:51.692546Z
-        .updated = 2026-10-05T18:01:51.692692Z
+        .created = 2026-10-09T14:41:44.148994Z
+        .updated = 2026-10-09T14:41:44.149225Z
 ```
 
 Lift the five most recently-created email addresses (`inet:email` nodes) (sorted descending by the `.created` property value):
@@ -1881,28 +1881,28 @@ storm> reverse ( inet:email.created ) | limit 5
 inet:email=illia.volochii@gmail.com
         :fqdn = gmail.com
         :username = illia.volochii
-        .created = 2026-10-05T18:01:51.787723Z
-        .updated = 2026-10-05T18:01:51.787723Z
+        .created = 2026-10-09T14:41:44.297693Z
+        .updated = 2026-10-09T14:41:44.297693Z
 inet:email=dholth@fastmail.fm
         :fqdn = fastmail.fm
         :username = dholth
-        .created = 2026-10-05T18:01:51.786756Z
-        .updated = 2026-10-05T18:01:51.786756Z
+        .created = 2026-10-09T14:41:44.296297Z
+        .updated = 2026-10-09T14:41:44.296297Z
 inet:email=alex.gronholm@nextday.fi
         :fqdn = nextday.fi
         :username = alex.gronholm
-        .created = 2026-10-05T18:01:51.785739Z
-        .updated = 2026-10-05T18:01:51.785739Z
+        .created = 2026-10-09T14:41:44.294847Z
+        .updated = 2026-10-09T14:41:44.294847Z
 inet:email=support@hammer-software.com
         :fqdn = hammer-software.com
         :username = support
-        .created = 2026-10-05T18:01:51.784893Z
-        .updated = 2026-10-05T18:01:51.784893Z
+        .created = 2026-10-09T14:41:44.293385Z
+        .updated = 2026-10-09T14:41:44.293385Z
 inet:email=20231128124623.11d85d83ed11a341@adnoc.ae
         :fqdn = adnoc.ae
         :username = 20231128124623.11d85d83ed11a341
-        .created = 2026-10-05T18:01:51.784411Z
-        .updated = 2026-10-05T18:01:51.784411Z
+        .created = 2026-10-09T14:41:44.292614Z
+        .updated = 2026-10-09T14:41:44.292614Z
 ```
 
 > [!NOTE]
@@ -1933,8 +1933,8 @@ inet:ip=8.8.8.8
         :asn = 15169
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:51.693006Z
-        .updated = 2026-10-05T18:01:51.693155Z
+        .created = 2026-10-09T14:41:44.149669Z
+        .updated = 2026-10-09T14:41:44.149888Z
 ```
 
 The try operator is generally not necessary for interactive Storm queries. However, it can be very useful for more complex Storm queries or Storm-based automation (see [Storm Reference - Automation](storm_ref_automation.md#storm-ref-automation)), where a single badly-formatted lift operation (potentially relying on input or data from a third-party data source) could cause the query to fail during execution.
@@ -1971,6 +1971,6 @@ storm> inet:email?='ron[at]vertex.link' inet:email?='ozzie@vertex.link'
 inet:email=ozzie@vertex.link
         :fqdn = vertex.link
         :username = ozzie
-        .created = 2026-10-05T18:01:51.800304Z
-        .updated = 2026-10-05T18:01:51.800304Z
+        .created = 2026-10-09T14:41:44.32048Z
+        .updated = 2026-10-09T14:41:44.32048Z
 ```

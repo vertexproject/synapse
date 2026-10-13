@@ -2864,7 +2864,7 @@ The AHA service network.
 
 #### aha:promotable
 
-Set to false to prevent this service from being promoted to leader.
+Set to false to exclude this service from automatic leader selection when the leader demotes, including during a graceful shutdown. It does not prevent an explicit promotion.
 
 **Type**
 
@@ -3236,7 +3236,7 @@ The AHA service network.
 
 #### aha:promotable
 
-Set to false to prevent this service from being promoted to leader.
+Set to false to exclude this service from automatic leader selection when the leader demotes, including during a graceful shutdown. It does not prevent an explicit promotion.
 
 **Type**
 
@@ -3608,7 +3608,7 @@ The AHA service network.
 
 #### aha:promotable
 
-Set to false to prevent this service from being promoted to leader.
+Set to false to exclude this service from automatic leader selection when the leader demotes, including during a graceful shutdown. It does not prevent an explicit promotion.
 
 **Type**
 
@@ -3924,7 +3924,7 @@ The AHA service network.
 
 #### aha:promotable
 
-Set to false to prevent this service from being promoted to leader.
+Set to false to exclude this service from automatic leader selection when the leader demotes, including during a graceful shutdown. It does not prevent an explicit promotion.
 
 **Type**
 

@@ -392,8 +392,11 @@ def bundleManifestEntries(srcdir, outdir, basedir):
 def saveManifest(path, entries):
     '''
     Write entries as a GNU sha256sum-format manifest: MANIFEST_HEADER, then one
-    "<hex>  <relpath>" line per entry, sorted by relpath, single trailing
-    newline.
+    "<hex>  <relpath>" line per entry, sorted by relpath, with a '#' comment line
+    between entries and a single trailing newline.
+
+    The comment lines keep every entry from touching its neighbors, so two
+    branches that each change a different page's hash merge without a conflict.
 
     Sorting happens HERE, and only here -- a plain codepoint sorted() on the
     relpath string, no locale, no str.lower(), no path-segment-aware comparison
@@ -420,7 +423,10 @@ def saveManifest(path, entries):
 
     with open(path, 'w') as fd:
         fd.write(MANIFEST_HEADER)
-        for relpath in sorted(byrelpath):
+        for i, relpath in enumerate(sorted(byrelpath)):
+            if i:
+                fd.write('#\n')
+
             fd.write(f'{byrelpath[relpath]}  {relpath}\n')
 
 def checkManifest(bundle, entries, basedir, hint=None):

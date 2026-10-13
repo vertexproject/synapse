@@ -95,8 +95,8 @@ storm> [ inet:ip?=woot.com inet:ip?=22.22.22.22 ]
 inet:ip=22.22.22.22
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:44.474442Z
-        .updated = 2026-10-05T18:01:44.474442Z
+        .created = 2026-10-09T14:41:19.997342Z
+        .updated = 2026-10-09T14:41:19.997342Z
 ```
 
 In contrast, the following query will throw a `BadTypeValu` error and exit when it encounters the invalid IP value. The rest of the query fails to run, and the IP `22.22.22.22` is never created:
@@ -297,8 +297,8 @@ entity:contact=b03173bee96299ce60be9bdff1f68e04
         :org = 65d8a6380f7a777008e5fbd03a22453a
         :org:name = The Vertex Project
         :type = employee.vertex
-        .created = 2026-10-05T18:01:44.502242Z
-        .updated = 2026-10-05T18:01:44.504316Z
+        .created = 2026-10-09T14:41:20.063639Z
+        .updated = 2026-10-09T14:41:20.067267Z
 ```
 
 In the example above, the subquery `ou:org:name='The Vertex Project'` is used to lift the organization node with that `:name` property value and assign the node to the `:org` property of the `entity:contact` node.
@@ -313,8 +313,8 @@ ou:org=a4c02b3a2e26188ef27fb571faf14ca1
         :name = apple
         :names = ['apple, inc.']
         :names.size = 1
-        .created = 2026-10-05T18:01:44.506477Z
-        .updated = 2026-10-05T18:01:44.509742Z
+        .created = 2026-10-09T14:41:20.071656Z
+        .updated = 2026-10-09T14:41:20.078303Z
 ```
 
 In the example above, the subquery is used to lift the specified industry nodes (`ind:industry`) and assign both nodes to the `ou:org:industries` property for Apple's organization node.
@@ -688,8 +688,8 @@ inet:fqdn=newsonet.net
         :issuffix = false
         :iszone = true
         :zone = newsonet.net
-        .created = 2026-10-05T18:01:44.524008Z
-        .updated = 2026-10-05T18:01:44.581785Z
+        .created = 2026-10-09T14:41:20.105592Z
+        .updated = 2026-10-09T14:41:20.208146Z
         #rep.eset.sednit
         #rep.mandiant.apt1
         <(*)- * = 1
@@ -701,8 +701,8 @@ inet:fqdn=staycools.net
         :issuffix = false
         :iszone = true
         :zone = staycools.net
-        .created = 2026-10-05T18:01:44.525103Z
-        .updated = 2026-10-05T18:01:44.582202Z
+        .created = 2026-10-09T14:41:20.1077Z
+        .updated = 2026-10-09T14:41:20.20882Z
         #rep.eset.sednit
         #rep.mandiant.apt1
         <(*)- * = 1
@@ -714,8 +714,8 @@ inet:fqdn=hugesoft.org
         :issuffix = false
         :iszone = true
         :zone = hugesoft.org
-        .created = 2026-10-05T18:01:44.525943Z
-        .updated = 2026-10-05T18:01:44.582435Z
+        .created = 2026-10-09T14:41:20.109249Z
+        .updated = 2026-10-09T14:41:20.209193Z
         #rep.eset.sednit
         #rep.mandiant.apt1
         <(*)- * = 1
@@ -727,8 +727,8 @@ inet:fqdn=purpledaily.com
         :issuffix = false
         :iszone = true
         :zone = purpledaily.com
-        .created = 2026-10-05T18:01:44.52696Z
-        .updated = 2026-10-05T18:01:44.582647Z
+        .created = 2026-10-09T14:41:20.111184Z
+        .updated = 2026-10-09T14:41:20.209544Z
         #rep.eset.sednit
         #rep.mandiant.apt1
         <(*)- * = 1
@@ -740,8 +740,8 @@ inet:fqdn=blackcake.net
         :issuffix = false
         :iszone = true
         :zone = blackcake.net
-        .created = 2026-10-05T18:01:44.55073Z
-        .updated = 2026-10-05T18:01:44.582846Z
+        .created = 2026-10-09T14:41:20.162136Z
+        .updated = 2026-10-09T14:41:20.209922Z
         #cno.infra.dns.sink.holed
         #rep.eset.sednit
         #rep.mandiant.apt1
@@ -751,8 +751,8 @@ inet:fqdn=somedomain.com
         :issuffix = false
         :iszone = true
         :zone = somedomain.com
-        .created = 2026-10-05T18:01:44.583244Z
-        .updated = 2026-10-05T18:01:44.58371Z
+        .created = 2026-10-09T14:41:20.210744Z
+        .updated = 2026-10-09T14:41:20.211642Z
         #rep.eset.sednit
 ```
 
@@ -778,8 +778,8 @@ inet:fqdn=newsonet.net
         :issuffix = false
         :iszone = true
         :zone = newsonet.net
-        .created = 2026-10-05T18:01:44.524008Z
-        .updated = 2026-10-05T18:01:44.586473Z
+        .created = 2026-10-09T14:41:20.105592Z
+        .updated = 2026-10-09T14:41:20.216774Z
         #rep.mandiant.apt1
         <(*)- * = 1
          <(refs)- * = 1
@@ -790,8 +790,8 @@ inet:fqdn=staycools.net
         :issuffix = false
         :iszone = true
         :zone = staycools.net
-        .created = 2026-10-05T18:01:44.525103Z
-        .updated = 2026-10-05T18:01:44.586715Z
+        .created = 2026-10-09T14:41:20.1077Z
+        .updated = 2026-10-09T14:41:20.217176Z
         #rep.mandiant.apt1
         <(*)- * = 1
          <(refs)- * = 1
@@ -802,8 +802,8 @@ inet:fqdn=hugesoft.org
         :issuffix = false
         :iszone = true
         :zone = hugesoft.org
-        .created = 2026-10-05T18:01:44.525943Z
-        .updated = 2026-10-05T18:01:44.586916Z
+        .created = 2026-10-09T14:41:20.109249Z
+        .updated = 2026-10-09T14:41:20.217514Z
         #rep.mandiant.apt1
         <(*)- * = 1
          <(refs)- * = 1
@@ -814,8 +814,8 @@ inet:fqdn=purpledaily.com
         :issuffix = false
         :iszone = true
         :zone = purpledaily.com
-        .created = 2026-10-05T18:01:44.52696Z
-        .updated = 2026-10-05T18:01:44.587102Z
+        .created = 2026-10-09T14:41:20.111184Z
+        .updated = 2026-10-09T14:41:20.217836Z
         #rep.mandiant.apt1
         <(*)- * = 1
          <(refs)- * = 1
@@ -826,8 +826,8 @@ inet:fqdn=blackcake.net
         :issuffix = false
         :iszone = true
         :zone = blackcake.net
-        .created = 2026-10-05T18:01:44.55073Z
-        .updated = 2026-10-05T18:01:44.587304Z
+        .created = 2026-10-09T14:41:20.162136Z
+        .updated = 2026-10-09T14:41:20.218168Z
         #cno.infra.dns.sink.holed
         #rep.mandiant.apt1
 inet:fqdn=somedomain.com
@@ -836,8 +836,8 @@ inet:fqdn=somedomain.com
         :issuffix = false
         :iszone = true
         :zone = somedomain.com
-        .created = 2026-10-05T18:01:44.583244Z
-        .updated = 2026-10-05T18:01:44.58371Z
+        .created = 2026-10-09T14:41:20.210744Z
+        .updated = 2026-10-09T14:41:20.211642Z
         #rep.eset.sednit
 ```
 
@@ -864,8 +864,8 @@ inet:ip=1.2.3.4
         :asn = 2222
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:44.518276Z
-        .updated = 2026-10-05T18:01:44.593831Z
+        .created = 2026-10-09T14:41:20.09446Z
+        .updated = 2026-10-09T14:41:20.229688Z
         <(*)- * = 1
          <(refs)- * = 1
           <(refs)- doc:report = 1
@@ -873,8 +873,8 @@ inet:ip=5.6.7.8
         :asn = 2222
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:44.59262Z
-        .updated = 2026-10-05T18:01:44.592772Z
+        .created = 2026-10-09T14:41:20.227605Z
+        .updated = 2026-10-09T14:41:20.227874Z
 ```
 
 Consider the same query using edit parens inside the brackets:
@@ -891,8 +891,8 @@ inet:ip=1.2.3.4
         :asn = 1111
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:44.518276Z
-        .updated = 2026-10-05T18:01:44.595586Z
+        .created = 2026-10-09T14:41:20.09446Z
+        .updated = 2026-10-09T14:41:20.232974Z
         <(*)- * = 1
          <(refs)- * = 1
           <(refs)- doc:report = 1
@@ -900,6 +900,6 @@ inet:ip=5.6.7.8
         :asn = 2222
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:44.59262Z
-        .updated = 2026-10-05T18:01:44.592772Z
+        .created = 2026-10-09T14:41:20.227605Z
+        .updated = 2026-10-09T14:41:20.227874Z
 ```

@@ -3803,6 +3803,18 @@ class CellTest(s_t_utils.SynTest):
                 self.none(await cell.getAhaProxy())
                 await stream.expect('AHA client connection failed.', timeout=1)
 
+            # an unreachable AHA at boot lists the sanitized aha:servers URLs
+            cell.ahasvcname = '00.cell.synapse'
+            sanitized = ['ssl://root:****@aha00.synapse:27492']
+
+            cell.conf['aha:servers'] = ('ssl://root:secret@aha00.synapse:27492',)
+            with self.raises(s_exc.NotReady) as cm:
+                await cell._getBootActive()
+
+            self.isin(f'Configured AHA URLs: {sanitized}', cm.exception.get('mesg'))
+            self.notin('secret', cm.exception.get('mesg'))
+            self.eq(sanitized, cm.exception.get('aha'))
+
             class MockProxyHasNot:
                 def _hasTeleFeat(self, name, vers):
                     return False

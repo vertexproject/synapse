@@ -310,7 +310,7 @@ class IPAddr(s_types.Type):
             byts = addr.to_bytes(16, 'big')
             return socket.inet_ntop(socket.AF_INET6, byts)
 
-        mesg = 'IP proto version {vers} is not supported!'
+        mesg = f'IP proto version {vers!r} is not supported!'
         raise s_exc.BadTypeValu(mesg=mesg)
 
     async def getNetRange(self, text):

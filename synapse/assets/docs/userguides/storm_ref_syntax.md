@@ -77,8 +77,8 @@ inet:ip=1.2.3.4
         :place:loc = us
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:59.755652Z
-        .updated = 2026-10-05T18:01:59.756068Z
+        .created = 2026-10-09T14:42:09.354643Z
+        .updated = 2026-10-09T14:42:09.35518Z
 ```
 
 ## Type-Specific Behavior

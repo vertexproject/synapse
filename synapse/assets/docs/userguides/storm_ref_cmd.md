@@ -1175,32 +1175,32 @@ storm> inet:ip#rep.trend.earth_preta | count --yield
 inet:ip=66.129.222.1
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:38.209484Z
-        .updated = 2026-10-05T18:01:38.209967Z
+        .created = 2026-10-09T14:41:08.268467Z
+        .updated = 2026-10-09T14:41:08.269724Z
         #rep.trend.earth_preta
 inet:ip=184.82.164.104
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:38.210618Z
-        .updated = 2026-10-05T18:01:38.210814Z
+        .created = 2026-10-09T14:41:08.271694Z
+        .updated = 2026-10-09T14:41:08.272387Z
         #rep.trend.earth_preta
 inet:ip=209.161.249.125
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:38.211151Z
-        .updated = 2026-10-05T18:01:38.211305Z
+        .created = 2026-10-09T14:41:08.273553Z
+        .updated = 2026-10-09T14:41:08.274121Z
         #rep.trend.earth_preta
 inet:ip=69.90.65.240
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:38.211624Z
-        .updated = 2026-10-05T18:01:38.211789Z
+        .created = 2026-10-09T14:41:08.275233Z
+        .updated = 2026-10-09T14:41:08.275723Z
         #rep.trend.earth_preta
 inet:ip=70.62.232.98
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:38.212103Z
-        .updated = 2026-10-05T18:01:38.212262Z
+        .created = 2026-10-09T14:41:08.276696Z
+        .updated = 2026-10-09T14:41:08.277175Z
         #rep.trend.earth_preta
 Counted 5 nodes.
 ```
@@ -2565,8 +2565,8 @@ storm> inet:ip#rep.paloalto.stately_taurus | limit 1
 inet:ip=67.53.148.77
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:38.257202Z
-        .updated = 2026-10-05T18:01:38.257585Z
+        .created = 2026-10-09T14:41:08.424847Z
+        .updated = 2026-10-09T14:41:08.426267Z
         #rep.paloalto.stately_taurus
 ```
 
@@ -2793,8 +2793,8 @@ inet:dns:a=('woot.com', '246.21.93.214')
         :seen.max = 2014-10-19T06:15:04Z
         :seen.duration = 287D 03:40:08
         :seen.precision = microsecond
-        .created = 2026-10-05T18:01:38.270911Z
-        .updated = 2026-10-05T18:01:38.271194Z
+        .created = 2026-10-09T14:41:08.47494Z
+        .updated = 2026-10-09T14:41:08.475694Z
 ```
 
 Return the two most recent DNS A records for `woot.com`, in descending order by `:seen`
@@ -2809,8 +2809,8 @@ inet:dns:a=('woot.com', '246.21.93.214')
         :seen.max = 2014-10-19T06:15:04Z
         :seen.duration = 287D 03:40:08
         :seen.precision = microsecond
-        .created = 2026-10-05T18:01:38.270911Z
-        .updated = 2026-10-05T18:01:38.271194Z
+        .created = 2026-10-09T14:41:08.47494Z
+        .updated = 2026-10-09T14:41:08.475694Z
 inet:dns:a=('woot.com', '107.21.53.159')
         :fqdn = woot.com
         :ip = 107.21.53.159
@@ -2819,8 +2819,8 @@ inet:dns:a=('woot.com', '107.21.53.159')
         :seen.max = 2014-08-14T00:00:00Z
         :seen.duration = 1D 00:00:00
         :seen.precision = microsecond
-        .created = 2026-10-05T18:01:38.268196Z
-        .updated = 2026-10-05T18:01:38.26922Z
+        .created = 2026-10-09T14:41:08.468498Z
+        .updated = 2026-10-09T14:41:08.470807Z
 ```
 
 Return the DNS A record for `woot.com` with the longest duration:
@@ -2835,8 +2835,8 @@ inet:dns:a=('woot.com', '246.21.93.214')
         :seen.max = 2014-10-19T06:15:04Z
         :seen.duration = 287D 03:40:08
         :seen.precision = microsecond
-        .created = 2026-10-05T18:01:38.270911Z
-        .updated = 2026-10-05T18:01:38.271194Z
+        .created = 2026-10-09T14:41:08.47494Z
+        .updated = 2026-10-09T14:41:08.475694Z
 ```
 
 Return a WHOIS record for the most recently registered (`:created`) FQDN associated with the threat cluster Sparkling Unicorn (`#cno.threat.sparkling_unicorn`):
@@ -2846,8 +2846,8 @@ storm> inet:fqdn#cno.threat.sparkling_unicorn -> inet:whois:record | max :create
 inet:whois:record=5200d9b0914e2bfe8bac590aa3f517fc
         :created = 2026-03-26T13:00:00Z
         :fqdn = derp.net
-        .created = 2026-10-05T18:01:38.282336Z
-        .updated = 2026-10-05T18:01:38.282336Z
+        .created = 2026-10-09T14:41:08.522977Z
+        .updated = 2026-10-09T14:41:08.522977Z
 ```
 
 <a id="storm-merge"></a>
@@ -2991,8 +2991,8 @@ inet:dns:a=('woot.com', '75.101.146.4')
         :seen.max = 2013-09-22T00:00:00Z
         :seen.duration = 1D 00:00:00
         :seen.precision = microsecond
-        .created = 2026-10-05T18:01:38.269981Z
-        .updated = 2026-10-05T18:01:38.270301Z
+        .created = 2026-10-09T14:41:08.472612Z
+        .updated = 2026-10-09T14:41:08.473447Z
 ```
 
 Return the two oldest DNS A records for `woot.com`, in ascending order by `:seen`:
@@ -3007,8 +3007,8 @@ inet:dns:a=('woot.com', '75.101.146.4')
         :seen.max = 2013-09-22T00:00:00Z
         :seen.duration = 1D 00:00:00
         :seen.precision = microsecond
-        .created = 2026-10-05T18:01:38.269981Z
-        .updated = 2026-10-05T18:01:38.270301Z
+        .created = 2026-10-09T14:41:08.472612Z
+        .updated = 2026-10-09T14:41:08.473447Z
 inet:dns:a=('woot.com', '246.21.93.214')
         :fqdn = woot.com
         :ip = 246.21.93.214
@@ -3017,8 +3017,8 @@ inet:dns:a=('woot.com', '246.21.93.214')
         :seen.max = 2014-10-19T06:15:04Z
         :seen.duration = 287D 03:40:08
         :seen.precision = microsecond
-        .created = 2026-10-05T18:01:38.270911Z
-        .updated = 2026-10-05T18:01:38.271194Z
+        .created = 2026-10-09T14:41:08.47494Z
+        .updated = 2026-10-09T14:41:08.475694Z
 ```
 
 Return the DNS A record for `woot.com` with the shortest duration:
@@ -3033,8 +3033,8 @@ inet:dns:a=('woot.com', '53.25.18.25')
         :seen.max = 2014-08-13T18:09:22Z
         :seen.duration = 05:24:27
         :seen.precision = microsecond
-        .created = 2026-10-05T18:01:38.271753Z
-        .updated = 2026-10-05T18:01:38.272014Z
+        .created = 2026-10-09T14:41:08.477091Z
+        .updated = 2026-10-09T14:41:08.478024Z
 ```
 
 Return a WHOIS record for the earliest registered (`:created`) FQDN associated with the threat cluster Sparkling Unicorn (`#cno.threat.sparkling_unicorn`):
@@ -3044,8 +3044,8 @@ storm> inet:fqdn#cno.threat.sparkling_unicorn -> inet:whois:record | min :create
 inet:whois:record=b3f03e02c398aeeafe40b80c9fbed15c
         :created = 2025-10-23T09:00:00Z
         :fqdn = hurr.com
-        .created = 2026-10-05T18:01:38.281833Z
-        .updated = 2026-10-05T18:01:38.281833Z
+        .created = 2026-10-09T14:41:08.520447Z
+        .updated = 2026-10-09T14:41:08.520447Z
 ```
 
 <a id="storm-model"></a>
@@ -3788,8 +3788,8 @@ storm> inet:service:message | scrape :text
 inet:service:message=c7b00606bd374d4cd9d925d0696e325e
         :platform = 723636292813abbc9884384d3c0caa9f
         :text = IP address 8.8.8.8 and FQDN woot.com seen doing bad things
-        .created = 2026-10-05T18:01:38.321397Z
-        .updated = 2026-10-05T18:01:38.321397Z
+        .created = 2026-10-09T14:41:09.60916Z
+        .updated = 2026-10-09T14:41:09.60916Z
 ```
 
 Scrape the text of a social media post for FQDNs and IP addresses, link the nodes to the original post, and return (yield) the created nodes:
@@ -3799,8 +3799,8 @@ storm> inet:service:message | scrape :text --forms (inet:fqdn, inet:ip) --refs -
 inet:ip=8.8.8.8
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:38.323353Z
-        .updated = 2026-10-05T18:01:38.323353Z
+        .created = 2026-10-09T14:41:09.617547Z
+        .updated = 2026-10-09T14:41:09.617547Z
         <(*)- * = 1
          <(refs)- * = 1
           <(refs)- inet:service:message = 1
@@ -3810,8 +3810,8 @@ inet:fqdn=woot.com
         :issuffix = false
         :iszone = true
         :zone = woot.com
-        .created = 2026-10-05T18:01:38.268196Z
-        .updated = 2026-10-05T18:01:38.268755Z
+        .created = 2026-10-09T14:41:08.468498Z
+        .updated = 2026-10-09T14:41:08.469718Z
         <(*)- * = 1
          <(refs)- * = 1
           <(refs)- inet:service:message = 1
@@ -3953,18 +3953,18 @@ storm> inet:email sleep 1.0
 inet:email=bar@gmail.com
         :fqdn = gmail.com
         :username = bar
-        .created = 2026-10-05T18:01:38.331502Z
-        .updated = 2026-10-05T18:01:38.331502Z
+        .created = 2026-10-09T14:41:09.647186Z
+        .updated = 2026-10-09T14:41:09.647186Z
 inet:email=baz@gmail.com
         :fqdn = gmail.com
         :username = baz
-        .created = 2026-10-05T18:01:38.331938Z
-        .updated = 2026-10-05T18:01:38.331938Z
+        .created = 2026-10-09T14:41:09.649275Z
+        .updated = 2026-10-09T14:41:09.649275Z
 inet:email=foo@gmail.com
         :fqdn = gmail.com
         :username = foo
-        .created = 2026-10-05T18:01:38.330611Z
-        .updated = 2026-10-05T18:01:38.330611Z
+        .created = 2026-10-09T14:41:09.644242Z
+        .updated = 2026-10-09T14:41:09.644242Z
 ```
 
 <a id="storm-spin"></a>
@@ -4277,13 +4277,13 @@ inet:fqdn=foo.mydomain.com
         :issuffix = false
         :iszone = false
         :zone = mydomain.com
-        .created = 2026-10-05T18:01:41.360445Z
-        .updated = 2026-10-05T18:01:41.361458Z
+        .created = 2026-10-09T14:41:12.690292Z
+        .updated = 2026-10-09T14:41:12.692137Z
 inet:ip=8.8.8.8
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:38.323353Z
-        .updated = 2026-10-05T18:01:38.323353Z
+        .created = 2026-10-09T14:41:09.617547Z
+        .updated = 2026-10-09T14:41:09.617547Z
         <(*)- * = 1
          <(refs)- * = 1
           <(refs)- inet:service:message = 1
@@ -4293,26 +4293,26 @@ inet:fqdn=bar.mydomain.com
         :issuffix = false
         :iszone = false
         :zone = mydomain.com
-        .created = 2026-10-05T18:01:41.362175Z
-        .updated = 2026-10-05T18:01:41.362591Z
+        .created = 2026-10-09T14:41:12.693265Z
+        .updated = 2026-10-09T14:41:12.693819Z
 inet:ip=34.56.78.90
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:41.362175Z
-        .updated = 2026-10-05T18:01:41.362175Z
+        .created = 2026-10-09T14:41:12.693265Z
+        .updated = 2026-10-09T14:41:12.693265Z
 inet:fqdn=baz.mydomain.com
         :domain = mydomain.com
         :host = baz
         :issuffix = false
         :iszone = false
         :zone = mydomain.com
-        .created = 2026-10-05T18:01:41.363602Z
-        .updated = 2026-10-05T18:01:41.364019Z
+        .created = 2026-10-09T14:41:12.695318Z
+        .updated = 2026-10-09T14:41:12.695871Z
 inet:ip=127.0.0.2
         :type = loopback
         :version = 4
-        .created = 2026-10-05T18:01:41.363602Z
-        .updated = 2026-10-05T18:01:41.363602Z
+        .created = 2026-10-09T14:41:12.695318Z
+        .updated = 2026-10-09T14:41:12.695318Z
 ```
 
 Return the set of FQDNs and IP addresses associated with a set of DNS A records along with the original DNS A records:
@@ -4325,57 +4325,57 @@ inet:fqdn=foo.mydomain.com
         :issuffix = false
         :iszone = false
         :zone = mydomain.com
-        .created = 2026-10-05T18:01:41.360445Z
-        .updated = 2026-10-05T18:01:41.361458Z
+        .created = 2026-10-09T14:41:12.690292Z
+        .updated = 2026-10-09T14:41:12.692137Z
 inet:ip=8.8.8.8
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:38.323353Z
-        .updated = 2026-10-05T18:01:38.323353Z
+        .created = 2026-10-09T14:41:09.617547Z
+        .updated = 2026-10-09T14:41:09.617547Z
         <(*)- * = 1
          <(refs)- * = 1
           <(refs)- inet:service:message = 1
 inet:dns:a=('foo.mydomain.com', '8.8.8.8')
         :fqdn = foo.mydomain.com
         :ip = 8.8.8.8
-        .created = 2026-10-05T18:01:41.360445Z
-        .updated = 2026-10-05T18:01:41.360445Z
+        .created = 2026-10-09T14:41:12.690292Z
+        .updated = 2026-10-09T14:41:12.690292Z
 inet:fqdn=bar.mydomain.com
         :domain = mydomain.com
         :host = bar
         :issuffix = false
         :iszone = false
         :zone = mydomain.com
-        .created = 2026-10-05T18:01:41.362175Z
-        .updated = 2026-10-05T18:01:41.362591Z
+        .created = 2026-10-09T14:41:12.693265Z
+        .updated = 2026-10-09T14:41:12.693819Z
 inet:ip=34.56.78.90
         :type = unicast
         :version = 4
-        .created = 2026-10-05T18:01:41.362175Z
-        .updated = 2026-10-05T18:01:41.362175Z
+        .created = 2026-10-09T14:41:12.693265Z
+        .updated = 2026-10-09T14:41:12.693265Z
 inet:dns:a=('bar.mydomain.com', '34.56.78.90')
         :fqdn = bar.mydomain.com
         :ip = 34.56.78.90
-        .created = 2026-10-05T18:01:41.362175Z
-        .updated = 2026-10-05T18:01:41.362175Z
+        .created = 2026-10-09T14:41:12.693265Z
+        .updated = 2026-10-09T14:41:12.693265Z
 inet:fqdn=baz.mydomain.com
         :domain = mydomain.com
         :host = baz
         :issuffix = false
         :iszone = false
         :zone = mydomain.com
-        .created = 2026-10-05T18:01:41.363602Z
-        .updated = 2026-10-05T18:01:41.364019Z
+        .created = 2026-10-09T14:41:12.695318Z
+        .updated = 2026-10-09T14:41:12.695871Z
 inet:ip=127.0.0.2
         :type = loopback
         :version = 4
-        .created = 2026-10-05T18:01:41.363602Z
-        .updated = 2026-10-05T18:01:41.363602Z
+        .created = 2026-10-09T14:41:12.695318Z
+        .updated = 2026-10-09T14:41:12.695318Z
 inet:dns:a=('baz.mydomain.com', '127.0.0.2')
         :fqdn = baz.mydomain.com
         :ip = 127.0.0.2
-        .created = 2026-10-05T18:01:41.363602Z
-        .updated = 2026-10-05T18:01:41.363602Z
+        .created = 2026-10-09T14:41:12.695318Z
+        .updated = 2026-10-09T14:41:12.695318Z
 ```
 
 **Usage Notes:**
@@ -4420,44 +4420,44 @@ storm> syn:tag=cno | tree { $node.value -> syn:tag:up }
 syn:tag=cno
         :base = cno
         :depth = 0
-        .created = 2026-10-05T18:01:38.279985Z
-        .updated = 2026-10-05T18:01:38.279985Z
+        .created = 2026-10-09T14:41:08.511043Z
+        .updated = 2026-10-09T14:41:08.511043Z
 syn:tag=cno.threat
         :base = threat
         :depth = 1
         :up = cno
-        .created = 2026-10-05T18:01:38.279985Z
-        .updated = 2026-10-05T18:01:38.279985Z
+        .created = 2026-10-09T14:41:08.511043Z
+        .updated = 2026-10-09T14:41:08.511043Z
 syn:tag=cno.threat.sparkling_unicorn
         :base = sparkling_unicorn
         :depth = 2
         :up = cno.threat
-        .created = 2026-10-05T18:01:38.279985Z
-        .updated = 2026-10-05T18:01:38.279985Z
+        .created = 2026-10-09T14:41:08.511043Z
+        .updated = 2026-10-09T14:41:08.511043Z
 syn:tag=cno.ttp
         :base = ttp
         :depth = 1
         :up = cno
-        .created = 2026-10-05T18:01:41.376709Z
-        .updated = 2026-10-05T18:01:41.376709Z
+        .created = 2026-10-09T14:41:12.714493Z
+        .updated = 2026-10-09T14:41:12.714493Z
 syn:tag=cno.ttp.phish
         :base = phish
         :depth = 2
         :up = cno.ttp
-        .created = 2026-10-05T18:01:41.376709Z
-        .updated = 2026-10-05T18:01:41.376709Z
+        .created = 2026-10-09T14:41:12.714493Z
+        .updated = 2026-10-09T14:41:12.714493Z
 syn:tag=cno.mal
         :base = mal
         :depth = 1
         :up = cno
-        .created = 2026-10-05T18:01:41.377487Z
-        .updated = 2026-10-05T18:01:41.377487Z
+        .created = 2026-10-09T14:41:12.716094Z
+        .updated = 2026-10-09T14:41:12.716094Z
 syn:tag=cno.mal.redtree
         :base = redtree
         :depth = 2
         :up = cno.mal
-        .created = 2026-10-05T18:01:41.377487Z
-        .updated = 2026-10-05T18:01:41.377487Z
+        .created = 2026-10-09T14:41:12.716094Z
+        .updated = 2026-10-09T14:41:12.716094Z
 ```
 
 **Usage Notes:**

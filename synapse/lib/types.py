@@ -1230,7 +1230,7 @@ class Guid(Type):
         )
 
     async def _normPyList(self, valu, opts):
-        valu = await s_stormtypes.tostor(valu, packsafe=True)
+        valu = await s_stormtypes.tostor(valu, packsafe=True, nidnorm=True)
         if not valu:
             mesg = 'Guid list values cannot be empty.'
             raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=mesg)

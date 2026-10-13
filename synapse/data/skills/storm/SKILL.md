@@ -653,6 +653,7 @@ inet:fqdn { -> inet:dns:a [ +#reviewed ] } // still has inet:fqdn nodes in the p
 init { ... }                                  // runs once before any nodes are allowed through the pipeline
 empty { ... }                                 // runs if pipeline is empty
 fini { ... }                                  // runs once after all nodes have passed through the pipeline
+exec { ... }                                  // runs once, discarding the nodes it yields; inbound nodes pass through
 ```
 
 ### Built-in Commands
@@ -661,7 +662,6 @@ fini { ... }                                  // runs once after all nodes have 
 limit 10                                      // limit output count
 count                                         // count nodes
 uniq                                          // deduplicate
-spin                                          // consume without output
 max :prop                                     // keep max by property
 min :prop                                     // keep min by property
 tee { query1 } { query2 }                   // branch pipeline
@@ -974,6 +974,7 @@ $func("positional", key=1)
 - Double-underscore `__` prefix for module-internal variables and functions: they cannot be accessed from outside the module that defines them (e.g. `function __getJson()`)
 - Module variables at top level: `$setup = $lib.import(...)`, `$srcnode = (null)`
 - Format strings with backticks for interpolation: `` `text {$var}` ``
+- Avoid `spin`: run a query whose nodes are not needed in an `exec { ... }` block, or isolate it in a function, and a query that returns a value uses `return()`, or `fini { return() }` when more than one node can flow
 - Parenthesize values and conditions so Storm evaluates them as typed expressions rather than bare strings or edit syntax: `(true)` / `(false)` / `(null)` (not `$lib.true` / `$lib.false` / `$lib.null`), numbers `(42)`, collections `([])` / `({})`, and comparisons like `if ($a = null)`
 - Use `$lib.raise(ErrName, "message")` for errors, `$lib.exit("message")` for fatal exits
 - Use `return()` with empty parens to return `(null)`

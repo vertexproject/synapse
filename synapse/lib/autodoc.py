@@ -1752,21 +1752,34 @@ async def processStormModulesMd(md, pkgname, modules):
         md.addHead(mname, lvl=2, anchor=anchor)
 
         for apidef in apidefs:
-
-            apiname = apidef['name']
-            apidesc = apidef['desc']
-            apitype = apidef['type']
-
-            callsig = genCallsig(apitype)
-            md.addHead(f'{apiname}{callsig}', lvl=3)
-            if depr := apidef.get('deprecated'):
-                md.addLines(*genDeprecationWarningMd(apiname, depr))
-            md.addLines(*prepareMdLines(apidesc))
-            md.addLines(*getArgLinesMd(apitype))
-            md.addLines(*getReturnLinesMd(apitype))
+            _renderApiDefMd(md, apidef, 3)
 
     if not hasapi:
         md.addLines('This package does not export any Storm APIs.', '')
+
+def _renderApiDefMd(md, apidef, lvl):
+    '''
+    Render one module apidef: a function, or a class followed by each of its methods one level down.
+    '''
+    apiname = apidef['name']
+    apidesc = apidef['desc']
+    apitype = apidef['type']
+
+    callsig = genCallsig(apitype)
+    md.addHead(f'{apiname}{callsig}', lvl=lvl)
+    if depr := apidef.get('deprecated'):
+        md.addLines(*genDeprecationWarningMd(apiname, depr))
+
+    md.addLines(*prepareMdLines(apidesc))
+    md.addLines(*getArgLinesMd(apitype))
+
+    # a class returns nothing itself: its methods each document their own returns
+    if apitype.get('type') != 'class':
+        md.addLines(*getReturnLinesMd(apitype))
+        return
+
+    for methdef in apitype['methods']:
+        _renderApiDefMd(md, methdef, lvl + 1)
 
 def _renderDepsTableMd(rows):
     lines = ['| Name | Version | Optional | Description |', '|---|---|---|---|']

@@ -948,7 +948,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'string',
         },
         'aha:promotable': {
-            'description': 'Set to false to prevent this service from being promoted to leader.',
+            'description': 'Set to false to exclude this service from automatic leader selection when the leader demotes, including during a graceful shutdown. It does not prevent an explicit promotion.',
             'type': 'boolean',
             'default': True,
         },
@@ -2094,12 +2094,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # consult the AHA leadership term for our service type to determine
         # whether we should take leadership or follow the current leader.
         proxy = await self.getAhaProxy()
-        if proxy is None:  # pragma: no cover
-            ahaurls = self.conf.get('aha:registry', ())
-            if isinstance(ahaurls, str):
-                ahaurls = (ahaurls,)
-
-            ahaurls = [s_urlhelp.sanitizeUrl(u) for u in ahaurls]
+        if proxy is None:
+            ahaurls = [s_urlhelp.sanitizeUrl(u) for u in self.conf.get('aha:servers', ())]
             mesg = f'Unable to reach AHA to register the leadership term during boot. Configured AHA URLs: {ahaurls}'
             raise s_exc.NotReady(mesg=mesg, aha=ahaurls)
 
@@ -2656,7 +2652,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         retn = []
         async for svcentry in ahaproxy.getAhaSvcsByIden(self.iden, skiprun=self.runid):
 
-            if not svcentry['info'].get('promotable'): # pragma: no cover
+            if not svcentry['info'].get('promotable'):
                 continue
 
             retn.append(svcentry)
@@ -2703,7 +2699,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     logger.warning('...no suitable services discovered. Aborting demotion.', extra=extra)
                     return False
 
-                for svcindx, svcproxy in sorted(cands):
+                for svcindx, svcproxy in sorted(cands, key=lambda c: c[0], reverse=True):
 
                     try:
                         await svcproxy.promote()

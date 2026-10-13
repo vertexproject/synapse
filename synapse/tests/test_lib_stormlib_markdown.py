@@ -2539,7 +2539,7 @@ class MarkdownTest(s_test.SynTest):
             self.true(valu['refreshable'])
             self.eq('image', valu['data']['type'])
             self.eq({'name': 'one'}, valu['data']['vars'])
-            self.eq('/api/v3/optic/files/by/sha256/{valu}', valu['data']['opts']['urltmpl'])
+            self.eq(opts['vars']['url'], valu['data']['opts']['urltmpl'])
             self.isin('## Files', valu['text'])
             self.isin('![Evidence](/api/v3/optic/files/by/sha256/' + 'aa' * 32 + ')', valu['text'])
 

@@ -759,6 +759,17 @@ modeldefs = (
                 ),
                 'doc': 'An activity where an actor helped to create an item.'}),
 
+            ('entity:authored', ('guid', {}), {
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
+                'props': (
+
+                    ('authorable', ('doc:authorable', {}), {
+                        'doc': 'The item which the actor authored.'}),
+                ),
+                'doc': 'An activity where an actor authored, contributed to, or developed an authorable item such as a document or software.'}),
+
             ('entity:proficiency', ('guid', {}), {
                 'interfaces': (
                     ('entity:activity', {}),

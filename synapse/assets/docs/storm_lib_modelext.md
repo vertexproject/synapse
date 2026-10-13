@@ -78,7 +78,10 @@ Output:
 ```stormdoc
 _foocorp:name=visi
         :_aliases = ['visi', 'visi stark']
+        :_aliases.size = 2
         :_score = 90
+        .created = 2026-10-09T14:39:27.082733Z
+        .updated = 2026-10-09T14:39:27.083399Z
 ```
 
 ```storm
@@ -95,6 +98,8 @@ inet:fqdn=vertex.link
         :iszone = true
         :zone = vertex.link
         :_classification = benign
+        .created = 2026-10-09T14:39:27.112502Z
+        .updated = 2026-10-09T14:39:27.113893Z
 ```
 
 A value which is not valid for the property type is rejected:
@@ -135,6 +140,8 @@ inet:fqdn=vertex.link
         :iszone = true
         :zone = vertex.link
         :_classification = benign
+        .created = 2026-10-09T14:39:27.112502Z
+        .updated = 2026-10-09T14:39:27.150601Z
         #rep.foocorp:_score = 80
 ```
 
@@ -152,6 +159,8 @@ inet:fqdn=vertex.link
         :iszone = true
         :zone = vertex.link
         :_classification = benign
+        .created = 2026-10-09T14:39:27.112502Z
+        .updated = 2026-10-09T14:39:27.150601Z
         #rep.foocorp:_score = 80
 ```
 
@@ -190,7 +199,13 @@ Output:
 ```stormdoc
 _foocorp:name=visi
         :_aliases = ['visi', 'visi stark']
+        :_aliases.size = 2
         :_score = 90
+        .created = 2026-10-09T14:39:27.082733Z
+        .updated = 2026-10-09T14:39:27.176274Z
+        -(*)> * = 1
+         -(_seenon)> * = 1
+          -(_seenon)> inet:fqdn = 1
 ```
 
 <a id="modelext-export"></a>
@@ -240,7 +255,10 @@ Output:
 ```stormdoc
 _foocorp:name=visi
         :_aliases = ['visi', 'visi stark']
+        :_aliases.size = 2
         :_score = 90
+        .created = 2026-10-09T14:39:27.082733Z
+        .updated = 2026-10-09T14:39:27.197635Z
 ```
 
 ```storm
@@ -263,6 +281,8 @@ inet:fqdn=vertex.link
         :iszone = true
         :zone = vertex.link
         :_classification = benign
+        .created = 2026-10-09T14:39:27.112502Z
+        .updated = 2026-10-09T14:39:27.2037Z
         #rep.foocorp
 ```
 

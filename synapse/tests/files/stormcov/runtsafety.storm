@@ -1,5 +1,5 @@
 [ inet:fqdn=cov.com ]
-spin |
+spin | // noqa: P001
 $lib.print($node)
 // lines: 1, 2, 3
 // coverage: 1, 2
