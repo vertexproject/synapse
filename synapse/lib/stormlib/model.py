@@ -7,6 +7,7 @@ import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
+import synapse.lib.storm as s_storm
 import synapse.lib.stormtypes as s_stormtypes
 
 RISK_HASVULN_VULNPROPS = (
@@ -923,8 +924,8 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             Run a migration callback once for every view and every layer in the Cortex.
 
             Callbacks are embedded Storm queries (``${ ... }``) or query strings, rather than Storm
-            functions. They are run the same way as the ``view.exec`` command: variables from the
-            calling scope are available to them, but nodes are not passed in. Messages from
+            functions. Variables from the calling scope, including any captured by an embedded
+            query, are not available to them, and nodes are not passed in. Messages from
             ``$lib.print()``, ``$lib.warn()``, ``$lib.fire()`` and ``$lib.csv.emit()`` in a callback
             are passed through to the caller.
 
@@ -1093,20 +1094,15 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             if text is None:
                 return None
 
-            if isinstance(valu, s_stormtypes.Query):
-                varz = dict(valu.varz)
-            else:
-                varz = runt.getScopeVars()
+            return await runt.getStormQuery(text)
 
-            # cached $lib is bound to the calling runtime's view
-            for name in runt.ctors:
-                varz.pop(name, None)
+        async def runQuery(query, snap, varz):
 
-            return await runt.getStormQuery(text), varz
-
-        async def runQuery(query, opts):
-
-            async with runt.getSubRuntime(query, opts=opts) as subr:
+            # not a sub-runtime, so the caller's variables are not visible
+            async with await s_storm.Runtime.anit(query, snap, user=runt.user, opts={'vars': varz}) as subr:
+                subr.debug = runt.debug
+                subr.asroot = runt.asroot
+                subr.readonly = runt.readonly
 
                 if subr.snap is not runt.snap:
                     subr.snap._warnonce_keys = runt.snap._warnonce_keys
@@ -1157,13 +1153,10 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
                         await runt.warn(f'View {desc} has a read-only write layer and was skipped.')
                         continue
 
-                    query, varz = viewq
-
-                    varz = dict(varz)
-                    varz['view'] = s_stormtypes.View(runt, await view.pack(), path=self.path)
+                    varz = {'view': s_stormtypes.View(runt, await view.pack(), path=self.path)}
 
                     try:
-                        await runQuery(query, {'view': iden, 'vars': varz})
+                        await runQuery(viewq, await view.snap(runt.user), varz)
 
                     except s_exc.SynErr as e:
 
@@ -1201,13 +1194,10 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
                         await runt.warn(f'Layer {desc} is read-only and was skipped.')
                         continue
 
-                    query, varz = layrq
-
-                    varz = dict(varz)
-                    varz['layer'] = s_stormtypes.Layer(runt, await layr.pack(), path=self.path)
+                    varz = {'layer': s_stormtypes.Layer(runt, await layr.pack(), path=self.path)}
 
                     try:
-                        await runQuery(query, {'vars': varz})
+                        await runQuery(layrq, runt.snap, varz)
 
                     except s_exc.SynErr as e:
 
