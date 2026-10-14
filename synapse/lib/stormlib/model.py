@@ -920,7 +920,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'loop', 'desc': '''
-            Run a migration callback once for every layer and every view in the Cortex.
+            Run a migration callback once for every view and every layer in the Cortex.
 
             Callbacks are embedded Storm queries (``${ ... }``) or query strings, rather than Storm
             functions. They are run the same way as the ``view.exec`` command: variables from the
@@ -931,8 +931,8 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             - The ``onview`` callback runs in each view, with ``$view`` set to that view.
             - The ``onlayer`` callback runs in the calling view, with ``$layer`` set to that layer.
 
-            Each pass runs ``onlayer`` for every layer, then ``onview`` for every view, with parent
-            views before their children. A view or layer created by a callback is picked up by a
+            Each pass runs ``onview`` for every view, with parent views before their children, then
+            ``onlayer`` for every layer. A view or layer created by a callback is picked up by a
             further pass, and passes repeat until one finds nothing new. Each view and layer is
             visited at most once.
 
@@ -1134,50 +1134,6 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
 
             found = False
 
-            if layrq is not None:
-
-                for layr in list(core.listLayers()):
-
-                    iden = layr.iden
-                    if iden in seen:
-                        continue
-
-                    seen.add(iden)
-                    found = True
-
-                    desc = getDesc(iden, layr.layrinfo.get('name'))
-
-                    layr = core.layers.get(iden)
-                    if layr is None or layr.isfini:
-                        await runt.warn(f'Layer {desc} was deleted before it could be migrated.')
-                        continue
-
-                    wasro = layr.readonly
-                    if wasro and not readonly:
-                        await runt.warn(f'Layer {desc} is read-only and was skipped.')
-                        continue
-
-                    query, varz = layrq
-
-                    varz = dict(varz)
-                    varz['layer'] = s_stormtypes.Layer(runt, await layr.pack(), path=self.path)
-
-                    try:
-                        await runQuery(query, {'vars': varz})
-
-                    except s_exc.SynErr as e:
-
-                        layr = core.layers.get(iden)
-                        if layr is None or layr.isfini:
-                            await runt.warn(f'Layer {desc} was deleted while being migrated.')
-                            continue
-
-                        if isinstance(e, s_exc.IsReadOnly) and not wasro and layr.readonly:
-                            await runt.warn(f'Layer {desc} became read-only while being migrated.')
-                            continue
-
-                        raise
-
             if viewq is not None:
 
                 for vdef in await core.getViewDefs(deporder=True):
@@ -1218,6 +1174,50 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
 
                         if isinstance(e, s_exc.IsReadOnly) and not wasro and view.layers[0].readonly:
                             await runt.warn(f'View {desc} became read-only while being migrated.')
+                            continue
+
+                        raise
+
+            if layrq is not None:
+
+                for layr in list(core.listLayers()):
+
+                    iden = layr.iden
+                    if iden in seen:
+                        continue
+
+                    seen.add(iden)
+                    found = True
+
+                    desc = getDesc(iden, layr.layrinfo.get('name'))
+
+                    layr = core.layers.get(iden)
+                    if layr is None or layr.isfini:
+                        await runt.warn(f'Layer {desc} was deleted before it could be migrated.')
+                        continue
+
+                    wasro = layr.readonly
+                    if wasro and not readonly:
+                        await runt.warn(f'Layer {desc} is read-only and was skipped.')
+                        continue
+
+                    query, varz = layrq
+
+                    varz = dict(varz)
+                    varz['layer'] = s_stormtypes.Layer(runt, await layr.pack(), path=self.path)
+
+                    try:
+                        await runQuery(query, {'vars': varz})
+
+                    except s_exc.SynErr as e:
+
+                        layr = core.layers.get(iden)
+                        if layr is None or layr.isfini:
+                            await runt.warn(f'Layer {desc} was deleted while being migrated.')
+                            continue
+
+                        if isinstance(e, s_exc.IsReadOnly) and not wasro and layr.readonly:
+                            await runt.warn(f'Layer {desc} became read-only while being migrated.')
                             continue
 
                         raise

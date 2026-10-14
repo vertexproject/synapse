@@ -464,7 +464,7 @@ class StormlibModelTest(s_test.SynTest):
             view01 = fdef['iden']
             layr01 = fdef['layers'][0]['iden']
 
-            # layers first, then views with parents before children; vars and events are passed through
+            # views first with parents before children, then layers; vars and events are passed through
             q = """
                 $x = hehe
                 $lib.model.migration.loop(
@@ -475,12 +475,12 @@ class StormlibModelTest(s_test.SynTest):
             mesgs = await core.stormlist(q)
             self.stormHasNoWarnErr(mesgs)
             self.eq([
-                f'layer {deflayr} hehe',
-                f'layer {layr00} hehe',
-                f'layer {layr01} hehe',
                 f'view {defview.iden} {defview.iden} hehe',
                 f'view {view00} {view00} hehe',
                 f'view {view01} {view01} hehe',
+                f'layer {deflayr} hehe',
+                f'layer {layr00} hehe',
+                f'layer {layr01} hehe',
             ], getPrints(mesgs))
 
             # read-only layers and views are skipped unless readonly is set
@@ -497,21 +497,21 @@ class StormlibModelTest(s_test.SynTest):
             self.stormIsInWarn(f'Layer {layr01} is read-only and was skipped.', mesgs)
             self.stormIsInWarn(f'View {view01} has a read-only write layer and was skipped.', mesgs)
             self.eq([
-                f'layer {deflayr}',
-                f'layer {layr00}',
                 f'view {defview.iden}',
                 f'view {view00}',
+                f'layer {deflayr}',
+                f'layer {layr00}',
             ], getPrints(mesgs))
 
             mesgs = await core.stormlist(q, opts={'vars': {'readonly': True}})
             self.stormHasNoWarnErr(mesgs)
             self.eq([
-                f'layer {deflayr}',
-                f'layer {layr00}',
-                f'layer {layr01}',
                 f'view {defview.iden}',
                 f'view {view00}',
                 f'view {view01}',
+                f'layer {deflayr}',
+                f'layer {layr00}',
+                f'layer {layr01}',
             ], getPrints(mesgs))
 
             # errors from writing to a layer which was already read-only are raised
@@ -535,18 +535,18 @@ class StormlibModelTest(s_test.SynTest):
             # a layer set read-only by an earlier callback is skipped
             q = """
                 $lib.model.migration.loop(
-                    onview=${ $lib.print(`view {$view.iden}`) },
-                    onlayer=${ $lib.print(`layer {$layer.iden}`) $lib.layer.get($layr01).set(readonly, $lib.true) },
+                    onview=${ $lib.print(`view {$view.iden}`) $lib.layer.get($layr01).set(readonly, $lib.true) },
+                    onlayer=${ $lib.print(`layer {$layer.iden}`) },
                 )
             """
             mesgs = await core.stormlist(q, opts={'vars': {'layr01': layr01}})
             self.stormIsInWarn(f'Layer {layr01} is read-only and was skipped.', mesgs)
             self.stormIsInWarn(f'View {view01} has a read-only write layer and was skipped.', mesgs)
             self.eq([
-                f'layer {deflayr}',
-                f'layer {layr00}',
                 f'view {defview.iden}',
                 f'view {view00}',
+                f'layer {deflayr}',
+                f'layer {layr00}',
             ], getPrints(mesgs))
 
             await core.getLayer(layr01).setLayerInfo('readonly', False)
@@ -572,15 +572,15 @@ class StormlibModelTest(s_test.SynTest):
             """
             opts = {'vars': {'view00': view00, 'view01': view01, 'layr00': layr00, 'layr01': layr01}}
             mesgs = await core.stormlist(q, opts=opts)
-            self.stormIsInWarn(f'Layer {layr00} (looplayr) became read-only while being migrated.', mesgs)
             self.stormIsInWarn(f'View {view01} became read-only while being migrated.', mesgs)
-            self.stormIsInWarn(f'View {view00} (loopview) has a read-only write layer and was skipped.', mesgs)
+            self.stormIsInWarn(f'Layer {layr00} (looplayr) became read-only while being migrated.', mesgs)
+            self.stormIsInWarn(f'Layer {layr01} is read-only and was skipped.', mesgs)
             self.eq([
+                f'view {defview.iden}',
+                f'view {view00}',
+                f'view {view01}',
                 f'layer {deflayr}',
                 f'layer {layr00}',
-                f'layer {layr01}',
-                f'view {defview.iden}',
-                f'view {view01}',
             ], getPrints(mesgs))
             self.len(0, await core.nodes('test:str=ro', opts={'view': view01}))
 
@@ -630,12 +630,12 @@ class StormlibModelTest(s_test.SynTest):
             self.stormIsInWarn(f'Layer {layr03} (loopdel) was deleted before it could be migrated.', mesgs)
             self.stormIsInWarn(f'View {view01} was deleted before it could be migrated.', mesgs)
             self.eq([
+                f'view {defview.iden}',
+                f'view {view00}',
                 f'layer {deflayr}',
                 f'layer {layr00}',
                 f'layer {layr01}',
                 f'layer {layr02}',
-                f'view {defview.iden}',
-                f'view {view00}',
             ], getPrints(mesgs))
             self.none(core.getView(view01))
             self.none(core.getLayer(layr03))
@@ -670,13 +670,13 @@ class StormlibModelTest(s_test.SynTest):
             self.stormIsInWarn(f'Layer {layr02} was deleted while being migrated.', mesgs)
             self.stormIsInWarn(f'View {view01} (loopfork) was deleted while being migrated.', mesgs)
             self.eq([
+                f'view {defview.iden}',
+                f'view {view00}',
+                f'view {view01}',
                 f'layer {deflayr}',
                 f'layer {layr00}',
                 f'layer {layr02}',
                 f'layer {layr01}',
-                f'view {defview.iden}',
-                f'view {view00}',
-                f'view {view01}',
             ], getPrints(mesgs))
             self.none(core.getView(view01))
             self.none(core.getLayer(layr02))
@@ -697,7 +697,8 @@ class StormlibModelTest(s_test.SynTest):
             mesgs = await core.stormlist(q, opts={'vars': {'view00': view00, 'layr00': layr00}})
             self.stormHasNoWarnErr(mesgs)
             prints = getPrints(mesgs)
-            self.eq(['view loopview', 'layer loopnew', 'view loopnew'], prints[-3:])
+            self.eq(['view loopnew', 'layer loopnew'], prints[-2:])
+            self.lt(prints.index('view loopview'), prints.index('layer looplayr'))
             self.len(1, [p for p in prints if p == 'layer loopnew'])
             self.len(1, [p for p in prints if p == 'view loopnew'])
 
