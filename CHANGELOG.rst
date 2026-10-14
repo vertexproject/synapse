@@ -6,6 +6,60 @@
 Synapse Changelog
 *****************
 
+v2.254.0 - 2026-10-14
+=====================
+
+Model Changes
+-------------
+- Added the ``:tenant`` property to the ``inet:service:platform`` form.
+  (`#5026 <https://github.com/vertexproject/synapse/pull/5026>`_)
+- Added the `:funding:type`, `:funding:reloadable`, `:network` and
+  `:network:name` properties to the `econ:pay:card` form.
+  (`#5040 <https://github.com/vertexproject/synapse/pull/5040>`_)
+- See :ref:`userguide_model_v2_254_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added ``$lib.model.migration.s.inetServiceInstanceToPlatform()`` to migrate
+  ``inet:service:instance`` nodes to ``inet:service:platform`` nodes.
+  (`#5026 <https://github.com/vertexproject/synapse/pull/5026>`_)
+
+Bugfixes
+--------
+- Fixed an issue which caused deleting a file from an Axon to leave its byte
+  offset index entries in place, which could cause a subsequent byte range read
+  of the same file to return incorrect data. Added an Axon storage migration
+  which removes those entries.
+  (`#5036 <https://github.com/vertexproject/synapse/pull/5036>`_)
+- Fixed a bug where an exception raised while a mirror applied a forwarded
+  write returned the mirror loop's own running frame in its traceback, which
+  could stop the mirror loop if the caller cleared the traceback frames.
+  (`#5038 <https://github.com/vertexproject/synapse/pull/5038>`_)
+- Fixed ``demote()`` API calls failing when two mirrors are at the same Nexus
+  index, and changed it to try the most current mirror first.
+  (`#5041 <https://github.com/vertexproject/synapse/pull/5041>`_)
+- Fixed an issue which caused ``Axon.get()``, ``Axon.unpack()``,
+  ``$lib.axon.read()``, ``$lib.axon.unpack()``, and HTTP ``Range`` downloads
+  from ``/api/v1/axon/files/by/sha256/<sha256>`` to return bytes from the
+  previous chunk when the offset was a multiple of 16 MiB.
+  (`#5042 <https://github.com/vertexproject/synapse/pull/5042>`_)
+
+Improved documentation
+----------------------
+- Updated the ``aha:promotable`` description to say it only excludes a service
+  from automatic leader selection during demotion.
+  (`#5041 <https://github.com/vertexproject/synapse/pull/5041>`_)
+
+Deprecations
+------------
+- Deprecated the ``inet:service:instance`` form and the properties which
+  reference it. Use ``inet:service:platform`` with ``:parent`` instead.
+  (`#5026 <https://github.com/vertexproject/synapse/pull/5026>`_)
+- Deprecated the ``ps:tokn`` form and the ``:name:sur``, ``:name:middle``, and
+  ``:name:given`` properties on ``ps:person`` and ``ps:persona``, and the
+  ``:sur``, ``:middle``, and ``:given`` properties on ``ps:name``.
+  (`#5043 <https://github.com/vertexproject/synapse/pull/5043>`_)
+
 v2.253.0 - 2026-10-07
 =====================
 
