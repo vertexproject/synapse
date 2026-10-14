@@ -469,7 +469,7 @@ class StormlibModelTest(s_test.SynTest):
             q = """
                 $x = hehe
                 $y = haha
-                $onview = ${ $lib.print(`view {$view.iden} {$lib.view.get().iden} {$lib.vars.get(y)}`) test:str=src }
+                $onview = ${ $lib.print(`view {$lib.view.get().iden} {$lib.vars.get(y)} {$lib.vars.get(view)}`) test:str=src }
                 $lib.model.migration.loop(
                     onview=$onview,
                     onlayer="$lib.print(`layer {$layer.iden} {$lib.vars.get(x)} {$lib.vars.get(view)}`) $z = newp",
@@ -479,9 +479,9 @@ class StormlibModelTest(s_test.SynTest):
             mesgs = await core.stormlist(q)
             self.stormHasNoWarnErr(mesgs)
             self.eq([
-                f'view {defview.iden} {defview.iden} $lib.null',
-                f'view {view00} {view00} $lib.null',
-                f'view {view01} {view01} $lib.null',
+                f'view {defview.iden} $lib.null $lib.null',
+                f'view {view00} $lib.null $lib.null',
+                f'view {view01} $lib.null $lib.null',
                 f'layer {deflayr} $lib.null $lib.null',
                 f'layer {layr00} $lib.null $lib.null',
                 f'layer {layr01} $lib.null $lib.null',
@@ -494,7 +494,11 @@ class StormlibModelTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchVar):
                 await core.nodes('$x = hehe $lib.model.migration.loop(onview="$lib.print($x)")')
 
-            # callbacks only see $view or $layer, so pass values to them using globals
+            # onview callbacks run in the view, so $view is not set
+            with self.raises(s_exc.NoSuchVar):
+                await core.nodes('$lib.model.migration.loop(onview=${ $lib.print($view) })')
+
+            # callbacks can not see the caller's variables, so pass values to them using globals
             await core.setStormVar('view00', view00)
             await core.setStormVar('view01', view01)
             await core.setStormVar('layr00', layr00)
@@ -505,7 +509,7 @@ class StormlibModelTest(s_test.SynTest):
 
             q = """
                 $lib.model.migration.loop(
-                    onview=${ $lib.print(`view {$view.iden}`) },
+                    onview=${ $lib.print(`view {$lib.view.get().iden}`) },
                     onlayer=${ $lib.print(`layer {$layer.iden}`) },
                     readonly=$readonly,
                 )
@@ -533,7 +537,7 @@ class StormlibModelTest(s_test.SynTest):
 
             # errors from writing to a layer which was already read-only are raised
             q = """
-                $lib.model.migration.loop(onview=${ if ($view.iden = $lib.globals.get(view01)) { [ test:str=ro ] } }, readonly=$lib.true)
+                $lib.model.migration.loop(onview=${ if ($lib.view.get().iden = $lib.globals.get(view01)) { [ test:str=ro ] } }, readonly=$lib.true)
             """
             with self.raises(s_exc.IsReadOnly):
                 await core.nodes(q)
@@ -552,7 +556,7 @@ class StormlibModelTest(s_test.SynTest):
             # a layer set read-only by an earlier callback is skipped
             q = """
                 $lib.model.migration.loop(
-                    onview=${ $lib.print(`view {$view.iden}`) $lib.layer.get($lib.globals.get(layr01)).set(readonly, $lib.true) },
+                    onview=${ $lib.print(`view {$lib.view.get().iden}`) $lib.layer.get($lib.globals.get(layr01)).set(readonly, $lib.true) },
                     onlayer=${ $lib.print(`layer {$layer.iden}`) },
                 )
             """
@@ -572,8 +576,9 @@ class StormlibModelTest(s_test.SynTest):
             q = """
                 $lib.model.migration.loop(
                     onview=${
-                        $lib.print(`view {$view.iden}`)
-                        if ($view.iden = $lib.globals.get(view01)) {
+                        $iden = $lib.view.get().iden
+                        $lib.print(`view {$iden}`)
+                        if ($iden = $lib.globals.get(view01)) {
                             $lib.layer.get($lib.globals.get(layr01)).set(readonly, $lib.true)
                             [ test:str=ro ]
                         }
@@ -634,8 +639,9 @@ class StormlibModelTest(s_test.SynTest):
             q = """
                 $lib.model.migration.loop(
                     onview=${
-                        $lib.print(`view {$view.iden}`)
-                        if ($view.iden = $lib.globals.get(view00)) { $lib.view.del($lib.globals.get(view01)) }
+                        $iden = $lib.view.get().iden
+                        $lib.print(`view {$iden}`)
+                        if ($iden = $lib.globals.get(view00)) { $lib.view.del($lib.globals.get(view01)) }
                     },
                     onlayer=${
                         $lib.print(`layer {$layer.iden}`)
@@ -668,10 +674,11 @@ class StormlibModelTest(s_test.SynTest):
             q = """
                 $lib.model.migration.loop(
                     onview=${
-                        $lib.print(`view {$view.iden}`)
-                        if ($view.iden = $lib.globals.get(view01)) {
-                            $lib.view.del($view.iden)
-                            $lib.view.get($view.iden)
+                        $iden = $lib.view.get().iden
+                        $lib.print(`view {$iden}`)
+                        if ($iden = $lib.globals.get(view01)) {
+                            $lib.view.del($iden)
+                            $lib.view.get($iden)
                         }
                     },
                     onlayer=${
@@ -702,6 +709,7 @@ class StormlibModelTest(s_test.SynTest):
             q = """
                 $lib.model.migration.loop(
                     onview=${
+                        $view = $lib.view.get()
                         $lib.print(`view {$view.get(name)}`)
                         if ($view.iden = $lib.globals.get(view00)) { $lib.view.add(($lib.globals.get(layr00),), name=loopnew) }
                     },

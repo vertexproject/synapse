@@ -929,7 +929,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             ``$lib.print()``, ``$lib.warn()``, ``$lib.fire()`` and ``$lib.csv.emit()`` in a callback
             are passed through to the caller.
 
-            - The ``onview`` callback runs in each view, with ``$view`` set to that view.
+            - The ``onview`` callback runs in each view, and can use ``$lib.view.get()`` to access it.
             - The ``onlayer`` callback runs in the calling view, with ``$layer`` set to that layer.
 
             Each pass runs ``onview`` for every view, with parent views before their children, then
@@ -960,7 +960,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
          'type': {'type': 'function', '_funcname': '_methLoop',
                   'args': (
                       {'name': 'onview', 'type': ['null', 'str', 'storm:query'], 'default': None,
-                       'desc': 'A Storm query to run in each view, with ``$view`` set to the view.', },
+                       'desc': 'A Storm query to run in each view.', },
                       {'name': 'onlayer', 'type': ['null', 'str', 'storm:query'], 'default': None,
                        'desc': 'A Storm query to run for each layer, with ``$layer`` set to the layer.', },
                       {'name': 'readonly', 'type': 'boolean', 'default': False,
@@ -1096,10 +1096,10 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
 
             return await runt.getStormQuery(text)
 
-        async def runQuery(query, snap, varz):
+        async def runQuery(query, snap, opts=None):
 
             # not a sub-runtime, so the caller's variables are not visible
-            async with await s_storm.Runtime.anit(query, snap, user=runt.user, opts={'vars': varz}) as subr:
+            async with await s_storm.Runtime.anit(query, snap, user=runt.user, opts=opts) as subr:
                 subr.debug = runt.debug
                 subr.asroot = runt.asroot
                 subr.readonly = runt.readonly
@@ -1153,10 +1153,8 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
                         await runt.warn(f'View {desc} has a read-only write layer and was skipped.')
                         continue
 
-                    varz = {'view': s_stormtypes.View(runt, await view.pack(), path=self.path)}
-
                     try:
-                        await runQuery(viewq, await view.snap(runt.user), varz)
+                        await runQuery(viewq, await view.snap(runt.user))
 
                     except s_exc.SynErr as e:
 
@@ -1194,10 +1192,10 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
                         await runt.warn(f'Layer {desc} is read-only and was skipped.')
                         continue
 
-                    varz = {'layer': s_stormtypes.Layer(runt, await layr.pack(), path=self.path)}
+                    opts = {'vars': {'layer': s_stormtypes.Layer(runt, await layr.pack(), path=self.path)}}
 
                     try:
-                        await runQuery(layrq, runt.snap, varz)
+                        await runQuery(layrq, runt.snap, opts)
 
                     except s_exc.SynErr as e:
 
