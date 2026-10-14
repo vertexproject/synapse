@@ -931,10 +931,11 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             are passed through to the caller.
 
             - The ``onview`` callback runs in each view, and can use ``$lib.view.get()`` to access it.
-            - The optional ``onlayer`` callback runs in the calling view, with ``$layer`` set to that
-              layer. It only runs for layers which are not the write layer of a view, such as a
-              layer which is only lower in the layer stack of a view, or a layer in no view, since
-              ``onview`` already migrated each view's write layer.
+            - The optional ``onlayer`` callback runs in the calling view, with ``$layer`` set to the
+              iden of that layer, and can use ``$lib.layer.get($layer)`` to access it. It only runs
+              for layers which are not the write layer of a view, such as a layer which is only
+              lower in the layer stack of a view, or a layer in no view, since ``onview`` already
+              migrated each view's write layer.
 
             Each pass runs ``onview`` for every view, with parent views before their children, then
             ``onlayer`` for every layer which is not the write layer of a view. A view or layer
@@ -959,7 +960,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
 
                     $lib.model.migration.loop(
                         ${ inet:fqdn#old.tag [ -#old.tag +#new.tag ] },
-                        onlayer=${ $lib.print(`migrating layer {$layer.iden}`) },
+                        onlayer=${ $lib.print(`migrating layer {$layer}`) },
                     )
             ''',
          'type': {'type': 'function', '_funcname': '_methLoop',
@@ -968,7 +969,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
                        'desc': 'A Storm query to run in each view.', },
                       {'name': 'onlayer', 'type': ['null', 'str', 'storm:query'], 'default': None,
                        'desc': 'A Storm query to run for each layer which is not the write layer of a view, '
-                               'with ``$layer`` set to the layer.', },
+                               'with ``$layer`` set to the layer iden.', },
                       {'name': 'readonly', 'type': 'boolean', 'default': False,
                        'desc': 'Include read-only layers, and views with a read-only write layer, '
                                'rather than skipping them with a warning.', },
@@ -1205,7 +1206,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
                         await runt.warn(f'Layer {desc} is read-only and was skipped.')
                         continue
 
-                    opts = {'vars': {'layer': s_stormtypes.Layer(runt, await layr.pack(), path=self.path)}}
+                    opts = {'vars': {'layer': iden}}
 
                     try:
                         await runQuery(layrq, runt.snap, opts)

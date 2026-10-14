@@ -483,7 +483,7 @@ class StormlibModelTest(s_test.SynTest):
                 $onview = ${ $lib.print(`view {$lib.view.get().iden} {$lib.vars.get(y)} {$lib.vars.get(view)}`) test:str=src }
                 $lib.model.migration.loop(
                     $onview,
-                    onlayer="$lib.print(`layer {$layer.iden} {$lib.vars.get(x)} {$lib.vars.get(view)}`) $z = newp",
+                    onlayer="$lib.print(`layer {$layer} {$lib.vars.get(x)} {$lib.vars.get(view)}`) $z = newp",
                 )
                 $lib.print(`caller {$lib.vars.get(z)}`)
             """
@@ -524,7 +524,7 @@ class StormlibModelTest(s_test.SynTest):
             q = """
                 $lib.model.migration.loop(
                     ${ $lib.print(`view {$lib.view.get().iden}`) },
-                    onlayer=${ $lib.print(`layer {$layer.iden}`) },
+                    onlayer=${ $lib.print(`layer {$layer}`) },
                     readonly=$readonly,
                 )
             """
@@ -557,7 +557,7 @@ class StormlibModelTest(s_test.SynTest):
 
             q = """
                 $lib.model.migration.loop(${ },
-                    onlayer=${ if ($layer.iden = $lib.globals.get(layrfree)) { $layer.set(desc, newp) } },
+                    onlayer=${ if ($layer = $lib.globals.get(layrfree)) { $lib.layer.get($layer).set(desc, newp) } },
                     readonly=$lib.true,
                 )
             """
@@ -575,7 +575,7 @@ class StormlibModelTest(s_test.SynTest):
                         $lib.layer.get($lib.globals.get(layr01)).set(readonly, $lib.true)
                         $lib.layer.get($lib.globals.get(layrfree)).set(readonly, $lib.true)
                     },
-                    onlayer=${ $lib.print(`layer {$layer.iden}`) },
+                    onlayer=${ $lib.print(`layer {$layer}`) },
                 )
             """
             mesgs = await core.stormlist(q)
@@ -602,10 +602,10 @@ class StormlibModelTest(s_test.SynTest):
                         }
                     },
                     onlayer=${
-                        $lib.print(`layer {$layer.iden}`)
-                        if ($layer.iden = $lib.globals.get(layrlow)) {
-                            $layer.set(readonly, $lib.true)
-                            $layer.set(desc, newp)
+                        $lib.print(`layer {$layer}`)
+                        if ($layer = $lib.globals.get(layrlow)) {
+                            $lib.layer.get($layer).set(readonly, $lib.true)
+                            $lib.layer.get($layer).set(desc, newp)
                         }
                     },
                 )
@@ -637,7 +637,7 @@ class StormlibModelTest(s_test.SynTest):
 
             q = """
                 $lib.model.migration.loop(${ }, onlayer=${
-                    if ($layer.iden = $lib.globals.get(layrlow)) { $layer.set(readonly, $lib.true) }
+                    if ($layer = $lib.globals.get(layrlow)) { $lib.layer.get($layer).set(readonly, $lib.true) }
                     $lib.raise(NewpErr, newp)
                 })
             """
@@ -663,8 +663,8 @@ class StormlibModelTest(s_test.SynTest):
                         if ($iden = $lib.globals.get(view00)) { $lib.view.del($lib.globals.get(view01)) }
                     },
                     onlayer=${
-                        $lib.print(`layer {$layer.iden}`)
-                        if ($layer.iden = $lib.globals.get(layr02)) { $lib.layer.del($lib.globals.get(layr03)) }
+                        $lib.print(`layer {$layer}`)
+                        if ($layer = $lib.globals.get(layr02)) { $lib.layer.del($lib.globals.get(layr03)) }
                     },
                 )
             """
@@ -702,10 +702,10 @@ class StormlibModelTest(s_test.SynTest):
                         }
                     },
                     onlayer=${
-                        $lib.print(`layer {$layer.iden}`)
-                        if ($layer.iden = $lib.globals.get(layr02)) {
-                            $lib.layer.del($layer.iden)
-                            $lib.layer.get($layer.iden)
+                        $lib.print(`layer {$layer}`)
+                        if ($layer = $lib.globals.get(layr02)) {
+                            $lib.layer.del($layer)
+                            $lib.layer.get($layer)
                         }
                     },
                 )
@@ -735,8 +735,8 @@ class StormlibModelTest(s_test.SynTest):
                         if ($view.iden = $lib.globals.get(view00)) { $lib.view.add(($lib.globals.get(layr00),), name=loopnew) }
                     },
                     onlayer=${
-                        $lib.print(`layer {$layer.get(name)}`)
-                        if ($layer.iden = $lib.globals.get(layrlow)) {
+                        $lib.print(`layer {$lib.layer.get($layer).get(name)}`)
+                        if ($layer = $lib.globals.get(layrlow)) {
                             $lib.layer.add(({"name": "loopnew"}))
                             $lib.view.add(($lib.globals.get(layrfree),), name=freeview)
                         }
