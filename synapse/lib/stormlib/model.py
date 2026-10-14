@@ -921,7 +921,8 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'loop', 'desc': '''
-            Run a migration callback once for every view and every layer in the Cortex.
+            Run a migration callback once for every view, and optionally for every layer which is
+            not the write layer of a view, in the Cortex.
 
             Callbacks are embedded Storm queries (``${ ... }``) or query strings, rather than Storm
             functions. Variables from the calling scope, including any captured by an embedded
@@ -930,12 +931,15 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             are passed through to the caller.
 
             - The ``onview`` callback runs in each view, and can use ``$lib.view.get()`` to access it.
-            - The ``onlayer`` callback runs in the calling view, with ``$layer`` set to that layer.
+            - The optional ``onlayer`` callback runs in the calling view, with ``$layer`` set to that
+              layer. It only runs for layers which are not the write layer of a view, such as a
+              layer which is only lower in the layer stack of a view, or a layer in no view, since
+              ``onview`` already migrated each view's write layer.
 
             Each pass runs ``onview`` for every view, with parent views before their children, then
-            ``onlayer`` for every layer. A view or layer created by a callback is picked up by a
-            further pass, and passes repeat until one finds nothing new. Each view and layer is
-            visited at most once.
+            ``onlayer`` for every layer which is not the write layer of a view. A view or layer
+            created by a callback is picked up by a further pass, and passes repeat until one finds
+            nothing new. Each view and layer is visited at most once.
 
             The loop does not fail because a view or layer changed underneath it. It emits a
             warning naming the view or layer and continues with the next one when:
@@ -950,19 +954,21 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             The caller must be a global admin.
 
             Examples:
-                Replace a tag on nodes in every view and print each layer::
+                Replace a tag on nodes in every view and print each layer which is not the write
+                layer of a view::
 
                     $lib.model.migration.loop(
-                        onview=${ inet:fqdn#old.tag [ -#old.tag +#new.tag ] },
+                        ${ inet:fqdn#old.tag [ -#old.tag +#new.tag ] },
                         onlayer=${ $lib.print(`migrating layer {$layer.iden}`) },
                     )
             ''',
          'type': {'type': 'function', '_funcname': '_methLoop',
                   'args': (
-                      {'name': 'onview', 'type': ['null', 'str', 'storm:query'], 'default': None,
+                      {'name': 'onview', 'type': ['str', 'storm:query'],
                        'desc': 'A Storm query to run in each view.', },
                       {'name': 'onlayer', 'type': ['null', 'str', 'storm:query'], 'default': None,
-                       'desc': 'A Storm query to run for each layer, with ``$layer`` set to the layer.', },
+                       'desc': 'A Storm query to run for each layer which is not the write layer of a view, '
+                               'with ``$layer`` set to the layer.', },
                       {'name': 'readonly', 'type': 'boolean', 'default': False,
                        'desc': 'Include read-only layers, and views with a read-only write layer, '
                                'rather than skipping them with a warning.', },
@@ -1079,9 +1085,12 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             mesg += ', '.join([f'{iden} ({errm})' for iden, errm in failed])
             raise s_exc.SynErr(mesg=mesg, layers=[iden for iden, _ in failed])
 
-    async def _methLoop(self, onview=None, onlayer=None, readonly=False):
+    async def _methLoop(self, onview, onlayer=None, readonly=False):
 
         self.runt.reqAdmin(mesg='$lib.model.migration.loop() requires global admin.')
+
+        if onview is None:
+            raise s_exc.BadArg(mesg='$lib.model.migration.loop() requires an onview query.')
 
         readonly = await s_stormtypes.tobool(readonly)
 
@@ -1118,63 +1127,67 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
 
             return f'{iden} ({name})'
 
+        def isWriteLayer(iden):
+            if iden in wlyrs:
+                return True
+
+            return any(view.layers[0].iden == iden for view in core.views.values())
+
         viewq = await getQuery(onview)
         layrq = await getQuery(onlayer)
 
-        if viewq is None and layrq is None:
-            return
-
         seen = set()
+        wlyrs = set()
 
         while True:
 
             found = False
 
-            if viewq is not None:
+            for vdef in await core.getViewDefs(deporder=True):
 
-                for vdef in await core.getViewDefs(deporder=True):
+                iden = vdef.get('iden')
+                if iden in seen:
+                    continue
 
-                    iden = vdef.get('iden')
-                    if iden in seen:
-                        continue
+                seen.add(iden)
+                found = True
 
-                    seen.add(iden)
-                    found = True
+                desc = getDesc(iden, vdef.get('name'))
 
-                    desc = getDesc(iden, vdef.get('name'))
+                view = core.views.get(iden)
+                if view is None or view.isfini:
+                    await runt.warn(f'View {desc} was deleted before it could be migrated.')
+                    continue
+
+                wlyrs.add(view.layers[0].iden)
+
+                wasro = view.layers[0].readonly
+                if wasro and not readonly:
+                    await runt.warn(f'View {desc} has a read-only write layer and was skipped.')
+                    continue
+
+                try:
+                    await runQuery(viewq, await view.snap(runt.user))
+
+                except s_exc.SynErr as e:
 
                     view = core.views.get(iden)
                     if view is None or view.isfini:
-                        await runt.warn(f'View {desc} was deleted before it could be migrated.')
+                        await runt.warn(f'View {desc} was deleted while being migrated.')
                         continue
 
-                    wasro = view.layers[0].readonly
-                    if wasro and not readonly:
-                        await runt.warn(f'View {desc} has a read-only write layer and was skipped.')
+                    if isinstance(e, s_exc.IsReadOnly) and not wasro and view.layers[0].readonly:
+                        await runt.warn(f'View {desc} became read-only while being migrated.')
                         continue
 
-                    try:
-                        await runQuery(viewq, await view.snap(runt.user))
-
-                    except s_exc.SynErr as e:
-
-                        view = core.views.get(iden)
-                        if view is None or view.isfini:
-                            await runt.warn(f'View {desc} was deleted while being migrated.')
-                            continue
-
-                        if isinstance(e, s_exc.IsReadOnly) and not wasro and view.layers[0].readonly:
-                            await runt.warn(f'View {desc} became read-only while being migrated.')
-                            continue
-
-                        raise
+                    raise
 
             if layrq is not None:
 
                 for layr in list(core.listLayers()):
 
                     iden = layr.iden
-                    if iden in seen:
+                    if iden in seen or isWriteLayer(iden):
                         continue
 
                     seen.add(iden)
