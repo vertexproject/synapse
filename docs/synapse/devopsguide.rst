@@ -469,6 +469,27 @@ If the available free space goes below the minimum threshold, the service will c
 the free space checks and re-enable writes if the available space returns above the
 threshold.
 
+.. _devops-task-storage:
+
+Storage Requirements
+--------------------
+
+A Synapse service's storage directory must meet the following requirements:
+
+- The storage directory must be a local filesystem on a block device attached to exactly one host.
+- Network filesystems such as NFS (including AWS EFS), CephFS, and SMB/CIFS are unsupported.
+- Writes acknowledged to the host must be durable and must not be reordered. Any write cache between the service and
+  its block device must not acknowledge a write before it is persisted. Configurations to check include Ceph RBD
+  volumes with the RBD client cache enabled, Azure managed disks with ``ReadWrite`` host caching, and any hypervisor,
+  host, or storage controller write cache that does not honor flush requests.
+- The ``vm.dirty_expire_centisecs=20`` and ``vm.dirty_writeback_centisecs=20`` settings are required. See
+  :ref:`devops-task-performance` for how to set them.
+- Backups and archives may be copied to network storage, but a service's storage directory must not be on it.
+
+.. important::
+
+    Network filesystems are **unsupported** for a Synapse service's storage directory.
+
 .. _devops-task-performance:
 
 Performance Tuning
@@ -479,23 +500,24 @@ Recommendations for good performance for other database systems may also apply t
 run best when given as much RAM as possible. Under **ideal** circumstances, the amount of RAM exceeds the total database
 storage size.
 
-Minimizing storage latency is important for a high performance Synapse service. Locating the storage volume backed by a
-mechanical hard drive is **strongly** discouraged.  For the same reason, running Synapse services from an NFS file system
-(including NFS-based systems like AWS EFS) is **strongly** discouraged.
+Minimizing storage latency is important for a high performance Synapse service. Locating the storage volume on a
+mechanical hard drive is **strongly** discouraged. Network filesystems are unsupported for service storage; see
+:ref:`devops-task-storage`.
 
 The default settings of most Linux-based operating systems are not set for ideal performance.
 
 Consider setting the following Linux system variables.  These can be set via /etc/sysctl.conf, the sysctl utility, or
-writing to the /proc/sys file system.
+writing to the /proc/sys file system. The ``vm.dirty_expire_centisecs`` and ``vm.dirty_writeback_centisecs`` settings
+are **required** (see :ref:`devops-task-storage`).
 
 ``vm.swappiness=10``
     Reduce preference for kernel to swap out memory-mapped files.
 
 ``vm.dirty_expire_centisecs=20``
-    Define "old" data to be anything changed more than 200 ms ago.
+    **Required.** Define "old" data to be anything changed more than 200 ms ago.
 
 ``vm.dirty_writeback_centisecs=20``
-    Accelerate writing "old" data back to disk.
+    **Required.** Accelerate writing "old" data back to disk.
 
 ``vm.dirty_background_ratio=2``
     This is expressed as a percentage of total RAM in the system.  After the total amount of dirty memory exceeds this
@@ -2105,7 +2127,9 @@ inside of a managed Kubernetes cluster managed by Digital Ocean. This deployment
     These examples use PersistentVolumeClaim (PVC) to create a persistent storage location. All Synapse services assume
     they have some persistent storage to read and write to.  This example uses the ``storageClass`` of
     ``do-block-storage``. You may need to alter these examples to provide a ``storageClass`` that is appropriate
-    for your environment.
+    for your environment. The ``storageClass`` must provision block storage attached to a single node, and claims must
+    use the ``ReadWriteOnce`` access mode. ``ReadWriteMany`` and NFS-backed storage classes are unsupported for service
+    storage (see :ref:`devops-task-storage`).
 
   Aha naming
     In Kubernetes, we rely on the default naming behavior for services to find the Aha service via DNS. The Aha service
