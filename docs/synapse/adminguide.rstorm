@@ -1509,8 +1509,9 @@ ready for future model updates.
 
 To check whether your Cortex is ready to upgrade to Synapse 3.x, use the :ref:`storm-v3-checkready`
 command. It warns about deprecated model elements still in use in any layer, about installed
-Power-Ups which are below the minimum version that supports Synapse 3.x, and about installed Vertex
-Power-Ups which are not yet available for Synapse 3.x.
+Power-Ups which are below the minimum version that supports Synapse 3.x, about installed Vertex
+Power-Ups which are not yet available for Synapse 3.x, and about layer model migrations or Power-Up
+inits which have not completed yet.
 
 
 .. _admin_config_mirror:

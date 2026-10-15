@@ -7,6 +7,7 @@ import synapse.lib.time as s_time
 import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.spooled as s_spooled
+import synapse.lib.modelrev as s_modelrev
 import synapse.lib.nodefuse as s_nodefuse
 
 import synapse.tools.backup as s_tools_backup
@@ -286,7 +287,9 @@ class StormlibModelTest(s_test.SynTest):
                 self.stormIsInWarn('ou:hasalias', mesgs)
                 self.stormIsInPrint('Your cortex contains deprecated model elements', mesgs)
 
-                layr = core.getLayer().iden
+                layr00 = core.getLayer()
+                layr = layr00.iden
+                maxvers = '.'.join(str(v) for v in s_modelrev.maxvers)
 
                 msgs = await core.stormlist('v3.checkready')
                 self.stormIsInWarn(f'Layer {layr} contains deprecated model element ou:org:sic', msgs)
@@ -346,6 +349,44 @@ class StormlibModelTest(s_test.SynTest):
 
                 vers = {'foopkg': '1.2.3', 'vtxpkg': '2.0.0'}
                 with mock.patch.dict(s_const.V3_READY_PKG_VERSIONS, vers):
+                    msgs = await core.stormlist('v3.checkready')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('Your Cortex is ready for Synapse 3.x.', msgs)
+                    self.stormIsInPrint('Checking for incomplete migrations...', msgs)
+
+                    await layr00.setModelVers((0, 2, 0))
+                    msgs = await core.stormlist('v3.checkready')
+                    mesg = f'Layer {layr} has not completed model migrations yet (version 0.2.0, expected {maxvers}).'
+                    self.stormIsInWarn(mesg, msgs)
+                    self.len(1, [m for m in msgs if m[0] == 'warn'])
+                    self.stormIsInPrint('Your Cortex is not ready for Synapse 3.x.', msgs)
+                    await layr00.setModelVers(s_modelrev.maxvers)
+
+                    core.migration = True
+                    msgs = await core.stormlist('v3.checkready')
+                    self.stormIsInWarn('The layer model migration is still running.', msgs)
+                    self.len(1, [m for m in msgs if m[0] == 'warn'])
+                    self.stormIsInPrint('Your Cortex is not ready for Synapse 3.x.', msgs)
+                    core.migration = False
+
+                    pkgdef = {
+                        'name': 'initpkg',
+                        'version': '1.0.0',
+                        'inits': {'versions': [
+                            {'version': 1, 'name': 'one', 'inaugural': True, 'query': '$x = (1)'},
+                            {'version': 2, 'name': 'two', 'inaugural': True, 'query': '$lib.raise(Fail, nope)'},
+                        ]},
+                    }
+                    waiter = core.waiter(1, 'core:pkg:onload:complete')
+                    await core.addStormPkg(pkgdef)
+                    self.nn(await waiter.wait(timeout=10))
+
+                    msgs = await core.stormlist('v3.checkready')
+                    self.stormIsInWarn('Power-Up initpkg has not completed its inits yet (version 1, expected 2).', msgs)
+                    self.len(1, [m for m in msgs if m[0] == 'warn'])
+                    self.stormIsInPrint('Your Cortex is not ready for Synapse 3.x.', msgs)
+
+                    await core.setStormPkgVar('initpkg', 'storage:version', 2)
                     msgs = await core.stormlist('v3.checkready')
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('Your Cortex is ready for Synapse 3.x.', msgs)

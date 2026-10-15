@@ -30,6 +30,7 @@ import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
 import synapse.lib.hashitem as s_hashitem
+import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -6022,8 +6023,9 @@ class V3CheckReadyCmd(Cmd):
 
     Warns about deprecated forms, properties, and types which are still in use
     in any layer, about installed Power-Ups which are below the minimum version
-    that supports Synapse 3.x, and about installed Vertex Power-Ups which are
-    not yet available for Synapse 3.x.
+    that supports Synapse 3.x, about installed Vertex Power-Ups which are not
+    yet available for Synapse 3.x, and about layer model migrations or Power-Up
+    inits which have not completed yet.
 
     NOTE: This command requires admin privileges.
 
@@ -6042,6 +6044,7 @@ class V3CheckReadyCmd(Cmd):
 
         ready = await self._checkModel(runt)
         ready = await self._checkPkgs(runt) and ready
+        ready = await self._checkMigrations(runt) and ready
 
         if ready:
             await runt.printf('Your Cortex is ready for Synapse 3.x.')
@@ -6109,6 +6112,44 @@ class V3CheckReadyCmd(Cmd):
             if self._semvTuple(vers) < self._semvTuple(minv):
                 ready = False
                 mesg = f'Power-Up {name} version {vers} is not 3.x ready; upgrade to {minv} or later.'
+                await runt.warn(mesg)
+
+        return ready
+
+    async def _checkMigrations(self, runt):
+
+        await runt.printf('Checking for incomplete migrations...')
+
+        core = runt.snap.core
+
+        ready = True
+        if core.migration:
+            ready = False
+            await runt.warn('The layer model migration is still running.')
+
+        maxvers = '.'.join(str(v) for v in s_modelrev.maxvers)
+        for layr in core.layers.values():
+
+            vers = await layr.getModelVers()
+            if vers < s_modelrev.maxvers:
+                ready = False
+                curv = '.'.join(str(v) for v in vers)
+                mesg = f'Layer {layr.iden} has not completed model migrations yet (version {curv}, expected {maxvers}).'
+                await runt.warn(mesg)
+
+        pkgdefs = await core.getStormPkgs()
+        for pkgdef in sorted(pkgdefs, key=lambda p: p['name']):
+
+            inits = pkgdef.get('inits')
+            if inits is None:
+                continue
+
+            name = pkgdef['name']
+            maxv = max(i['version'] for i in inits['versions'])
+            curv = await core.getStormPkgVar(name, 'storage:version', default=-1)
+            if curv < maxv:
+                ready = False
+                mesg = f'Power-Up {name} has not completed its inits yet (version {curv}, expected {maxv}).'
                 await runt.warn(mesg)
 
         return ready
