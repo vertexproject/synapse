@@ -37,7 +37,7 @@ class TaskLibTest(s_test.SynTest):
 
             async def stall(peers=True, timeout=None):
                 await asyncio.Event().wait()
-                yield None # pragma: no cover
+                yield None
 
             # A peer which never answers is skipped once the timeout expires
             with mock.patch.object(core01, 'getTasks', stall):
