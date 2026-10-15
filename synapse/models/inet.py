@@ -1492,7 +1492,7 @@ class InetModule(s_module.CoreModule):
                     }),
                     ('inet:web:memb', ('comp', {'fields': (('acct', 'inet:web:acct'), ('group', 'inet:web:group'))}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use inet:web:member.'
+                        'doc': 'Deprecated. Please use inet:service:group:member.'
                     }),
                     ('inet:web:member', ('guid', {}), {
                         'deprecated': True,
