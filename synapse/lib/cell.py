@@ -4964,10 +4964,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         Remove the local v3migration slab and all of its data.
         '''
-        slab = await self._getV3Slab()
-        if slab is not None:
-            await slab.trash()
-            self.v3slab = None
+        async with self.v3slablock:
+
+            slab = self.v3slab
+            if slab is not None:
+                self.v3slab = None
+                await slab.trash()
+                return
+
+            # remove an unopened slab without opening it
+            path = s_common.genpath(self.dirn, 'slabs', 'v3migration.lmdb')
+            optspath = s_common.switchext(path, ext='.opts.yaml')
+            if os.path.isfile(optspath):
+                os.unlink(optspath)
+
+            shutil.rmtree(path, ignore_errors=True)
 
     async def initV3Db(self, name):
         '''

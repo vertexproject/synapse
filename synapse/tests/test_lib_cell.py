@@ -3230,6 +3230,22 @@ class CellTest(s_t_utils.SynTest):
                 self.eq('def', await cell.getV3Value('vals', 'bar', defval='def'))
                 await cell.dropV3Slab()
 
+                # the slab lock orders a concurrent drop and write by arrival
+                await cell.setV3Value('vals', 'race', 0)
+                slab = cell.v3slab
+                await asyncio.gather(cell.dropV3Slab(), cell.setV3Value('vals', 'race', 1))
+                self.true(slab.isfini)
+                self.nn(cell.v3slab)
+                self.true(cell.v3slab is not slab)
+                self.false(cell.v3slab.isfini)
+                self.eq([('race', 1)], await s_t_utils.alist(cell.getV3Values('vals')))
+
+                slab = cell.v3slab
+                await asyncio.gather(cell.setV3Value('vals', 'race', 2), cell.dropV3Slab())
+                self.true(slab.isfini)
+                self.none(cell.v3slab)
+                self.false(os.path.exists(v3path))
+
                 await cell.setV3Value('vals', 'baz', 20)
                 self.true(os.path.isdir(v3path))
                 self.eq([('baz', 20)], await s_t_utils.alist(cell.getV3Values('vals')))
@@ -3246,6 +3262,24 @@ class CellTest(s_t_utils.SynTest):
                 self.none(cell.v3slab)
                 self.eq(0, await cell.getV3DbSize('vals'))
                 self.false(os.path.exists(v3path))
+                await cell.setV3Value('vals', 'baz', 30)
+
+            # an init racing a drop of an unopened slab
+            async with self.getTestCell(s_cell.Cell, dirn=dirn) as cell:
+                self.none(cell.v3slab)
+                slab, _ = await asyncio.gather(cell.initV3Slab(), cell.dropV3Slab())
+                self.true(slab.isfini)
+                self.none(cell.v3slab)
+                self.false(os.path.exists(v3path))
+                await cell.setV3Value('vals', 'baz', 40)
+
+            async with self.getTestCell(s_cell.Cell, dirn=dirn) as cell:
+                self.none(cell.v3slab)
+                _, slab = await asyncio.gather(cell.dropV3Slab(), cell.initV3Slab())
+                self.true(slab is cell.v3slab)
+                self.false(slab.isfini)
+                self.true(os.path.isdir(v3path))
+                self.eq(0, await cell.getV3DbSize('vals'))
 
     async def test_cell_nexus_compat(self):
         with mock.patch('synapse.lib.cell.NEXUS_VERSION', (0, 0)):
