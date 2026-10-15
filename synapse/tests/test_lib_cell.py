@@ -3123,22 +3123,129 @@ class CellTest(s_t_utils.SynTest):
                 await cell.delUserApiKey(newp)
 
     async def test_cell_iter_slab_data(self):
-        async with self.getTestCell(s_cell.Cell) as cell:
-            data = await s_t_utils.alist(cell.iterSlabData('cell:info'))
-            self.eq(data, (
-                ('cell:version', s_version.version),
-                ('nexus:version', s_cell.NEXUS_VERSION),
-                ('synapse:version', s_version.version)
-            ))
-            with self.raises(s_exc.BadArg):
-                await s_t_utils.alist(cell.iterSlabData('newp'))
 
-            sfkv = cell.slab.getSafeKeyVal('hehe', prefix='yup')
-            sfkv.set('wow', 'yes')
-            data = await s_t_utils.alist(cell.iterSlabData('hehe'))
-            self.eq(data, [('yupwow', 'yes')])
-            data = await s_t_utils.alist(cell.iterSlabData('hehe', prefix='yup'))
-            self.eq(data, [('wow', 'yes')])
+        with self.getTestDir() as dirn:
+
+            v3path = s_common.genpath(dirn, 'slabs', 'v3migration.lmdb')
+
+            async with self.getTestCell(s_cell.Cell, dirn=dirn) as cell:
+                data = await s_t_utils.alist(cell.iterSlabData('cell:info'))
+                self.eq(data, (
+                    ('cell:version', s_version.version),
+                    ('nexus:version', s_cell.NEXUS_VERSION),
+                    ('synapse:version', s_version.version)
+                ))
+                with self.raises(s_exc.BadArg):
+                    await s_t_utils.alist(cell.iterSlabData('newp'))
+
+                sfkv = cell.slab.getSafeKeyVal('hehe', prefix='yup')
+                sfkv.set('wow', 'yes')
+                data = await s_t_utils.alist(cell.iterSlabData('hehe'))
+                self.eq(data, [('yupwow', 'yes')])
+                data = await s_t_utils.alist(cell.iterSlabData('hehe', prefix='yup'))
+                self.eq(data, [('wow', 'yes')])
+
+                # v3migration reads never create the slab
+                self.none(cell.v3slab)
+                self.eq(0, await cell.getV3DbSize('vals'))
+                self.eq('def', await cell.getV3Value('vals', 'foo', defval='def'))
+                self.none(await cell.getV3Value('vals', 'foo', defval=None))
+                with self.raises(s_exc.NoSuchName):
+                    await cell.getV3Value('vals', 'foo')
+
+                self.eq([], await s_t_utils.alist(cell.getV3Values('vals')))
+                self.eq([], await s_t_utils.alist(cell.getV3Values('vals', prefix='f')))
+                await cell.dropV3Db('vals')
+                await cell.dropV3Slab()
+                self.none(cell.v3slab)
+                self.false(os.path.exists(v3path))
+
+                await cell.setV3Value('vals', 'foo:dict', {'hehe': 'haha'})
+                await cell.setV3Value('vals', 'foo:tuple', (1, 'two'))
+                await cell.setV3Value('vals', 'bar', 10)
+                self.true(os.path.isdir(v3path))
+                self.nn(cell.v3slab)
+
+                self.eq({'hehe': 'haha'}, await cell.getV3Value('vals', 'foo:dict'))
+                self.eq((1, 'two'), await cell.getV3Value('vals', 'foo:tuple'))
+                self.eq(10, await cell.getV3Value('vals', 'bar'))
+                self.eq(3, await cell.getV3DbSize('vals'))
+
+                self.eq([
+                    ('bar', 10),
+                    ('foo:dict', {'hehe': 'haha'}),
+                    ('foo:tuple', (1, 'two')),
+                ], await s_t_utils.alist(cell.getV3Values('vals')))
+
+                self.eq([
+                    ('foo:dict', {'hehe': 'haha'}),
+                    ('foo:tuple', (1, 'two')),
+                ], await s_t_utils.alist(cell.getV3Values('vals', prefix='foo:')))
+
+                self.eq([], await s_t_utils.alist(cell.getV3Values('vals', prefix='newp')))
+
+                # missing key / missing DB in an existing slab
+                self.eq('def', await cell.getV3Value('vals', 'newp', defval='def'))
+                with self.raises(s_exc.NoSuchName):
+                    await cell.getV3Value('vals', 'newp')
+
+                self.eq('def', await cell.getV3Value('newp', 'foo', defval='def'))
+                with self.raises(s_exc.NoSuchName):
+                    await cell.getV3Value('newp', 'foo')
+
+                self.eq(0, await cell.getV3DbSize('newp'))
+                self.eq([], await s_t_utils.alist(cell.getV3Values('newp')))
+
+                slab = await cell.initV3Db('empty')
+                self.true(slab is cell.v3slab)
+                self.true(slab.dbexists('empty'))
+                self.eq(0, await cell.getV3DbSize('empty'))
+                self.eq([], await s_t_utils.alist(cell.getV3Values('empty')))
+
+                await cell.setV3Value('drop', 'foo', 'bar')
+                self.eq(1, await cell.getV3DbSize('drop'))
+                await cell.dropV3Db('drop')
+                self.eq(0, await cell.getV3DbSize('drop'))
+                self.eq('def', await cell.getV3Value('drop', 'foo', defval='def'))
+                await cell.dropV3Db('drop')
+
+            # values persist and the slab is reopened lazily by a read
+            async with self.getTestCell(s_cell.Cell, dirn=dirn) as cell:
+                self.none(cell.v3slab)
+                self.eq(10, await cell.getV3Value('vals', 'bar'))
+                self.nn(cell.v3slab)
+                self.eq(3, await cell.getV3DbSize('vals'))
+                self.eq((1, 'two'), await cell.getV3Value('vals', 'foo:tuple'))
+
+                slabs = await asyncio.gather(*[cell.initV3Slab() for _ in range(4)])
+                self.len(4, slabs)
+                for slab in slabs:
+                    self.true(slab is cell.v3slab)
+
+                await cell.dropV3Slab()
+                self.none(cell.v3slab)
+                self.true(slab.isfini)
+                self.false(os.path.exists(v3path))
+                self.eq(0, await cell.getV3DbSize('vals'))
+                self.eq('def', await cell.getV3Value('vals', 'bar', defval='def'))
+                await cell.dropV3Slab()
+
+                await cell.setV3Value('vals', 'baz', 20)
+                self.true(os.path.isdir(v3path))
+                self.eq([('baz', 20)], await s_t_utils.alist(cell.getV3Values('vals')))
+
+            # dropping a slab that is on disk but not yet open
+            async with self.getTestCell(s_cell.Cell, dirn=dirn) as cell:
+                self.none(cell.v3slab)
+                self.true(os.path.isdir(v3path))
+                await cell.dropV3Slab()
+                self.none(cell.v3slab)
+                self.false(os.path.exists(v3path))
+
+            async with self.getTestCell(s_cell.Cell, dirn=dirn) as cell:
+                self.none(cell.v3slab)
+                self.eq(0, await cell.getV3DbSize('vals'))
+                self.false(os.path.exists(v3path))
 
     async def test_cell_nexus_compat(self):
         with mock.patch('synapse.lib.cell.NEXUS_VERSION', (0, 0)):
