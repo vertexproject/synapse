@@ -1,5 +1,7 @@
 import asyncio
 
+from unittest import mock
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.tests.utils as s_test
@@ -25,6 +27,32 @@ class TaskLibTest(s_test.SynTest):
             self.stormIsInPrint('01.cortex.synapse', msgs)
             self.stormIsInPrint('$lib.print(root)', msgs)
             self.stormIsInPrint('2 tasks', msgs)
+
+            msgs = await core00.stormlist('task.list --timeout 5')
+            self.stormIsInPrint('01.cortex.synapse', msgs)
+            self.stormIsInPrint('2 tasks', msgs)
+
+            q = '$svcs = ([]) for $task in $lib.task.list(timeout="0.5") { $svcs.append($task.service) } return($svcs)'
+            self.sorteq(('x.cortex.synapse', '01.cortex.synapse'), await core00.callStorm(q))
+
+            async def stall(peers=True, timeout=None):
+                await asyncio.Event().wait()
+                yield None # pragma: no cover
+
+            # A peer which never answers is skipped once the timeout expires
+            with mock.patch.object(core01, 'getTasks', stall):
+                with self.getLoggerStream('synapse.lib.cell') as stream:
+                    self.eq(['x.cortex.synapse'], await core00.callStorm(q.replace('"0.5"', '(0.5)')))
+
+                    with self.raises(s_exc.StormRuntimeError) as exc:
+                        await core00.callStorm(f'return($lib.task.kill({iden0}, timeout=(0.5)))')
+                    self.isin('does not match any tasks', exc.exception.get('mesg'))
+
+                    msgs = await core00.stormlist('task.list --timeout 1')
+                    self.stormIsInPrint('1 task found', msgs)
+                    self.stormNotInPrint('01.cortex.synapse', msgs)
+
+                self.isin('getTasks() on 01.cortex.synapse failed', stream.getvalue())
 
             msgs = await core01.stormlist('task.list')
             self.stormIsInPrint('x.cortex.synapse', msgs)
@@ -88,7 +116,7 @@ class TaskLibTest(s_test.SynTest):
                     with self.raises(asyncio.CancelledError):
                         await task0
 
-                    await prox01.callStorm(f'task.kill {iden2}')
+                    await prox01.callStorm(f'task.kill {iden2} --timeout 5')
                     with self.raises(asyncio.CancelledError):
                         await task2
 

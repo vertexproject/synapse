@@ -11,10 +11,12 @@ stormcmds = [
         'descr': 'List running tasks on the Cortex and any mirrors.',
         'cmdargs': (
             ('--verbose', {'default': False, 'action': 'store_true', 'help': 'Enable verbose output.'}),
+            ('--timeout', {'type': 'int', 'default': None,
+                           'help': 'The timeout in seconds to wait for each peer to respond.'}),
         ),
         'storm': '''
             $tcnt = (0)
-            for $task in $lib.task.list() {
+            for $task in $lib.task.list(timeout=$cmdopts.timeout) {
                 $lib.print(`task iden: {$task.iden}`)
                 $lib.print(`    name: {$task.name}`)
                 $lib.print(`    user: {$task.username}`)
@@ -41,9 +43,11 @@ stormcmds = [
         'descr': 'Kill a running task on the Cortex or a mirror.',
         'cmdargs': (
             ('iden', {'help': 'Any prefix that matches exactly one valid task iden is accepted.'}),
+            ('--timeout', {'type': 'int', 'default': None,
+                           'help': 'The timeout in seconds to wait for each peer to respond.'}),
         ),
         'storm': '''
-            $kild = $lib.task.kill($cmdopts.iden)
+            $kild = $lib.task.kill($cmdopts.iden, timeout=$cmdopts.timeout)
             $lib.print("kill status: {kild}", kild=$kild)
         ''',
     },
@@ -56,13 +60,17 @@ class LibTask(s_stormtypes.Lib):
     '''
     _storm_locals = (
         {'name': 'list', 'desc': 'List tasks the current user can access on the Cortex and its mirrors.',
-         'type': {'type': 'function', '_funcname': '_methTaskList', 'args': (),
+         'type': {'type': 'function', '_funcname': '_methTaskList', 'args': (
+                      {'name': 'timeout', 'type': 'int', 'default': None,
+                       'desc': 'The number of seconds to wait for each peer to respond.'},),
                   'returns': {'name': 'yields', 'type': 'dict', 'desc': 'Task definitions.'}}},
         {'name': 'kill', 'desc': 'Stop a running task on the Cortex or a mirror.',
          'type': {'type': 'function', '_funcname': '_methTaskKill', 'args': (
                       {'name': 'prefix', 'type': 'str',
                        'desc': 'The prefix of the task to stop. '
-                               'Tasks will only be stopped if there is a single prefix match.'},),
+                               'Tasks will only be stopped if there is a single prefix match.'},
+                      {'name': 'timeout', 'type': 'int', 'default': None,
+                       'desc': 'The number of seconds to wait for each peer to respond.'},),
                   'returns': {'type': 'boolean', 'desc': 'True if the task was cancelled, False otherwise.'}}},
     )
     _storm_lib_path = ('task',)
@@ -82,25 +90,27 @@ class LibTask(s_stormtypes.Lib):
         }
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _methTaskList(self):
+    async def _methTaskList(self, timeout=None):
         useriden = self.runt.user.iden
         isallowed = self.runt.allowed(('task', 'get'))
+        timeout = await s_stormtypes.tofloat(timeout, noneok=True)
 
-        async for task in self.runt.snap.core.getTasks():
+        async for task in self.runt.snap.core.getTasks(timeout=timeout):
             if isallowed or task['user'] == useriden:
                 yield task
 
-    async def _methTaskKill(self, prefix):
+    async def _methTaskKill(self, prefix, timeout=None):
         useriden = self.runt.user.iden
         isallowed = self.runt.allowed(('task', 'del'))
 
         prefix = await s_stormtypes.tostr(prefix)
+        timeout = await s_stormtypes.tofloat(timeout, noneok=True)
         if not prefix:
             mesg = 'An empty task iden prefix is not allowed.'
             raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
 
         iden = None
-        async for task in self.runt.snap.core.getTasks():
+        async for task in self.runt.snap.core.getTasks(timeout=timeout):
             taskiden = task['iden']
             if (isallowed or task['user'] == useriden) and taskiden.startswith(prefix):
                 if iden is None:
@@ -113,4 +123,4 @@ class LibTask(s_stormtypes.Lib):
             mesg = 'Provided iden does not match any tasks.'
             raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
 
-        return await self.runt.snap.core.killTask(iden)
+        return await self.runt.snap.core.killTask(iden, timeout=timeout)

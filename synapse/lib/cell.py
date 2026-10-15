@@ -5012,7 +5012,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # we can ignore the yielded aha names because we embed it in the task
         async for (ahasvc, (ok, retn)) in self.callPeerGenr(todo, timeout=timeout):
 
-            if not ok: # pragma: no cover
+            if not ok:
                 logger.warning(f'getTasks() on {ahasvc} failed: {retn}')
                 continue
 
