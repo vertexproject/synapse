@@ -481,6 +481,9 @@ class RiskModelTest(s_t_utils.SynTest):
                 self.true(prop.deprecated)
                 self.eq(doc, prop.info.get('doc'))
 
+            msgs = await core.stormlist('[ risk:threat=* :mitre:attack:group=G0200 ]')
+            self.stormIsInWarn('The property risk:threat:mitre:attack:group is deprecated', msgs)
+
             self.len(1, await core.nodes('risk:threat:name=vtx-apt1 [ +(uses)> { [ inet:service:platform=* ] } ]'))
             self.len(1, await core.nodes('risk:threat:name=vtx-apt1 -(uses)> inet:service:platform'))
 

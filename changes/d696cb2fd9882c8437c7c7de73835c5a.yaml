@@ -1,8 +1,9 @@
 ---
-desc: Deprecated the ``it:mitre:attack:*`` forms, the properties which reference them,
-  and the ``$lib.infosec.mitre.attack.flow`` library. Use the ``:ext:id`` or ``:id``
-  properties on ``risk:threat``, ``ou:technique``, ``ou:campaign``, ``risk:tool:software``
-  and ``risk:mitigation`` instead.
+desc: Deprecated the ``it:mitre:attack:status``, ``it:mitre:attack:matrix``, ``it:mitre:attack:datasource``,
+  ``it:mitre:attack:data:component`` and ``it:mitre:attack:flow`` forms, the properties
+  which reference MITRE ATT&CK forms from ``risk:threat``, ``ou:technique``, ``ou:campaign``,
+  ``risk:tool:software`` and ``risk:mitigation``, and the ``$lib.infosec.mitre.attack.flow``
+  library. Use the ``:ext:id`` or ``:id`` properties on those forms instead.
 desc:literal: false
 prs: []
 type: deprecation

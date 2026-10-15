@@ -33,20 +33,27 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('url'), 'https://cwe.mitre.org/data/definitions/120.html')
             self.eq(nodes[0].get('parents'), ('CWE-119',))
 
-            mitreforms = (
-                'it:mitre:attack:status',
-                'it:mitre:attack:matrix',
+            mitrekept = (
                 'it:mitre:attack:group',
                 'it:mitre:attack:tactic',
                 'it:mitre:attack:technique',
                 'it:mitre:attack:mitigation',
                 'it:mitre:attack:software',
                 'it:mitre:attack:campaign',
+            )
+            for name in mitrekept:
+                self.false(core.model.type(name).deprecated)
+                self.false(core.model.form(name).deprecated)
+                self.false(core.model.type(name).info.get('doc').startswith('Deprecated.'))
+
+            mitredeprecated = (
+                'it:mitre:attack:status',
+                'it:mitre:attack:matrix',
                 'it:mitre:attack:datasource',
                 'it:mitre:attack:data:component',
                 'it:mitre:attack:flow',
             )
-            for name in mitreforms:
+            for name in mitredeprecated:
                 self.true(core.model.type(name).deprecated)
                 self.true(core.model.type(name).info.get('doc').startswith('Deprecated.'))
 
@@ -54,14 +61,20 @@ class InfotechModelTest(s_t_utils.SynTest):
                 if form is not None:
                     self.true(form.deprecated)
 
-            self.eq('Deprecated. Please use risk:threat:ext:id.', core.model.type('it:mitre:attack:group').info.get('doc'))
-            self.eq('Deprecated. Please use ou:technique:ext:id.', core.model.type('it:mitre:attack:technique').info.get('doc'))
-            self.eq('Deprecated. Please use ou:campaign:ext:id.', core.model.type('it:mitre:attack:campaign').info.get('doc'))
-            self.eq('Deprecated. Please use risk:tool:software:id.', core.model.type('it:mitre:attack:software').info.get('doc'))
-            self.eq('Deprecated. Please use risk:mitigation:id.', core.model.type('it:mitre:attack:mitigation').info.get('doc'))
+            msgs = await core.stormlist('''[
+                it:mitre:attack:group=G9000
+                it:mitre:attack:tactic=TA9000
+                it:mitre:attack:technique=T9000
+                it:mitre:attack:mitigation=M9000
+                it:mitre:attack:software=S9000
+                it:mitre:attack:campaign=C9000
+            ]''')
+            self.stormHasNoWarnErr(msgs)
 
-            msgs = await core.stormlist('[ it:mitre:attack:group=G0200 ]')
-            self.stormIsInWarn('The form it:mitre:attack:group is deprecated', msgs)
+            msgs = await core.stormlist('[ it:mitre:attack:datasource=DS9000 it:mitre:attack:data:component=* it:mitre:attack:flow=* ]')
+            self.stormIsInWarn('The form it:mitre:attack:datasource is deprecated', msgs)
+            self.stormIsInWarn('The form it:mitre:attack:data:component is deprecated', msgs)
+            self.stormIsInWarn('The form it:mitre:attack:flow is deprecated', msgs)
 
             nodes = await core.nodes('''[
                 it:mitre:attack:group=G0100

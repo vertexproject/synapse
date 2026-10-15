@@ -710,33 +710,27 @@ class ItModule(s_module.CoreModule):
                     'ex': 'enterprise',
                 }),
                 ('it:mitre:attack:group', ('str', {'regex': r'^G[0-9]{4}$'}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use risk:threat:ext:id.',
+                    'doc': 'A MITRE ATT&CK Group ID.',
                     'ex': 'G0100',
                 }),
                 ('it:mitre:attack:tactic', ('str', {'regex': r'^TA[0-9]{4}$'}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. A MITRE ATT&CK Tactic ID.',
+                    'doc': 'A MITRE ATT&CK Tactic ID.',
                     'ex': 'TA0040',
                 }),
                 ('it:mitre:attack:technique', ('str', {'regex': r'^T[0-9]{4}(.[0-9]{3})?$'}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use ou:technique:ext:id.',
+                    'doc': 'A MITRE ATT&CK Technique ID.',
                     'ex': 'T1548',
                 }),
                 ('it:mitre:attack:mitigation', ('str', {'regex': r'^M[0-9]{4}$'}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use risk:mitigation:id.',
+                    'doc': 'A MITRE ATT&CK Mitigation ID.',
                     'ex': 'M1036',
                 }),
                 ('it:mitre:attack:software', ('str', {'regex': r'^S[0-9]{4}$'}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use risk:tool:software:id.',
+                    'doc': 'A MITRE ATT&CK Software ID.',
                     'ex': 'S0154',
                 }),
                 ('it:mitre:attack:campaign', ('str', {'regex': r'^C[0-9]{4}$'}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use ou:campaign:ext:id.',
+                    'doc': 'A MITRE ATT&CK Campaign ID.',
                     'ex': 'C0028',
                 }),
                 ('it:mitre:attack:datasource', ('str', {'regex': r'^DS[0-9]{4}$'}), {
