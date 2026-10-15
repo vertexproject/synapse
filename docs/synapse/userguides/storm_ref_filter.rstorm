@@ -1108,12 +1108,12 @@ without needing to know the exact order or values of the array itself.
   
   <query> +:identities:fqdns *[ = '*.xyz' ]
 
-*Filter the current working set to exclude the MITRE ATT&CK groups (it:mitre:attack:group nodes) whose names include the string 'bear':*
+*Filter the current working set to exclude the threat clusters (risk:threat nodes) whose alternate names include the string 'bear':*
 
-.. storm-pre:: [ (it:mitre:attack:group=G0035 :names=(berserk bear, crouching yeti, dragonfly, dymalloy, energetic bear, iron liberty, temp.isotope, tg-4192)) (it:mitre:attack:group=G0074 :names=(berserk bear, dragonfly 2.0, dymalloy, iron liberty)) ] -:names *[ ~= bear ]
+.. storm-pre:: [ (risk:threat=* :org:name=dragonfly :org:names=(berserk bear, crouching yeti, dymalloy, energetic bear, iron liberty, temp.isotope, tg-4192)) (risk:threat=* :org:name="dragonfly 2.0" :org:names=(berserk bear, dymalloy, iron liberty)) ] -:org:names *[ ~= bear ]
 ::
   
-  <query> -:names *[ ~= bear ]
+  <query> -:org:names *[ ~= bear ]
 
 
 **Usage Notes:**

@@ -1,0 +1,9 @@
+---
+desc: Deprecated the ``it:mitre:attack:*`` forms, the properties which reference them,
+  and the ``$lib.infosec.mitre.attack.flow`` library. Use the ``:ext:id`` or ``:id``
+  properties on ``risk:threat``, ``ou:technique``, ``ou:campaign``, ``risk:tool:software``
+  and ``risk:mitigation`` instead.
+desc:literal: false
+prs: []
+type: deprecation
+...

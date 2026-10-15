@@ -5777,9 +5777,9 @@ class IntersectCmd(Cmd):
 
     Examples:
 
-        // Show the it:mitre:attack:technique nodes common to several groups
+        // Show the ou:technique nodes used by several threat clusters
 
-        it:mitre:attack:group*in=(G0006, G0007) | intersect { -> it:mitre:attack:technique }
+        risk:threat:org:name*in=(apt1, apt28) | intersect { -(uses)> ou:technique }
     '''
     name = 'intersect'
     readonly = True

@@ -113,13 +113,13 @@ Use of the wildcard is not limited to form namespace boundaries.
 
 **Examples:**
 
-*Lift all nodes in the MITRE ATT&CK form namespace (e.g., it:mitre:attack:group, it:mitre:attack:technique, etc.):*
+*Lift all nodes in the software repository form namespace (e.g., it:dev:repo:branch, it:dev:repo:commit, etc.):*
 
-.. storm-pre:: [ it:mitre:attack:technique=T1566 it:mitre:attack:group=G0004 it:mitre:attack:software=S0366 ]
-.. storm-pre:: it:mitre:attack:*
+.. storm-pre:: [ it:dev:repo:branch=* it:dev:repo:commit=* it:dev:repo:issue=* ]
+.. storm-pre:: it:dev:repo:*
 ::
   
-  it:mitre:attack:*
+  it:dev:repo:*
 
 *Lift all DNS A (inet:dns:a) and DNS AAAA (inet:dns:aaaa) nodes:*
 
@@ -1047,13 +1047,13 @@ without needing to know the exact order or values of the array itself.
   
   crypto:x509:cert:identities:fqdns *[ = '*.xyz' ]
 
-*Lift the MITRE ATT&CK groups whose names include the string 'bear':*
+*Lift the threat clusters (risk:threat nodes) whose alternate names include the string 'bear':*
 
-.. storm-pre:: [ (it:mitre:attack:group=G0035 :names=(berserk bear, crouching yeti, dragonfly, dymalloy, energetic bear, iron liberty, temp.isotope, tg-4192)) (it:mitre:attack:group=G0074 :names=(berserk bear, dragonfly 2.0, dymalloy, iron liberty)) ]
-.. storm-pre:: it:mitre:attack:group:names *[ ~= bear ]
+.. storm-pre:: [ (risk:threat=* :org:name=dragonfly :org:names=(berserk bear, crouching yeti, dymalloy, energetic bear, iron liberty, temp.isotope, tg-4192)) (risk:threat=* :org:name="dragonfly 2.0" :org:names=(berserk bear, dymalloy, iron liberty)) ]
+.. storm-pre:: risk:threat:org:names *[ ~= bear ]
 ::
   
-  it:mitre:attack:group:names *[ ~= bear ]
+  risk:threat:org:names *[ ~= bear ]
 
 **Usage Notes:**
 
