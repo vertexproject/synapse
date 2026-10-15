@@ -1,0 +1,6 @@
+---
+desc: Added the `v3.checkready` Storm command to check a Cortex for Synapse 3.x readiness.
+desc:literal: false
+prs: []
+type: feat
+...
