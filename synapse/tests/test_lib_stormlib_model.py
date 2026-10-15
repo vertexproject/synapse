@@ -332,6 +332,24 @@ class StormlibModelTest(s_test.SynTest):
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('Your Cortex is ready for Synapse 3.x.', msgs)
 
+                vtxauthor = {'url': 'https://vertex.link', 'name': 'The Vertex Project, LLC.'}
+                await core.addStormPkg({'name': 'vtxpkg', 'version': '2.0.0', 'author': vtxauthor})
+                await core.addStormPkg({'name': 'thirdpkg', 'version': '1.0.0',
+                                        'author': {'url': 'https://example.com', 'name': 'Example'}})
+                await core.addStormPkg({'name': 'noauthpkg', 'version': '1.0.0'})
+
+                with mock.patch.dict(s_const.V3_READY_PKG_VERSIONS, {'foopkg': '1.2.3'}):
+                    msgs = await core.stormlist('v3.checkready')
+                    self.stormIsInWarn('Power-Up vtxpkg is not yet available for Synapse 3.x.', msgs)
+                    self.len(1, [m for m in msgs if m[0] == 'warn'])
+                    self.stormIsInPrint('Your Cortex is not ready for Synapse 3.x.', msgs)
+
+                vers = {'foopkg': '1.2.3', 'vtxpkg': '2.0.0'}
+                with mock.patch.dict(s_const.V3_READY_PKG_VERSIONS, vers):
+                    msgs = await core.stormlist('v3.checkready')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('Your Cortex is ready for Synapse 3.x.', msgs)
+
     async def test_stormlib_model_depr_check(self):
 
         conf = {

@@ -6021,8 +6021,9 @@ class V3CheckReadyCmd(Cmd):
     Check the Cortex for readiness to upgrade to Synapse 3.x.
 
     Warns about deprecated forms, properties, and types which are still in use
-    in any layer, and about installed Power-Ups which are below the minimum
-    version that supports Synapse 3.x.
+    in any layer, about installed Power-Ups which are below the minimum version
+    that supports Synapse 3.x, and about installed Vertex Power-Ups which are
+    not yet available for Synapse 3.x.
 
     NOTE: This command requires admin privileges.
 
@@ -6087,11 +6088,21 @@ class V3CheckReadyCmd(Cmd):
 
         core = runt.snap.core
 
-        ready = True
-        for name, minv in sorted(s_const.V3_READY_PKG_VERSIONS.items()):
+        pkgdefs = await core.getStormPkgs()
 
-            pkgdef = await core.getStormPkg(name)
-            if pkgdef is None:
+        ready = True
+        for pkgdef in sorted(pkgdefs, key=lambda p: p['name']):
+
+            name = pkgdef['name']
+
+            minv = s_const.V3_READY_PKG_VERSIONS.get(name)
+            if minv is None:
+
+                author = pkgdef.get('author')
+                if author is not None and author.get('url') == s_const.VERTEX_PKG_AUTHOR_URL:
+                    ready = False
+                    await runt.warn(f'Power-Up {name} is not yet available for Synapse 3.x.')
+
                 continue
 
             vers = pkgdef.get('version')

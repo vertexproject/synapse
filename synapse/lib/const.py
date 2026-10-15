@@ -60,3 +60,6 @@ UNIX_SOCKET_PATH_MAX = 103
 
 # Minimum Power-Up versions which are ready for Synapse 3.x
 V3_READY_PKG_VERSIONS = {}
+
+# Author URL of Power-Ups published by The Vertex Project
+VERTEX_PKG_AUTHOR_URL = 'https://vertex.link'
