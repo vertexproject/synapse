@@ -3281,6 +3281,80 @@ class CellTest(s_t_utils.SynTest):
                 self.true(os.path.isdir(v3path))
                 self.eq(0, await cell.getV3DbSize('vals'))
 
+                # admin-only telepath APIs
+                async with cell.getLocalProxy() as prox:
+
+                    self.none(await prox.dropV3Slab())
+                    self.none(cell.v3slab)
+                    self.false(os.path.exists(v3path))
+
+                    self.none(await prox.initV3Slab())
+                    self.nn(cell.v3slab)
+
+                    self.none(await prox.initV3Db('empty'))
+                    self.true(cell.v3slab.dbexists('empty'))
+                    self.eq(0, await prox.getV3DbSize('empty'))
+
+                    self.none(await prox.setV3Value('vals', 'foo:dict', {'hehe': 'haha'}))
+                    await prox.setV3Value('vals', 'foo:tuple', (1, 'two'))
+                    await prox.setV3Value('vals', 'bar', 10)
+                    self.eq(3, await prox.getV3DbSize('vals'))
+
+                    self.eq({'hehe': 'haha'}, await prox.getV3Value('vals', 'foo:dict'))
+                    self.eq(10, await prox.getV3Value('vals', 'bar'))
+                    self.eq('def', await prox.getV3Value('vals', 'newp', defval='def'))
+                    self.none(await prox.getV3Value('vals', 'newp', defval=None))
+                    with self.raises(s_exc.NoSuchName):
+                        await prox.getV3Value('vals', 'newp')
+
+                    self.eq([
+                        ('bar', 10),
+                        ('foo:dict', {'hehe': 'haha'}),
+                        ('foo:tuple', (1, 'two')),
+                    ], await s_t_utils.alist(prox.getV3Values('vals')))
+
+                    self.eq([
+                        ('foo:dict', {'hehe': 'haha'}),
+                        ('foo:tuple', (1, 'two')),
+                    ], await s_t_utils.alist(prox.getV3Values('vals', prefix='foo:')))
+
+                    self.none(await prox.dropV3Db('vals'))
+                    self.eq(0, await prox.getV3DbSize('vals'))
+
+                    await prox.dropV3Slab()
+                    self.none(cell.v3slab)
+                    self.false(os.path.exists(v3path))
+
+                user = await cell.auth.addUser('lowuser')
+                async with cell.getLocalProxy(user='lowuser') as prox:
+
+                    with self.raises(s_exc.AuthDeny):
+                        await prox.initV3Slab()
+
+                    with self.raises(s_exc.AuthDeny):
+                        await prox.dropV3Slab()
+
+                    with self.raises(s_exc.AuthDeny):
+                        await prox.initV3Db('vals')
+
+                    with self.raises(s_exc.AuthDeny):
+                        await prox.dropV3Db('vals')
+
+                    with self.raises(s_exc.AuthDeny):
+                        await prox.getV3DbSize('vals')
+
+                    with self.raises(s_exc.AuthDeny):
+                        await prox.setV3Value('vals', 'foo', 'bar')
+
+                    with self.raises(s_exc.AuthDeny):
+                        await prox.getV3Value('vals', 'foo', defval='def')
+
+                    with self.raises(s_exc.AuthDeny):
+                        await s_t_utils.alist(prox.getV3Values('vals'))
+
+                self.none(cell.v3slab)
+                self.false(os.path.exists(v3path))
+
     async def test_cell_nexus_compat(self):
         with mock.patch('synapse.lib.cell.NEXUS_VERSION', (0, 0)):
             async with self.getRegrCore('hive-migration') as core0:

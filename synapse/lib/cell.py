@@ -934,6 +934,65 @@ class CellApi(s_base.Base):
     async def reload(self, subsystem=None):
         return await self.cell.reload(subsystem=subsystem)
 
+    @adminapi(log=True)
+    async def initV3Slab(self):
+        '''
+        Open (creating if needed) the local non-nexus v3migration slab.
+        '''
+        await self.cell.initV3Slab()
+
+    @adminapi(log=True)
+    async def dropV3Slab(self):
+        '''
+        Remove the local v3migration slab and all of its data.
+        '''
+        await self.cell.dropV3Slab()
+
+    @adminapi(log=True)
+    async def initV3Db(self, name):
+        '''
+        Initialize a DB in the local v3migration slab.
+        '''
+        await self.cell.initV3Db(name)
+
+    @adminapi(log=True)
+    async def dropV3Db(self, name):
+        '''
+        Drop a DB from the local v3migration slab.
+        '''
+        await self.cell.dropV3Db(name)
+
+    @adminapi()
+    async def getV3DbSize(self, name):
+        '''
+        Return the number of entries in a DB in the local v3migration slab.
+        '''
+        return await self.cell.getV3DbSize(name)
+
+    @adminapi(log=True)
+    async def setV3Value(self, dbname, keyname, value):
+        '''
+        Set a msgpack value by key in a DB in the local v3migration slab.
+        '''
+        await self.cell.setV3Value(dbname, keyname, value)
+
+    @adminapi()
+    async def getV3Value(self, dbname, keyname, defval=s_common.novalu):
+        '''
+        Get a value by key from a DB in the local v3migration slab.
+
+        Raises NoSuchName if the value is missing and no default is given.
+        '''
+        return await self.cell.getV3Value(dbname, keyname, defval=defval)
+
+    @adminapi()
+    async def getV3Values(self, dbname, prefix=None):
+        '''
+        Yield (keyname, value) tuples from a DB in the local v3migration slab.
+        '''
+        async for item in self.cell.getV3Values(dbname, prefix=prefix):
+            yield item
+
 class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
     A Cell() implements a synapse micro-service.
