@@ -1,0 +1,8 @@
+---
+desc: Deprecated the ``inet:web:acct``, ``inet:web:group``, ``inet:web:logon``, and ``inet:web:post``
+  forms. Please use ``inet:service:account``, ``inet:service:group``, ``inet:service:login``, and
+  ``inet:service:message`` instead.
+desc:literal: false
+prs: []
+type: deprecation
+...

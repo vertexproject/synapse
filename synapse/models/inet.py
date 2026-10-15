@@ -1451,7 +1451,8 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:web:acct', ('comp', {'fields': (('site', 'inet:fqdn'), ('user', 'inet:user')), 'sepr': '/'}), {
-                        'doc': 'An account with a given Internet-based site or service.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:service:account.',
                         'ex': 'twitter.com/invisig0th'
                     }),
 
@@ -1476,12 +1477,14 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:web:group', ('comp', {'fields': (('site', 'inet:fqdn'), ('id', 'inet:group')), 'sepr': '/'}), {
-                        'doc': 'A group hosted within or registered with a given Internet-based site or service.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:service:group.',
                         'ex': 'somesite.com/mycoolgroup'
                     }),
 
                     ('inet:web:logon', ('guid', {}), {
-                        'doc': 'An instance of an account authenticating to an Internet-based site or service.'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:service:login.'
                     }),
                     ('inet:web:memb', ('comp', {'fields': (('acct', 'inet:web:acct'), ('group', 'inet:web:group'))}), {
                         'deprecated': True,
@@ -1496,7 +1499,8 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:web:post', ('guid', {}), {
-                        'doc': 'A post made by a web account.'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:service:message.'
                     }),
 
                     ('inet:web:post:link', ('guid', {}), {

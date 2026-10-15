@@ -2245,6 +2245,12 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('webpage'), 'https://blogs.vertex.link/brutus')
             self.len(2, await core.nodes('inet:web:acct=(blogs.vertex.link, brutus) :linked:accts -> inet:web:acct'))
 
+            msgs = await core.stormlist('[ inet:web:acct=(vertex.link, warnacct) ]')
+            self.stormIsInWarn('The form inet:web:acct is deprecated', msgs)
+
+            msgs = await core.stormlist('[ inet:web:member=* :acct=(vertex.link, visi) ]')
+            self.stormIsInWarn('The property inet:web:member:acct is deprecated or using a deprecated type', msgs)
+
     async def test_web_action(self):
         async with self.getTestCore() as core:
             valu = 32 * 'a'
@@ -2369,6 +2375,9 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('signup'), 0)
             self.eq(node.get('signup:client'), 'tcp://0.0.0.0')
 
+            msgs = await core.stormlist('[ inet:web:group=(vertex.link, warngroup) ]')
+            self.stormIsInWarn('The form inet:web:group is deprecated', msgs)
+
     async def test_web_logon(self):
         async with self.getTestCore() as core:
             valu = s_common.guid()
@@ -2397,6 +2406,9 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('loc'), 'ru')
             self.eq(node.get('latlong'), (30.0, 30.0))
             self.eq(node.get('place'), place)
+
+            msgs = await core.stormlist('[ inet:web:logon=* ]')
+            self.stormIsInWarn('The form inet:web:logon is deprecated', msgs)
 
     async def test_web_memb(self):
         async with self.getTestCore() as core:
@@ -2531,6 +2543,9 @@ class InetModelTest(s_t_utils.SynTest):
             self.nn(node.get('post'))
             self.eq(node.get('url'), 'https://vtx.lk')
             self.eq(node.get('text'), 'Vertex')
+
+            msgs = await core.stormlist('[ inet:web:post=* ]')
+            self.stormIsInWarn('The form inet:web:post is deprecated', msgs)
 
     async def test_whois_contact(self):
         async with self.getTestCore() as core:
