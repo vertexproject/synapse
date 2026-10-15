@@ -724,7 +724,8 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The tag used to annotate nodes that are associated with the campaign.'}),
 
                     ('mitre:attack:campaign', ('it:mitre:attack:campaign', {}), {
-                        'doc': 'A mapping to a MITRE ATT&CK campaign if applicable.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :ext:id.'}),
 
                     ('ext:id', ('str', {'strip': True}), {
                         'doc': 'An external identifier for the campaign.'}),
@@ -785,7 +786,8 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The tag used to annotate nodes where the technique was employed.'}),
 
                     ('mitre:attack:technique', ('it:mitre:attack:technique', {}), {
-                        'doc': 'A mapping to a MITRE ATT&CK technique if applicable.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :ext:id.'}),
 
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization reporting on the technique.'}),

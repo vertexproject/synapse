@@ -45,6 +45,11 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:technique -> ou:technique:taxonomy'))
             self.len(1, await core.nodes('ou:technique -> it:mitre:attack:technique'))
 
+            for propname in ('ou:technique:mitre:attack:technique', 'ou:campaign:mitre:attack:campaign'):
+                prop = core.model.prop(propname)
+                self.true(prop.deprecated)
+                self.eq('Deprecated. Please use :ext:id.', prop.info.get('doc'))
+
             nodes = await core.nodes('ou:technique :parent -> *')
             self.len(1, nodes)
             self.eq('metawoot', nodes[0].get('name'))

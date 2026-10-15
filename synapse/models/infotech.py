@@ -700,46 +700,57 @@ class ItModule(s_module.CoreModule):
                     'doc': "A vulnerability scan result for an asset."}),
 
                 ('it:mitre:attack:status', ('str', {'enums': 'current,deprecated,withdrawn'}), {
-                    'doc': 'A MITRE ATT&CK element status.',
+                    'deprecated': True,
+                    'doc': 'Deprecated. A MITRE ATT&CK element status.',
                     'ex': 'current',
                 }),
                 ('it:mitre:attack:matrix', ('str', {'enums': 'enterprise,mobile,ics'}), {
-                    'doc': 'An enumeration of ATT&CK matrix values.',
+                    'deprecated': True,
+                    'doc': 'Deprecated. An enumeration of ATT&CK matrix values.',
                     'ex': 'enterprise',
                 }),
                 ('it:mitre:attack:group', ('str', {'regex': r'^G[0-9]{4}$'}), {
-                    'doc': 'A MITRE ATT&CK Group ID.',
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use risk:threat:ext:id.',
                     'ex': 'G0100',
                 }),
                 ('it:mitre:attack:tactic', ('str', {'regex': r'^TA[0-9]{4}$'}), {
-                    'doc': 'A MITRE ATT&CK Tactic ID.',
+                    'deprecated': True,
+                    'doc': 'Deprecated. A MITRE ATT&CK Tactic ID.',
                     'ex': 'TA0040',
                 }),
                 ('it:mitre:attack:technique', ('str', {'regex': r'^T[0-9]{4}(.[0-9]{3})?$'}), {
-                    'doc': 'A MITRE ATT&CK Technique ID.',
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use ou:technique:ext:id.',
                     'ex': 'T1548',
                 }),
                 ('it:mitre:attack:mitigation', ('str', {'regex': r'^M[0-9]{4}$'}), {
-                    'doc': 'A MITRE ATT&CK Mitigation ID.',
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use risk:mitigation:id.',
                     'ex': 'M1036',
                 }),
                 ('it:mitre:attack:software', ('str', {'regex': r'^S[0-9]{4}$'}), {
-                    'doc': 'A MITRE ATT&CK Software ID.',
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use risk:tool:software:id.',
                     'ex': 'S0154',
                 }),
                 ('it:mitre:attack:campaign', ('str', {'regex': r'^C[0-9]{4}$'}), {
-                    'doc': 'A MITRE ATT&CK Campaign ID.',
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use ou:campaign:ext:id.',
                     'ex': 'C0028',
                 }),
                 ('it:mitre:attack:datasource', ('str', {'regex': r'^DS[0-9]{4}$'}), {
-                    'doc': 'A MITRE ATT&CK Datasource ID.',
+                    'deprecated': True,
+                    'doc': 'Deprecated. A MITRE ATT&CK Datasource ID.',
                     'ex': 'DS0026',
                 }),
                 ('it:mitre:attack:data:component', ('guid', {}), {
-                        'doc': 'A MITRE ATT&CK data component.',
+                    'deprecated': True,
+                    'doc': 'Deprecated. A MITRE ATT&CK data component.',
                 }),
                 ('it:mitre:attack:flow', ('guid', {}), {
-                    'doc': 'A MITRE ATT&CK Flow diagram.',
+                    'deprecated': True,
+                    'doc': 'Deprecated. A MITRE ATT&CK Flow diagram.',
                 }),
 
                 ('it:dev:function', ('guid', {}), {

@@ -474,6 +474,13 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:threat:merged:isnow -> risk:threat'))
             self.len(1, await core.nodes('risk:threat -> it:mitre:attack:group'))
 
+            for propname, doc in (('risk:threat:mitre:attack:group', 'Deprecated. Please use :ext:id.'),
+                                  ('risk:tool:software:mitre:attack:software', 'Deprecated. Please use :id.'),
+                                  ('risk:mitigation:mitre:attack:mitigation', 'Deprecated. Please use :id.')):
+                prop = core.model.prop(propname)
+                self.true(prop.deprecated)
+                self.eq(doc, prop.info.get('doc'))
+
             self.len(1, await core.nodes('risk:threat:name=vtx-apt1 [ +(uses)> { [ inet:service:platform=* ] } ]'))
             self.len(1, await core.nodes('risk:threat:name=vtx-apt1 -(uses)> inet:service:platform'))
 

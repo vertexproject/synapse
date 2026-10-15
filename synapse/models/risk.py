@@ -377,7 +377,8 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The threat cluster that the reporting organization merged this cluster into.'}),
 
                     ('mitre:attack:group', ('it:mitre:attack:group', {}), {
-                        'doc': 'A mapping to a MITRE ATT&CK group if applicable.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :ext:id.'}),
 
                     ('ext:id', ('str', {'strip': True}), {
                         'alts': ('ext:ids',),
@@ -436,7 +437,8 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
 
                     ('mitre:attack:software', ('it:mitre:attack:software', {}), {
-                        'doc': 'A mapping to a MITRE ATT&CK software if applicable.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :id.'}),
 
                     ('id', ('str', {'strip': True}), {
                         'doc': 'An ID for the tool.'}),
@@ -481,7 +483,8 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The name of the organization reporting on the mitigation.'}),
 
                     ('mitre:attack:mitigation', ('it:mitre:attack:mitigation', {}), {
-                        'doc': 'A mapping to a MITRE ATT&CK mitigation if applicable.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :id.'}),
 
                     ('tag', ('syn:tag', {}), {
                         'doc': 'The tag used to annotate nodes which have the mitigation in place.'}),
