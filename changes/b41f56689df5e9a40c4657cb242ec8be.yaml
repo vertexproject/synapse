@@ -1,0 +1,8 @@
+---
+desc: Added ``$lib.model.migration.loop()`` to run Storm migration callbacks across
+  every view, and every layer which is not the write layer of a view, warning and
+  continuing when one is deleted or read-only.
+desc:literal: false
+prs: []
+type: feat
+...
