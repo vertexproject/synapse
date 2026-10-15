@@ -32,7 +32,7 @@ class TaskLibTest(s_test.SynTest):
             self.stormIsInPrint('01.cortex.synapse', msgs)
             self.stormIsInPrint('2 tasks', msgs)
 
-            q = '$svcs = ([]) for $task in $lib.task.list(timeout="0.5") { $svcs.append($task.service) } return($svcs)'
+            q = '$svcs = ([]) for $task in $lib.task.list(timeout="1") { $svcs.append($task.service) } return($svcs)'
             self.sorteq(('x.cortex.synapse', '01.cortex.synapse'), await core00.callStorm(q))
 
             async def stall(peers=True, timeout=None):
@@ -42,10 +42,10 @@ class TaskLibTest(s_test.SynTest):
             # A peer which never answers is skipped once the timeout expires
             with mock.patch.object(core01, 'getTasks', stall):
                 with self.getLoggerStream('synapse.lib.cell') as stream:
-                    self.eq(['x.cortex.synapse'], await core00.callStorm(q.replace('"0.5"', '(0.5)')))
+                    self.eq(['x.cortex.synapse'], await core00.callStorm(q.replace('"1"', '(1)')))
 
                     with self.raises(s_exc.StormRuntimeError) as exc:
-                        await core00.callStorm(f'return($lib.task.kill({iden0}, timeout=(0.5)))')
+                        await core00.callStorm(f'return($lib.task.kill({iden0}, timeout=(1)))')
                     self.isin('does not match any tasks', exc.exception.get('mesg'))
 
                     msgs = await core00.stormlist('task.list --timeout 1')

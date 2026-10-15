@@ -93,7 +93,7 @@ class LibTask(s_stormtypes.Lib):
     async def _methTaskList(self, timeout=None):
         useriden = self.runt.user.iden
         isallowed = self.runt.allowed(('task', 'get'))
-        timeout = await s_stormtypes.tofloat(timeout, noneok=True)
+        timeout = await s_stormtypes.toint(timeout, noneok=True)
 
         async for task in self.runt.snap.core.getTasks(timeout=timeout):
             if isallowed or task['user'] == useriden:
@@ -104,7 +104,7 @@ class LibTask(s_stormtypes.Lib):
         isallowed = self.runt.allowed(('task', 'del'))
 
         prefix = await s_stormtypes.tostr(prefix)
-        timeout = await s_stormtypes.tofloat(timeout, noneok=True)
+        timeout = await s_stormtypes.toint(timeout, noneok=True)
         if not prefix:
             mesg = 'An empty task iden prefix is not allowed.'
             raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
