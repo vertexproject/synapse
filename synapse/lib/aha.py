@@ -742,25 +742,37 @@ class AhaCell(s_cell.Cell):
     async def getAhaSvcsByIden(self, iden, online=True, skiprun=None):
 
         runs = set()
+        aliases = {}
         async for svcdef in self.getAhaSvcs():
             await asyncio.sleep(0)
 
+            svcinfo = svcdef['svcinfo']
+
             # TODO services by iden indexes (SYN-8467)
-            if svcdef['svcinfo'].get('iden') != iden:
+            if svcinfo.get('iden') != iden:
                 continue
 
-            if online and svcdef['svcinfo'].get('online') is None:
+            if online and svcinfo.get('online') is None:
                 continue
 
-            svcrun = svcdef['svcinfo'].get('run')
+            svcrun = svcinfo.get('run')
             if svcrun in runs:
                 continue
 
             if skiprun == svcrun:
                 continue
 
+            # prefer the real service entry over the leader alias for a run
+            if svcdef.get('svcname') == svcinfo.get('leader'):
+                aliases.setdefault(svcrun, svcdef)
+                continue
+
             runs.add(svcrun)
             yield svcdef
+
+        for svcrun, svcdef in aliases.items():
+            if svcrun not in runs:
+                yield svcdef
 
     def getAhaSvcUrl(self, svcdef, user='root'):
         svcfull = svcdef.get('name')

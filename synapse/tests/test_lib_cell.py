@@ -3552,9 +3552,9 @@ class CellTest(s_t_utils.SynTest):
 
             await cell01.sync()
 
-            async def sleep99(cell):
+            async def sleep99(cell, notify=cell00):
                 await cell.boss.promote('sleep99', cell.auth.rootuser)
-                await cell00.fire('sleep99')
+                await notify.fire('sleep99')
                 await asyncio.sleep(99)
 
             async with cell00.waiter(2, 'sleep99', timeout=6):
@@ -3582,6 +3582,32 @@ class CellTest(s_t_utils.SynTest):
 
             self.none(await cell00.getTask(task01))
             self.false(await cell00.killTask(task01))
+
+            # a mirror sees the tasks of a leader whose name sorts after its alias
+            purlx = await aha.addAhaSvcProv('x.cell2')
+            purl0 = await aha.addAhaSvcProv('0.cell2', provinfo={'mirror': 'cell2'})
+
+            cellx = await aha.enter_context(self.getTestCell(conf={'aha:provision': purlx}))
+            cell0 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl0}))
+
+            await cell0.sync()
+
+            async with cellx.waiter(2, 'sleep99', timeout=6):
+                cellx.schedCoro(sleep99(cellx, cellx))
+                cell0.schedCoro(sleep99(cell0, cellx))
+
+            tasks = [task async for task in cell0.getTasks(timeout=6)]
+
+            self.len(2, tasks)
+            self.eq(tasks[0]['service'], '0.cell2.synapse')
+            self.eq(tasks[1]['service'], 'x.cell2.synapse')
+
+            taskx = tasks[1].get('iden')
+            self.eq(tasks[1], await cell0.getTask(taskx, timeout=6))
+            self.none(await cell0.getTask(taskx, peers=False))
+
+            self.true(await cell0.killTask(taskx, timeout=6))
+            self.none(await cellx.getTask(taskx, peers=False))
 
     async def test_cell_task_dedup(self):
 
