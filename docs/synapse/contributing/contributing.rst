@@ -462,4 +462,6 @@ In order to contribute to the project, do the following:
    mastering notes.
 #. Create the Pull Request in Github, from your fork's feature branch to the
    master branch of the Vertex Project Synapse repository.  Include a
-   description and a reference to any open issues related to the PR.
+   description and a reference to any open issues related to the PR. Work
+   that targets the ``2x-3x-preparation`` branch is described in
+   :ref:`synapse-long-lived-branches`.
