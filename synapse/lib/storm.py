@@ -5990,6 +5990,32 @@ css4_colors = {
 }
 
 hexcolor_regex = regex.compile('^#[0-9a-fA-F]{6}$')
+class ColorizeCmd(Cmd):
+    '''
+    Add metadata to nodes which can be used to colorize them during display.
+    '''
+    name = 'colorize'
+    readonly = True
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('color', type='str', required=True, help='A color in six digit "#rrggbb" syntax or a CSS color name.')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        async for node, path in genr:
+
+            color = await s_stormtypes.tostr(self.opts.color)
+            if color:
+                if color.lower() not in css4_colors and hexcolor_regex.match(color) is None:
+                    mesg = 'Color must be a CSS4 color name or a six digit hex color code prefixed with a #.'
+                    raise s_exc.BadArg(mesg=mesg)
+
+                path.display = {'color': color}
+
+            yield (node, path)
+
 class V3CheckReadyCmd(Cmd):
     '''
     Check the Cortex for readiness to upgrade to Synapse 3.x.
@@ -6079,29 +6105,3 @@ class V3CheckReadyCmd(Cmd):
     def _semvTuple(self, text):
         info = s_version.parseSemver(text)
         return (info['major'], info['minor'], info['patch'])
-
-class ColorizeCmd(Cmd):
-    '''
-    Add metadata to nodes which can be used to colorize them during display.
-    '''
-    name = 'colorize'
-    readonly = True
-
-    def getArgParser(self):
-        pars = Cmd.getArgParser(self)
-        pars.add_argument('color', type='str', required=True, help='A color in six digit "#rrggbb" syntax or a CSS color name.')
-        return pars
-
-    async def execStormCmd(self, runt, genr):
-
-        async for node, path in genr:
-
-            color = await s_stormtypes.tostr(self.opts.color)
-            if color:
-                if color.lower() not in css4_colors and hexcolor_regex.match(color) is None:
-                    mesg = 'Color must be a CSS4 color name or a six digit hex color code prefixed with a #.'
-                    raise s_exc.BadArg(mesg=mesg)
-
-                path.display = {'color': color}
-
-            yield (node, path)
