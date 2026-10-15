@@ -1,7 +1,8 @@
 ---
-desc: Deprecated the ``inet:web:acct``, ``inet:web:group``, ``inet:web:logon``, and ``inet:web:post``
-  forms. Please use ``inet:service:account``, ``inet:service:group``, ``inet:service:login``, and
-  ``inet:service:message`` instead.
+desc: Deprecated the ``inet:web:acct``, ``inet:web:action``, ``inet:web:attachment``, ``inet:web:channel``,
+  ``inet:web:chprofile``, ``inet:web:file``, ``inet:web:follows``, ``inet:web:group``, ``inet:web:instance``,
+  ``inet:web:logon``, ``inet:web:member``, ``inet:web:mesg``, ``inet:web:post``, and ``inet:web:post:link``
+  forms. Please use the ``inet:service:*`` forms instead.
 desc:literal: false
 prs: []
 type: deprecation

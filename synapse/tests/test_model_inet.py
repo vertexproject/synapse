@@ -97,6 +97,12 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[ inet:web:mesg=$mesg :instance=(foo,) ] -> inet:web:instance +:name="vertex synapse"', opts=opts))
             self.len(1, await core.nodes('[ inet:web:post=* :channel=(bar,) ] -> inet:web:channel +:name=general -> inet:web:instance'))
 
+            msgs = await core.stormlist('[ inet:web:instance=* ]')
+            self.stormIsInWarn('The form inet:web:instance is deprecated', msgs)
+
+            msgs = await core.stormlist('[ inet:web:channel=* ]')
+            self.stormIsInWarn('The form inet:web:channel is deprecated', msgs)
+
     async def test_inet_jarm(self):
 
         async with self.getTestCore() as core:
@@ -2280,6 +2286,9 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:fqdn=newp.com'))
             self.len(1, await core.nodes('inet:user=hehe'))
 
+            msgs = await core.stormlist('[ inet:web:action=* ]')
+            self.stormIsInWarn('The form inet:web:action is deprecated', msgs)
+
     async def test_web_chprofile(self):
         async with self.getTestCore() as core:
             valu = s_common.guid()
@@ -2308,6 +2317,9 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:ipv6="::ffff:8.7.6.5"'))
             self.len(1, await core.nodes('inet:user=hehe'))
 
+            msgs = await core.stormlist('[ inet:web:chprofile=* ]')
+            self.stormIsInWarn('The form inet:web:chprofile is deprecated', msgs)
+
     async def test_web_file(self):
         async with self.getTestCore() as core:
             valu = (('vertex.link', 'vertexmc'), 64 * 'f')
@@ -2325,6 +2337,9 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('client'), 'tcp://[::1]')
             self.eq(node.get('client:ipv6'), '::1')
 
+            msgs = await core.stormlist('[ inet:web:file=((vertex.link, warnfile), *) ]')
+            self.stormIsInWarn('The form inet:web:file is deprecated', msgs)
+
     async def test_web_follows(self):
         async with self.getTestCore() as core:
             valu = (('vertex.link', 'vertexmc'), ('example.com', 'aUser'))
@@ -2334,6 +2349,9 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.ndef, ('inet:web:follows', (('vertex.link', 'vertexmc'), ('example.com', 'auser'))))
             self.eq(node.get('follower'), ('vertex.link', 'vertexmc'))
             self.eq(node.get('followee'), ('example.com', 'auser'))
+
+            msgs = await core.stormlist('[ inet:web:follows=((vertex.link, visi), (vertex.link, warnfollow)) ]')
+            self.stormIsInWarn('The form inet:web:follows is deprecated', msgs)
 
     async def test_web_group(self):
         async with self.getTestCore() as core:
@@ -2443,6 +2461,9 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(('twitter.com', 'nerds'), node[1]['props']['group'])
             self.eq(('twitter.com', 'invisig0th'), node[1]['props']['acct'])
 
+            msgs = await core.stormlist('[ inet:web:member=* ]')
+            self.stormIsInWarn('The form inet:web:member is deprecated', msgs)
+
     async def test_web_mesg(self):
         async with self.getTestCore() as core:
             file0 = 'sha256:' + 64 * 'f'
@@ -2477,6 +2498,9 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.ndef, ('inet:web:mesg', (('vertex.link', 'visi'), ('vertex.link', 'epiphyte'), 0)))
             self.eq(node.get('client'), 'tcp://[::1]')
             self.eq(node.get('client:ipv6'), '::1')
+
+            msgs = await core.stormlist('[ inet:web:mesg=((vertex.link, visi), (vertex.link, warnmesg), (0)) ]')
+            self.stormIsInWarn('The form inet:web:mesg is deprecated', msgs)
 
     async def test_web_post(self):
         async with self.getTestCore() as core:
@@ -2543,6 +2567,9 @@ class InetModelTest(s_t_utils.SynTest):
             self.nn(node.get('post'))
             self.eq(node.get('url'), 'https://vtx.lk')
             self.eq(node.get('text'), 'Vertex')
+
+            msgs = await core.stormlist('[ inet:web:post:link=* ]')
+            self.stormIsInWarn('The form inet:web:post:link is deprecated', msgs)
 
             msgs = await core.stormlist('[ inet:web:post=* ]')
             self.stormIsInWarn('The form inet:web:post is deprecated', msgs)
@@ -3031,6 +3058,9 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:web:attachment :file -> file:bytes'))
             self.len(1, await core.nodes('inet:web:attachment :post -> inet:web:post'))
             self.len(1, await core.nodes('inet:web:attachment :mesg -> inet:web:mesg'))
+
+            msgs = await core.stormlist('[ inet:web:attachment=* ]')
+            self.stormIsInWarn('The form inet:web:attachment is deprecated', msgs)
 
     async def test_model_inet_egress(self):
 
