@@ -6,6 +6,34 @@
 Synapse Changelog
 *****************
 
+v2.255.0 - 2026-10-15
+=====================
+
+Features and Enhancements
+-------------------------
+- Added ``$lib.model.migration.loop()`` to run Storm migration callbacks across
+  every view, and every layer which is not the write layer of a view, warning
+  and continuing when one is deleted or read-only.
+  (`#5046 <https://github.com/vertexproject/synapse/pull/5046>`_)
+- Added a `timeout` option to `$lib.task.list()`, `$lib.task.kill()`, and the
+  `task.list` and `task.kill` commands.
+  (`#5052 <https://github.com/vertexproject/synapse/pull/5052>`_)
+
+Bugfixes
+--------
+- Fixed AHA peer calls, such as `task.list` on a Cortex mirror, omitting the
+  leader and hanging when the leader's service name sorts after its
+  `aha:leader` alias.
+  (`#5052 <https://github.com/vertexproject/synapse/pull/5052>`_)
+
+Improved documentation
+----------------------
+- Added a Storage Requirements section to the devops guide, and updated the
+  deployment guide to match, which documents network filesystems such as NFS
+  and EFS as unsupported for service storage and requires the
+  `vm.dirty_expire_centisecs` and `vm.dirty_writeback_centisecs` sysctls.
+  (`#5045 <https://github.com/vertexproject/synapse/pull/5045>`_)
+
 v2.254.0 - 2026-10-14
 =====================
 
