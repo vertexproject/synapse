@@ -553,7 +553,7 @@ Form, Composite
 ---------------
 
 A category of form whose primary property is an ordered set of two or more comma-separated typed values. Examples
-include DNS A records (``inet:dns:a``) and web-based accounts (``inet:web:acct``).
+include DNS A records (``inet:dns:a``) and files hosted at URLs (``inet:urlfile``).
 
 .. _gloss-form-digraph:
 
