@@ -123,6 +123,7 @@ Help for a specific Storm command can be displayed with ``<command> --help``.
 - `trigger`_
 - `uniq`_
 - `uptime`_
+- `v3.checkready`_
 - `vault`_
 - `version`_
 - `view`_
@@ -2776,6 +2777,26 @@ The ``uptime`` command displays the uptime for the Cortex or specified service.
 **Syntax:**
 
 .. storm-cli:: uptime --help
+
+
+.. _storm-v3-checkready:
+
+v3.checkready
+-------------
+
+The ``v3.checkready`` command checks the Cortex for readiness to upgrade to Synapse 3.x. Warnings are
+produced for each layer which contains deprecated model elements and for each installed Power-Up which
+is below the minimum version that supports Synapse 3.x. The command then prints whether the Cortex is
+ready for Synapse 3.x. This command does not check the lock status of deprecated model elements (see
+:ref:`storm-model-deprecated-check`).
+
+.. NOTE::
+
+  The ``v3.checkready`` command requires admin privileges.
+
+**Syntax:**
+
+.. storm-cli:: v3.checkready --help
 
 
 .. _storm-vault:
