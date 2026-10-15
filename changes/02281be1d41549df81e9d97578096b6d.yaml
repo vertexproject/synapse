@@ -1,0 +1,7 @@
+---
+desc: Deprecated the ``inet:whois:ipcontact`` form and the ``:contacts`` properties
+  on ``inet:whois:iprec`` and ``inet:whois:ipcontact``.
+desc:literal: false
+prs: []
+type: deprecation
+...

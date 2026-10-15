@@ -1554,7 +1554,8 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:whois:ipcontact', ('guid', {}), {
-                        'doc': 'An individual contact from an IP block record.'
+                        'deprecated': True,
+                        'doc': 'Deprecated. inet:whois:ipcontact will be removed in 3.0.0.'
                     }),
 
                     ('inet:whois:regid', ('str', {}), {
@@ -3570,7 +3571,8 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The name assigned to the network by the registrant.'
                         }),
                         ('contacts', ('array', {'type': 'inet:whois:ipcontact', 'uniq': True, 'sorted': True}), {
-                            'doc': 'Additional contacts from the record.',
+                            'deprecated': True,
+                            'doc': 'Deprecated.',
                         }),
                         ('country', ('str', {'lower': True, 'regex': '^[a-z]{2}$'}), {
                             'doc': 'The two-letter ISO 3166 country code.'
@@ -3618,7 +3620,8 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The state of the registered contact (e.g. validated, obscured).'
                         }),
                         ('contacts', ('array', {'type': 'inet:whois:ipcontact', 'uniq': True, 'sorted': True}), {
-                            'doc': 'Additional contacts referenced by this contact.',
+                            'deprecated': True,
+                            'doc': 'Deprecated.',
                         }),
                     )),
 

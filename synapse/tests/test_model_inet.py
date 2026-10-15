@@ -2676,6 +2676,11 @@ class InetModelTest(s_t_utils.SynTest):
                                      opts={'vars': {'valu': contact}})
             self.len(1, nodes)
 
+            self.true(core.model.type('inet:whois:ipcontact').deprecated)
+            self.true(core.model.form('inet:whois:ipcontact').deprecated)
+            self.eq('Deprecated. inet:whois:ipcontact will be removed in 3.0.0.',
+                    core.model.type('inet:whois:ipcontact').info.get('doc'))
+
     async def test_whois_rec(self):
 
         async with self.getTestCore() as core:
@@ -2809,6 +2814,11 @@ class InetModelTest(s_t_utils.SynTest):
             # bad country code
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[(inet:whois:iprec=* :country=u9)]')
+
+            for propname in ('inet:whois:iprec:contacts', 'inet:whois:ipcontact:contacts'):
+                prop = core.model.prop(propname)
+                self.true(prop.deprecated)
+                self.eq('Deprecated.', prop.info.get('doc'))
 
     async def test_wifi_collection(self):
         async with self.getTestCore() as core:
