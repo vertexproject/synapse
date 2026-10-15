@@ -12,6 +12,7 @@ and expanded. The current sections are:
     :titlesonly:
 
     contributing/contributing
+    contributing/long_lived_branches
     contributing/doc_mastering
     contributing/release_process
 
