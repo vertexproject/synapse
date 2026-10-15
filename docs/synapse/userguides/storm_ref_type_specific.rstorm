@@ -1503,7 +1503,6 @@ Filter a set of Internet accounts to those with usernames starting with 'matrix'
 
 .. storm-pre:: [ inet:service:account=(twitter,matrixmaster) :user=matrixmaster ]
 .. storm-pre:: [ inet:service:account=(twitter,matrixneo) :user=matrixneo ]
-.. storm-pre:: [ inet:service:account=(twitter,trinity) :user=trinity ]
 .. storm-cli:: inet:service:account +:user^=matrix
 
 
