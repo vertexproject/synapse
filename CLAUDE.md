@@ -69,6 +69,12 @@ pip install -U -r requirements_dev.txt
 pip install -U --upgrade-strategy=eager -e .
 ```
 
+## Branches
+
+- `master` is the default branch.
+- `2x-3x-preparation` is the long-lived Synapse v3 readiness branch. Feature PRs targeting it are squash merged; `master` is merged into it via merge-commit sync PRs. It will be squash merged into `master` once, then retired.
+- See `docs/synapse/contributing/long_lived_branches.rst`.
+
 ## Testing
 
 ```bash
