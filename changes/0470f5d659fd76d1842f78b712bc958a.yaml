@@ -2,6 +2,6 @@
 desc: Added a `timeout` option to `$lib.task.list()`, `$lib.task.kill()`, and the
   `task.list` and `task.kill` commands.
 desc:literal: false
-prs: []
+prs: [ 5052 ]
 type: feat
 ...
