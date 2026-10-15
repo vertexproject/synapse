@@ -57,3 +57,6 @@ AXON_READY_TIMEOUT = 300  # seconds
 
 # Socket constants
 UNIX_SOCKET_PATH_MAX = 103
+
+# Minimum Power-Up versions which are ready for Synapse 3.x
+V3_READY_PKG_VERSIONS = {}

@@ -4,6 +4,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.time as s_time
+import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.spooled as s_spooled
 import synapse.lib.nodefuse as s_nodefuse
@@ -285,6 +286,23 @@ class StormlibModelTest(s_test.SynTest):
                 self.stormIsInWarn('ou:hasalias', mesgs)
                 self.stormIsInPrint('Your cortex contains deprecated model elements', mesgs)
 
+                layr = core.getLayer().iden
+
+                msgs = await core.stormlist('v3.checkready')
+                self.stormIsInWarn(f'Layer {layr} contains deprecated model element ou:org:sic', msgs)
+                self.stormIsInWarn(f'Layer {layr} contains deprecated model element ou:hasalias', msgs)
+                self.stormNotInWarn('it:reveng:funcstr', msgs)
+                self.stormIsInPrint('Your Cortex is not ready for Synapse 3.x.', msgs)
+
+                # inbound nodes pass through
+                nodes = await core.nodes('ou:org=(t0,) | v3.checkready')
+                self.len(1, nodes)
+                self.eq('ou:org', nodes[0].ndef[0])
+
+                lowuser = await core.auth.addUser('lowuser')
+                with self.raises(s_exc.AuthDeny):
+                    await core.nodes('v3.checkready', opts={'user': lowuser.iden})
+
                 await core.nodes('model.deprecated.lock *')
 
                 mesgs = await core.stormlist('model.deprecated.locks')
@@ -295,6 +313,24 @@ class StormlibModelTest(s_test.SynTest):
 
                 mesgs = await core.stormlist('model.deprecated.check')
                 self.stormIsInPrint('Congrats!', mesgs)
+
+                msgs = await core.stormlist('v3.checkready')
+                self.stormHasNoWarnErr(msgs)
+                self.stormIsInPrint('Your Cortex is ready for Synapse 3.x.', msgs)
+
+                await core.addStormPkg({'name': 'foopkg', 'version': '1.2.3'})
+
+                vers = {'foopkg': '1.3.0', 'newppkg': '1.0.0'}
+                with mock.patch.dict(s_const.V3_READY_PKG_VERSIONS, vers):
+                    msgs = await core.stormlist('v3.checkready')
+                    self.stormIsInWarn('Power-Up foopkg version 1.2.3 is not 3.x ready; upgrade to 1.3.0 or later.', msgs)
+                    self.stormNotInWarn('newppkg', msgs)
+                    self.stormIsInPrint('Your Cortex is not ready for Synapse 3.x.', msgs)
+
+                with mock.patch.dict(s_const.V3_READY_PKG_VERSIONS, {'foopkg': '1.2.3'}):
+                    msgs = await core.stormlist('v3.checkready')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('Your Cortex is ready for Synapse 3.x.', msgs)
 
     async def test_stormlib_model_depr_check(self):
 
@@ -310,6 +346,20 @@ class StormlibModelTest(s_test.SynTest):
 
                 self.stormIsInWarn('.pdep is not yet locked', mesgs)
                 self.stormNotInWarn('test:dep:easy.pdep is not yet locked', mesgs)
+
+                await core.nodes('[ test:dep:easy=foo test:str=bar .pdep=baz ]')
+                await core.nodes('[ test:dep:str=a :beep=b ]')
+
+                layr = core.getLayer().iden
+
+                msgs = await core.stormlist('v3.checkready')
+                warns = [m[1]['mesg'] for m in msgs if m[0] == 'warn']
+                self.isin(f'Layer {layr} contains deprecated model element test:dep:easy', warns)
+                self.isin(f'Layer {layr} contains deprecated model element .pdep', warns)
+                self.isin(f'Layer {layr} contains deprecated model element test:dep:str', warns)
+                self.isin(f'Layer {layr} contains deprecated model element test:dep:str:beep', warns)
+                self.stormNotInWarn('test:dep:easy.pdep', msgs)
+                self.stormIsInPrint('Your Cortex is not ready for Synapse 3.x.', msgs)
 
     async def test_stormlib_model_migration(self):
 

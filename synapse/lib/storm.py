@@ -21,12 +21,14 @@ import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.snap as s_snap
 import synapse.lib.cache as s_cache
+import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.scope as s_scope
 import synapse.lib.autodoc as s_autodoc
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
+import synapse.lib.version as s_version
 import synapse.lib.hashitem as s_hashitem
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
@@ -5988,6 +5990,96 @@ css4_colors = {
 }
 
 hexcolor_regex = regex.compile('^#[0-9a-fA-F]{6}$')
+class V3CheckReadyCmd(Cmd):
+    '''
+    Check the Cortex for readiness to upgrade to Synapse 3.x.
+
+    Warns about deprecated forms, properties, and types which are still in use
+    in any layer, and about installed Power-Ups which are below the minimum
+    version that supports Synapse 3.x.
+
+    NOTE: This command requires admin privileges.
+
+    Examples:
+
+        // Check the Cortex for Synapse 3.x readiness.
+        v3.checkready
+    '''
+
+    name = 'v3.checkready'
+    readonly = True
+
+    async def execStormCmd(self, runt, genr):
+
+        runt.reqAdmin(mesg='The v3.checkready command requires admin privileges.')
+
+        ready = await self._checkModel(runt)
+        ready = await self._checkPkgs(runt) and ready
+
+        if ready:
+            await runt.printf('Your Cortex is ready for Synapse 3.x.')
+        else:
+            await runt.printf('Your Cortex is not ready for Synapse 3.x.')
+
+        async for item in genr:
+            yield item
+
+    async def _checkModel(self, runt):
+
+        await runt.printf('Checking for deprecated model elements in use...')
+
+        core = runt.snap.core
+
+        ready = True
+        for prop in list(core.model.props.values()):
+
+            if not (prop.deprecated or prop.type.deprecated):
+                continue
+
+            # Skip universal properties on other forms
+            if not prop.isform and prop.univ is not None:
+                continue
+
+            for layr in core.layers.values():
+
+                if prop.isform:
+                    count = await layr.getPropCount(prop.name, maxsize=1)
+                elif prop.isuniv:
+                    count = await layr.getUnivPropCount(prop.name, maxsize=1)
+                else:
+                    count = await layr.getPropCount(prop.form.name, prop.name, maxsize=1)
+
+                if count:
+                    ready = False
+                    await runt.warn(f'Layer {layr.iden} contains deprecated model element {prop.full}')
+
+        return ready
+
+    async def _checkPkgs(self, runt):
+
+        await runt.printf('Checking Power-Up versions...')
+
+        core = runt.snap.core
+
+        ready = True
+        for name, minv in sorted(s_const.V3_READY_PKG_VERSIONS.items()):
+
+            pkgdef = await core.getStormPkg(name)
+            if pkgdef is None:
+                continue
+
+            vers = pkgdef.get('version')
+            if self._semvTuple(vers) < self._semvTuple(minv):
+                ready = False
+                mesg = f'Power-Up {name} version {vers} is not 3.x ready; upgrade to {minv} or later.'
+                await runt.warn(mesg)
+
+        return ready
+
+    def _semvTuple(self, text):
+        info = s_version.parseSemver(text)
+        return (info['major'], info['minor'], info['patch'])
+
 class ColorizeCmd(Cmd):
     '''
     Add metadata to nodes which can be used to colorize them during display.
