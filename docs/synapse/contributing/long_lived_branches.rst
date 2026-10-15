@@ -88,6 +88,17 @@ a person to approve the PR.
    Auto-merge is disabled in this repository, so run ``gh pr merge`` only after
    both conditions hold; stop on a failed check or a missing approval.
 
+   The sync branch must be up to date with ``2x-3x-preparation`` when it is
+   merged. If a feature PR landed there after step 3, ``gh pr merge`` is
+   refused. Bring the sync branch up to date by merging ``2x-3x-preparation``
+   into it, never rebasing it::
+
+    gh pr update-branch "$branch" --repo vertexproject/synapse
+
+   The update re-runs the required checks and dismisses the approval, so repeat
+   this step from the start. To avoid this, hold feature merges into
+   ``2x-3x-preparation`` while a sync PR is open.
+
 Merging back into master and retiring
 -------------------------------------
 
