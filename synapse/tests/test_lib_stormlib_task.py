@@ -10,7 +10,7 @@ class TaskLibTest(s_test.SynTest):
 
         async with self.getTestAha() as aha:
 
-            conf = {'aha:provision': await aha.addAhaSvcProv('00.cortex')}
+            conf = {'aha:provision': await aha.addAhaSvcProv('x.cortex')}
             core00 = await aha.enter_context(self.getTestCore(conf=conf))
 
             conf = {'aha:provision': await aha.addAhaSvcProv('01.cortex', {'mirror': 'cortex'})}
@@ -20,14 +20,14 @@ class TaskLibTest(s_test.SynTest):
             task0 = aha.schedCoro(core01.stormlist('$lib.print(root) $lib.time.sleep(10)', opts={'task': iden0}))
 
             msgs = await core00.stormlist('task.list')
-            self.stormIsInPrint('00.cortex.synapse', msgs)
+            self.stormIsInPrint('x.cortex.synapse', msgs)
             self.stormIsInPrint('task.list', msgs)
             self.stormIsInPrint('01.cortex.synapse', msgs)
             self.stormIsInPrint('$lib.print(root)', msgs)
             self.stormIsInPrint('2 tasks', msgs)
 
             msgs = await core01.stormlist('task.list')
-            self.stormIsInPrint('00.cortex.synapse', msgs)
+            self.stormIsInPrint('x.cortex.synapse', msgs)
             self.stormIsInPrint('task.list', msgs)
             self.stormIsInPrint('01.cortex.synapse', msgs)
             self.stormIsInPrint('$lib.print(root)', msgs)
@@ -41,7 +41,7 @@ class TaskLibTest(s_test.SynTest):
 
                 async with core01.getLocalProxy(user='someuser') as prox01:
                     msgs = await s_test.alist(prox01.storm('task.list'))
-                    self.stormIsInPrint('00.cortex.synapse', msgs)
+                    self.stormIsInPrint('x.cortex.synapse', msgs)
                     self.stormIsInPrint('$lib.print(on00)', msgs)
                     self.stormIsInPrint('01.cortex.synapse', msgs)
                     self.stormIsInPrint('task.list', msgs)

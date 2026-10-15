@@ -1,0 +1,7 @@
+---
+desc: Fixed AHA peer calls, such as `task.list` on a Cortex mirror, omitting the leader
+  and hanging when the leader's service name sorts after its `aha:leader` alias.
+desc:literal: false
+prs: []
+type: bug
+...
