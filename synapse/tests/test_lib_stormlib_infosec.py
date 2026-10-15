@@ -510,10 +510,21 @@ class InfoSecTest(s_test.SynTest):
             msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.ingest($flow)', opts=opts)
             self.stormHasNoErr(msgs)
             self.stormIsInWarn('The form it:mitre:attack:flow is deprecated', msgs)
+            self.stormIsInWarn('$lib.infosec.mitre.attack.flow.ingest() is deprecated.', msgs)
+            self.stormIsInWarn('$lib.infosec.mitre.attack.flow.norm() is deprecated.', msgs)
 
             opts = {'vars': {'flow': flow}}
             msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.ingest($flow)', opts=opts)
-            self.stormHasNoWarnErr(msgs)
+            self.stormHasNoErr(msgs)
+            warns = [m[1]['mesg'] for m in msgs if m[0] == 'warn']
+            self.eq(warns, [
+                '$lib.infosec.mitre.attack.flow.ingest() is deprecated.',
+                '$lib.infosec.mitre.attack.flow.norm() is deprecated.',
+            ])
+
+            msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.norm($flow)', opts=opts)
+            self.stormHasNoErr(msgs)
+            self.stormIsInWarn('$lib.infosec.mitre.attack.flow.norm() is deprecated.', msgs)
 
             norm = await core.callStorm('return($lib.infosec.mitre.attack.flow.norm($flow))', opts=opts)
             self.nn(norm)
