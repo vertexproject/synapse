@@ -1,0 +1,9 @@
+---
+desc: Added a Storage Requirements section to the devops guide, and updated the deployment
+  guide to match, which documents network filesystems such as NFS and EFS as unsupported
+  for service storage and requires the `vm.dirty_expire_centisecs` and `vm.dirty_writeback_centisecs`
+  sysctls.
+desc:literal: false
+prs: []
+type: doc
+...
