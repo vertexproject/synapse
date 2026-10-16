@@ -3155,6 +3155,7 @@ class CellTest(s_t_utils.SynTest):
 
                 self.eq([], await s_t_utils.alist(cell.getV3Values('vals')))
                 self.eq([], await s_t_utils.alist(cell.getV3Values('vals', prefix='f')))
+                self.false(await cell.delV3Value('vals', 'foo'))
                 await cell.dropV3Db('vals')
                 await cell.dropV3Slab()
                 self.none(cell.v3slab)
@@ -3204,6 +3205,15 @@ class CellTest(s_t_utils.SynTest):
 
                 await cell.setV3Value('drop', 'foo', 'bar')
                 self.eq(1, await cell.getV3DbSize('drop'))
+                await cell.setV3Value('drop', 'bar', 'baz')
+                self.eq(2, await cell.getV3DbSize('drop'))
+                self.true(await cell.delV3Value('drop', 'bar'))
+                self.false(await cell.delV3Value('drop', 'bar'))
+                self.false(await cell.delV3Value('newp', 'bar'))
+                self.eq(1, await cell.getV3DbSize('drop'))
+                self.eq('def', await cell.getV3Value('drop', 'bar', defval='def'))
+                self.eq('bar', await cell.getV3Value('drop', 'foo'))
+
                 await cell.dropV3Db('drop')
                 self.eq(0, await cell.getV3DbSize('drop'))
                 self.eq('def', await cell.getV3Value('drop', 'foo', defval='def'))
@@ -3318,6 +3328,10 @@ class CellTest(s_t_utils.SynTest):
                         ('foo:tuple', (1, 'two')),
                     ], await s_t_utils.alist(prox.getV3Values('vals', prefix='foo:')))
 
+                    self.true(await prox.delV3Value('vals', 'bar'))
+                    self.false(await prox.delV3Value('vals', 'bar'))
+                    self.eq(2, await prox.getV3DbSize('vals'))
+
                     self.none(await prox.dropV3Db('vals'))
                     self.eq(0, await prox.getV3DbSize('vals'))
 
@@ -3345,6 +3359,9 @@ class CellTest(s_t_utils.SynTest):
 
                     with self.raises(s_exc.AuthDeny):
                         await prox.setV3Value('vals', 'foo', 'bar')
+
+                    with self.raises(s_exc.AuthDeny):
+                        await prox.delV3Value('vals', 'foo')
 
                     with self.raises(s_exc.AuthDeny):
                         await prox.getV3Value('vals', 'foo', defval='def')

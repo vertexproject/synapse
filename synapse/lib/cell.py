@@ -976,6 +976,15 @@ class CellApi(s_base.Base):
         '''
         await self.cell.setV3Value(dbname, keyname, value)
 
+    @adminapi(log=True)
+    async def delV3Value(self, dbname, keyname):
+        '''
+        Delete a value by key from a DB in the local v3migration slab.
+
+        Returns True if a value was deleted.
+        '''
+        return await self.cell.delV3Value(dbname, keyname)
+
     @adminapi()
     async def getV3Value(self, dbname, keyname, defval=s_common.novalu):
         '''
@@ -5072,6 +5081,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         slab = await self.initV3Db(dbname)
         slab.put(keyname.encode(), s_msgpack.en(value), db=dbname)
+
+    async def delV3Value(self, dbname, keyname):
+        '''
+        Delete a value by key from a DB in the local v3migration slab.
+
+        Returns True if a value was deleted.
+        '''
+        slab = await self._getV3Slab()
+        if slab is None or not slab.dbexists(dbname):
+            return False
+
+        slab.initdb(dbname)
+        return slab.delete(keyname.encode(), db=dbname)
 
     async def getV3Value(self, dbname, keyname, defval=s_common.novalu):
         '''
