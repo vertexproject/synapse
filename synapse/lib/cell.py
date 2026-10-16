@@ -969,11 +969,24 @@ class CellApi(s_base.Base):
         '''
         return await self.cell.getV3DbSize(name)
 
-    @adminapi(log=True)
+    @adminapi()
+    async def getV3DbNames(self):
+        '''
+        Return a list of the DB names in the local v3migration slab.
+        '''
+        return await self.cell.getV3DbNames()
+
+    @adminapi()
     async def setV3Value(self, dbname, keyname, value):
         '''
         Set a msgpack value by key in a DB in the local v3migration slab.
+
+        The admin API log entry omits the value.
         '''
+        func = 'CellApi.setV3Value'
+        extra = s_logging.getLogExtra(func=func, args=(dbname, keyname), kwargs={})
+        logger.info('Admin API invoked api=%s', func, extra=extra)
+
         await self.cell.setV3Value(dbname, keyname, value)
 
     @adminapi(log=True)
@@ -5048,10 +5061,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             shutil.rmtree(path, ignore_errors=True)
 
+    def _reqV3DbName(self, name):
+        if not isinstance(name, str):
+            mesg = f'The v3migration DB name must be a string, not {type(name).__name__}.'
+            raise s_exc.BadArg(mesg=mesg, name=name)
+
     async def initV3Db(self, name):
         '''
         Initialize a DB in the local v3migration slab.
         '''
+        self._reqV3DbName(name)
+
         slab = await self.initV3Slab()
         slab.initdb(name)
         return slab
@@ -5060,14 +5080,28 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         Drop a DB from the local v3migration slab.
         '''
+        self._reqV3DbName(name)
+
         slab = await self._getV3Slab()
         if slab is not None:
             slab.dropdb(name)
+
+    async def getV3DbNames(self):
+        '''
+        Return a list of the DB names in the local v3migration slab.
+        '''
+        slab = await self._getV3Slab()
+        if slab is None:
+            return []
+
+        return [lkey.decode() for lkey in slab.scanKeys()]
 
     async def getV3DbSize(self, name):
         '''
         Return the number of entries in a DB in the local v3migration slab.
         '''
+        self._reqV3DbName(name)
+
         slab = await self._getV3Slab()
         if slab is None or not slab.dbexists(name):
             return 0
@@ -5088,6 +5122,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         Returns True if a value was deleted.
         '''
+        self._reqV3DbName(dbname)
+
         slab = await self._getV3Slab()
         if slab is None or not slab.dbexists(dbname):
             return False
@@ -5101,6 +5137,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         Raises NoSuchName if the value is missing and no default is given.
         '''
+        self._reqV3DbName(dbname)
+
         byts = None
 
         slab = await self._getV3Slab()
@@ -5121,6 +5159,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         Yield (keyname, value) tuples from a DB in the local v3migration slab.
         '''
+        self._reqV3DbName(dbname)
+
         slab = await self._getV3Slab()
         if slab is None or not slab.dbexists(dbname):
             return

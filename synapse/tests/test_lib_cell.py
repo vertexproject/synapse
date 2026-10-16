@@ -3147,6 +3147,7 @@ class CellTest(s_t_utils.SynTest):
 
                 # v3migration reads never create the slab
                 self.none(cell.v3slab)
+                self.eq([], await cell.getV3DbNames())
                 self.eq(0, await cell.getV3DbSize('vals'))
                 self.eq('def', await cell.getV3Value('vals', 'foo', defval='def'))
                 self.none(await cell.getV3Value('vals', 'foo', defval=None))
@@ -3160,6 +3161,35 @@ class CellTest(s_t_utils.SynTest):
                 await cell.dropV3Slab()
                 self.none(cell.v3slab)
                 self.false(os.path.exists(v3path))
+                self.eq([], await cell.getV3DbNames())
+
+                # DB names must be strings so values never land in the default DB
+                with self.raises(s_exc.BadArg):
+                    await cell.setV3Value(None, 'foo', 'bar')
+
+                with self.raises(s_exc.BadArg):
+                    await cell.initV3Db(10)
+
+                with self.raises(s_exc.BadArg):
+                    await cell.dropV3Db(None)
+
+                with self.raises(s_exc.BadArg):
+                    await cell.getV3DbSize(None)
+
+                with self.raises(s_exc.BadArg):
+                    await cell.delV3Value(None, 'foo')
+
+                with self.raises(s_exc.BadArg):
+                    await cell.getV3Value(None, 'foo', defval='def')
+
+                with self.raises(s_exc.BadArg):
+                    await s_t_utils.alist(cell.getV3Values(None))
+
+                self.none(cell.v3slab)
+                self.false(os.path.exists(v3path))
+
+                await cell.initV3Slab()
+                self.eq([], await cell.getV3DbNames())
 
                 await cell.setV3Value('vals', 'foo:dict', {'hehe': 'haha'})
                 await cell.setV3Value('vals', 'foo:tuple', (1, 'two'))
@@ -3202,8 +3232,10 @@ class CellTest(s_t_utils.SynTest):
                 self.true(slab.dbexists('empty'))
                 self.eq(0, await cell.getV3DbSize('empty'))
                 self.eq([], await s_t_utils.alist(cell.getV3Values('empty')))
+                self.eq(['empty', 'vals'], await cell.getV3DbNames())
 
                 await cell.setV3Value('drop', 'foo', 'bar')
+                self.eq(['drop', 'empty', 'vals'], await cell.getV3DbNames())
                 self.eq(1, await cell.getV3DbSize('drop'))
                 await cell.setV3Value('drop', 'bar', 'baz')
                 self.eq(2, await cell.getV3DbSize('drop'))
@@ -3217,13 +3249,20 @@ class CellTest(s_t_utils.SynTest):
                 await cell.dropV3Db('drop')
                 self.eq(0, await cell.getV3DbSize('drop'))
                 self.eq('def', await cell.getV3Value('drop', 'foo', defval='def'))
+                self.eq(['empty', 'vals'], await cell.getV3DbNames())
                 await cell.dropV3Db('drop')
+
+                with self.raises(s_exc.BadArg):
+                    await cell.setV3Value(None, 'foo', 'bar')
+
+                self.eq(['empty', 'vals'], await cell.getV3DbNames())
 
             # values persist and the slab is reopened lazily by a read
             async with self.getTestCell(s_cell.Cell, dirn=dirn) as cell:
                 self.none(cell.v3slab)
-                self.eq(10, await cell.getV3Value('vals', 'bar'))
+                self.eq(['empty', 'vals'], await cell.getV3DbNames())
                 self.nn(cell.v3slab)
+                self.eq(10, await cell.getV3Value('vals', 'bar'))
                 self.eq(3, await cell.getV3DbSize('vals'))
                 self.eq((1, 'two'), await cell.getV3Value('vals', 'foo:tuple'))
 
@@ -3238,6 +3277,8 @@ class CellTest(s_t_utils.SynTest):
                 self.false(os.path.exists(v3path))
                 self.eq(0, await cell.getV3DbSize('vals'))
                 self.eq('def', await cell.getV3Value('vals', 'bar', defval='def'))
+                self.eq([], await cell.getV3DbNames())
+                self.none(cell.v3slab)
                 await cell.dropV3Slab()
 
                 # the slab lock orders a concurrent drop and write by arrival
@@ -3298,14 +3339,35 @@ class CellTest(s_t_utils.SynTest):
                     self.none(cell.v3slab)
                     self.false(os.path.exists(v3path))
 
+                    self.eq([], await prox.getV3DbNames())
+
                     self.none(await prox.initV3Slab())
                     self.nn(cell.v3slab)
+                    self.eq([], await prox.getV3DbNames())
 
                     self.none(await prox.initV3Db('empty'))
                     self.true(cell.v3slab.dbexists('empty'))
                     self.eq(0, await prox.getV3DbSize('empty'))
+                    self.eq(['empty'], await prox.getV3DbNames())
 
-                    self.none(await prox.setV3Value('vals', 'foo:dict', {'hehe': 'haha'}))
+                    # the admin API log entry omits the value
+                    with self.getLoggerStream('synapse.lib.cell') as stream:
+                        self.none(await prox.setV3Value('vals', 'foo:dict', {'hehe': 'haha'}))
+                        await stream.expect('Admin API invoked', timeout=10)
+
+                    msgs = stream.jsonlines()
+                    self.len(1, msgs)
+                    self.eq('Admin API invoked api=CellApi.setV3Value', msgs[0]['message'])
+                    self.eq('CellApi.setV3Value', msgs[0]['params'].get('func'))
+                    self.eq(['vals', 'foo:dict'], msgs[0]['params'].get('args'))
+                    self.eq({}, msgs[0]['params'].get('kwargs'))
+                    self.notin('haha', stream.getvalue())
+
+                    with self.raises(s_exc.BadArg):
+                        await prox.setV3Value(None, 'foo', 'bar')
+
+                    self.eq(['empty', 'vals'], await prox.getV3DbNames())
+
                     await prox.setV3Value('vals', 'foo:tuple', (1, 'two'))
                     await prox.setV3Value('vals', 'bar', 10)
                     self.eq(3, await prox.getV3DbSize('vals'))
@@ -3334,6 +3396,7 @@ class CellTest(s_t_utils.SynTest):
 
                     self.none(await prox.dropV3Db('vals'))
                     self.eq(0, await prox.getV3DbSize('vals'))
+                    self.eq(['empty'], await prox.getV3DbNames())
 
                     await prox.dropV3Slab()
                     self.none(cell.v3slab)
@@ -3356,6 +3419,9 @@ class CellTest(s_t_utils.SynTest):
 
                     with self.raises(s_exc.AuthDeny):
                         await prox.getV3DbSize('vals')
+
+                    with self.raises(s_exc.AuthDeny):
+                        await prox.getV3DbNames()
 
                     with self.raises(s_exc.AuthDeny):
                         await prox.setV3Value('vals', 'foo', 'bar')
