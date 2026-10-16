@@ -37,6 +37,7 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.trigger as s_trigger
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
+import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.stormctrl as s_stormctrl
 
 logger = logging.getLogger(__name__)
@@ -7269,6 +7270,15 @@ class Layer(Prim):
                       {'name': 'prop', 'type': 'str', 'desc': 'The property name to delete.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
+        {'name': 'setNodeDataValu',
+         'desc': 'Set a node data value on a node in this layer.',
+         'type': {'type': 'function', '_funcname': 'setNodeDataValu',
+                  'args': (
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                      {'name': 'name', 'type': 'str', 'desc': 'The node data key to set.'},
+                      {'name': 'valu', 'type': 'any', 'desc': 'The value to set.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
         {'name': 'delNodeData',
          'desc': 'Delete node data from a node in this layer.',
          'type': {'type': 'function', '_funcname': 'delNodeData',
@@ -7460,6 +7470,14 @@ class Layer(Prim):
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields (<name>, <valu>) tuples', }}},
+        {'name': 'getNodeDataValu',
+         'desc': 'Return the value of a node data key in this layer, or null if it is not set.',
+         'type': {'type': 'function', '_funcname': 'getNodeDataValu',
+                  'args': (
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                      {'name': 'name', 'type': 'str', 'desc': 'The node data key to get.'},
+                  ),
+                  'returns': {'type': 'any', 'desc': 'The node data value, or null if it is not set.'}}},
     )
     _storm_typename = 'layer'
     _ismutable = False
@@ -7521,10 +7539,12 @@ class Layer(Prim):
             'getEdgesByN1': self.getEdgesByN1,
             'getEdgesByN2': self.getEdgesByN2,
             'getNodeData': self.getNodeData,
+            'getNodeDataValu': self.getNodeDataValu,
             'getMirrorStatus': self.getMirrorStatus,
             'setStorNodeProp': self.setStorNodeProp,
             'delStorNode': self.delStorNode,
             'delStorNodeProp': self.delStorNodeProp,
+            'setNodeDataValu': self.setNodeDataValu,
             'delNodeData': self.delNodeData,
             'delEdge': self.delEdge,
         }
@@ -7634,6 +7654,23 @@ class Layer(Prim):
         self.runt.reqAdmin(mesg='delStorNodeProp() requires admin privileges.')
         meta = {'time': s_common.now(), 'user': self.runt.user.iden}
         return await layr.delStorNodeProp(buid, prop, meta=meta)
+
+    async def setNodeDataValu(self, nodeid, name, valu):
+        buid = await tobuid(nodeid)
+        name = await tostr(name)
+        valu = await toprim(valu)
+
+        s_json.reqjsonsafe(valu)
+
+        if (size := len(name.encode())) > s_lmdbslab.MAX_MDB_KEYLEN - 5:
+            mesg = f'node data keys must be < {s_lmdbslab.MAX_MDB_KEYLEN - 4} bytes, got {size}.'
+            raise s_exc.BadArg(mesg=mesg, name=name[:1024], size=size)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
+        self.runt.reqAdmin(mesg='setNodeDataValu() requires admin privileges.')
+        meta = {'time': s_common.now(), 'user': self.runt.user.iden}
+        return await layr.setNodeData(buid, name, valu, meta=meta)
 
     async def delNodeData(self, nodeid, name=None):
         buid = await tobuid(nodeid)
@@ -7990,6 +8027,20 @@ class Layer(Prim):
         layr = self.runt.snap.core.getLayer(layriden)
         async for item in layr.iterNodeData(nodeid):
             yield item
+
+    @stormfunc(readonly=True)
+    async def getNodeDataValu(self, nodeid, name):
+        buid = await tobuid(nodeid)
+        name = await tostr(name)
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+
+        ok, valu = await layr.getNodeData(buid, name)
+        if ok:
+            return valu
+
+        return None
 
     @stormfunc(readonly=True)
     async def _methLayerGet(self, name, defv=None):
