@@ -1,0 +1,7 @@
+---
+desc: Updated the ``inet:whois:rec:text`` hook to add ``-(refs)>`` edges to scraped
+  ``inet:email`` nodes instead of creating ``inet:whois:email`` nodes.
+desc:literal: false
+prs: []
+type: model
+...

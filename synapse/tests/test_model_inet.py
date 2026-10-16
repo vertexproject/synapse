@@ -2699,9 +2699,25 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('registrant'), ' cool registrant ')
             self.eq(node.get('registrant:name'), 'cool registrant org')
 
-            nodes = await core.nodes('inet:whois:email')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:whois:email', ('woot.com', 'pennywise@vertex.link')))
+            nodes = await core.nodes('inet:whois:rec:fqdn=woot.com -(refs)> inet:email')
+            self.eq([n.ndef[1] for n in nodes], ['pennywise@vertex.link'])
+            self.len(0, await core.nodes('inet:whois:email'))
+
+            msgs = await core.stormlist('inet:whois:rec:fqdn=woot.com [ :text="a@vertex.link b@vertex.link" ]')
+            self.stormNotInWarn('deprecated', msgs)
+            nodes = await core.nodes('inet:whois:rec:fqdn=woot.com -(refs)> inet:email')
+            self.sorteq(['a@vertex.link', 'b@vertex.link', 'pennywise@vertex.link'], [n.ndef[1] for n in nodes])
+            self.len(0, await core.nodes('inet:whois:email'))
+
+            form = core.model.form('inet:whois:email')
+            self.true(form.deprecated)
+            self.eq('Deprecated. Please use inet:whois:rec -(refs)> inet:email.', form.type.info.get('doc'))
+
+            msgs = await core.stormlist('[ inet:whois:email=(woot.com, pennywise@vertex.link) ]')
+            self.stormIsInWarn('The form inet:whois:email is deprecated', msgs)
+
+            msgs = await core.stormlist('model.deprecated.check')
+            self.stormIsInWarn('inet:whois:email', msgs)
 
             q = '''
             [inet:whois:rec=(wellsfargo.com, 2019/11/24 03:30:07.000)
