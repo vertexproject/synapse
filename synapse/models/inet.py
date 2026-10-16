@@ -1108,15 +1108,13 @@ class InetModule(s_module.CoreModule):
     async def _onSetWhoisText(self, node, oldv):
 
         text = node.get('text')
-        fqdn = node.get('fqdn')
-        asof = node.get('asof')
 
         for form, valu in s_scrape.scrape(text):
 
             if form == 'inet:email':
 
-                whomail = await node.snap.addNode('inet:whois:email', (fqdn, valu))
-                await whomail.set('.seen', asof)
+                email = await node.snap.addNode('inet:email', valu)
+                await node.addEdge('refs', email.iden())
 
     async def _onAddPasswd(self, node):
 
@@ -1542,7 +1540,8 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:whois:email', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('email', 'inet:email'))}), {
-                        'doc': 'An email address associated with an FQDN via whois registration text.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:whois:rec -(refs)> inet:email.',
                     }),
 
                     ('inet:whois:ipquery', ('guid', {}), {

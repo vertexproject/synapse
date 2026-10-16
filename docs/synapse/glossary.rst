@@ -802,7 +802,7 @@ Knowledge, Fused
 If a form within the Synapse data model has a "range" of time elements (i.e., an interval such as "first seen"/"last
 seen"), the form typically represents **fused knowledge** -- a period of time during which an object, relationship, or
 event was known to exist. Forms representing fused knowledge can be thought of as combining *n* number of instance
-knowledge observations. ``inet:dns:query``, ``inet:dns:a``, and ``inet:whois:email`` forms are examples of fused
+knowledge observations. ``inet:dns:query`` and ``inet:dns:a`` forms are examples of fused
 knowledge.
 
 See :ref:`instance-fused` for a more detailed discussion.

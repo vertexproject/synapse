@@ -802,13 +802,13 @@ used to lift nodes based on comparisons among various combinations of times and 
   ``inet:dns:request:time = 2023/05/03*``
 
 
-*Lift the WHOIS email nodes that were observed between July 1, 2023 and the present:*
+*Lift the DNS A nodes that were observed between July 1, 2023 and the present:*
 
-.. storm-pre:: [ inet:whois:email=(tfxdccssl.net, abuse@dynadot.com) .seen=(2013/12/13 00:00:00, 2023/07/30 04:05:15.001) ]
-.. storm-pre:: inet:whois:email.seen @= ( 2023/07/01, now )
+.. storm-pre:: [ inet:dns:a=(tfxdccssl.net, 1.2.3.4) .seen=(2013/12/13 00:00:00, 2023/07/30 04:05:15.001) ]
+.. storm-pre:: inet:dns:a.seen @= ( 2023/07/01, now )
 ::
   
-  inet:whois:email.seen @= ( 2023/07/01, now )
+  inet:dns:a.seen @= ( 2023/07/01, now )
 
 *Lift the network flows that occurred within the past day:*
 
