@@ -3341,11 +3341,8 @@ class CellTest(s_t_utils.SynTest):
 
                     self.eq([], await prox.getV3DbNames())
 
-                    self.none(await prox.initV3Slab())
-                    self.nn(cell.v3slab)
-                    self.eq([], await prox.getV3DbNames())
-
                     self.none(await prox.initV3Db('empty'))
+                    self.nn(cell.v3slab)
                     self.true(cell.v3slab.dbexists('empty'))
                     self.eq(0, await prox.getV3DbSize('empty'))
                     self.eq(['empty'], await prox.getV3DbNames())
@@ -3404,9 +3401,6 @@ class CellTest(s_t_utils.SynTest):
 
                 user = await cell.auth.addUser('lowuser')
                 async with cell.getLocalProxy(user='lowuser') as prox:
-
-                    with self.raises(s_exc.AuthDeny):
-                        await prox.initV3Slab()
 
                     with self.raises(s_exc.AuthDeny):
                         await prox.dropV3Slab()

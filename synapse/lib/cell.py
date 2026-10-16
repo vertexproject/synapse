@@ -935,13 +935,6 @@ class CellApi(s_base.Base):
         return await self.cell.reload(subsystem=subsystem)
 
     @adminapi(log=True)
-    async def initV3Slab(self):
-        '''
-        Open (creating if needed) the local non-nexus v3migration slab.
-        '''
-        await self.cell.initV3Slab()
-
-    @adminapi(log=True)
     async def dropV3Slab(self):
         '''
         Remove the local v3migration slab and all of its data.
