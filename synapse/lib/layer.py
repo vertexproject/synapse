@@ -3487,6 +3487,20 @@ class Layer(s_nexus.Pusher):
         _, changes = await self.saveNodeEdits(nodeedits, meta)
         return any(c[2] for c in changes)
 
+    async def setNodeData(self, buid, name, valu, meta):
+        '''
+        Set nodedata on a node in this layer.
+        '''
+        sode = self._getStorNode(buid)
+        if sode is None or (form := sode.get('form')) is None:
+            mesg = f'No node found for buid {s_common.ehex(buid)}.'
+            raise s_exc.NoSuchIden(mesg=mesg, buid=s_common.ehex(buid))
+
+        nodeedits = [(buid, form, [(EDIT_NODEDATA_SET, (name, valu, None), ())])]
+
+        _, changes = await self.saveNodeEdits(nodeedits, meta)
+        return any(c[2] for c in changes)
+
     async def delNodeData(self, buid, meta, name=None):
         '''
         Delete nodedata from a node in this layer. If name is not specified, delete all nodedata.
