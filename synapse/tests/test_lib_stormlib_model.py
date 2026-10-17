@@ -224,6 +224,7 @@ class StormlibModelTest(s_test.SynTest):
 
                 # create both a deprecated form and a node with a deprecated prop
                 await core.nodes('[ ou:org=* :sic=1234 ou:hasalias=($node.repr(), foobar) ]')
+                await core.nodes('[ biz:deal=* :buyer:org=* ]')
 
                 with self.raises(s_exc.NoSuchProp):
                     await core.nodes('model.deprecated.lock newp:newp')
@@ -283,6 +284,8 @@ class StormlibModelTest(s_test.SynTest):
                 # warn due to existing
                 self.stormIsInWarn('ou:org:sic', mesgs)
                 self.stormIsInWarn('ou:hasalias', mesgs)
+                layr = core.getLayer().iden
+                self.stormIsInWarn(f'Layer {layr} still contains biz:deal:buyer:org', mesgs)
                 self.stormIsInPrint('Your cortex contains deprecated model elements', mesgs)
 
                 await core.nodes('model.deprecated.lock *')
@@ -291,6 +294,7 @@ class StormlibModelTest(s_test.SynTest):
                 self.stormIsInPrint('it:reveng:funcstr: true', mesgs)
 
                 await core.nodes('ou:org [ -:sic ]')
+                await core.nodes('biz:deal [ -:buyer:org ]')
                 await core.nodes('ou:hasalias | delnode')
 
                 mesgs = await core.stormlist('model.deprecated.check')
