@@ -1,0 +1,8 @@
+---
+desc: Deprecated the ``biz:deal`` properties ``:buyer:org``, ``:buyer:orgname``, ``:buyer:orgfqdn``,
+  ``:seller:org``, ``:seller:orgname``, and ``:seller:orgfqdn``. Please use ``:buyer``
+  and ``:seller`` instead.
+desc:literal: false
+prs: []
+type: deprecation
+...
