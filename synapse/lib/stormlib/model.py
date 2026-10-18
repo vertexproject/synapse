@@ -937,10 +937,11 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
               lower in the layer stack of a view, or a layer in no view, since ``onview`` already
               migrated each view's write layer.
 
-            Each pass runs ``onview`` for every view, with parent views before their children, then
-            ``onlayer`` for every layer which is not the write layer of a view. A view or layer
-            created by a callback is picked up by a further pass, and passes repeat until one finds
-            nothing new. Each view and layer is visited at most once.
+            Each pass runs ``onview`` for every view, with parent views before their children, or
+            children before their parents when ``reverse`` is true, then ``onlayer`` for every layer
+            which is not the write layer of a view. The ``reverse`` option does not change the order
+            of ``onlayer``. A view or layer created by a callback is picked up by a further pass, and
+            passes repeat until one finds nothing new. Each view and layer is visited at most once.
 
             The loop does not fail because a view or layer changed underneath it. It emits a
             warning naming the view or layer and continues with the next one when:
@@ -973,6 +974,8 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
                       {'name': 'readonly', 'type': 'boolean', 'default': False,
                        'desc': 'Include read-only layers, and views with a read-only write layer, '
                                'rather than skipping them with a warning.', },
+                      {'name': 'reverse', 'type': 'boolean', 'default': False,
+                       'desc': 'Run ``onview`` for child views before their parents.', },
                   ),
                   'returns': {'type': 'null', }}},
     )
@@ -1086,7 +1089,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             mesg += ', '.join([f'{iden} ({errm})' for iden, errm in failed])
             raise s_exc.SynErr(mesg=mesg, layers=[iden for iden, _ in failed])
 
-    async def _methLoop(self, onview, onlayer=None, readonly=False):
+    async def _methLoop(self, onview, onlayer=None, readonly=False, reverse=False):
 
         self.runt.reqAdmin(mesg='$lib.model.migration.loop() requires global admin.')
 
@@ -1094,6 +1097,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             raise s_exc.BadArg(mesg='$lib.model.migration.loop() requires an onview query.')
 
         readonly = await s_stormtypes.tobool(readonly)
+        reverse = await s_stormtypes.tobool(reverse)
 
         runt = self.runt
         core = runt.snap.core
@@ -1144,7 +1148,11 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
 
             found = False
 
-            for vdef in await core.getViewDefs(deporder=True):
+            vdefs = await core.getViewDefs(deporder=True)
+            if reverse:
+                vdefs.reverse()
+
+            for vdef in vdefs:
 
                 iden = vdef.get('iden')
                 if iden in seen:
