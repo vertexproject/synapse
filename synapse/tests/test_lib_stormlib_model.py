@@ -753,6 +753,72 @@ class StormlibModelTest(s_test.SynTest):
             self.len(1, [p for p in prints if p == 'layer loopnew'])
             self.len(1, [p for p in prints if p == 'view loopnew'])
 
+            # reverse runs onview for child views before their parents, without changing the
+            # onlayer order
+            for view in list(core.views.values()):
+                if view.info.get('name') in ('loopnew', 'freeview'):
+                    await core.delView(view.iden)
+
+            vdef01 = await core.getView(view00).fork()
+            view01 = vdef01['iden']
+            vdef02 = await core.getView(view01).fork()
+            view02 = vdef02['iden']
+            await core.setStormVar('view02', view02)
+
+            q = """
+                $lib.model.migration.loop(
+                    ${ $lib.print(`view {$lib.view.get().iden}`) },
+                    onlayer=${ $lib.print(`layer {$layer}`) },
+                    reverse=$reverse,
+                )
+            """
+            mesgs = await core.stormlist(q, opts={'vars': {'reverse': False}})
+            self.stormHasNoWarnErr(mesgs)
+            fwdprints = getPrints(mesgs)
+            fwdlayrs = [p for p in fwdprints if p.startswith('layer ')]
+            self.eq([
+                f'view {defview.iden}',
+                f'view {view00}',
+                f'view {view01}',
+                f'view {view02}',
+            ], fwdprints[:4])
+            self.eq(fwdprints[4:], fwdlayrs)
+            self.isin(f'layer {layrlow}', fwdlayrs)
+
+            mesgs = await core.stormlist(q, opts={'vars': {'reverse': True}})
+            self.stormHasNoWarnErr(mesgs)
+            self.eq([
+                f'view {view02}',
+                f'view {view01}',
+                f'view {view00}',
+                f'view {defview.iden}',
+            ] + fwdlayrs, getPrints(mesgs))
+
+            # views created by a callback during a reverse loop are visited by a later pass
+            q = """
+                $lib.model.migration.loop(
+                    ${
+                        $view = $lib.view.get()
+                        $lib.print(`view {$view.iden}`)
+                        if ($view.iden = $lib.globals.get(view02)) { $view.fork(name=revfork) }
+                    },
+                    onlayer=${ $lib.print(`layer {$layer}`) },
+                    reverse=$lib.true,
+                )
+            """
+            mesgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(mesgs)
+            prints = getPrints(mesgs)
+            self.eq([
+                f'view {view02}',
+                f'view {view01}',
+                f'view {view00}',
+                f'view {defview.iden}',
+            ] + fwdlayrs, prints[:-1])
+            revfork = [v for v in core.views.values() if v.info.get('name') == 'revfork']
+            self.len(1, revfork)
+            self.eq(f'view {revfork[0].iden}', prints[-1])
+
     async def test_stormlib_model_migrations_risk_hasvuln_vulnerable(self):
 
         async with self.getTestCore() as core:
