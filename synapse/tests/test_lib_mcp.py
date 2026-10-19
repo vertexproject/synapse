@@ -119,6 +119,11 @@ class McpTest(s_tests.SynTest):
 
         return await self._rpc(sess, url, sid, 'tools/call', params=params, _id=_id)
 
+    def _cursorIden(self, cursor):
+        # A storm cursor token is 'f{iden}:{pageid}'; the session cursors dict is keyed by
+        # the stable stream iden, not the (per-page) token returned to the client.
+        return cursor.split(':')[0]
+
     async def test_mcp_lifecycle_and_sessions(self):
 
         async with self.getTestCell(TstMcpCell) as cell:
@@ -709,16 +714,16 @@ class McpTest(s_tests.SynTest):
                     # an idle cursor expires and is reported as such
                     _, data = await self._tool(sess, url, sid, 'storm', {'query': query})
                     cursor = data['result']['structuredContent']['cursor']
-                    core._mcp_sessions[sid]['cursors'][cursor]['touched'] = 0
+                    core._mcp_sessions[sid]['cursors'][self._cursorIden(cursor)]['touched'] = 0
                     _, data = await self._tool(sess, url, sid, 'storm_continue', {'cursor': cursor})
                     self.true(data['result']['isError'])
 
                     # an idle cursor is also swept when a new query starts
                     _, data = await self._tool(sess, url, sid, 'storm', {'query': query})
                     stale = data['result']['structuredContent']['cursor']
-                    core._mcp_sessions[sid]['cursors'][stale]['touched'] = 0
+                    core._mcp_sessions[sid]['cursors'][self._cursorIden(stale)]['touched'] = 0
                     await self._tool(sess, url, sid, 'storm', {'query': query})
-                    self.notin(stale, core._mcp_sessions[sid]['cursors'])
+                    self.notin(self._cursorIden(stale), core._mcp_sessions[sid]['cursors'])
 
                     # opening more than STORM_MAX_CURSORS evicts the oldest
                     with mock.patch.object(s_mcp, 'STORM_MAX_CURSORS', 2):
@@ -728,7 +733,7 @@ class McpTest(s_tests.SynTest):
                         await self._tool(sess, url, sid, 'storm', {'query': query})
                         cursors = core._mcp_sessions[sid]['cursors']
                         self.len(2, cursors)
-                        self.notin(c1, cursors)
+                        self.notin(self._cursorIden(c1), cursors)
 
                     # a failure in the storm producer surfaces as a tool error and releases
                     # the cursor
@@ -746,6 +751,66 @@ class McpTest(s_tests.SynTest):
                     self.nn(data['result']['structuredContent']['cursor'])
                     async with sess.delete(url, headers={'Mcp-Session-Id': sid}) as resp:
                         self.eq(resp.status, http.HTTPStatus.OK)
+
+    async def test_mcp_storm_continue_retry_safe(self):
+        '''
+        storm_continue must be safe to retry: a client that times out waiting on a
+        response (or otherwise never sees it -- a dropped connection, a proxy hiccup)
+        and retries with the SAME cursor must get the SAME page back, not the next
+        one. Without this, a retry silently and permanently skips whatever page was
+        "in flight" during the timeout, with no error and no way for the caller to
+        detect the gap.
+        '''
+        async with self.getTestCore() as core:
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+            url = f'https://localhost:{port}/api/v1/mcp'
+
+            root = await core.auth.getUserByName('root')
+            await root.setPasswd('secret')
+
+            query = 'for $i in $lib.range(30) { $lib.print(`m{$i}`) }'
+
+            async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
+
+                sid, _ = await self._handshake(sess, url)
+
+                with mock.patch.object(s_mcp, 'STORM_PAGE_SIZE', 5):
+
+                    _, data = await self._tool(sess, url, sid, 'storm', {'query': query})
+                    res = data['result']['structuredContent']
+                    cursor = res['cursor']
+                    self.nn(cursor)
+                    allprints = [m[1]['mesg'] for m in res['messages'] if m[0] == 'print']
+
+                    # the first storm_continue call succeeds server-side, but its
+                    # response never reaches the client (imagine a timeout here)
+                    _, data = await self._tool(sess, url, sid, 'storm_continue', {'cursor': cursor})
+                    firstmsgs = data['result']['structuredContent']['messages']
+                    firstprints = [m[1]['mesg'] for m in firstmsgs if m[0] == 'print']
+                    # page 1 (from the storm tool call itself) was ['init', m0..m3], so
+                    # this first storm_continue page is the next 5 messages: m4..m8
+                    self.eq(['m4', 'm5', 'm6', 'm7', 'm8'], firstprints)
+
+                    # the client, having received nothing, retries with the SAME cursor --
+                    # this must replay the exact same page, not advance past it
+                    _, data = await self._tool(sess, url, sid, 'storm_continue', {'cursor': cursor})
+                    retrymsgs = data['result']['structuredContent']['messages']
+                    retryprints = [m[1]['mesg'] for m in retrymsgs if m[0] == 'print']
+                    self.eq(firstprints, retryprints)
+
+                    # and a normal, non-retried drain still sees every remaining message
+                    # exactly once, in order, once the client uses the fresh cursor from
+                    # the (replayed) response instead of retrying again
+                    allprints.extend(retryprints)
+                    newcursor = data['result']['structuredContent']['cursor']
+                    while newcursor is not None:
+                        _, data = await self._tool(sess, url, sid, 'storm_continue', {'cursor': newcursor})
+                        page = data['result']['structuredContent']
+                        allprints.extend(m[1]['mesg'] for m in page['messages'] if m[0] == 'print')
+                        newcursor = page['cursor']
+
+                    self.eq([f'm{i}' for i in range(30)], allprints)
 
     async def test_mcp_storm_reaper(self):
 
@@ -777,7 +842,7 @@ class McpTest(s_tests.SynTest):
                     # a single reaper pass evicts an idle cursor and shuts down its producer
                     # task (and therefore its storm generator)
                     _, data = await self._tool(sess, url, sid, 'storm', {'query': query})
-                    cursor = data['result']['structuredContent']['cursor']
+                    cursor = self._cursorIden(data['result']['structuredContent']['cursor'])
                     task = core._mcp_sessions[sid]['cursors'][cursor]['task']
                     core._mcp_sessions[sid]['cursors'][cursor]['touched'] = 0
                     await s_mcp._reapMcpSessionsOnce(core)
@@ -786,7 +851,8 @@ class McpTest(s_tests.SynTest):
 
                     # an idle session is dropped along with all of its cursors
                     _, data = await self._tool(sess, url, sid, 'storm', {'query': query})
-                    ctask = core._mcp_sessions[sid]['cursors'][data['result']['structuredContent']['cursor']]['task']
+                    ctask = core._mcp_sessions[sid]['cursors'][
+                        self._cursorIden(data['result']['structuredContent']['cursor'])]['task']
                     core._mcp_sessions[sid]['touched'] = 0
                     await s_mcp._reapMcpSessionsOnce(core)
                     self.notin(sid, core._mcp_sessions)
@@ -794,7 +860,8 @@ class McpTest(s_tests.SynTest):
 
                     # _getSession drops an idle session on access and cleans up its cursors
                     _, data = await self._tool(sess, url, sid2, 'storm', {'query': query})
-                    gtask = core._mcp_sessions[sid2]['cursors'][data['result']['structuredContent']['cursor']]['task']
+                    gtask = core._mcp_sessions[sid2]['cursors'][
+                        self._cursorIden(data['result']['structuredContent']['cursor'])]['task']
                     core._mcp_sessions[sid2]['touched'] = 0
                     status, _ = await self._rpc(sess, url, sid2, 'tools/list')
                     self.eq(status, http.HTTPStatus.NOT_FOUND)
@@ -808,7 +875,7 @@ class McpTest(s_tests.SynTest):
                     # the running reaper loop evicts an idle cursor on its own schedule
                     sid3, _ = await self._handshake(sess, url)
                     _, data = await self._tool(sess, url, sid3, 'storm', {'query': query})
-                    rcursor = data['result']['structuredContent']['cursor']
+                    rcursor = self._cursorIden(data['result']['structuredContent']['cursor'])
                     core._mcp_sessions[sid3]['cursors'][rcursor]['touched'] = 0
 
                     with mock.patch.object(s_mcp, 'STORM_CURSOR_TIMEOUT', 0.1):
