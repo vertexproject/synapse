@@ -2231,7 +2231,16 @@ class StormTypesTest(s_test.SynTest):
             self.eq({'a': 1}, await core.callStorm('return($lib.layer.get().getNodeDataValu($iden, newp))', opts=opts))
             self.eq({'a': 1}, await core.callStorm('test:str=baz return($node.data.get(newp))'))
 
+            nexsindx = await core.getNexsIndx()
             self.false(await core.callStorm('return($lib.layer.get().setNodeDataValu($iden, newp, ({"a": 1})))', opts=opts))
+            self.eq(nexsindx, await core.getNexsIndx())
+
+            self.true(await core.callStorm('return($lib.layer.get().setNodeDataValu($iden, list, (1, 2)))', opts=opts))
+            nexsindx = await core.getNexsIndx()
+            self.false(await core.callStorm('return($lib.layer.get().setNodeDataValu($iden, list, (1, 2)))', opts=opts))
+            self.eq(nexsindx, await core.getNexsIndx())
+            self.true(await core.callStorm('return($lib.layer.get().delNodeData($iden, list))', opts=opts))
+
             self.true(await core.callStorm('return($lib.layer.get().setNodeDataValu($iden, newp, ({"a": 2})))', opts=opts))
             self.eq({'a': 2}, await core.callStorm('test:str=baz return($node.data.get(newp))'))
 
@@ -2273,6 +2282,23 @@ class StormTypesTest(s_test.SynTest):
                 await core.callStorm('return($lib.layer.get($layr).setNodeDataValu($iden, lower, valu))', opts=forkopts)
             self.eq(cm.exception.get('buid'), forkiden)
             self.none(await core.callStorm('return($lib.layer.get($layr).getNodeDataValu($iden, lower))', opts=forkopts))
+
+            # Reading another layer requires read access to it
+            view = await core.callStorm('return($lib.view.add(($lib.layer.add().iden,)).iden)')
+            await lowuser.addRule((True, ('view', 'read')), gateiden=view)
+            for gate in core.viewsbylayer.get(core.view.layers[0].iden):
+                await lowuser.addRule((False, ('view', 'read')), gateiden=gate.iden)
+            await lowuser.addRule((False, ('layer', 'read')), gateiden=core.view.layers[0].iden)
+
+            lowopts = {'user': lowuser.iden, 'view': view, 'vars': {'iden': iden, 'layr': core.view.layers[0].iden}}
+            self.none(await core.callStorm('return($lib.layer.get().getNodeDataValu($iden, newp))', opts=lowopts))
+
+            msgs = await core.stormlist('return($lib.layer.get($layr).getNodeDataValu($iden, newp))', opts=lowopts)
+            self.stormIsInErr('User (lowuser) can not read layer.', msgs)
+
+            msgs = await core.stormlist('for $item in $lib.layer.get($layr).getNodeData($iden) { $lib.print($item) }',
+                                        opts=lowopts)
+            self.stormIsInErr('User (lowuser) can not read layer.', msgs)
 
             # Readonly layer
             layer = core.view.layers[0]

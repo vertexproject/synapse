@@ -112,6 +112,14 @@ reqValidLdef = s_config.getJsValidator({
 WINDOW_MAXSIZE = 10_000
 MIGR_COMMIT_SIZE = 1_000
 
+def reqValidNodeDataName(name):
+    '''
+    Raise BadArg if a node data name is too long to be stored.
+    '''
+    if (size := len(name.encode())) > s_lmdbslab.MAX_MDB_KEYLEN - 5:
+        mesg = f'node data keys must be < {s_lmdbslab.MAX_MDB_KEYLEN - 4} bytes, got {size}.'
+        raise s_exc.BadArg(mesg=mesg, name=name[:1024], size=size)
+
 class LayerApi(s_cell.CellApi):
 
     async def __anit__(self, core, link, user, layr):
@@ -3491,10 +3499,20 @@ class Layer(s_nexus.Pusher):
         '''
         Set nodedata on a node in this layer.
         '''
+        reqValidNodeDataName(name)
+
         sode = self._getStorNode(buid)
         if sode is None or (form := sode.get('form')) is None:
             mesg = f'No node found for buid {s_common.ehex(buid)}.'
             raise s_exc.NoSuchIden(mesg=mesg, buid=s_common.ehex(buid))
+
+        try:
+            abrv = self.getPropAbrv(name, None)
+            if self.dataslab.get(buid + abrv, db=self.nodedata) == s_msgpack.en(valu):
+                return False
+
+        except s_exc.NoSuchAbrv:
+            pass
 
         nodeedits = [(buid, form, [(EDIT_NODEDATA_SET, (name, valu, None), ())])]
 

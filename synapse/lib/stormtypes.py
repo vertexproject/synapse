@@ -37,7 +37,6 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.trigger as s_trigger
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
-import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.stormctrl as s_stormctrl
 
 logger = logging.getLogger(__name__)
@@ -7661,10 +7660,6 @@ class Layer(Prim):
         valu = await toprim(valu)
 
         s_json.reqjsonsafe(valu)
-
-        if (size := len(name.encode())) > s_lmdbslab.MAX_MDB_KEYLEN - 5:
-            mesg = f'node data keys must be < {s_lmdbslab.MAX_MDB_KEYLEN - 4} bytes, got {size}.'
-            raise s_exc.BadArg(mesg=mesg, name=name[:1024], size=size)
 
         iden = self.valu.get('iden')
         layr = self.runt.snap.core.getLayer(iden)
