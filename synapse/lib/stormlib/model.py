@@ -941,7 +941,9 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             children before their parents when ``reverse`` is true, then ``onlayer`` for every layer
             which is not the write layer of a view. The ``reverse`` option does not change the order
             of ``onlayer``. A view or layer created by a callback is picked up by a further pass, and
-            passes repeat until one finds nothing new. Each view and layer is visited at most once.
+            passes repeat until one finds nothing new. A view created by a callback is visited after
+            the views already in the pass, so a view forked during a ``reverse`` loop runs after its
+            parent. Each view and layer is visited at most once.
 
             The loop does not fail because a view or layer changed underneath it. It emits a
             warning naming the view or layer and continues with the next one when:
