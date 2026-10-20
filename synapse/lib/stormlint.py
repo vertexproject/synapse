@@ -623,7 +623,7 @@ def _ruleNodeIden(ctx):
         if ctx.isDeref(node, 'node', 'iden'):
             ctx.report(node, '$node.iden was removed.')
 
-@rule('R004', 'bare-constant', 'medium', v3=True)
+@rule('R004', 'bare-constant', 'medium')
 def _ruleBareConstant(ctx):
     '''
     A bare true, false or null used as an assignment value, call argument, return value or
@@ -751,12 +751,14 @@ def _ruleDerefSpace(ctx):
 @rule('R007', 'pivot-in-prop', 'high', v3=True)
 def _rulePivotInProp(ctx):
     '''
-    An inbound pivot or join from a named form or prop, such as <- inet:dns:a. 3.x only allows
-    <- * and <+- *.
+    An inbound pivot or join from a named form, such as <- edge:refs. 3.x removed it, and the
+    edge:* and graph:* forms it pivots from are light edges in 3.x, so use a walk such as
+    <(refs)- *.
     '''
     for node in ctx.walk(s_ast.PivotInFrom):
         oper = '<+-' if node.isjoin else '<-'
-        ctx.report(node, f'{oper} {ctx.getText(node.kids[0])} was removed, use {oper} *.')
+        ctx.report(node, f'{oper} {ctx.getText(node.kids[0])} was removed, edge:* and graph:* forms are '
+                         'light edges in 3.x, use a walk such as <(refs)- *.')
 
 def _propForm(ctx, name):
     '''
@@ -968,7 +970,10 @@ def _ruleParens(ctx):
             continue
 
         kind = type(prnt)
-        if kind in (s_ast.SetVarOper, s_ast.CallKwarg):
+        if kind is s_ast.CallKwarg:
+            isvalu = prnt.kids[1] is node and not isinstance(ctx.parent(prnt), s_ast.FuncArgs)
+
+        elif kind is s_ast.SetVarOper:
             isvalu = prnt.kids[1] is node
 
         elif kind is s_ast.SetItemOper:

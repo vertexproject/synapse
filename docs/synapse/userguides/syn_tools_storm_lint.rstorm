@@ -98,8 +98,9 @@ Each option takes a comma-separated list of rule IDs or ID prefixes. A prefix ma
 with it, so ``S`` matches every style rule and ``S01`` matches ``S010`` through ``S015``. A rule named by
 ``--select`` or ``--enable`` runs whether or not it is on by default.
 
-``--v3-ready`` adds every ``R`` and ``M`` rule to the selected set, after ``--select`` and ``--enable`` and
-before ``--ignore``. ``--no-v3-ready`` turns it off when the configuration turns it on. See
+``--v3-ready`` adds every ``M`` rule and every ``R`` rule other than ``R004`` to the selected set, after
+``--select`` and ``--enable`` and before ``--ignore``. ``--no-v3-ready`` turns it off when the configuration turns
+it on. See
 :ref:`syn-tools-storm-lint-v3-ready`.
 
 .. code-block:: bash
@@ -182,7 +183,8 @@ Rules
 Rule IDs are grouped by prefix: ``E`` rules report errors, ``P`` rules report pipeline usage which may not do
 what was intended, ``S`` rules report Storm which could be written more simply, ``R`` rules report Storm which
 does not run as intended on Synapse 3.x, and ``M`` rules report data model names which are renamed or removed in
-Synapse 3.x. The ``R`` and ``M`` rules are off by default, and are added by ``--v3-ready``.
+Synapse 3.x. The ``M`` rules and every ``R`` rule other than ``R004`` are off by default, and are added by
+``--v3-ready``. ``R004`` runs by default, since a bare ``true``, ``false`` or ``null`` is also a string on 2.x.
 
 .. list-table::
     :header-rows: 1
@@ -317,7 +319,7 @@ Synapse 3.x. The ``R`` and ``M`` rules are off by default, and are added by ``--
     * - ``R004``
       - ``bare-constant``
       - medium
-      - v3
+      - yes
       - A bare ``true``, ``false`` or ``null`` used as an assignment value, call argument, return value or
         function argument default is the string ``"true"``, ``"false"`` or ``"null"``. Use ``(true)``,
         ``(false)`` or ``(null)``, or quote the string.
@@ -342,8 +344,9 @@ Synapse 3.x. The ``R`` and ``M`` rules are off by default, and are added by ``--
       - ``pivot-in-prop``
       - high
       - v3
-      - An inbound pivot or join from a named form or prop, such as ``<- inet:dns:a``. 3.x only allows ``<- *``
-        and ``<+- *``.
+      - An inbound pivot or join from a named form, such as ``<- edge:refs``. 3.x removed it, and the
+        ``edge:*`` and ``graph:*`` forms it pivots from are light edges in 3.x, so use a walk such as
+        ``<(refs)- *``.
     * - ``R008``
       - ``dotted-prop``
       - high

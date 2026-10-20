@@ -76,7 +76,8 @@ class StormLintTest(s_t_utils.SynTest):
             self.false(s_stormlint.rules['S001'].v3)
 
             rrules = ['R001', 'R002', 'R003', 'R004', 'R005', 'R006', 'R007', 'R008']
-            v3rules = ['M001', 'M002', 'M003', 'M004'] + rrules
+            v3rules = ['M001', 'M002', 'M003', 'M004'] + [i for i in rrules if i != 'R004']
+            self.false(s_stormlint.rules['R004'].v3)
             self.eq([iden for iden, r in s_stormlint.rules.items() if r.v3], v3rules)
             for iden in v3rules:
                 self.true(s_stormlint.rules[iden].default)
@@ -91,20 +92,23 @@ class StormLintTest(s_t_utils.SynTest):
             for iden in v3rules:
                 self.notin(iden, defaults)
 
+            self.isin('R004', defaults)
+
             self.eq(idens(s_stormlint.StormLinter(select=('R',))), rrules)
             self.eq(idens(s_stormlint.StormLinter(select=('M',))), ['M001', 'M002', 'M003', 'M004'])
             self.eq(idens(s_stormlint.StormLinter(select=('R00',), ignore=('R004',))),
                     ['R001', 'R002', 'R003', 'R005', 'R006', 'R007', 'R008'])
-            self.eq(idens(s_stormlint.StormLinter(enable=('R004',))), sorted(defaults + ['R004']))
+            self.eq(idens(s_stormlint.StormLinter(enable=('R004',))), defaults)
+            self.eq(idens(s_stormlint.StormLinter(enable=('R001',))), sorted(defaults + ['R001']))
             self.eq(idens(s_stormlint.StormLinter(enable=('M001', 'R006'))), sorted(defaults + ['M001', 'R006']))
             self.eq(idens(s_stormlint.StormLinter(v3ready=True)), sorted(defaults + v3rules))
             self.eq(idens(s_stormlint.StormLinter(select=('E001',), v3ready=True)), ['E001'] + v3rules)
             self.eq(idens(s_stormlint.StormLinter(select=(), v3ready=True)), v3rules)
             self.eq(idens(s_stormlint.StormLinter(v3ready=True, ignore=('R004', 'S'))),
-                    sorted([i for i in defaults if not i.startswith('S')] + [i for i in v3rules if i != 'R004']))
+                    sorted([i for i in defaults if not i.startswith('S') and i != 'R004'] + v3rules))
             self.eq(idens(s_stormlint.StormLinter(select=('E001',), v3ready=True, ignore=('M', 'R00'))), ['E001'])
             self.eq(idens(s_stormlint.StormLinter(select=('E001',), enable=('M004',), v3ready=True, ignore=('M00',))),
-                    ['E001'] + rrules)
+                    ['E001'] + v3rules[4:])
             self.eq(s_stormlint.StormLinter(ignore=('T', 'V')).lint('$x = $lib.true'), [])
             self.eq([f.rule for f in s_stormlint.StormLinter(ignore=('T', 'V'), enable=('R001',)).lint('$x = $lib.true')],
                     ['R001'])
@@ -439,11 +443,13 @@ class StormLintTest(s_t_utils.SynTest):
         ))
 
         # R007 inbound pivots from a named form
-        self.eq(lint('R007', 'inet:fqdn <- * <+- * -> inet:dns:a <(refs)- * $lib.print("<- inet:dns:a")'), [])
-        self.eq(lint('R007', 'inet:fqdn <- inet:dns:a\n'
-                             '{ inet:fqdn <+- inet:dns:a }'), (
-            (1, 11, '<- inet:dns:a was removed, use <- *.'),
-            (2, 13, '<+- inet:dns:a was removed, use <+- *.'),
+        self.eq(lint('R007', 'inet:fqdn <- * <+- * -> edge:refs <(refs)- * $lib.print("<- edge:refs")'), [])
+        self.eq(lint('R007', 'inet:fqdn <- edge:refs\n'
+                             '{ inet:fqdn <+- graph:edge }'), (
+            (1, 11, '<- edge:refs was removed, edge:* and graph:* forms are light edges in 3.x, '
+                    'use a walk such as <(refs)- *.'),
+            (2, 13, '<+- graph:edge was removed, edge:* and graph:* forms are light edges in 3.x, '
+                    'use a walk such as <(refs)- *.'),
         ))
 
         # R008 dotted prop names
@@ -620,9 +626,11 @@ class StormLintTest(s_t_utils.SynTest):
             (5, 39, 'Unnecessary parens around a variable, use $q.'),
         ))
 
-        # function parameter defaults are evaluated like kwargs
-        self.eq(lint('S002', 'function f(x=(true), y=$z, z=({})) {}\nfunction g(x, y=($z)) {}'), (
-            (2, 17, 'Unnecessary parens around a variable, use $z.'),
+        # function parameter defaults are not reported, as in 3.x
+        self.eq(lint('S002', 'function f(x=(true), y=$z, z=({})) {}\nfunction g(x, y=($z)) {}'), [])
+        self.eq(lint('S002', 'function g(x, y=(($z))) { $lib.foo(y=($z)) }'), (
+            (1, 18, 'Unnecessary parens inside an expression which is already open.'),
+            (1, 38, 'Unnecessary parens around a variable, use $z.'),
         ))
 
         # S003 edge edits with a subquery which only yields a variable

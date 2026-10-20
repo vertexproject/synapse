@@ -24,6 +24,7 @@ class TestStormLint(s_t_utils.SynTest):
         outp.expect('E001  high      yes      parse-failure')
         outp.expect('P001  low       yes      spin                 The spin command')
         outp.expect('M001  info      v3       renamed-form')
+        outp.expect('R004  medium    yes      bare-constant')
         outp.expect('R005  high      v3       removed-api')
         outp.expect('R008  high      v3       dotted-prop')
         outp.expect('S010  low       no       guarded-prop-set     ')
