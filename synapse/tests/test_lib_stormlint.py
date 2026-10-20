@@ -555,6 +555,28 @@ class StormLintTest(s_t_utils.SynTest):
             (1, 10, 'inet:iface is removed in 3.x, use it:nic.'),
             (1, 26, 'tel:mob:telem is removed in 3.x.'),
         ))
+        self.eq(lint('M001', 'inet:asnet4 ou:orgnet6 it:network +:net6\n'
+                             'inet:asnet6:asn inet:servfile:file'), (
+            (1, 1, 'inet:asnet4 is renamed to inet:asnet in 3.x.'),
+            (1, 13, 'ou:orgnet6 is renamed to ou:orgnet in 3.x.'),
+            (2, 1, 'inet:asnet6 is renamed to inet:asnet in 3.x.'),
+            (2, 17, 'inet:servfile is renamed to inet:serverfile in 3.x.'),
+        ))
+        self.eq(lint('M003', 'it:network +:net6=1.2.3.0/24 [ :net4=1.2.3.0/24 ]\n'
+                             'inet:asnet4:net4:min=1.2.3.4 inet:whois:iprec:net6:max inet:asnet6:net6'), (
+            (1, 13, 'it:network:net6 is renamed to it:network:net in 3.x.'),
+            (1, 32, 'it:network:net4 is renamed to it:network:net in 3.x.'),
+            (2, 1, 'inet:asnet4:net4:min is renamed to inet:asnet:net:min in 3.x.'),
+            (2, 30, 'inet:whois:iprec:net6:max is renamed to inet:whois:iprecord:net:max in 3.x.'),
+            (2, 56, 'inet:asnet6:net6 is renamed to inet:asnet:net in 3.x.'),
+        ))
+        self.eq(lint('M003', 'inet:servfile +:server:ipv4=1.2.3.4 +:server:port=80\n'
+                             '+:server:host=* +:server:proto=tcp'), (
+            (1, 16, 'inet:servfile:server:ipv4 is removed in 3.x, use inet:serverfile:server.ip.'),
+            (1, 38, 'inet:servfile:server:port is removed in 3.x, use inet:serverfile:server.port.'),
+            (2, 2, 'inet:servfile:server:host is removed in 3.x.'),
+            (2, 18, 'inet:servfile:server:proto is removed in 3.x.'),
+        ))
 
         # M004 the universal .seen prop
         self.eq(lint('M004', '.created inet:fqdn.created +:seen [ :seen=now ] $x = $y.seen +.created +.$prop'), [])
@@ -783,7 +805,18 @@ class StormLintTest(s_t_utils.SynTest):
         removed = {k for t in ('forms', 'formprefixes', 'props') for k, v in s_stormlint.v3model[t].items() if v is None}
         self.eq(set(s_stormlint.v3model['hints']) - removed, set())
 
-        # every 2.x IP prop is in the v3model props or on a form which is removed in 3.x
+        # every 2.x form with an IPv4 and an IPv6 variant is in the v3model forms
+        modl = s_stormlint._getModel()
+        ipforms = [f for f in modl.forms if f[-1] == '4' and f'{f[:-1]}6' in modl.forms]
+        for form in ipforms:
+            self.isin(form, s_stormlint.v3model['forms'])
+            self.isin(f'{form[:-1]}6', s_stormlint.v3model['forms'])
+
+        self.isin('inet:asnet4', ipforms)
+        self.isin('ou:orgnet4', ipforms)
+        self.notin('hash:sha384', ipforms)
+
+        # every 2.x IP or network prop is in the v3model props or on a form which is removed in 3.x
         def isRemovedForm(form):
             if form in s_stormlint.v3model['forms']:
                 return s_stormlint.v3model['forms'][form] is None
@@ -791,8 +824,9 @@ class StormLintTest(s_t_utils.SynTest):
             return any(form.startswith(k) for k, v in s_stormlint.v3model['formprefixes'].items() if v is None)
 
         ipprops = []
-        for prop in s_stormlint._getModel().props.values():
-            if prop.isform or prop.isuniv or prop.name.rsplit(':', 1)[-1] not in ('ipv4', 'ipv6', 'ipv4s', 'ipv6s'):
+        ipnames = ('ipv4', 'ipv6', 'ipv4s', 'ipv6s', 'net4', 'net6')
+        for prop in modl.props.values():
+            if prop.isform or prop.isuniv or not any(n in ipnames for n in prop.name.split(':')):
                 continue
 
             ipprops.append(prop.full)
@@ -802,6 +836,9 @@ class StormLintTest(s_t_utils.SynTest):
         self.isin('inet:server:ipv4', ipprops)
         self.isin('inet:web:logon:client:ipv4', ipprops)
         self.isin('crypto:x509:cert:identities:ipv6s', ipprops)
+        self.isin('inet:asnet6:net6:min', ipprops)
+        self.isin('it:network:net4', ipprops)
+        self.isin('inet:servfile:server:ipv4', ipprops)
 
         # the M rules report high findings, like the R rules
         text = 'inet:ipv4 +.seen\n$x = ($y .z)'
