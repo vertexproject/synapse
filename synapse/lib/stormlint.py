@@ -15,7 +15,7 @@ import synapse.lib.parser as s_parser
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.modules as s_modules
 
-severities = ('high', 'medium', 'low', 'info')
+severities = ('high', 'medium', 'low')
 
 Finding = collections.namedtuple('Finding', ('rule', 'severity', 'line', 'column', 'mesg'))
 
@@ -1311,7 +1311,7 @@ def _reportV3Changes(ctx, iden):
         if change is not None and change[0] == iden:
             ctx.report(node, change[1])
 
-@rule('M001', 'renamed-form', 'info', v3=True)
+@rule('M001', 'renamed-form', 'high', v3=True)
 def _ruleRenamedForm(ctx):
     '''
     A form which is renamed in 3.x is lifted, filtered, pivoted to or added, such as inet:ipv4
@@ -1320,7 +1320,7 @@ def _ruleRenamedForm(ctx):
     '''
     _reportV3Changes(ctx, 'M001')
 
-@rule('M002', 'removed-form', 'info', v3=True)
+@rule('M002', 'removed-form', 'high', v3=True)
 def _ruleRemovedForm(ctx):
     '''
     A form which is removed in 3.x is lifted, filtered, pivoted to or added, such as inet:ssl:cert,
@@ -1328,7 +1328,7 @@ def _ruleRemovedForm(ctx):
     '''
     _reportV3Changes(ctx, 'M002')
 
-@rule('M003', 'renamed-prop', 'info', v3=True)
+@rule('M003', 'renamed-prop', 'high', v3=True)
 def _ruleRenamedProp(ctx):
     '''
     A prop which is renamed or removed in 3.x is used, such as inet:dns:a:ipv4 (inet:dns:a:ip),
@@ -1341,7 +1341,7 @@ def _ruleRenamedProp(ctx):
     '''
     _reportV3Changes(ctx, 'M003')
 
-@rule('M004', 'univ-seen', 'info', v3=True)
+@rule('M004', 'univ-seen', 'high', v3=True)
 def _ruleUnivSeen(ctx):
     '''
     The universal .seen prop is lifted, filtered, read, set or deleted. 3.x has no universal

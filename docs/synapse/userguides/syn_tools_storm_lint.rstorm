@@ -40,15 +40,6 @@ Each finding is printed as ``<path>:<line>:<column>: <rule> <message>``, followe
     example.storm:3:13: P001 Avoid spin, isolate the query in a function.
     Found 2 errors.
 
-An ``info`` finding, which is only reported by ``--v3-ready``, is printed as
-``<path>:<line>:<column>: <rule> (info) <message>``, and the summary counts the info findings separately:
-
-.. code-block:: text
-
-    example.storm:1:6: R001 $lib.true was removed, use (true).
-    example.storm:2:1: M001 (info) inet:ipv4 is renamed to inet:ip in 3.x.
-    Found 1 error and 1 info finding.
-
 When there are no findings, the tool prints ``All checks passed!``.
 
 JSON Output
@@ -62,7 +53,7 @@ object with ``path`` and ``error`` keys. When there are no findings, nothing is 
 
     python -m synapse.tools.storm.lint --v3-ready --format json example.storm
     {"path":"example.storm","line":1,"column":6,"rule":"R001","severity":"high","mesg":"$lib.true was removed, use (true)."}
-    {"path":"example.storm","line":2,"column":1,"rule":"M001","severity":"info","mesg":"inet:ipv4 is renamed to inet:ip in 3.x."}
+    {"path":"example.storm","line":2,"column":1,"rule":"M001","severity":"high","mesg":"inet:ipv4 is renamed to inet:ip in 3.x."}
 
 The exit codes are the same for both formats. A usage or configuration error is printed as text.
 ``--show-rules`` always prints text.
@@ -77,9 +68,9 @@ Exit Codes
     * - Code
       - Meaning
     * - ``0``
-      - No findings, or only ``info`` findings.
+      - No findings.
     * - ``1``
-      - One or more findings which are not ``info`` findings.
+      - One or more findings.
     * - ``2``
       - A usage error, an invalid configuration, an unknown rule ID, or a file which could not be read.
 
@@ -355,20 +346,20 @@ Synapse 3.x. The ``M`` rules and every ``R`` rule other than ``R004`` are off by
         ``inet:dns:a.newp``. 3.x reads the dotted segment as a virtual property.
     * - ``M001``
       - ``renamed-form``
-      - info
+      - high
       - v3
       - A form which is renamed in 3.x is lifted, filtered, pivoted to or added, such as ``inet:ipv4``
         (``inet:ip``), ``hash:*`` (``crypto:hash:*``) or ``it:prod:soft`` (``it:software``). A full prop name of
         the form is reported too.
     * - ``M002``
       - ``removed-form``
-      - info
+      - high
       - v3
       - A form which is removed in 3.x is lifted, filtered, pivoted to or added, such as ``inet:ssl:cert``,
         ``inet:web:*`` or ``it:av:sig``. The message names the replacement when there is one.
     * - ``M003``
       - ``renamed-prop``
-      - info
+      - high
       - v3
       - A prop which is renamed or removed in 3.x is used, such as ``inet:dns:a:ipv4`` (``inet:dns:a:ip``),
         ``ou:org:orgtype`` (``ou:org:type``), ``risk:vuln:cve`` (``risk:vuln:id``) or the
@@ -378,7 +369,7 @@ Synapse 3.x. The ``M`` rules and every ``R`` rule other than ``R004`` are off by
         the edit block of a node add, or after a single-form lift which starts its query.
     * - ``M004``
       - ``univ-seen``
-      - info
+      - high
       - v3
       - The universal ``.seen`` prop is lifted, filtered, read, set or deleted. 3.x has no universal props, use
         ``:seen`` on forms which implement ``meta:observable``.
@@ -395,18 +386,16 @@ which runs on 2.x today:
 - The ``R`` rules report Storm which fails, or which runs with a different meaning, on 3.x. These include the
   ``$lib`` constants and APIs which were removed, gtors which can no longer be called, bare ``true``, ``false``
   and ``null`` values, whitespace before a ``.`` deref, inbound pivots from a named form or prop, and dotted prop
-  names which 3.x reads as virtual properties. Their findings have ``high`` or ``medium`` severity and fail the
-  check like any other finding.
+  names which 3.x reads as virtual properties.
 - The ``M`` rules report data model forms and props which are renamed or removed in 3.x, and the universal
   ``.seen`` prop. They check the form and prop names used in lifts, filters, pivots, node adds and property sets.
   A relative prop such as ``:ipv4`` is only checked when its form is known: inside the edit block of a node add,
   or after a single-form lift which starts its query. The message names the 3.x replacement when there is one.
+  Storm which names a removed or renamed form or prop fails on 3.x, such as ``inet:ipv4=1.2.3.4`` or
+  ``inet:fqdn +.seen``, so the data and the Storm must both be migrated.
 
-The ``M`` rules report ``info`` findings. A data model change usually needs the data to be migrated as well as
-the Storm, so these findings mark Storm to review rather than errors. Info findings are printed with ``(info)``
-after the rule ID and are counted separately in the summary, and info findings alone do not fail the check: the
-tool prints ``Found 0 errors and N info findings.`` and exits with ``0``. Use ``--ignore M`` to skip them, or
-``--select M`` to list only them.
+The ``R`` and ``M`` findings have ``high`` or ``medium`` severity and fail the check like any other finding. Use
+``--ignore M`` to skip the ``M`` rules, or ``--select M`` to list only them.
 
 The ``R`` and ``M`` rules may also be run without ``--v3-ready``, by naming them with ``--select`` or
 ``--enable``.

@@ -18,7 +18,10 @@ class StormLintTest(s_t_utils.SynTest):
         self.eq(e001.severity, 'high')
         self.true(e001.doc.startswith('The Storm code failed to parse.'))
 
-        self.eq(s_stormlint.severities, ('high', 'medium', 'low', 'info'))
+        self.eq(s_stormlint.severities, ('high', 'medium', 'low'))
+        with self.raises(s_exc.BadArg):
+            s_stormlint.rule('X999', 'bad', 'info')
+
         with self.raises(s_exc.BadArg):
             s_stormlint.rule('X999', 'bad', 'critical')
 
@@ -800,7 +803,7 @@ class StormLintTest(s_t_utils.SynTest):
         self.isin('inet:web:logon:client:ipv4', ipprops)
         self.isin('crypto:x509:cert:identities:ipv6s', ipprops)
 
-        # v3 findings are info findings, except the R rules
+        # the M rules report high findings, like the R rules
         text = 'inet:ipv4 +.seen\n$x = ($y .z)'
         self.eq([f[:2] for f in s_stormlint.StormLinter(select=(), v3ready=True).lint(text)],
-                [('M001', 'info'), ('M004', 'info'), ('R006', 'high')])
+                [('M001', 'high'), ('M004', 'high'), ('R006', 'high')])

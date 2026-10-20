@@ -23,10 +23,9 @@ which has one, searching upward from the current directory.
 With --format json, each finding or file error is printed as one JSON object per line.
 
 With --v3-ready, the rules which report Storm that must change for Synapse 3.x are added to the
-selected rules. Data model renames and removals are reported as info findings.
+selected rules.
 
-Exit codes: 0 when clean or when there are only info findings, 1 when there are other findings,
-2 on a usage, config or file error.
+Exit codes: 0 when clean, 1 when there are findings, 2 on a usage, config or file error.
 '''
 
 def _loadToml(path):
@@ -215,7 +214,6 @@ async def main(argv, outp=s_output.stdout):
     asjson = opts.format == 'json'
 
     count = 0
-    infos = 0
     failed = False
     seen = set()
 
@@ -239,29 +237,19 @@ async def main(argv, outp=s_output.stdout):
 
         for f in linter.lint(text):
 
-            isinfo = f.severity == 'info'
-            if isinfo:
-                infos += 1
-            else:
-                count += 1
+            count += 1
 
             if asjson:
                 info = {'path': path, 'line': f.line, 'column': f.column, 'rule': f.rule,
                         'severity': f.severity, 'mesg': f.mesg}
                 outp.printf(s_json.dumps(info).decode())
-            elif isinfo:
-                outp.printf(f'{path}:{f.line}:{f.column}: {f.rule} (info) {f.mesg}')
             else:
                 outp.printf(f'{path}:{f.line}:{f.column}: {f.rule} {f.mesg}')
 
     if not asjson:
 
-        noun = 'error' if count == 1 else 'errors'
-        if infos:
-            infonoun = 'info finding' if infos == 1 else 'info findings'
-            outp.printf(f'Found {count} {noun} and {infos} {infonoun}.')
-
-        elif count:
+        if count:
+            noun = 'error' if count == 1 else 'errors'
             outp.printf(f'Found {count} {noun}.')
 
         elif not failed:

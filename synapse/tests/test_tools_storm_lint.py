@@ -23,7 +23,7 @@ class TestStormLint(s_t_utils.SynTest):
         outp.expect('ID    SEVERITY  DEFAULT  NAME                 DESCRIPTION')
         outp.expect('E001  high      yes      parse-failure')
         outp.expect('P001  low       yes      spin                 The spin command')
-        outp.expect('M001  info      v3       renamed-form')
+        outp.expect('M001  high      v3       renamed-form')
         outp.expect('R004  medium    yes      bare-constant')
         outp.expect('R005  high      v3       removed-api')
         outp.expect('R008  high      v3       dotted-prop')
@@ -131,18 +131,18 @@ class TestStormLint(s_t_utils.SynTest):
             outp.expect('bin.storm: error: ')
             outp.expect('Found 3 errors.')
 
-            # --v3-ready adds the R and M rules, and info findings alone exit 0
+            # --v3-ready adds the R and M rules, and M findings fail the check
             v3 = os.path.join(dirn, 'v3.storm')
             _write(v3, 'inet:ipv4=1.2.3.4\n[ .seen=now ]\ninet:ipv6\n')
 
             outp = self.getTestOutp()
-            self.eq(await s_lint.main(['--v3-ready', 'v3.storm'], outp=outp), 0)
+            self.eq(await s_lint.main(['--v3-ready', 'v3.storm'], outp=outp), 1)
             self.eq(str(outp).strip().split('\n'), [
-                'v3.storm:1:1: M001 (info) inet:ipv4 is renamed to inet:ip in 3.x.',
-                'v3.storm:2:3: M004 (info) The universal .seen prop is replaced by :seen in 3.x, '
+                'v3.storm:1:1: M001 inet:ipv4 is renamed to inet:ip in 3.x.',
+                'v3.storm:2:3: M004 The universal .seen prop is replaced by :seen in 3.x, '
                 'on forms which implement meta:observable.',
-                'v3.storm:3:1: M001 (info) inet:ipv6 is renamed to inet:ip in 3.x.',
-                'Found 0 errors and 3 info findings.',
+                'v3.storm:3:1: M001 inet:ipv6 is renamed to inet:ip in 3.x.',
+                'Found 3 errors.',
             ])
 
             outp = self.getTestOutp()
@@ -152,19 +152,20 @@ class TestStormLint(s_t_utils.SynTest):
             outp = self.getTestOutp()
             self.eq(await s_lint.main(['--v3-ready', '--ignore', 'M00', 'v3.storm', 'bad.storm'], outp=outp), 1)
             outp.expect('bad.storm:2:6: R001 $lib.true was removed, use (true).')
-            outp.expect('(info)', False)
+            outp.expect('M00', False)
             outp.expect('Found 3 errors.')
 
             outp = self.getTestOutp()
             self.eq(await s_lint.main(['--v3-ready', '--ignore', 'M004', 'v3.storm', 'bad.storm'], outp=outp), 1)
-            outp.expect('Found 3 errors and 2 info findings.')
+            outp.expect('v3.storm:3:1: M001 inet:ipv6 is renamed to inet:ip in 3.x.')
+            outp.expect('Found 5 errors.')
 
             outp = self.getTestOutp()
             with mock.patch('sys.stdin', io.StringIO('inet:ipv4 spin\n')):
                 self.eq(await s_lint.main(['--v3-ready', '-'], outp=outp), 1)
-            outp.expect('-:1:1: M001 (info) inet:ipv4 is renamed to inet:ip in 3.x.')
+            outp.expect('-:1:1: M001 inet:ipv4 is renamed to inet:ip in 3.x.')
             outp.expect('-:1:11: P001 Avoid spin')
-            outp.expect('Found 1 error and 1 info finding.')
+            outp.expect('Found 2 errors.')
 
             outp = self.getTestOutp()
             with mock.patch('sys.stdin', io.StringIO('$x = ($y .z)\n')):
@@ -173,16 +174,16 @@ class TestStormLint(s_t_utils.SynTest):
             outp.expect('Found 1 error.')
 
             outp = self.getTestOutp()
-            self.eq(await s_lint.main(['--format', 'json', '--v3-ready', '--ignore', 'M004', 'v3.storm'], outp=outp), 0)
+            self.eq(await s_lint.main(['--format', 'json', '--v3-ready', '--ignore', 'M004', 'v3.storm'], outp=outp), 1)
             rows = [s_json.loads(line) for line in str(outp).strip().split('\n')]
-            self.eq(rows[0], {'path': 'v3.storm', 'line': 1, 'column': 1, 'rule': 'M001', 'severity': 'info',
+            self.eq(rows[0], {'path': 'v3.storm', 'line': 1, 'column': 1, 'rule': 'M001', 'severity': 'high',
                               'mesg': 'inet:ipv4 is renamed to inet:ip in 3.x.'})
             self.len(2, rows)
 
             outp = self.getTestOutp()
             self.eq(await s_lint.main(['--v3-ready', '--ignore', 'M004', 'newp.storm', v3], outp=outp), 2)
             outp.expect('newp.storm: error: ')
-            outp.expect('Found 0 errors and 2 info findings.')
+            outp.expect('Found 2 errors.')
 
             # json output is one object per line with no summary
             outp = self.getTestOutp()
@@ -309,9 +310,9 @@ exclude = [
             os.chdir(os.path.join(dirn, 'src'))
             try:
                 outp = self.getTestOutp()
-                self.eq(await s_lint.main(['m3.storm'], outp=outp), 0)
-                outp.expect('m3.storm:1:1: M001 (info) ')
-                outp.expect('Found 0 errors and 1 info finding.')
+                self.eq(await s_lint.main(['m3.storm'], outp=outp), 1)
+                outp.expect('m3.storm:1:1: M001 inet:ipv4 is renamed to inet:ip in 3.x.')
+                outp.expect('Found 1 error.')
 
                 outp = self.getTestOutp()
                 self.eq(await s_lint.main(['--no-v3-ready', 'm3.storm'], outp=outp), 0)
