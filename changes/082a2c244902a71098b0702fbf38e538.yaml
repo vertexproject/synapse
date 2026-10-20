@@ -1,0 +1,7 @@
+---
+desc: Added a `reverse` option to `$lib.model.migration.loop()` to run `onview` for
+  child views before their parents.
+desc:literal: false
+prs: []
+type: feat
+...

@@ -1,0 +1,7 @@
+---
+desc: Added ``$lib.layer.get().setNodeDataValu()`` and ``$lib.layer.get().getNodeDataValu()``
+  to set and get node data in a specific layer.
+desc:literal: false
+prs: []
+type: feat
+...
