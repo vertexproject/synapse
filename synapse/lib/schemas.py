@@ -1248,3 +1248,17 @@ _jwtclaimschema = {
 }
 reqValidJwtClaims = s_config.getJsValidator(_jwtclaimschema)
 jwtRegisteredClaims = frozenset(_jwtclaimschema['properties'])
+
+_stormLintStrList = {'type': 'array', 'items': {'type': 'string'}}
+
+_stormLintConfSchema = {
+    'type': 'object',
+    'properties': {
+        'select': _stormLintStrList,
+        'ignore': _stormLintStrList,
+        'enable': _stormLintStrList,
+        'exclude': _stormLintStrList,
+    },
+    'additionalProperties': False,
+}
+reqValidStormLintConf = s_config.getJsValidator(_stormLintConfSchema)
