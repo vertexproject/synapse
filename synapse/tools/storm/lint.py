@@ -2,6 +2,7 @@ import os
 import sys
 import fnmatch
 import tomllib
+import argparse
 
 import synapse.exc as s_exc
 
@@ -21,7 +22,11 @@ which has one, searching upward from the current directory.
 
 With --format json, each finding or file error is printed as one JSON object per line.
 
-Exit codes: 0 when clean, 1 when there are findings, 2 on a usage, config or file error.
+With --v3-ready, the rules which report Storm that must change for Synapse 3.x are added to the
+selected rules. Data model renames and removals are reported as info findings.
+
+Exit codes: 0 when clean or when there are only info findings, 1 when there are other findings,
+2 on a usage, config or file error.
 '''
 
 def _loadToml(path):
@@ -126,7 +131,12 @@ def _showRules(outp):
     rows = [('ID', 'SEVERITY', 'DEFAULT', 'NAME', 'DESCRIPTION')]
     for r in s_stormlint.rules.values():
         doc = r.doc.split('\n', 1)[0]
-        rows.append((r.iden, r.severity, 'yes' if r.default and not r.v3 else 'no', r.name, doc))
+        if r.v3:
+            default = 'v3'
+        else:
+            default = 'yes' if r.default else 'no'
+
+        rows.append((r.iden, r.severity, default, r.name, doc))
 
     sizes = [max(len(row[i]) for row in rows) for i in range(4)]
     for row in rows:
@@ -145,6 +155,8 @@ async def main(argv, outp=s_output.stdout):
     pars.add_argument('--enable', type=_splitRulesString,
                       help='Comma-separated rule IDs or prefixes to add to the selected rules, '
                            'such as rules which are off by default.')
+    pars.add_argument('--v3-ready', action=argparse.BooleanOptionalAction, default=None,
+                      help='Add the rules which report Storm that must change for Synapse 3.x.')
     pars.add_argument('--config', help='Path to a pyproject.toml with a [tool.stormlint] table.')
     pars.add_argument('--format', default='text', choices=('text', 'json'),
                       help='Print findings as text, or as one JSON object per line.')
@@ -180,8 +192,12 @@ async def main(argv, outp=s_output.stdout):
     if enable is None:
         enable = conf.get('enable', ())
 
+    v3ready = opts.v3_ready
+    if v3ready is None:
+        v3ready = conf.get('v3_ready', False)
+
     try:
-        linter = s_stormlint.StormLinter(select=select, ignore=ignore, enable=enable)
+        linter = s_stormlint.StormLinter(select=select, ignore=ignore, enable=enable, v3ready=v3ready)
     except s_exc.BadArg as e:
         outp.printf(f'error: {e.get("mesg")}')
         return 2
@@ -190,6 +206,7 @@ async def main(argv, outp=s_output.stdout):
     asjson = opts.format == 'json'
 
     count = 0
+    infos = 0
     failed = False
     seen = set()
 
@@ -213,18 +230,29 @@ async def main(argv, outp=s_output.stdout):
 
         for f in linter.lint(text):
 
-            count += 1
+            isinfo = f.severity == 'info'
+            if isinfo:
+                infos += 1
+            else:
+                count += 1
+
             if asjson:
                 info = {'path': path, 'line': f.line, 'column': f.column, 'rule': f.rule,
                         'severity': f.severity, 'mesg': f.mesg}
                 outp.printf(s_json.dumps(info).decode())
+            elif isinfo:
+                outp.printf(f'{path}:{f.line}:{f.column}: {f.rule} (info) {f.mesg}')
             else:
                 outp.printf(f'{path}:{f.line}:{f.column}: {f.rule} {f.mesg}')
 
     if not asjson:
 
-        if count:
-            noun = 'error' if count == 1 else 'errors'
+        noun = 'error' if count == 1 else 'errors'
+        if infos:
+            infonoun = 'info finding' if infos == 1 else 'info findings'
+            outp.printf(f'Found {count} {noun} and {infos} {infonoun}.')
+
+        elif count:
             outp.printf(f'Found {count} {noun}.')
 
         elif not failed:

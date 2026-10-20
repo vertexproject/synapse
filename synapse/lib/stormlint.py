@@ -7,6 +7,7 @@ import warnings
 import collections
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.ast as s_ast
@@ -14,7 +15,7 @@ import synapse.lib.parser as s_parser
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.modules as s_modules
 
-severities = ('high', 'medium', 'low')
+severities = ('high', 'medium', 'low', 'info')
 
 Finding = collections.namedtuple('Finding', ('rule', 'severity', 'line', 'column', 'mesg'))
 
@@ -104,6 +105,133 @@ varcalls = {
     'set': 'assign vars.<name>',
     'pop': 'assign $lib.undef to vars.<name>',
     'list': 'iterate vars with a for loop',
+}
+
+# 2.x data model names which are renamed (old -> new) or removed (old -> None) in 3.x
+v3model = {
+    'forms': {
+        'biz:dealtype': 'biz:deal:type:taxonomy',
+        'biz:prodtype': 'biz:product:type:taxonomy',
+        'geo:place:taxonomy': 'geo:place:type:taxonomy',
+        'inet:cidr4': 'inet:net',
+        'inet:cidr6': 'inet:net',
+        'inet:ipv4': 'inet:ip',
+        'inet:ipv6': 'inet:ip',
+        'inet:service:app': 'inet:service:agent',
+        'inet:service:channel:member': None,
+        'inet:service:group': None,
+        'inet:service:group:member': None,
+        'inet:service:instance': None,
+        'inet:service:message:attachment': None,
+        'inet:service:message:link': None,
+        'inet:service:thread': None,
+        'inet:ssl:cert': None,
+        'inet:whois:contact': None,
+        'inet:whois:email': None,
+        'inet:whois:ipcontact': None,
+        'inet:whois:iprec': 'inet:whois:iprecord',
+        'inet:whois:rec': 'inet:whois:record',
+        'it:account': 'it:host:account',
+        'it:av:filehit': None,
+        'it:av:sig': None,
+        'it:dev:regkey': 'it:os:windows:registry:key',
+        'it:dev:regval': 'it:os:windows:registry:entry',
+        'it:domain': None,
+        'it:group': 'it:host:group',
+        'it:hosturl': 'it:exec:fetch',
+        'it:prod:hardware': 'it:hardware',
+        'it:prod:hardwaretype': 'it:hardware:type:taxonomy',
+        'it:prod:soft': 'it:software',
+        'it:prod:softname': 'it:softwarename',
+        'it:prod:softver': 'it:software',
+        'media:news': 'doc:report',
+        'media:news:taxonomy': 'doc:report:type:taxonomy',
+        'meta:event:taxonomy': 'meta:event:type:taxonomy',
+        'meta:timeline:taxonomy': 'meta:timeline:type:taxonomy',
+        'ou:campaign': 'entity:campaign',
+        'ou:camptype': 'entity:campaign:type:taxonomy',
+        'ou:contract': 'doc:contract',
+        'ou:conttype': 'doc:contract:type:taxonomy',
+        'ou:goal': 'entity:goal',
+        'ou:industry': None,
+        'ou:jobtype': 'ou:job:type:taxonomy',
+        'ou:orgtype': 'ou:org:type:taxonomy',
+        'ps:contact': 'entity:contact',
+        'risk:availability': None,
+        'risk:tool:software': 'it:software',
+        'risk:tool:software:taxonomy': 'it:software:type:taxonomy',
+        'syn:cron': None,
+        'syn:trigger': None,
+    },
+    # form name prefixes, for families of forms
+    'formprefixes': {
+        'hash:': 'crypto:hash:',
+        'inet:web:': None,
+    },
+    'props': {
+        'file:bytes:exe:compiler': None,
+        'file:bytes:exe:packer': None,
+        'file:bytes:mime:pe:compiled': 'file:mime:pe:compiled',
+        'file:bytes:mime:pe:exports:libname': 'file:mime:pe:exports:libname',
+        'file:bytes:mime:pe:exports:time': 'file:mime:pe:exports:time',
+        'file:bytes:mime:pe:imphash': 'file:mime:pe:imphash',
+        'file:bytes:mime:pe:pdbpath': 'file:mime:pe:pdbpath',
+        'file:bytes:mime:pe:richhdr': 'file:mime:pe:richheader',
+        'file:bytes:mime:pe:size': 'file:mime:pe:size',
+        'file:bytes:mime:x509:cn': None,
+        'inet:dns:a:ipv4': 'inet:dns:a:ip',
+        'inet:dns:aaaa:ipv6': 'inet:dns:aaaa:ip',
+        'inet:dns:rev:ipv4': 'inet:dns:rev:ip',
+        'inet:dns:wild:a:ipv4': 'inet:dns:wild:a:ip',
+        'inet:dns:wild:aaaa:ipv6': 'inet:dns:wild:aaaa:ip',
+        'inet:email:message:received:from:ipv4': 'inet:email:message:received:from:ip',
+        'inet:email:message:received:from:ipv6': 'inet:email:message:received:from:ip',
+        'inet:whois:ipquery:ipv4': 'inet:whois:ipquery:ip',
+        'inet:whois:ipquery:ipv6': 'inet:whois:ipquery:ip',
+        'it:account:domain': None,
+        'it:av:scan:result:target:file': 'it:av:scan:result:target',
+        'it:av:scan:result:target:fqdn': 'it:av:scan:result:target',
+        'it:av:scan:result:target:host': 'it:av:scan:result:target',
+        'it:av:scan:result:target:ipv4': 'it:av:scan:result:target',
+        'it:av:scan:result:target:ipv6': 'it:av:scan:result:target',
+        'it:av:scan:result:target:proc': 'it:av:scan:result:target',
+        'it:av:scan:result:target:url': 'it:av:scan:result:target',
+        'it:group:domain': None,
+        'it:host:ipv4': 'it:host:ip',
+        'ou:campaign:goal': None,
+        'ou:campaign:goals': None,
+        'ou:org:orgtype': 'ou:org:type',
+        'ps:contact:asof': 'entity:contact:seen',
+        'ps:contact:dob': 'entity:contact:lifespan',
+        'ps:contact:dod': 'entity:contact:lifespan',
+        'risk:attack:goal': None,
+        'risk:tool:software:availability': None,
+        'risk:vuln:cve': 'risk:vuln:id',
+    },
+    # what to use instead of a removed name or prefix
+    'hints': {
+        'file:bytes:exe:compiler': 'the :compiler prop of file:mime:pe, file:mime:elf or file:mime:macho',
+        'file:bytes:exe:packer': 'the :packer prop of file:mime:pe, file:mime:elf or file:mime:macho',
+        'file:bytes:mime:x509:cn': 'crypto:x509:cert:subject',
+        'inet:service:channel:member': 'inet:service:member',
+        'inet:service:group:member': 'inet:service:member',
+        'inet:ssl:cert': 'inet:tls:servercert or inet:tls:clientcert',
+        'inet:web:': 'the inet:service:* forms',
+        'inet:whois:contact': 'entity:contact in the :contacts of the record',
+        'inet:whois:email': 'entity:contact in the :contacts of the record',
+        'inet:whois:ipcontact': 'entity:contact in the :contacts of the record',
+        'it:account:domain': 'the :domain of the account :host',
+        'it:av:filehit': 'it:av:scan:result',
+        'it:av:sig': 'it:av:scan:result',
+        'it:domain': 'inet:service:platform',
+        'it:group:domain': 'the :domain of the group :host',
+        'ou:campaign:goal': 'a -(supported)> edge to an entity:goal',
+        'ou:campaign:goals': 'a -(supported)> edge to an entity:goal',
+        'ou:industry': 'ind:industry',
+        'risk:attack:goal': 'a -(supported)> edge to an entity:goal',
+        'syn:cron': 'cron.list or $lib.cron.list()',
+        'syn:trigger': 'trigger.list or $lib.trigger.list()',
+    },
 }
 
 _model = None
@@ -528,6 +656,175 @@ def _ruleRemovedApi(ctx):
         if tail is not None and tail[0] == 'vars' and tail[1] in varcalls:
             ctx.report(node, f'vars.{tail[1]}() was removed, vars are dict-like: {varcalls[tail[1]]}.')
 
+@rule('R006', 'deref-space', 'high', v3=True)
+def _ruleDerefSpace(ctx):
+    '''
+    Whitespace before the . of a variable deref or a tag name segment, such as ($foo .bar) or
+    $(#foo .bar). 3.x does not allow whitespace before the dot, and reads a dot which follows
+    whitespace as a virtual property. Whitespace after the dot is allowed.
+    '''
+    for node in ctx.walk((s_ast.VarDeref, s_ast.TagName)):
+
+        if isinstance(node, s_ast.VarDeref):
+            pairs = (node.kids[:2],)
+            kind = 'variable deref'
+        else:
+            pairs = zip(node.kids, node.kids[1:])
+            kind = 'tag name'
+
+        for prev, name in pairs:
+
+            gap = ctx.text[prev.astinfo.eoff:name.astinfo.soff]
+            offs = gap.find('.')
+            if offs > 0 and gap[:offs].isspace():
+                ctx.report(node, f'Remove the whitespace before the . in a {kind}.', offs=prev.astinfo.eoff + offs)
+
+@rule('R007', 'pivot-in-prop', 'high', v3=True)
+def _rulePivotInProp(ctx):
+    '''
+    An inbound pivot or join from a named form or prop, such as <- inet:dns:a. 3.x only allows
+    <- * and <+- *.
+    '''
+    for node in ctx.walk(s_ast.PivotInFrom):
+        oper = '<+-' if node.isjoin else '<-'
+        ctx.report(node, f'{oper} {ctx.getText(node.kids[0])} was removed, use {oper} *.')
+
+def _propForm(ctx, name):
+    '''
+    Return the form of a form or full prop name, or None.
+    '''
+    name = name.split('.', 1)[0]
+    while name:
+
+        if ctx.isForm(name):
+            return name
+
+        name = name.rpartition(':')[0]
+
+    return None
+
+def _absNames(ctx):
+    '''
+    Yield the Const nodes of form and full prop names in lifts, filters, pivots and node adds.
+    '''
+    for node in ctx.walk():
+
+        kind = type(node)
+        if kind in (s_ast.LiftProp, s_ast.LiftPropBy, s_ast.LiftByArray, s_ast.LiftFormTag, s_ast.FormTagProp,
+                    s_ast.FormName, s_ast.HasAbsPropCond, s_ast.AbsPropCond, s_ast.FormPivot, s_ast.PivotInFrom):
+            names = node.kids[:1]
+
+        elif kind in (s_ast.PropPivot, s_ast.N1Walk, s_ast.N2Walk):
+            names = node.kids[1:2]
+
+        else:
+            continue
+
+        if names and isinstance(names[0], s_ast.List):
+            names = names[0].kids
+
+        for name in names:
+            if type(name) is s_ast.Const and isinstance(name.valu, str):
+                yield name
+
+# opers which do not change the nodes in the pipeline
+keepopers = (s_ast.FiltOper, s_ast.EditPropSet, s_ast.EditCondPropSet, s_ast.EditPropSetMulti, s_ast.EditPropDel,
+             s_ast.EditUnivDel, s_ast.EditTagAdd, s_ast.EditTagDel, s_ast.EditTagPropSet, s_ast.EditTagPropDel,
+             s_ast.EditEdgeAdd, s_ast.EditEdgeDel)
+varopers = (s_ast.SetVarOper, s_ast.VarListSetOper, s_ast.SetItemOper)
+subqueries = (s_ast.SubQuery, s_ast.SubqCond, s_ast.EmbedQuery)
+
+def _relName(node):
+    '''
+    Return the name of a constant relative prop, or None.
+    '''
+    if isinstance(node, s_ast.UnivProp) or not isinstance(node, (s_ast.RelProp, s_ast.RelPropValue)):
+        return None
+
+    name = node.kids[0]
+    if type(name) is not s_ast.Const:
+        return None
+
+    return name.valu
+
+def _relProps(ctx, node):
+    '''
+    Yield the (node, name) of the constant relative props in an oper, outside of its subqueries.
+    '''
+    for prop in ctx.walk(node=node, skip=subqueries):
+        name = _relName(prop)
+        if name is not None:
+            yield prop, name
+
+def _liftForm(ctx, node):
+    '''
+    Return the form lifted by a single-form lift, or None.
+    '''
+    if not isinstance(node, (s_ast.LiftProp, s_ast.LiftPropBy, s_ast.LiftByArray, s_ast.LiftFormTag)):
+        return None
+
+    name = node.kids[0]
+    if type(name) is not s_ast.Const or not ctx.isProp(name.valu):
+        return None
+
+    return _propForm(ctx, name.valu)
+
+def _fullRelNames(ctx):
+    '''
+    Yield the (node, full name) of relative props whose form is statically known: in the edit block
+    of a node add, or after a single-form lift which starts its query.
+    '''
+    for query in ctx.walk((s_ast.Query, s_ast.EditParens)):
+
+        form = None
+        first = True
+        for oper in query.kids:
+
+            if isinstance(oper, s_ast.EditNodeAdd):
+                name = oper.kids[0].kids[0]
+                form = name.valu if type(name) is s_ast.Const else None
+
+            elif isinstance(oper, s_ast.LiftOper):
+                form = _liftForm(ctx, oper) if first else None
+
+            elif isinstance(oper, (s_ast.PropPivot, s_ast.PropPivotOut)):
+                if form is not None:
+                    for node, name in _relProps(ctx, oper.kids[0]):
+                        yield node, f'{form}:{name}'
+
+                form = None
+
+            elif isinstance(oper, keepopers):
+                if form is not None:
+                    for node, name in _relProps(ctx, oper):
+                        yield node, f'{form}:{name}'
+
+            elif not isinstance(oper, varopers):
+                form = None
+
+            if not isinstance(oper, varopers):
+                first = False
+
+@rule('R008', 'dotted-prop', 'high', v3=True)
+def _ruleDottedProp(ctx):
+    '''
+    A prop name with a dotted segment which is not a universal prop, such as :foo.bar or
+    inet:dns:a.newp. 3.x reads the dotted segment as a virtual property.
+    '''
+    names = [(node, node.valu) for node in _absNames(ctx) if not node.valu.startswith('.')]
+    for node in ctx.walk((s_ast.RelProp, s_ast.RelPropValue)):
+        name = _relName(node)
+        if name is not None:
+            names.append((node, f':{name}'))
+
+    for node, name in names:
+
+        if '.' not in name or ctx.isProp(name):
+            continue
+
+        virt = name.split('.', 1)[1]
+        ctx.report(node, f'The .{virt} in {name} is read as a virtual property in 3.x.')
+
 @rule('P001', 'spin', 'low')
 def _ruleSpin(ctx):
     '''
@@ -885,6 +1182,105 @@ def _ruleReturnImport(ctx):
             if isvar or ctx.callPath(valu) == ('lib', 'import'):
                 ctx.report(node, 'Never return a module from $lib.import(), in a privsep module it inherits root '
                                  'privileges even when bound as $__name.')
+
+def _getV3Mesg(key, old, new):
+
+    if new is not None:
+        return f'{old} is renamed to {new} in 3.x.'
+
+    hint = v3model['hints'].get(key)
+    if hint is None:
+        return f'{old} is removed in 3.x.'
+
+    return f'{old} is removed in 3.x, use {hint}.'
+
+def _getV3Change(ctx, name, isrel=False):
+    '''
+    Return the (rule, mesg) for a form or full prop name which is renamed or removed in 3.x, or None.
+
+    A relative prop is only checked against the v3model props, the form of its node is checked where
+    the form is named.
+    '''
+    props = v3model['props']
+    if name in props:
+        return 'M003', _getV3Mesg(name, name, props[name])
+
+    if isrel:
+        return None
+
+    form = name if name.endswith('*') else _propForm(ctx, name)
+    if form is None:
+        return None
+
+    key = form
+    new = v3model['forms'].get(form, s_common.novalu)
+    if new is s_common.novalu:
+
+        for key, new in v3model['formprefixes'].items():
+            if form.startswith(key):
+                break
+        else:
+            return None
+
+        if new is not None:
+            new += form[len(key):]
+
+    return ('M001' if new is not None else 'M002'), _getV3Mesg(key, form, new)
+
+def _reportV3Changes(ctx, iden):
+
+    names = [(node, node.valu, False) for node in _absNames(ctx)]
+    names.extend((node, name, True) for node, name in _fullRelNames(ctx))
+
+    for node, name, isrel in names:
+        change = _getV3Change(ctx, name, isrel=isrel)
+        if change is not None and change[0] == iden:
+            ctx.report(node, change[1])
+
+@rule('M001', 'renamed-form', 'info', v3=True)
+def _ruleRenamedForm(ctx):
+    '''
+    A form which is renamed in 3.x is lifted, filtered, pivoted to or added, such as inet:ipv4
+    (inet:ip), hash:* (crypto:hash:*) or it:prod:soft (it:software). A full prop name of the
+    form is reported too.
+    '''
+    _reportV3Changes(ctx, 'M001')
+
+@rule('M002', 'removed-form', 'info', v3=True)
+def _ruleRemovedForm(ctx):
+    '''
+    A form which is removed in 3.x is lifted, filtered, pivoted to or added, such as inet:ssl:cert,
+    inet:web:* or it:av:sig. The message names the replacement when there is one.
+    '''
+    _reportV3Changes(ctx, 'M002')
+
+@rule('M003', 'renamed-prop', 'info', v3=True)
+def _ruleRenamedProp(ctx):
+    '''
+    A prop which is renamed or removed in 3.x is used, such as inet:dns:a:ipv4 (inet:dns:a:ip),
+    ou:org:orgtype (ou:org:type), risk:vuln:cve (risk:vuln:id) or the it:av:scan:result:target:*
+    props (it:av:scan:result:target).
+
+    A relative prop is only checked when its form is known: in the edit block of a node add, or
+    after a single-form lift which starts its query.
+    '''
+    _reportV3Changes(ctx, 'M003')
+
+@rule('M004', 'univ-seen', 'info', v3=True)
+def _ruleUnivSeen(ctx):
+    '''
+    The universal .seen prop is lifted, filtered, read, set or deleted. 3.x has no universal
+    props, use :seen on forms which implement meta:observable.
+    '''
+    nodes = [node for node in _absNames(ctx) if node.valu.partition('.')[2] == 'seen']
+    for node in ctx.walk(s_ast.UnivProp):
+        name = node.kids[0]
+        if type(name) is s_ast.Const and name.valu == '.seen':
+            nodes.append(node)
+
+    mesg = 'The universal .seen prop is replaced by :seen in 3.x, on forms which implement meta:observable.'
+    for node in nodes:
+        ctx.report(node, mesg)
 
 
 class StormLinter:

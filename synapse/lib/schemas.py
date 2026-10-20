@@ -1258,6 +1258,7 @@ _stormLintConfSchema = {
         'ignore': _stormLintStrList,
         'enable': _stormLintStrList,
         'exclude': _stormLintStrList,
+        'v3_ready': {'type': 'boolean'},
     },
     'additionalProperties': False,
 }

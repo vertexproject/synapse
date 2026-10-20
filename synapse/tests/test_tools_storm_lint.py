@@ -23,7 +23,9 @@ class TestStormLint(s_t_utils.SynTest):
         outp.expect('ID    SEVERITY  DEFAULT  NAME                 DESCRIPTION')
         outp.expect('E001  high      yes      parse-failure')
         outp.expect('P001  low       yes      spin                 The spin command')
-        outp.expect('R005  high      no       removed-api')
+        outp.expect('M001  info      v3       renamed-form')
+        outp.expect('R005  high      v3       removed-api')
+        outp.expect('R008  high      v3       dotted-prop')
         outp.expect('S010  low       no       guarded-prop-set     ')
         outp.expect('S015  medium    no       return-import')
 
@@ -34,6 +36,7 @@ class TestStormLint(s_t_utils.SynTest):
         outp = self.getTestOutp()
         self.eq(await s_lint.main(['-h'], outp=outp), 0)
         outp.expect('--enable')
+        outp.expect('--v3-ready')
 
         with self.getTestDir(chdir=True) as dirn:
 
@@ -127,6 +130,59 @@ class TestStormLint(s_t_utils.SynTest):
             outp.expect('bin.storm: error: ')
             outp.expect('Found 3 errors.')
 
+            # --v3-ready adds the R and M rules, and info findings alone exit 0
+            v3 = os.path.join(dirn, 'v3.storm')
+            _write(v3, 'inet:ipv4=1.2.3.4\n[ .seen=now ]\ninet:ipv6\n')
+
+            outp = self.getTestOutp()
+            self.eq(await s_lint.main(['--v3-ready', 'v3.storm'], outp=outp), 0)
+            self.eq(str(outp).strip().split('\n'), [
+                'v3.storm:1:1: M001 (info) inet:ipv4 is renamed to inet:ip in 3.x.',
+                'v3.storm:2:3: M004 (info) The universal .seen prop is replaced by :seen in 3.x, '
+                'on forms which implement meta:observable.',
+                'v3.storm:3:1: M001 (info) inet:ipv6 is renamed to inet:ip in 3.x.',
+                'Found 0 errors and 3 info findings.',
+            ])
+
+            outp = self.getTestOutp()
+            self.eq(await s_lint.main(['--v3-ready', '--select', 'E', '--ignore', 'M004,M001', 'v3.storm'], outp=outp), 0)
+            self.eq(str(outp).strip(), 'All checks passed!')
+
+            outp = self.getTestOutp()
+            self.eq(await s_lint.main(['--v3-ready', '--ignore', 'M00', 'v3.storm', 'bad.storm'], outp=outp), 1)
+            outp.expect('bad.storm:2:6: R001 $lib.true was removed, use (true).')
+            outp.expect('(info)', False)
+            outp.expect('Found 3 errors.')
+
+            outp = self.getTestOutp()
+            self.eq(await s_lint.main(['--v3-ready', '--ignore', 'M004', 'v3.storm', 'bad.storm'], outp=outp), 1)
+            outp.expect('Found 3 errors and 2 info findings.')
+
+            outp = self.getTestOutp()
+            with mock.patch('sys.stdin', io.StringIO('inet:ipv4 spin\n')):
+                self.eq(await s_lint.main(['--v3-ready', '-'], outp=outp), 1)
+            outp.expect('-:1:1: M001 (info) inet:ipv4 is renamed to inet:ip in 3.x.')
+            outp.expect('-:1:11: P001 Avoid spin')
+            outp.expect('Found 1 error and 1 info finding.')
+
+            outp = self.getTestOutp()
+            with mock.patch('sys.stdin', io.StringIO('$x = ($y .z)\n')):
+                self.eq(await s_lint.main(['--v3-ready', '--select', 'R', '-'], outp=outp), 1)
+            outp.expect('-:1:10: R006 Remove the whitespace before the . in a variable deref.')
+            outp.expect('Found 1 error.')
+
+            outp = self.getTestOutp()
+            self.eq(await s_lint.main(['--format', 'json', '--v3-ready', '--ignore', 'M004', 'v3.storm'], outp=outp), 0)
+            rows = [s_json.loads(line) for line in str(outp).strip().split('\n')]
+            self.eq(rows[0], {'path': 'v3.storm', 'line': 1, 'column': 1, 'rule': 'M001', 'severity': 'info',
+                              'mesg': 'inet:ipv4 is renamed to inet:ip in 3.x.'})
+            self.len(2, rows)
+
+            outp = self.getTestOutp()
+            self.eq(await s_lint.main(['--v3-ready', '--ignore', 'M004', 'newp.storm', v3], outp=outp), 2)
+            outp.expect('newp.storm: error: ')
+            outp.expect('Found 0 errors and 2 info findings.')
+
             # json output is one object per line with no summary
             outp = self.getTestOutp()
             self.eq(await s_lint.main(['--format', 'json', '--enable', 'R001', 'bad.storm'], outp=outp), 1)
@@ -203,6 +259,7 @@ line-length = 120
 [tool.stormlint]
 enable = ["R"]
 ignore = ["P"]
+v3_ready = true
 exclude = [
     "tmpl/{{cookiecutter.package_name}}/*",
     "tests/files/bad.storm",
@@ -244,6 +301,24 @@ exclude = [
             finally:
                 os.chdir(curd)
 
+            # v3_ready in the config, which the CLI flag replaces
+            m3 = os.path.join(dirn, 'src', 'm3.storm')
+            _write(m3, 'inet:ipv4\n')
+
+            os.chdir(os.path.join(dirn, 'src'))
+            try:
+                outp = self.getTestOutp()
+                self.eq(await s_lint.main(['m3.storm'], outp=outp), 0)
+                outp.expect('m3.storm:1:1: M001 (info) ')
+                outp.expect('Found 0 errors and 1 info finding.')
+
+                outp = self.getTestOutp()
+                self.eq(await s_lint.main(['--no-v3-ready', 'm3.storm'], outp=outp), 0)
+                outp.expect('All checks passed!')
+
+            finally:
+                os.chdir(curd)
+
             # explicit --config, relative to the config file's directory not the cwd
             other = os.path.join(dirn, 'other', 'pyproject.toml')
             _write(other, '[tool.stormlint]\nselect = ["P"]\nenable = ["S"]\nexclude = ["skip.storm"]\n')
@@ -253,6 +328,15 @@ exclude = [
             argv = ['--config', other, mod, os.path.join(dirn, 'other', 'skip.storm')]
             self.eq(await s_lint.main(argv, outp=outp), 1)
             outp.expect('R001', False)
+
+            outp = self.getTestOutp()
+            self.eq(await s_lint.main(['--v3-ready'] + argv, outp=outp), 1)
+            outp.expect('mod.storm:1:6: R001 ')
+            outp.expect('mod.storm:1:16: P001 ')
+            outp.expect('Found 2 errors.')
+
+            outp = self.getTestOutp()
+            self.eq(await s_lint.main(argv, outp=outp), 1)
             outp.expect('mod.storm:1:16: P001 ')
             outp.expect('Found 1 error.')
 
@@ -286,6 +370,7 @@ exclude = [
             await confErr('[tool.stormlint]\nnewp = []\n', "[tool.stormlint] data must not contain {'newp'} properties")
             await confErr('[tool.stormlint]\nselect = "E"\n', '[tool.stormlint] data.select must be array')
             await confErr('[tool.stormlint]\nignore = [1]\n', '[tool.stormlint] data.ignore[0] must be string')
+            await confErr('[tool.stormlint]\nv3_ready = "yes"\n', '[tool.stormlint] data.v3_ready must be boolean')
             await confErr('[tool.stormlint]\nselect = ["X9"]\n', "Unknown lint rule or prefix: 'X9'")
 
             with self.raises(s_exc.BadConfValu) as cm:

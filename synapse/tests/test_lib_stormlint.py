@@ -18,6 +18,7 @@ class StormLintTest(s_t_utils.SynTest):
         self.eq(e001.severity, 'high')
         self.true(e001.doc.startswith('The Storm code failed to parse.'))
 
+        self.eq(s_stormlint.severities, ('high', 'medium', 'low', 'info'))
         with self.raises(s_exc.BadArg):
             s_stormlint.rule('X999', 'bad', 'critical')
 
@@ -74,7 +75,8 @@ class StormLintTest(s_t_utils.SynTest):
             self.false(s_stormlint.rules['T001'].v3)
             self.false(s_stormlint.rules['S001'].v3)
 
-            v3rules = ['R001', 'R002', 'R003', 'R004', 'R005']
+            rrules = ['R001', 'R002', 'R003', 'R004', 'R005', 'R006', 'R007', 'R008']
+            v3rules = ['M001', 'M002', 'M003', 'M004'] + rrules
             self.eq([iden for iden, r in s_stormlint.rules.items() if r.v3], v3rules)
             for iden in v3rules:
                 self.true(s_stormlint.rules[iden].default)
@@ -89,13 +91,20 @@ class StormLintTest(s_t_utils.SynTest):
             for iden in v3rules:
                 self.notin(iden, defaults)
 
-            self.eq(idens(s_stormlint.StormLinter(select=('R',))), v3rules)
-            self.eq(idens(s_stormlint.StormLinter(select=('R00',), ignore=('R004',))), ['R001', 'R002', 'R003', 'R005'])
+            self.eq(idens(s_stormlint.StormLinter(select=('R',))), rrules)
+            self.eq(idens(s_stormlint.StormLinter(select=('M',))), ['M001', 'M002', 'M003', 'M004'])
+            self.eq(idens(s_stormlint.StormLinter(select=('R00',), ignore=('R004',))),
+                    ['R001', 'R002', 'R003', 'R005', 'R006', 'R007', 'R008'])
             self.eq(idens(s_stormlint.StormLinter(enable=('R004',))), sorted(defaults + ['R004']))
+            self.eq(idens(s_stormlint.StormLinter(enable=('M001', 'R006'))), sorted(defaults + ['M001', 'R006']))
             self.eq(idens(s_stormlint.StormLinter(v3ready=True)), sorted(defaults + v3rules))
             self.eq(idens(s_stormlint.StormLinter(select=('E001',), v3ready=True)), ['E001'] + v3rules)
+            self.eq(idens(s_stormlint.StormLinter(select=(), v3ready=True)), v3rules)
             self.eq(idens(s_stormlint.StormLinter(v3ready=True, ignore=('R004', 'S'))),
-                    sorted([i for i in defaults if not i.startswith('S')] + ['R001', 'R002', 'R003', 'R005']))
+                    sorted([i for i in defaults if not i.startswith('S')] + [i for i in v3rules if i != 'R004']))
+            self.eq(idens(s_stormlint.StormLinter(select=('E001',), v3ready=True, ignore=('M', 'R00'))), ['E001'])
+            self.eq(idens(s_stormlint.StormLinter(select=('E001',), enable=('M004',), v3ready=True, ignore=('M00',))),
+                    ['E001'] + rrules)
             self.eq(s_stormlint.StormLinter(ignore=('T', 'V')).lint('$x = $lib.true'), [])
             self.eq([f.rule for f in s_stormlint.StormLinter(ignore=('T', 'V'), enable=('R001',)).lint('$x = $lib.true')],
                     ['R001'])
@@ -222,10 +231,10 @@ class StormLintTest(s_t_utils.SynTest):
         for iden in ('T001', 'T002', 'U001', 'V001', 'W001'):
             self.notin(iden, s_stormlint.rules)
 
-        conf = {'select': ['E', 'S'], 'ignore': ['S002'], 'enable': ['R001'], 'exclude': ['*.storm']}
+        conf = {'select': ['E', 'S'], 'ignore': ['S002'], 'enable': ['R001'], 'exclude': ['*.storm'], 'v3_ready': True}
         self.eq(s_schemas.reqValidStormLintConf(conf), conf)
 
-        for conf in ({'newp': True}, {'select': 'E'}, {'ignore': [1]}):
+        for conf in ({'newp': True}, {'select': 'E'}, {'ignore': [1]}, {'v3_ready': 'yes'}):
             with self.raises(s_exc.SchemaViolation):
                 s_schemas.reqValidStormLintConf(conf)
 
@@ -234,8 +243,9 @@ class StormLintTest(s_t_utils.SynTest):
         def lint(iden, text):
             return [f[2:] for f in s_stormlint.StormLinter(select=(iden,)).lint(text)]
 
-        for iden in ('E002', 'E003', 'R001', 'R002', 'R003', 'R004', 'R005', 'P001', 'P002', 'S001', 'S002', 'S003',
-                     'S004', 'S005', 'S006', 'S008', 'S010', 'S011', 'S012', 'S014', 'S015'):
+        for iden in ('E002', 'E003', 'M001', 'M002', 'M003', 'M004', 'R001', 'R002', 'R003', 'R004', 'R005', 'R006',
+                     'R007', 'R008', 'P001', 'P002', 'S001', 'S002', 'S003', 'S004', 'S005', 'S006', 'S008', 'S010',
+                     'S011', 'S012', 'S014', 'S015'):
             self.true(s_stormlint.rules[iden].doc)
 
         # E002 invalid escapes in double-quoted and backtick strings
@@ -406,6 +416,127 @@ class StormLintTest(s_t_utils.SynTest):
             (4, 50, 'vars.list() was removed, vars are dict-like: iterate vars with a for loop.'),
             (5, 1, '$lib.user was removed, use $lib.auth.users.get().'),
             (5, 1, 'vars.get() was removed, vars are dict-like: read vars.<name>.'),
+        ))
+
+        # R006 whitespace before the . of a deref or tag segment
+        self.eq(lint('R006', '$a = $foo.bar $b = $foo. bar $c = ($foo.bar) $d = $foo .bar +$(#foo.bar) if ($a.b) {}\n'
+                             '$e = ($f. g) $h = $foo.$bar #foo .bar $i = ($j.`k`) +#foo.bar $k = $l .m'), [])
+        self.eq(lint('R006', '$a = $($foo .bar)\n'
+                             'if ($foo .bar) {}\n'
+                             '$foo .$bar\n'
+                             '+$(#foo .bar)\n'
+                             '$b = ($foo.bar\n'
+                             '    .baz) $c = ($d\t.`e`)\n'
+                             '[ :foo*$x .y=1 ] $e = $($f .g + 1)'), (
+            (1, 13, 'Remove the whitespace before the . in a variable deref.'),
+            (2, 10, 'Remove the whitespace before the . in a variable deref.'),
+            (3, 6, 'Remove the whitespace before the . in a variable deref.'),
+            (4, 9, 'Remove the whitespace before the . in a tag name.'),
+            (6, 5, 'Remove the whitespace before the . in a variable deref.'),
+            (6, 20, 'Remove the whitespace before the . in a variable deref.'),
+            (7, 11, 'Remove the whitespace before the . in a variable deref.'),
+            (7, 28, 'Remove the whitespace before the . in a variable deref.'),
+        ))
+
+        # R007 inbound pivots from a named form
+        self.eq(lint('R007', 'inet:fqdn <- * <+- * -> inet:dns:a <(refs)- * $lib.print("<- inet:dns:a")'), [])
+        self.eq(lint('R007', 'inet:fqdn <- inet:dns:a\n'
+                             '{ inet:fqdn <+- inet:dns:a }'), (
+            (1, 11, '<- inet:dns:a was removed, use <- *.'),
+            (2, 13, '<+- inet:dns:a was removed, use <+- *.'),
+        ))
+
+        # R008 dotted prop names
+        self.eq(lint('R008', 'inet:fqdn.seen inet:fqdn.created +inet:fqdn.seen [ .seen=now ] +:zone=x $x = $foo .bar .seen +.created\n'
+                             '+:$x=1 #foo.bar $y = $z.seen.x'), [])
+        self.eq(lint('R008', 'inet:dns:a.newp +:zone.bar=x\n'
+                             '[ :seen.max=2020 ] $x = :foo.bar\n'
+                             '+inet:fqdn:zone.x { -> inet:fqdn.newp }'), (
+            (1, 1, 'The .newp in inet:dns:a.newp is read as a virtual property in 3.x.'),
+            (1, 18, 'The .bar in :zone.bar is read as a virtual property in 3.x.'),
+            (2, 3, 'The .max in :seen.max is read as a virtual property in 3.x.'),
+            (2, 25, 'The .bar in :foo.bar is read as a virtual property in 3.x.'),
+            (3, 2, 'The .x in inet:fqdn:zone.x is read as a virtual property in 3.x.'),
+            (3, 24, 'The .newp in inet:fqdn.newp is read as a virtual property in 3.x.'),
+        ))
+
+        # M001 renamed forms
+        self.eq(lint('M001', 'inet:ip inet:fqdn [ inet:fqdn=x ] -> inet:dns:a $lib.cast(inet:ipv4, $x) inet:dns:a:ipv4 hash:newp inet:* *$form\n'
+                             'inet:ssl:cert -> ($x, inet:fqdn) inet:fqdn:newp'), [])
+        self.eq(lint('M001', 'inet:ipv4=1.2.3.4 -> inet:ipv6 +:asn=10\n'
+                             '[ it:prod:soft=* ] +it:prod:softver:vers=1\n'
+                             'hash:* hash:sha256=x -(refs)> (inet:ipv4, ou:org) <(refs)- media:news\n'
+                             'inet:ipv4#foo:score=1 inet:ipv4.seen +inet:cidr4'), (
+            (1, 1, 'inet:ipv4 is renamed to inet:ip in 3.x.'),
+            (1, 22, 'inet:ipv6 is renamed to inet:ip in 3.x.'),
+            (2, 3, 'it:prod:soft is renamed to it:software in 3.x.'),
+            (2, 21, 'it:prod:softver is renamed to it:software in 3.x.'),
+            (3, 1, 'hash:* is renamed to crypto:hash:* in 3.x.'),
+            (3, 8, 'hash:sha256 is renamed to crypto:hash:sha256 in 3.x.'),
+            (3, 32, 'inet:ipv4 is renamed to inet:ip in 3.x.'),
+            (3, 60, 'media:news is renamed to doc:report in 3.x.'),
+            (4, 1, 'inet:ipv4 is renamed to inet:ip in 3.x.'),
+            (4, 23, 'inet:ipv4 is renamed to inet:ip in 3.x.'),
+            (4, 39, 'inet:cidr4 is renamed to inet:net in 3.x.'),
+        ))
+
+        # M002 removed forms
+        self.eq(lint('M002', 'inet:service:account inet:tls:servercert inet:ipv4 inet:fqdn'), [])
+        self.eq(lint('M002', 'inet:ssl:cert inet:web:* inet:web:acct:user=x\n'
+                             '+it:av:sig -> syn:cron [ inet:whois:email=* ]\n'
+                             'risk:availability inet:service:thread'), (
+            (1, 1, 'inet:ssl:cert is removed in 3.x, use inet:tls:servercert or inet:tls:clientcert.'),
+            (1, 15, 'inet:web:* is removed in 3.x, use the inet:service:* forms.'),
+            (1, 26, 'inet:web:acct is removed in 3.x, use the inet:service:* forms.'),
+            (2, 2, 'it:av:sig is removed in 3.x, use it:av:scan:result.'),
+            (2, 15, 'syn:cron is removed in 3.x, use cron.list or $lib.cron.list().'),
+            (2, 26, 'inet:whois:email is removed in 3.x, use entity:contact in the :contacts of the record.'),
+            (3, 1, 'risk:availability is removed in 3.x.'),
+            (3, 19, 'inet:service:thread is removed in 3.x.'),
+        ))
+
+        # M003 renamed or removed props
+        self.eq(lint('M003', 'inet:dns:a +{ +:ipv4=1 } { [ :ipv4=1 ] } | inet:fqdn [ :ipv4=1 ]\n'
+                             'inet:fqdn inet:dns:a +:ipv4\n'
+                             '[ (inet:dns:a=x) :ipv4=1 ] inet:dns:a -> inet:fqdn +:ipv4=1\n'
+                             'inet:dns:a $lib.print(x) +:ipv4\n'
+                             '*$form=x [ :ipv4=1 ] inet:dns:a :$x -> * #foo [ :ipv4=1 ] .seen [ :ipv4=1 ]\n'
+                             'inet:ipv4 +:asn=1 [ *$form=1 :ipv4=1 ]\n'
+                             '{ #foo [ :ipv4=1 ] } { inet:ipv4 +:asn=1 }'), [])
+        self.eq(lint('M003', 'inet:dns:a:ipv4=1.2.3.4 +:ipv4=1 [ :ipv4=2 ] :ipv4 -> inet:fqdn\n'
+                             '{ [ ou:org=* :orgtype=x ] +risk:vuln:cve=x }\n'
+                             '{ inet:dns:aaaa [ -:ipv6 ] +$(:ipv6 = "x") :ipv6 -> * }\n'
+                             '{ it:av:scan:result [ :target:file=x :target:ipv4=x ] }\n'
+                             'risk:tool:software:availability file:bytes:mime:pe:richhdr { $x=1 inet:dns:a +:ipv4 }\n'
+                             '[ (inet:dns:a=(a, 1) :ipv4=1) ]'), (
+            (1, 1, 'inet:dns:a:ipv4 is renamed to inet:dns:a:ip in 3.x.'),
+            (1, 26, 'inet:dns:a:ipv4 is renamed to inet:dns:a:ip in 3.x.'),
+            (1, 36, 'inet:dns:a:ipv4 is renamed to inet:dns:a:ip in 3.x.'),
+            (1, 46, 'inet:dns:a:ipv4 is renamed to inet:dns:a:ip in 3.x.'),
+            (2, 14, 'ou:org:orgtype is renamed to ou:org:type in 3.x.'),
+            (2, 28, 'risk:vuln:cve is renamed to risk:vuln:id in 3.x.'),
+            (3, 20, 'inet:dns:aaaa:ipv6 is renamed to inet:dns:aaaa:ip in 3.x.'),
+            (3, 31, 'inet:dns:aaaa:ipv6 is renamed to inet:dns:aaaa:ip in 3.x.'),
+            (3, 44, 'inet:dns:aaaa:ipv6 is renamed to inet:dns:aaaa:ip in 3.x.'),
+            (4, 23, 'it:av:scan:result:target:file is renamed to it:av:scan:result:target in 3.x.'),
+            (4, 38, 'it:av:scan:result:target:ipv4 is renamed to it:av:scan:result:target in 3.x.'),
+            (5, 1, 'risk:tool:software:availability is removed in 3.x.'),
+            (5, 33, 'file:bytes:mime:pe:richhdr is renamed to file:mime:pe:richheader in 3.x.'),
+            (5, 79, 'inet:dns:a:ipv4 is renamed to inet:dns:a:ip in 3.x.'),
+            (6, 22, 'inet:dns:a:ipv4 is renamed to inet:dns:a:ip in 3.x.'),
+        ))
+
+        # M004 the universal .seen prop
+        self.eq(lint('M004', '.created inet:fqdn.created +:seen [ :seen=now ] $x = $y.seen +.created +.$prop'), [])
+        self.eq(lint('M004', '.seen inet:fqdn.seen=2020 +.seen\n'
+                             '[ .seen=now -.seen ] $x = .seen +inet:fqdn.seen'), (
+            (1, 1, 'The universal .seen prop is replaced by :seen in 3.x, on forms which implement meta:observable.'),
+            (1, 7, 'The universal .seen prop is replaced by :seen in 3.x, on forms which implement meta:observable.'),
+            (1, 28, 'The universal .seen prop is replaced by :seen in 3.x, on forms which implement meta:observable.'),
+            (2, 3, 'The universal .seen prop is replaced by :seen in 3.x, on forms which implement meta:observable.'),
+            (2, 14, 'The universal .seen prop is replaced by :seen in 3.x, on forms which implement meta:observable.'),
+            (2, 27, 'The universal .seen prop is replaced by :seen in 3.x, on forms which implement meta:observable.'),
+            (2, 34, 'The universal .seen prop is replaced by :seen in 3.x, on forms which implement meta:observable.'),
         ))
 
         # P001 spin
@@ -604,3 +735,23 @@ class StormLintTest(s_t_utils.SynTest):
             (7, 16, mesg),
             (8, 23, mesg),
         ))
+
+        # every v3model name is in the 2.x model
+        forms, props = s_stormlint._getModelNames()
+        for name in s_stormlint.v3model['forms']:
+            self.isin(name, forms)
+
+        for name in s_stormlint.v3model['props']:
+            self.isin(name, props)
+            self.notin(name, forms)
+
+        for prefix in s_stormlint.v3model['formprefixes']:
+            self.true(any(f.startswith(prefix) for f in forms))
+
+        removed = {k for t in ('forms', 'formprefixes', 'props') for k, v in s_stormlint.v3model[t].items() if v is None}
+        self.eq(set(s_stormlint.v3model['hints']) - removed, set())
+
+        # v3 findings are info findings, except the R rules
+        text = 'inet:ipv4 +.seen\n$x = ($y .z)'
+        self.eq([f[:2] for f in s_stormlint.StormLinter(select=(), v3ready=True).lint(text)],
+                [('M001', 'info'), ('M004', 'info'), ('R006', 'high')])
