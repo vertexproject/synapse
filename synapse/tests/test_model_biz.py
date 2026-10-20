@@ -100,6 +100,13 @@ class BizModelTest(s_t_utils.SynTest):
             self.eq('lololol', nodes[0].get('seller:orgname'))
             self.eq('lololol.com', nodes[0].get('seller:orgfqdn'))
 
+            for side in ('buyer', 'seller'):
+                for name in ('org', 'orgname', 'orgfqdn'):
+                    self.true(core.model.prop(f'biz:deal:{side}:{name}').deprecated)
+
+            msgs = await core.stormlist('biz:deal [ :buyer:orgname=hahahehe ]')
+            self.stormIsInWarn('The property biz:deal:buyer:orgname is deprecated', msgs)
+
             self.len(2, await core.nodes('biz:dealtype'))
 
             self.len(1, await core.nodes('biz:deal -> biz:rfp'))
