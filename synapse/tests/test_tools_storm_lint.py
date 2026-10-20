@@ -349,9 +349,26 @@ exclude = [
             outp.expect('R001', False)
             outp.expect('mod.storm:1:16: P001 ')
 
+            # an explicit config without a [tool] table uses the defaults
+            notool = os.path.join(dirn, 'notool', 'pyproject.toml')
+            _write(notool, '[project]\nname = "x"\n')
+
+            outp = self.getTestOutp()
+            self.eq(await s_lint.main(['--config', notool, mod], outp=outp), 1)
+            outp.expect('R001', False)
+            outp.expect('mod.storm:1:16: P001 ')
+
             # no config found upward from the cwd
             with self.getTestDir(chdir=True) as emptydir:
                 _write(os.path.join(emptydir, 'pyproject.toml'), '[project]\nname = "x"\n')
+                outp = self.getTestOutp()
+                self.eq(await s_lint.main([mod], outp=outp), 1)
+                outp.expect('R001', False)
+                outp.expect('mod.storm:1:16: P001 ')
+
+            # a discovered config without a [tool.stormlint] table is skipped
+            with self.getTestDir(chdir=True) as ruffdir:
+                _write(os.path.join(ruffdir, 'pyproject.toml'), '[tool.ruff]\nline-length = 120\n')
                 outp = self.getTestOutp()
                 self.eq(await s_lint.main([mod], outp=outp), 1)
                 outp.expect('R001', False)

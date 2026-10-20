@@ -38,13 +38,22 @@ def _loadToml(path):
     except (OSError, tomllib.TOMLDecodeError) as e:
         raise s_exc.BadConfValu(mesg=f'{path}: {e}') from None
 
+def _getToolConf(info):
+
+    if (tool := info.get('tool')) is None:
+        return None
+
+    return tool.get('stormlint')
+
 def _loadConf(path):
     '''
     Return (conf, confdir) from a pyproject.toml, or the nearest one with a [tool.stormlint] table.
     '''
     if path is not None:
-        info = _loadToml(path)
-        conf = info.get('tool', {}).get('stormlint', {})
+        conf = _getToolConf(_loadToml(path))
+        if conf is None:
+            conf = {}
+
         return _checkConf(path, conf), os.path.dirname(os.path.abspath(path))
 
     dirn = os.getcwd()
@@ -53,7 +62,7 @@ def _loadConf(path):
         fpath = os.path.join(dirn, 'pyproject.toml')
         if os.path.isfile(fpath):
 
-            conf = _loadToml(fpath).get('tool', {}).get('stormlint')
+            conf = _getToolConf(_loadToml(fpath))
             if conf is not None:
                 return _checkConf(fpath, conf), dirn
 
