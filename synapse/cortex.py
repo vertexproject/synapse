@@ -812,6 +812,204 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getViewDef(iden, user=self.user)
 
+    async def _reqVaultUser(self, user):
+        if user is None or user == self.user.iden:
+            return self.user
+
+        self.user.reqAdmin()
+        return await self.cell.auth.reqUser(user)
+
+    async def getVaults(self, *, user=None):
+        '''
+        Get the vaults a user can read.
+
+        Args:
+            user (str|None): The iden of the user to check permissions for. Defaults to the caller.
+                Specifying another user requires admin.
+
+        Notes:
+            Vault secrets are removed unless the user has edit permission on the vault.
+
+        Raises:
+            synapse.exc.AuthDeny: A non-admin specified another user.
+            synapse.exc.NoSuchUser: The specified user does not exist.
+
+        Returns:
+            list: A list of vault definitions.
+        '''
+        user = await self._reqVaultUser(user)
+        return await self.cell.getVaults(user=user)
+
+    async def getVault(self, iden, *, user=None):
+        '''
+        Get a vault by iden.
+
+        Args:
+            iden (str): The iden of the vault.
+            user (str|None): The iden of the user to check permissions for. Defaults to the caller.
+                Specifying another user requires admin.
+
+        Notes:
+            Vault secrets are removed unless the user has edit permission on the vault.
+
+        Raises:
+            synapse.exc.AuthDeny: The user does not have read permission on the vault, or a
+                non-admin specified another user.
+            synapse.exc.NoSuchUser: The specified user does not exist.
+
+        Returns:
+            dict|None: The vault definition, or None if the vault does not exist.
+        '''
+        user = await self._reqVaultUser(user)
+        return self.cell.getVault(iden, user=user)
+
+    async def getVaultByName(self, name, *, user=None):
+        '''
+        Get a vault by name.
+
+        Args:
+            name (str): The name of the vault.
+            user (str|None): The iden of the user to check permissions for. Defaults to the caller.
+                Specifying another user requires admin.
+
+        Notes:
+            Vault secrets are removed unless the user has edit permission on the vault.
+
+        Raises:
+            synapse.exc.AuthDeny: The user does not have read permission on the vault, or a
+                non-admin specified another user.
+            synapse.exc.NoSuchUser: The specified user does not exist.
+
+        Returns:
+            dict|None: The vault definition, or None if the vault does not exist.
+        '''
+        user = await self._reqVaultUser(user)
+        return self.cell.getVaultByName(name, user=user)
+
+    async def getVaultByType(self, vtype, *, scope=None, user=None):
+        '''
+        Get the vault of a given type for a user.
+
+        If `scope` is not specified, the user, role, and global scopes are searched in that order.
+
+        Args:
+            vtype (str): The vault type.
+            scope (str|None): The vault scope to get (user, role, or global).
+            user (str|None): The iden of the user to get the vault for. Defaults to the caller.
+                Specifying another user requires admin.
+
+        Notes:
+            Vault secrets are removed unless the user has edit permission on the vault.
+
+        Raises:
+            synapse.exc.BadArg: An invalid scope was specified.
+            synapse.exc.AuthDeny: The user does not have read permission on the vault, or a
+                non-admin specified another user.
+            synapse.exc.NoSuchUser: The specified user does not exist.
+
+        Returns:
+            dict|None: The vault definition, or None if no matching vault exists.
+        '''
+        user = await self._reqVaultUser(user)
+        return self.cell.getVaultByType(vtype, user.iden, scope=scope, user=user)
+
+    async def addVault(self, vdef, *, user=None):
+        '''
+        Add a vault.
+
+        Non-admin users may only add unscoped vaults and user vaults they own.
+
+        Args:
+            vdef (dict): The vault definition, containing name, type, scope, owner, secrets, and configs.
+            user (str|None): The iden of the user to add the vault as. Defaults to the caller.
+                Specifying another user requires admin.
+
+        Raises:
+            synapse.exc.AuthDeny: The user may not add the vault, or a non-admin specified another user.
+            synapse.exc.NoSuchUser: The specified user does not exist.
+            synapse.exc.DupName: A vault with the same name, or type, scope, and owner already exists.
+            synapse.exc.SchemaViolation: The vault definition is invalid.
+
+        Returns:
+            str: The iden of the new vault.
+        '''
+        user = await self._reqVaultUser(user)
+        return await self.cell.addVault(vdef, user=user)
+
+    async def modVault(self, vdef, *, user=None):
+        '''
+        Replace a vault with a full vault definition.
+
+        Changing the vault configs, secrets, or name requires edit permission on the vault.
+        Changing the vault permissions requires admin permission on the vault. The vault
+        type, scope, and owner cannot be changed.
+
+        Args:
+            vdef (dict): The full vault definition, including the vault iden.
+            user (str|None): The iden of the user to modify the vault as. Defaults to the caller.
+                Specifying another user requires admin.
+
+        Raises:
+            synapse.exc.AuthDeny: The user does not have the required permission on the vault,
+                or a non-admin specified another user.
+            synapse.exc.NoSuchUser: The specified user does not exist.
+            synapse.exc.NoSuchIden: The vault does not exist.
+            synapse.exc.BadArg: The vault definition changes an immutable field or is invalid.
+            synapse.exc.SchemaViolation: The vault definition is invalid.
+
+        Returns:
+            dict: The updated vault definition.
+        '''
+        user = await self._reqVaultUser(user)
+        return await self.cell.modVault(vdef, user=user)
+
+    async def setVaultPerm(self, viden, iden, level, *, user=None):
+        '''
+        Set the permission level of a user or role on a vault.
+
+        Requires admin permission on the vault.
+
+        Args:
+            viden (str): The iden of the vault.
+            iden (str): The iden of the user or role to set the permission for.
+            level (int|None): The permission level, or None to remove the permission.
+            user (str|None): The iden of the user to set the permission as. Defaults to the caller.
+                Specifying another user requires admin.
+
+        Raises:
+            synapse.exc.AuthDeny: The user does not have admin permission on the vault, or a
+                non-admin specified another user.
+            synapse.exc.NoSuchUser: The specified user does not exist.
+            synapse.exc.NoSuchIden: The vault, or user or role, does not exist.
+
+        Returns:
+            dict: The updated vault definition.
+        '''
+        user = await self._reqVaultUser(user)
+        return await self.cell.setVaultPerm(viden, iden, level, user=user)
+
+    async def delVault(self, iden, *, user=None):
+        '''
+        Delete a vault.
+
+        Requires admin permission on the vault.
+
+        Args:
+            iden (str): The iden of the vault.
+            user (str|None): The iden of the user to delete the vault as. Defaults to the caller.
+                Specifying another user requires admin.
+
+        Raises:
+            synapse.exc.AuthDeny: The user does not have admin permission on the vault, or a
+                non-admin specified another user.
+            synapse.exc.NoSuchUser: The specified user does not exist.
+
+        Returns:
+            None
+        '''
+        user = await self._reqVaultUser(user)
+        return await self.cell.delVault(iden, user=user)
+
 class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the synapse hypergraph.
@@ -4935,6 +5133,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addHttpApi('/api/v1/storm/vars/get', s_httpapi.StormVarsGetV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/vars/pop', s_httpapi.StormVarsPopV1, {'cell': self})
 
+        self.addHttpApi('/api/v1/vault/list', s_httpapi.VaultListV1, {'cell': self})
+        self.addHttpApi('/api/v1/vault/get', s_httpapi.VaultGetV1, {'cell': self})
+        self.addHttpApi('/api/v1/vault/add', s_httpapi.VaultAddV1, {'cell': self})
+        self.addHttpApi('/api/v1/vault/mod', s_httpapi.VaultModV1, {'cell': self})
+        self.addHttpApi('/api/v1/vault/del', s_httpapi.VaultDelV1, {'cell': self})
+
         self.addHttpApi('/api/v1/model', s_httpapi.ModelV1, {'cell': self})
         self.addHttpApi('/api/v1/model/norm', s_httpapi.ModelNormV1, {'cell': self})
 
@@ -7528,12 +7732,32 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return self._getVaultByBidn(bidn)
 
-    def getVault(self, iden):
+    def _reqVaultPerm(self, user, vault, level, ref=None):
+        if ref is None:
+            ref = vault.get('iden')
+
+        mesg = f'User requires {s_cell.permnames.get(level)} permission on vault: {ref}.'
+        self._reqEasyPerm(vault, user, level, mesg=mesg)
+
+    def _vaultForUser(self, user, vault):
+        # secrets are only returned to users with edit permission
+        if vault is None or user is None or self._hasEasyPerm(vault, user, s_cell.PERM_EDIT):
+            return vault
+
+        vault = dict(vault)
+        vault.pop('secrets', None)
+        return vault
+
+    def getVault(self, iden, user=None):
         '''
         Get a vault.
 
         Args:
             iden (str): Iden of the vault to get.
+            user (User|None): If set, require read permission and hide secrets without edit permission.
+
+        Raises:
+            synapse.exc.AuthDeny: `user` does not have read permission on the vault.
 
         Returns: vault or None
         '''
@@ -7541,23 +7765,38 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return None
 
         bidn = s_common.uhex(iden)
-        return self._getVaultByBidn(bidn)
+        vault = self._getVaultByBidn(bidn)
+        if vault is None or user is None:
+            return vault
 
-    def getVaultByName(self, name):
+        self._reqVaultPerm(user, vault, s_cell.PERM_READ)
+        return self._vaultForUser(user, vault)
+
+    def getVaultByName(self, name, user=None):
         '''
         Get a vault by name.
 
         Args:
             name (str): Name of the vault to get.
+            user (User|None): If set, require read permission and hide secrets without edit permission.
+
+        Raises:
+            synapse.exc.AuthDeny: `user` does not have read permission on the vault.
 
         Returns: vault or None
         '''
         bidn = self.slab.get(name.encode(), db=self.vaultsbynamedb)
         if bidn is None:
             return None
-        return self._getVaultByBidn(bidn)
 
-    def getVaultByType(self, vtype, useriden, scope=None):
+        vault = self._getVaultByBidn(bidn)
+        if vault is None or user is None:
+            return vault
+
+        self._reqVaultPerm(user, vault, s_cell.PERM_READ, ref=name)
+        return self._vaultForUser(user, vault)
+
+    def getVaultByType(self, vtype, useriden, scope=None, user=None):
         '''
         Get a vault of type `vtype` and scope `scope` for user with `iden`.
 
@@ -7576,9 +7815,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             vtype (str): Type of the vault to open.
             useriden (str): Iden of user trying to open the vault.
             scope (str|None): The vault scope to open.
+            user (User|None): If set, require read permission and hide secrets without edit permission.
 
         Raises:
             synapse.exc.BadArg: Invalid scope specified.
+            synapse.exc.AuthDeny: `user` does not have read permission on the vault.
 
         Returns: vault or None if matching vault could not be found.
         '''
@@ -7610,58 +7851,69 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             return vault
 
+        vault = None
+
         # If caller specified a scope, return that vault if it exists
         if scope is not None:
-            return _getVault(scope)
+            vault = _getVault(scope)
 
-        # Finally, try the user, role, and global vaults in order
-        for _scope in ('user', 'role', 'global'):
-            vault = _getVault(_scope)
-            if vault:
-                return vault
+        else:
+            # Finally, try the user, role, and global vaults in order
+            for _scope in ('user', 'role', 'global'):
+                vault = _getVault(_scope)
+                if vault:
+                    break
 
-        return None
+        if vault is None or user is None:
+            return vault
 
-    def reqVault(self, iden):
+        self._reqVaultPerm(user, vault, s_cell.PERM_READ)
+        return self._vaultForUser(user, vault)
+
+    def reqVault(self, iden, user=None):
         '''
         Get a vault by iden.
 
         Args:
             iden (str): Iden of the vault to get.
+            user (User|None): If set, require read permission and hide secrets without edit permission.
 
         Raises:
             synapse.exc.NoSuchIden: Vault with `iden` not found.
+            synapse.exc.AuthDeny: `user` does not have read permission on the vault.
 
         Returns: vault
         '''
         if not s_common.isguid(iden):
             raise s_exc.BadArg(mesg=f'Iden is not a valid iden: {iden}.')
 
-        vault = self.getVault(iden)
+        vault = self.getVault(iden, user=user)
         if vault is None:
             raise s_exc.NoSuchIden(mesg=f'Vault not found for iden: {iden}.', iden=iden)
 
         return vault
 
-    def reqVaultByName(self, name):
+    def reqVaultByName(self, name, user=None):
         '''
         Get a vault by name.
 
         Args:
             name (str): Name of the vault to get.
+            user (User|None): If set, require read permission and hide secrets without edit permission.
 
         Raises:
             synapse.exc.NoSuchName: Vault with `name` not found.
+            synapse.exc.AuthDeny: `user` does not have read permission on the vault.
 
         Returns: vault
         '''
-        vault = self.getVaultByName(name)
+        vault = self.getVaultByName(name, user=user)
         if vault is None:
             raise s_exc.NoSuchName(mesg=f'Vault not found for name: {name}.')
 
         return vault
 
-    def reqVaultByType(self, vtype, iden, scope=None):
+    def reqVaultByType(self, vtype, iden, scope=None, user=None):
         '''
         Get a vault by type.
 
@@ -7669,26 +7921,30 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             vtype (str): Type of the vault to get.
             iden (str): Iden of the user or role for the vault type.
             scope (str|None): Scope of the vault to get.
+            user (User|None): If set, require read permission and hide secrets without edit permission.
 
         Raises:
             synapse.exc.NoSuchName: Vault with `vtype`/`iden`/`scope` not found.
+            synapse.exc.AuthDeny: `user` does not have read permission on the vault.
 
         Returns: vault
         '''
-        vault = self.getVaultByType(vtype, iden, scope)
+        vault = self.getVaultByType(vtype, iden, scope, user=user)
         if vault is None:
             raise s_exc.NoSuchName(mesg=f'Vault not found for type: {vtype}.')
 
         return vault
 
-    async def addVault(self, vdef):
+    async def addVault(self, vdef, user=None):
         '''
         Create a new vault.
 
         Args:
             vdef (dict): The vault to add.
+            user (User|None): If set, a non-admin user may only add unscoped vaults or user vaults they own.
 
         Raises:
+            synapse.exc.AuthDeny: `user` may not add a vault with the requested scope or owner.
             synapse.exc.SchemaViolation: `vdef` does not conform to the vault schema.
             synapse.exc.DupName:
                 - Vault already exists for type/scope/owner.
@@ -7703,6 +7959,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         if not isinstance(vdef, dict):
             raise s_exc.BadArg(mesg='Invalid vault definition provided.')
+
+        if user is not None and not user.isAdmin():
+
+            scope = vdef.get('scope')
+            if scope in ('global', 'role'):
+                mesg = f'User {user.name} cannot create {scope} vaults.'
+                raise s_exc.AuthDeny(mesg=mesg, user=user.iden, username=user.name)
+
+            owner = vdef.get('owner')
+            if scope == 'user' and user.iden != owner:
+                mesg = f'User {user.name} cannot create vaults for user {owner}.'
+                raise s_exc.AuthDeny(mesg=mesg, user=user.iden, username=user.name)
 
         # Set some standard properties on the vdef before validating
         vdef['iden'] = s_common.guid()
@@ -7962,33 +8230,52 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.slab.put(bidn, s_msgpack.en(vault), db=self.vaultsdb)
         return valu
 
-    def listVaults(self):
+    async def getVaults(self, user=None):
         '''
-        List all vaults.
+        Get all vaults.
 
-        Args: None
+        Args:
+            user (User|None): If set, only return vaults the user can read and hide secrets without edit permission.
 
-        Raises: None
-
-        Yields: tuples of vault info: (<iden>, <name>, <type>, <scope>).
+        Returns: list of vault definition dictionaries.
         '''
+        retn = []
+
         for vault in self._getVaults():
-            yield vault
 
-    async def setVaultPerm(self, viden, iden, level):
+            await asyncio.sleep(0)
+
+            if user is not None:
+
+                if not self._hasEasyPerm(vault, user, s_cell.PERM_READ):
+                    continue
+
+                vault = self._vaultForUser(user, vault)
+
+            retn.append(vault)
+
+        return retn
+
+    async def setVaultPerm(self, viden, iden, level, user=None):
         '''
         Set vault permissions.
+
         Args:
             viden (str): The iden of the vault to edit.
             iden (str): Iden of the user/role to add permissions for.
             level (int): Easy perms level.
+            user (User|None): If set, require admin permission on the vault.
 
         Raises:
             synapse.exc.NoSuchIden: Vault with `iden` does not exist.
+            synapse.exc.AuthDeny: `user` does not have admin permission on the vault.
 
         Returns: Updated vault.
         '''
         vault = self.reqVault(viden)
+
+        if user is not None:
+            self._reqVaultPerm(user, vault, s_cell.PERM_ADMIN)
 
         scope = 'users'
         ident = self.auth.user(iden)
@@ -8000,7 +8287,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._setEasyPerm(vault, scope, ident.iden, level)
         permissions = vault.get('permissions')
-        return await self._push(('vault:set'), viden, 'permissions', permissions)
+        vault = await self._push(('vault:set'), viden, 'permissions', permissions)
+        return self._vaultForUser(user, vault)
 
     async def renameVault(self, iden, name):
         '''
@@ -8020,6 +8308,72 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.DupName(mesg=f'Vault with name {name} already exists.', name=name)
 
         return await self._push(('vault:set'), iden, 'name', name)
+
+    async def modVault(self, vdef, user=None):
+        '''
+        Atomically replace a vault with the given vdef (configs, secrets, name,
+        permissions). The vault type, scope, and owner are immutable.
+
+        Args:
+            vdef (dict): The full vault definition.
+            user (User|None): If set, require edit permission on the vault, or admin
+                permission if the permissions are changed.
+
+        Raises:
+            synapse.exc.AuthDeny: `user` does not have the required permission on the vault.
+            synapse.exc.NoSuchIden: The vault does not exist.
+            synapse.exc.SchemaViolation: `vdef` does not conform to the vault schema.
+            synapse.exc.BadArg: `vdef` changes the type, scope, or owner, or is not msgpack safe.
+            synapse.exc.DupName: Vault with the new name already exists.
+
+        Returns: the updated vault.
+        '''
+        vdef = s_schemas.reqValidVault(vdef)
+
+        iden = vdef['iden']
+        cur = self.reqVault(iden)
+
+        if user is not None:
+
+            level = s_cell.PERM_EDIT
+            if vdef.get('permissions') != cur.get('permissions'):
+                level = s_cell.PERM_ADMIN
+
+            self._reqVaultPerm(user, cur, level)
+
+        for field in ('type', 'scope', 'owner'):
+            if vdef.get(field) != cur.get(field):
+                raise s_exc.BadArg(mesg=f'Cannot change vault {field} on update.')
+
+        try:
+            s_msgpack.en(vdef)
+        except s_exc.NotMsgpackSafe:
+            raise s_exc.BadArg(mesg='Vault definition must be msgpack safe.') from None
+
+        name = vdef['name']
+        if name != cur['name'] and self.getVaultByName(name) is not None:
+            raise s_exc.DupName(mesg=f'Vault with name {name} already exists.', name=name)
+
+        vault = await self._push('vault:mod', vdef)
+        return self._vaultForUser(user, vault)
+
+    @s_nexus.Pusher.onPush('vault:mod')
+    async def _modVault(self, vdef):
+        iden = vdef['iden']
+        bidn = s_common.uhex(iden)
+
+        cur = self._getVaultByBidn(bidn)
+        if cur is None:
+            return None
+
+        oldname = cur['name']
+        newname = vdef['name']
+        if newname != oldname:
+            self.slab.delete(oldname.encode(), db=self.vaultsbynamedb)
+            self.slab.put(newname.encode(), bidn, db=self.vaultsbynamedb)
+
+        self.slab.put(bidn, s_msgpack.en(vdef), db=self.vaultsdb)
+        return vdef
 
     @s_nexus.Pusher.onPush('vault:set')
     async def _setVault(self, iden, key, valu):
@@ -8041,16 +8395,31 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.slab.put(bidn, s_msgpack.en(vault), db=self.vaultsdb)
         return vault
 
-    @s_nexus.Pusher.onPushAuto('vault:del')
-    async def delVault(self, iden):
+    async def delVault(self, iden, user=None):
         '''
         Delete a vault.
 
         Args:
             iden (str): Iden of the vault to delete.
+            user (User|None): If set, require admin permission on the vault.
+
+        Raises:
+            synapse.exc.AuthDeny: `user` does not have admin permission on the vault.
 
         Returns: None
         '''
+        if user is not None:
+
+            vault = self.getVault(iden)
+            if vault is None:
+                return
+
+            self._reqVaultPerm(user, vault, s_cell.PERM_ADMIN)
+
+        return await self._push('vault:del', iden)
+
+    @s_nexus.Pusher.onPush('vault:del')
+    async def _delVault(self, iden):
         vault = self.getVault(iden)
         if vault is None:
             return

@@ -1,0 +1,7 @@
+---
+desc: Added Cortex HTTP APIs (``/api/v1/vault/*``) and Telepath APIs for listing,
+  getting, adding, modifying, and deleting vaults without Storm.
+desc:literal: false
+prs: []
+type: feat
+...

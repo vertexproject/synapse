@@ -508,7 +508,7 @@ class LibVault(s_stormtypes.Lib):
         return Vault(self.runt, vault.get('iden'))
 
     async def _listVaults(self):
-        for vault in self.runt.snap.core.listVaults():
+        for vault in await self.runt.snap.core.getVaults():
             if not self.runt.allowedEasyPerm(vault, s_cell.PERM_READ):
                 continue
 
