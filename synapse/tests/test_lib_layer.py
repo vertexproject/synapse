@@ -2400,6 +2400,10 @@ class LayerTest(s_t_utils.SynTest):
                             $oldv = $sode.props."_custom:risk:level"
                             $layer.setStorNodeProp($buid, "test:guid:_custom:risk:severity", $oldv.0)
                             $layer.delStorNodeProp($buid, $fullprop)
+
+                            if (not $layer.setNodeDataValu($buid, oldlevel, $oldv.0)) {
+                                $lib.raise(BadArg, "setNodeDataValu() made no edits")
+                            }
                         }
 
                         $layer.delNodeData($buid, foo)
@@ -2438,12 +2442,14 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.none(nodes[0].get('_custom:risk:level'))
             self.eq(nodes[0].get('_custom:risk:severity'), 10)
+            self.eq(await nodes[0].getData('oldlevel'), 10)
 
             nodes = await core.nodes('test:guid:name=test0', opts=inview)
             self.len(1, nodes)
             self.none(nodes[0].get('_custom:risk:level'))
             self.eq(nodes[0].get('_custom:risk:severity'), 20)
-            self.eq(await s_t_utils.alist(nodes[0].iterData()), [('baz', 'baz')])
+            self.eq(await nodes[0].getData('oldlevel'), 20)
+            self.eq(sorted(await s_t_utils.alist(nodes[0].iterData())), [('baz', 'baz'), ('oldlevel', 20)])
             self.eq(await s_t_utils.alist(nodes[0].iterEdgesN1()), [('refs', refs.iden())])
             self.len(0, await s_t_utils.alist(nodes[0].iterEdgesN2()))
 
