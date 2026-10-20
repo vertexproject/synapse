@@ -525,6 +525,27 @@ class StormLintTest(s_t_utils.SynTest):
             (5, 79, 'inet:dns:a:ipv4 is renamed to inet:dns:a:ip in 3.x.'),
             (6, 22, 'inet:dns:a:ipv4 is renamed to inet:dns:a:ip in 3.x.'),
         ))
+        self.eq(lint('M003', 'inet:flow +:dst:ipv4=1 +:src:ipv6="::1"\n'
+                             'inet:server:ipv4=1.2.3.4 inet:url:ipv4 crypto:x509:cert:identities:ipv4s\n'
+                             'inet:dns:rev6:ipv6 inet:ipv6:ipv4 inet:dns:query:name:ipv4'), (
+            (1, 12, 'inet:flow:dst:ipv4 is removed in 3.x, use inet:flow:server.ip.'),
+            (1, 25, 'inet:flow:src:ipv6 is removed in 3.x, use inet:flow:client.ip.'),
+            (2, 1, 'inet:server:ipv4 is removed in 3.x, use inet:server.ip.'),
+            (2, 26, 'inet:url:ipv4 is removed in 3.x, use inet:url:host.'),
+            (2, 40, 'crypto:x509:cert:identities:ipv4s is renamed to crypto:x509:cert:identities:ips in 3.x.'),
+            (3, 1, 'inet:dns:rev6:ipv6 is renamed to inet:dns:rev:ip in 3.x.'),
+            (3, 20, 'inet:ipv6:ipv4 is removed in 3.x.'),
+            (3, 35, 'inet:dns:query:name:ipv4 is removed in 3.x.'),
+        ))
+        self.eq(lint('M001', 'inet:dns:rev6 it:app:snort:hit:flow'), (
+            (1, 1, 'inet:dns:rev6 is renamed to inet:dns:rev in 3.x.'),
+            (1, 15, 'it:app:snort:hit is renamed to it:app:snort:matched in 3.x.'),
+        ))
+        self.eq(lint('M002', 'it:logon inet:iface:ipv4 tel:mob:telem'), (
+            (1, 1, 'it:logon is removed in 3.x, use it:host:login.'),
+            (1, 10, 'inet:iface is removed in 3.x, use it:nic.'),
+            (1, 26, 'tel:mob:telem is removed in 3.x.'),
+        ))
 
         # M004 the universal .seen prop
         self.eq(lint('M004', '.created inet:fqdn.created +:seen [ :seen=now ] $x = $y.seen +.created +.$prop'), [])
@@ -750,6 +771,26 @@ class StormLintTest(s_t_utils.SynTest):
 
         removed = {k for t in ('forms', 'formprefixes', 'props') for k, v in s_stormlint.v3model[t].items() if v is None}
         self.eq(set(s_stormlint.v3model['hints']) - removed, set())
+
+        # every 2.x IP prop is in the v3model props or on a form which is removed in 3.x
+        def isRemovedForm(form):
+            if form in s_stormlint.v3model['forms']:
+                return s_stormlint.v3model['forms'][form] is None
+
+            return any(form.startswith(k) for k, v in s_stormlint.v3model['formprefixes'].items() if v is None)
+
+        ipprops = []
+        for prop in s_stormlint._getModel().props.values():
+            if prop.isform or prop.isuniv or prop.name.rsplit(':', 1)[-1] not in ('ipv4', 'ipv6', 'ipv4s', 'ipv6s'):
+                continue
+
+            ipprops.append(prop.full)
+            if prop.full not in s_stormlint.v3model['props']:
+                self.true(isRemovedForm(prop.form.name), msg=prop.full)
+
+        self.isin('inet:server:ipv4', ipprops)
+        self.isin('inet:web:logon:client:ipv4', ipprops)
+        self.isin('crypto:x509:cert:identities:ipv6s', ipprops)
 
         # v3 findings are info findings, except the R rules
         text = 'inet:ipv4 +.seen\n$x = ($y .z)'
