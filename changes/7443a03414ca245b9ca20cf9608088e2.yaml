@@ -1,6 +1,6 @@
 ---
 desc: Fixed `inet:fqdn` normalization not lowercasing some non-ASCII letters on Python
-  3.11.17 and later patch releases.
+  3.11.17 and later.
 desc:literal: false
 prs:
 - 5067
