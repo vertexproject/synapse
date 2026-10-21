@@ -6,6 +6,45 @@
 Synapse Changelog
 *****************
 
+v2.256.0 - 2026-10-21
+=====================
+
+Model Changes
+-------------
+- See :ref:`userguide_model_v2_256_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added ``$lib.layer.get().setNodeDataValu()`` and
+  ``$lib.layer.get().getNodeDataValu()`` to set and get node data in a specific
+  layer.
+  (`#5058 <https://github.com/vertexproject/synapse/pull/5058>`_)
+- Added a ``reverse`` option to ``$lib.model.migration.loop()`` to run
+  ``onview`` for child views before their parents.
+  (`#5061 <https://github.com/vertexproject/synapse/pull/5061>`_)
+- Added the ``synapse.tools.storm.lint`` tool, with a ``--v3-ready`` option to
+  report Storm which must change for Synapse 3.x.
+  (`#5062 <https://github.com/vertexproject/synapse/pull/5062>`_)
+
+Bugfixes
+--------
+- Fixed the ``storm-pkg`` and ``storm-svc`` rstorm directives not waiting for
+  package ``inits`` to complete when the package has no ``onload``.
+  (`#5065 <https://github.com/vertexproject/synapse/pull/5065>`_)
+
+Notes
+-----
+- Updated the allowed versions of the ``aiohttp-socks``, ``pygments``, and
+  ``xxhash`` libraries.
+  (`#5064 <https://github.com/vertexproject/synapse/pull/5064>`_)
+
+Deprecations
+------------
+- Deprecated the ``biz:deal`` properties ``:buyer:org``, ``:buyer:orgname``,
+  ``:buyer:orgfqdn``, ``:seller:org``, ``:seller:orgname``, and
+  ``:seller:orgfqdn``. Please use ``:buyer`` and ``:seller`` instead.
+  (`#5059 <https://github.com/vertexproject/synapse/pull/5059>`_)
+
 v2.255.0 - 2026-10-15
 =====================
 

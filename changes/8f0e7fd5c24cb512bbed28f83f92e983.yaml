@@ -1,7 +1,0 @@
----
-desc: Updated the allowed versions of the ``aiohttp-socks``, ``pygments``, and ``xxhash``
-  libraries.
-desc:literal: false
-prs: []
-type: note
-...
