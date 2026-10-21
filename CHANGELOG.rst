@@ -19,17 +19,17 @@ Features and Enhancements
   ``$lib.layer.get().getNodeDataValu()`` to set and get node data in a specific
   layer.
   (`#5058 <https://github.com/vertexproject/synapse/pull/5058>`_)
-- Added a `reverse` option to `$lib.model.migration.loop()` to run `onview` for
-  child views before their parents.
+- Added a ``reverse`` option to ``$lib.model.migration.loop()`` to run
+  ``onview`` for child views before their parents.
   (`#5061 <https://github.com/vertexproject/synapse/pull/5061>`_)
-- Added the `synapse.tools.storm.lint` tool, with a `--v3-ready` option to
+- Added the ``synapse.tools.storm.lint`` tool, with a ``--v3-ready`` option to
   report Storm which must change for Synapse 3.x.
   (`#5062 <https://github.com/vertexproject/synapse/pull/5062>`_)
 
 Bugfixes
 --------
-- Fixed the `storm-pkg` and `storm-svc` rstorm directives not waiting for
-  package `inits` to complete when the package has no `onload`.
+- Fixed the ``storm-pkg`` and ``storm-svc`` rstorm directives not waiting for
+  package ``inits`` to complete when the package has no ``onload``.
   (`#5065 <https://github.com/vertexproject/synapse/pull/5065>`_)
 
 Notes
