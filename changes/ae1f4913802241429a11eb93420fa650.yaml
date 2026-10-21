@@ -1,0 +1,7 @@
+---
+desc: Fixed the `storm-pkg` and `storm-svc` rstorm directives not waiting for package
+  `inits` to complete when the package has no `onload`.
+desc:literal: false
+prs: []
+type: bug
+...
