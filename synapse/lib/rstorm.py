@@ -491,8 +491,7 @@ class StormRst(s_base.Base):
 
         svc = await self._getCell(ctor, conf=svcconf)
 
-        onloadcnt = len([p for p in svc.cellapi._storm_svc_pkgs
-                         if p.get('onload') is not None or p.get('inits') is not None])
+        onloadcnt = len(svc.cellapi._storm_svc_pkgs)
         waiter = core.waiter(onloadcnt, 'core:pkg:onload:complete') if onloadcnt else None
 
         svc.dmon.share('svc', svc)
