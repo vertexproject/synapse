@@ -117,25 +117,31 @@ class BizModule(s_module.CoreModule):
                         'doc': 'The primary contact information for the buyer.',
                     }),
                     ('buyer:org', ('ou:org', {}), {
-                        'doc': 'The buyer org.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :buyer.',
                     }),
                     ('buyer:orgname', ('ou:name', {}), {
-                        'doc': 'The reported ou:name of the buyer org.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :buyer.',
                     }),
                     ('buyer:orgfqdn', ('inet:fqdn', {}), {
-                        'doc': 'The reported inet:fqdn of the buyer org.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :buyer.',
                     }),
                     ('seller', ('ps:contact', {}), {
                         'doc': 'The primary contact information for the seller.',
                     }),
                     ('seller:org', ('ou:org', {}), {
-                        'doc': 'The seller org.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :seller.',
                     }),
                     ('seller:orgname', ('ou:name', {}), {
-                        'doc': 'The reported ou:name of the seller org.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :seller.',
                     }),
                     ('seller:orgfqdn', ('inet:fqdn', {}), {
-                        'doc': 'The reported inet:fqdn of the seller org.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :seller.',
                     }),
                     ('currency', ('econ:currency', {}), {
                         'doc': 'The currency of econ:price values associated with the deal.',
