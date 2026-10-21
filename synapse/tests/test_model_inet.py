@@ -414,6 +414,8 @@ class InetModelTest(s_t_utils.SynTest):
 
             valu = t.norm('bob\udcfesmith@woot.com')[0]
 
+            self.eq('visi@xn--aa-hg2o.link', t.norm('visi@a\U00010c80a.link')[0])
+
             with self.raises(s_exc.BadTypeValu) as cm:
                 t.norm('hehe')
             self.isin('Email address expected in <user>@<fqdn> format', cm.exception.get('mesg'))
@@ -670,6 +672,13 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(fqdn, t.repr(fqdn))
 
             self.raises(s_exc.BadTypeValu, t.norm, 'www.google\udcfesites.com')
+
+            # Capital letters are lowercased in the stdlib idna fallback
+            self.eq('xn--aa-hg2o.link', t.norm('a\U00010c80a.link')[0])
+            self.eq('xn--aa-hg2o.link', t.norm('a\U00010cc0a.link')[0])
+            self.eq('xn--aa-bm02a.link', t.norm('a\U0001e900a.link')[0])
+            self.eq('xn--aa-bm02a.link', t.norm('a\U0001e922a.link')[0])
+            self.eq('xn--1-bi8r.link', t.norm('1\U0001e900.link')[0])
 
             # IP addresses are NOT valid FQDNs
             self.raises(s_exc.BadTypeValu, t.norm, '1.2.3.4')
