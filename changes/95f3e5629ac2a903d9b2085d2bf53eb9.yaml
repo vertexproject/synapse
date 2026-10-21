@@ -1,7 +1,0 @@
----
-desc: Added the `synapse.tools.storm.lint` tool, with a `--v3-ready` option to report
-  Storm which must change for Synapse 3.x.
-desc:literal: false
-prs: []
-type: feat
-...
