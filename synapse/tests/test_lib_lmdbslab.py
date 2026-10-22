@@ -1606,7 +1606,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 await slab.sync()
 
                 stats = await slab.pageStats()
-                self.eq(4096, stats['pagesize'])
+                self.eq(slab.lenv.stat()['psize'], stats['pagesize'])
                 self.eq({'pages': 0, 'entries': 0, 'depth': 0, 'dupsort': False}, stats['dbs']['foo'])
                 self.eq({'pages': 0, 'entries': 0, 'depth': 0, 'dupsort': True}, stats['dbs']['bar'])
                 self.notin(None, stats['dbs'])
@@ -1630,7 +1630,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 foostat = slab.stat(db=foo)
                 self.eq(foostat['branch_pages'] + foostat['leaf_pages'], stats['dbs']['foo']['pages'])
-                self.gt(stats['dbs']['foo']['pages'], 25)
+                self.gt(stats['dbs']['foo']['pages'] * stats['pagesize'], 100_000)
 
                 allocpages = stats['allocpages']
                 self.eq(slab.lenv.info()['last_pgno'] + 1, allocpages)
@@ -1707,7 +1707,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     slab.put(s_common.int64en(i), b'W' * 1000, db=foo)
                     await slab.sync()
 
-                # a single large record is stored in overflow pages
+                # a large free list record, from freeing many pages in one commit, is stored in overflow pages
                 for i in range(1000, 2000):
                     slab.delete(s_common.int64en(i), db=foo)
 
@@ -1732,6 +1732,17 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq(stats['freepages'], slabstats['freepages'])
                 self.eq(stats['freedbpages'], slabstats['freedbpages'])
                 self.eq(stats['reclaimratio'], slabstats['reclaimratio'])
+
+                # an unreadable free list is logged and reported as None
+                with self.getLoggerStream('synapse.lib.lmdbslab') as stream:
+                    with patch('synapse.lib.lmdbslab._getFreePages', side_effect=struct.error('newp')):
+                        errstats = await slab.pageStats(freepages=True)
+                    self.isin('Unable to read the LMDB free list', stream.getvalue())
+
+                self.none(errstats['freepages'])
+                self.none(errstats['freedbpages'])
+                self.none(errstats['reclaimratio'])
+                self.eq(stats['allocpages'], errstats['allocpages'])
 
                 with patch('synapse.lib.lmdbslab._getFreePages', return_value=(None, None)):
                     nonestats = await slab.pageStats(freepages=True)
@@ -1817,15 +1828,32 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     fd.write(data)
                 return s_lmdbslab._getFreePages(corrpath, psize, txnid, s_lmdbslab._readFreeMeta(corrpath, psize, txnid))
 
-            self.eq((None, None), corrupt(metaoffs + 16, '<I', 0))
-            self.eq((None, None), corrupt(metaoffs + 20, '<I', 2))
+            with self.raises(s_exc.BadDataValu):
+                corrupt(metaoffs + 16, '<I', 0)
+
+            with self.raises(s_exc.BadDataValu):
+                corrupt(metaoffs + 20, '<I', 2)
 
             # free list root beyond the last page or pointing at a meta page
-            self.eq((None, None), corrupt(metaoffs + 80, '<Q', len(byts) // psize + 10))
-            self.eq((None, None), corrupt(metaoffs + 80, '<Q', 0))
+            with self.raises(s_exc.BadDataValu):
+                corrupt(metaoffs + 80, '<Q', len(byts) // psize + 10)
+
+            with self.raises(s_exc.BadDataValu):
+                corrupt(metaoffs + 80, '<Q', 0)
 
             # fewer free list pages than the walk visits
-            self.eq((None, None), corrupt(metaoffs + 56, '<Q', 0))
+            with self.raises(s_exc.BadDataValu):
+                corrupt(metaoffs + 56, '<Q', 0)
+
+            # a free list page whose node pointers run past the end of the page
+            root = struct.unpack_from('<Q', byts, metaoffs + 80)[0]
+            with self.raises(struct.error):
+                corrupt(root * psize + 12, '<H', 60000)
+
+            # a missing data file
+            meta = s_lmdbslab._readFreeMeta(mdbpath, psize, txnid)
+            with self.raises(FileNotFoundError):
+                s_lmdbslab._getFreePages(os.path.join(dirn, 'newp.mdb'), psize, txnid, meta)
 
             # no free list
             self.eq(0, corrupt(metaoffs + 80, '<Q', s_lmdbslab.MDB_P_INVALID)[0])

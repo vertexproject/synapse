@@ -904,9 +904,10 @@ class CellApi(s_base.Base):
             ``(starttime, xactopslen, delta)`` tuples for recent commits, oldest first. Times are in
             milliseconds. Each slab dict also includes LMDB page accounting: the ``pagesize``, the
             ``allocpages`` in use in the file, and a ``dbs`` dict of ``pages``, ``entries``, ``depth`` and
-            ``dupsort`` for each named database. If ``freepages`` is set, it also includes the ``freepages``
-            in the free list, the ``freedbpages`` holding it, and the ``reclaimratio`` of ``allocpages`` an
-            optimization pass would reclaim. See ``Slab.pageStats()`` for details.
+            ``dupsort`` for each named database the slab has opened. If ``freepages`` is set, it also
+            includes the ``freepages`` in the free list, the ``freedbpages`` holding it, and the
+            ``reclaimratio`` of ``allocpages`` that a compacting copy, such as ``onboot:optimize`` makes,
+            would reclaim. See ``Slab.pageStats()`` for details.
         '''
         return {
             'slabs': await s_lmdbslab.Slab.getSlabStats(freepages=freepages),

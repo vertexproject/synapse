@@ -1029,6 +1029,16 @@ class CellTest(s_t_utils.SynTest):
                 self.lt(0, starttime)
                 self.le(0, delta)
 
+                async with core.getLocalProxy() as proxy:
+                    diag = await proxy.getDiagInfo(freepages=True)
+
+                diagslab = [s for s in diag['slabs'] if s['path'] == str(testslab.path)][0]
+                pagestats = await testslab.pageStats(freepages=True)
+                for name in ('pagesize', 'allocpages', 'dbs', 'freepages', 'freedbpages', 'reclaimratio'):
+                    self.eq(pagestats[name], diagslab[name])
+
+                self.eq(5, diagslab['dbs']['test']['entries'])
+
     async def test_cell_system_info(self):
         with self.getTestDir() as dirn:
             backdirn = os.path.join(dirn, 'backups')
