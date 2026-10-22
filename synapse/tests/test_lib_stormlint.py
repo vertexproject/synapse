@@ -252,7 +252,7 @@ class StormLintTest(s_t_utils.SynTest):
 
         for iden in ('E002', 'E003', 'M001', 'M002', 'M003', 'M004', 'R001', 'R002', 'R003', 'R004', 'R005', 'R006',
                      'R007', 'R008', 'P001', 'P002', 'S001', 'S002', 'S003', 'S004', 'S005', 'S006', 'S008', 'S010',
-                     'S011', 'S012', 'S014', 'S015'):
+                     'S011', 'S012', 'S014', 'S015', 'S016'):
             self.true(s_stormlint.rules[iden].doc)
 
         # E002 invalid escapes in double-quoted and backtick strings
@@ -788,6 +788,56 @@ class StormLintTest(s_t_utils.SynTest):
             (5, 5, mesg),
             (7, 16, mesg),
             (8, 23, mesg),
+        ))
+
+        # S016 an http response or wget result which is printed or logged
+        self.eq(lint('S016', '''
+            $r = $lib.inet.http.get($u)
+            $w = $lib.axon.wget($u)
+            $lib.print($r.code, $r.json(), $w.ok)
+            $lib.print(`{$r.code} {$r.reason} {$w.size}`, k=$w.hashes)
+            $lib.pprint($r.json())
+            $lib.pprint($r.$key)
+            $lib.pprint($foo($r))
+            $lib.print($lib.str)
+            $lib.log.info($lib.inet.http.urlencode($u))
+            $lib.pprint($other)
+            function f(r) { $lib.pprint($r) }
+            function g() { $r = (1) $lib.pprint($r) }
+            function h() { function inner(r) { $lib.pprint($r) } }
+            function i() { $lib.print($r.code) }
+            function j(x, r=$u) { $lib.pprint($r) }
+        '''), [])
+
+        mesg = '${} includes the request headers, such as API credentials. Print fields such as ${}.code and ${}.reason instead.'
+        meth = 'The result of this call includes the request headers, such as API credentials. Print fields such as its code and reason instead.'
+        self.eq(lint('S016', '''$r = $lib.inet.http.get($u)
+            $lib.pprint($r)
+            $lib.print(`resp {$r}`)
+            $lib.warn("bad", extra=$r.request_headers)
+            $lib.log.debug(mesg=$r.request.headers)
+            $lib.print(([$r]))
+            $lib.log.error($r.history)
+            $lib.print($lib.axon.wget($u))
+            $lib.print($lib.inet.http.post($u, body=$b))
+            function f() { $lib.pprint($r) }
+            function g() { $w = $lib.axon.wput($s, $u) $lib.log.warning($w) }
+            function h(r) { $lib.pprint($r) }
+            function i() { function inner() { $lib.pprint($r) } }
+            function j(x, y=$r) { $lib.pprint($y) $lib.pprint($r) }
+        '''), (
+            (2, 25, mesg.format('r', 'r', 'r')),
+            (3, 31, mesg.format('r', 'r', 'r')),
+            (4, 36, mesg.format('r', 'r', 'r')),
+            (5, 33, mesg.format('r', 'r', 'r')),
+            (6, 26, mesg.format('r', 'r', 'r')),
+            (7, 28, mesg.format('r', 'r', 'r')),
+            (8, 24, meth),
+            (9, 24, meth),
+            (10, 40, mesg.format('r', 'r', 'r')),
+            (11, 73, mesg.format('w', 'w', 'w')),
+            (13, 59, mesg.format('r', 'r', 'r')),
+            (14, 63, mesg.format('r', 'r', 'r')),
         ))
 
         # every v3model name is in the 2.x model

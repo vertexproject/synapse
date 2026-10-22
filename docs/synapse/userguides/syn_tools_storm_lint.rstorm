@@ -86,7 +86,7 @@ Three options choose which rules run:
 - ``--ignore`` removes rules from the selected set.
 
 Each option takes a comma-separated list of rule IDs or ID prefixes. A prefix matches every rule whose ID starts
-with it, so ``S`` matches every style rule and ``S01`` matches ``S010`` through ``S015``. A rule named by
+with it, so ``S`` matches every style rule and ``S01`` matches ``S010`` through ``S016``. A rule named by
 ``--select`` or ``--enable`` runs whether or not it is on by default.
 
 ``--v3-ready`` adds every ``M`` rule and every ``R`` rule other than ``R004`` to the selected set, after
@@ -290,6 +290,14 @@ Synapse 3.x. The ``M`` rules and every ``R`` rule other than ``R004`` are off by
       - no
       - A function returns a module from ``$lib.import()``. In a privsep module the returned module inherits root
         privileges, and binding the import as ``$__name`` does not prevent that. Never return an imported module.
+    * - ``S016``
+      - ``print-http-resp``
+      - medium
+      - yes
+      - An HTTP response or ``$lib.axon.wget()`` result is printed or logged. It includes the request headers, which
+        carry credentials such as an API key. Print fields such as its code and reason instead. The rule follows
+        variables assigned from ``$lib.inet.http`` calls and ``$lib.axon.wget()`` or ``$lib.axon.wput()`` in the same
+        scope. Suppress a finding for an object which is known to hold no credentials with a ``noqa`` comment.
     * - ``R001``
       - ``lib-constant``
       - high

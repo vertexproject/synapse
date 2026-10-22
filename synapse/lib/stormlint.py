@@ -51,6 +51,30 @@ gtorcalls = (
     ('lib', 'version', 'commit'),
 )
 
+# calls which return an object holding the request headers
+httpcalls = frozenset((
+    ('lib', 'inet', 'http', 'get'),
+    ('lib', 'inet', 'http', 'post'),
+    ('lib', 'inet', 'http', 'head'),
+    ('lib', 'inet', 'http', 'request'),
+    ('lib', 'axon', 'wget'),
+    ('lib', 'axon', 'wput'),
+))
+
+# calls which output their arguments
+printcalls = frozenset((
+    ('lib', 'print'),
+    ('lib', 'pprint'),
+    ('lib', 'warn'),
+    ('lib', 'log', 'debug'),
+    ('lib', 'log', 'info'),
+    ('lib', 'log', 'warning'),
+    ('lib', 'log', 'error'),
+))
+
+# members of an http response or wget result which hold the request headers
+reqkeys = frozenset(('request', 'request_headers', 'history'))
+
 def _apiTable(items):
     return {tuple(name[1:].split('.')): f'{name} was removed{hint}.' for name, hint in items}
 
@@ -1227,9 +1251,9 @@ def _ruleTryCast(ctx):
             if ctx.callPath(call) == ('lib', 'cast'):
                 ctx.report(call, 'Use $lib.trycast() instead of $lib.cast() in a try block.')
 
-def _getBinds(ctx, node):
+def _getBinds(ctx, node, paths=(('lib', 'import'),)):
     '''
-    Return the names a scope assigns, and the names it assigns from $lib.import().
+    Return the names a scope assigns, and the names it assigns from a call to one of the paths.
     '''
     names = set()
     imports = set()
@@ -1241,7 +1265,7 @@ def _getBinds(ctx, node):
             continue
 
         names.add(dest.valu)
-        if isinstance(oper, s_ast.SetVarOper) and ctx.callPath(oper.kids[1]) == ('lib', 'import'):
+        if isinstance(oper, s_ast.SetVarOper) and ctx.callPath(oper.kids[1]) in paths:
             imports.add(dest.valu)
 
     return names, imports
@@ -1282,6 +1306,71 @@ def _ruleReturnImport(ctx):
             if isvar or ctx.callPath(valu) == ('lib', 'import'):
                 ctx.report(node, 'Never return a module from $lib.import(), in a privsep module it inherits root '
                                  'privileges even when bound as $__name.')
+
+def _getLeaks(ctx, node, names):
+    '''
+    Yield (node, name) for each use in an output argument of a response which holds the request headers.
+    '''
+    if isinstance(node, s_ast.FuncCall):
+        if ctx.callPath(node) in httpcalls:
+            yield node, None
+
+        return
+
+    for valu in ctx.walk(s_ast.VarValue, node=node, skip=(s_ast.Function, s_ast.FuncCall)):
+
+        name = valu.kids[0].valu
+        if name not in names:
+            continue
+
+        # the whole object, or a member which holds the request headers
+        parent = ctx.parent(valu)
+        if isinstance(parent, s_ast.VarDeref) and parent.kids[0] is valu:
+
+            key = parent.kids[1]
+            if not isinstance(key, s_ast.Const) or key.valu not in reqkeys:
+                continue
+
+        yield valu, name
+
+@rule('S016', 'print-http-resp', 'medium')
+def _rulePrintHttpResp(ctx):
+    '''
+    An HTTP response or $lib.axon.wget() result is printed or logged. It includes the request
+    headers, which carry credentials such as an API key. Print fields such as its code and reason
+    instead.
+
+    The rule follows variables assigned from $lib.inet.http calls and $lib.axon.wget() or
+    $lib.axon.wput() in the same scope. Suppress a finding for an object which is known to hold
+    no credentials with a noqa comment.
+    '''
+    _, modresps = _getBinds(ctx, ctx.query, paths=httpcalls)
+
+    scopes = [(ctx.query, modresps)]
+    for func in ctx.walk(s_ast.Function):
+
+        names, resps = _getBinds(ctx, func.kids[2], paths=httpcalls)
+        names.update(_argName(arg) for arg in func.kids[1].kids)
+        resps.update(modresps - names)
+        scopes.append((func.kids[2], resps))
+
+    for scope, resps in scopes:
+        for call in ctx.walk(s_ast.FuncCall, node=scope, skip=s_ast.Function):
+
+            if ctx.callPath(call) not in printcalls:
+                continue
+
+            args = [*call.kids[1].kids, *(kwarg.kids[1] for kwarg in call.kids[2].kids)]
+            for arg in args:
+                for node, name in _getLeaks(ctx, arg, resps):
+
+                    if name is None:
+                        ctx.report(node, 'The result of this call includes the request headers, such as API '
+                                         'credentials. Print fields such as its code and reason instead.')
+                        continue
+
+                    ctx.report(node, f'${name} includes the request headers, such as API credentials. Print '
+                                     f'fields such as ${name}.code and ${name}.reason instead.')
 
 def _getV3Mesg(key, old, new):
 

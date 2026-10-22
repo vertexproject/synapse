@@ -1,0 +1,7 @@
+---
+desc: Added the `S016` `storm.lint` rule, which reports printing an HTTP response
+  or `$lib.axon.wget()` result that includes the request headers.
+desc:literal: false
+prs: []
+type: feat
+...
