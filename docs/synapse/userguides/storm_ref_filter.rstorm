@@ -812,14 +812,14 @@ of times and intervals.
   equal to ( ``=`` ) operator.
 
 
-*Filter the current working set to only include WHOIS email nodes (inet:whois:email) that were observed between July 1, 2023 and the present:*
+*Filter the current working set to only include DNS A nodes (inet:dns:a) that were observed between July 1, 2023 and the present:*
 
-.. storm-pre:: [ inet:whois:email=(tfxdccssl.net, abuse@dynadot.com) .seen=(2013/12/13 00:00:00, 2023/07/30 04:05:15.001) ] +inet:whois:email.seen @= ( 2023/07/01, now )
+.. storm-pre:: [ inet:dns:a=(tfxdccssl.net, 1.2.3.4) .seen=(2013/12/13 00:00:00, 2023/07/30 04:05:15.001) ] +inet:dns:a.seen @= ( 2023/07/01, now )
 ::
   
-  <query> +inet:whois:email.seen @= ( 2023/07/01, now )
+  <query> +inet:dns:a.seen @= ( 2023/07/01, now )
 
-.. storm-pre:: [ inet:whois:email=(tfxdccssl.net, abuse@dynadot.com) .seen=(2013/12/13 00:00:00, 2023/07/30 04:05:15.001) ] +.seen @= ( 2023/07/01, now )
+.. storm-pre:: [ inet:dns:a=(tfxdccssl.net, 1.2.3.4) .seen=(2013/12/13 00:00:00, 2023/07/30 04:05:15.001) ] +.seen @= ( 2023/07/01, now )
 ::
   
   <query> +.seen @= ( 2023/07/01, now )
