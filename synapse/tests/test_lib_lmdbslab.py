@@ -1,4 +1,6 @@
 import os
+import lmdb
+import struct
 import asyncio
 import pathlib
 import multiprocessing
@@ -1590,6 +1592,243 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 commitstats = stats['commitstats']
                 self.len(2, commitstats)
                 self.eq(2, commitstats[-1][1])
+
+    async def test_lmdbslab_pagestats(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path, map_size=100_000_000) as slab:
+
+                foo = slab.initdb('foo')
+                bar = slab.initdb('bar', dupsort=True)
+                await slab.sync()
+
+                stats = await slab.pageStats()
+                self.eq(4096, stats['pagesize'])
+                self.eq({'pages': 0, 'entries': 0, 'depth': 0, 'dupsort': False}, stats['dbs']['foo'])
+                self.eq({'pages': 0, 'entries': 0, 'depth': 0, 'dupsort': True}, stats['dbs']['bar'])
+                self.notin(None, stats['dbs'])
+
+                await slab.putmulti([(s_common.int64en(i), b'V' * 100) for i in range(1000)], db=foo)
+                await slab.putmulti([(b'key', s_common.int64en(i)) for i in range(1000)], dupdata=True, db=bar)
+
+                # uncommitted writes are not counted
+                self.eq(stats, await slab.pageStats())
+
+                await slab.sync()
+
+                stats = await slab.pageStats()
+                self.eq(1000, stats['dbs']['foo']['entries'])
+                self.eq(2, stats['dbs']['foo']['depth'])
+                self.eq(1000, stats['dbs']['bar']['entries'])
+                self.eq(1, stats['dbs']['bar']['depth'])
+
+                # dupsort sub-tree pages are not counted
+                self.eq(1, stats['dbs']['bar']['pages'])
+
+                foostat = slab.stat(db=foo)
+                self.eq(foostat['branch_pages'] + foostat['leaf_pages'], stats['dbs']['foo']['pages'])
+                self.gt(stats['dbs']['foo']['pages'], 25)
+
+                allocpages = stats['allocpages']
+                self.eq(slab.lenv.info()['last_pgno'] + 1, allocpages)
+                self.gt(allocpages, stats['dbs']['foo']['pages'])
+                self.lt(allocpages * stats['pagesize'], slab.mapsize)
+
+                # freed pages remain allocated; copy-on-write may allocate more
+                for i in range(1000):
+                    slab.delete(s_common.int64en(i), db=foo)
+
+                await slab.sync()
+
+                stats = await slab.pageStats()
+                self.ge(stats['allocpages'], allocpages)
+                self.eq({'pages': 0, 'entries': 0, 'depth': 0, 'dupsort': False}, stats['dbs']['foo'])
+
+                slabstats = [s for s in await s_lmdbslab.Slab.getSlabStats() if s['path'] == path][0]
+                self.eq(stats['pagesize'], slabstats['pagesize'])
+                self.eq(stats['allocpages'], slabstats['allocpages'])
+                self.eq(stats['dbs'], slabstats['dbs'])
+
+            async with await s_lmdbslab.Slab.anit(path, readonly=True) as slab:
+                slab.initdb('foo')
+                slab.initdb('bar', dupsort=True)
+
+                rostats = await slab.pageStats()
+                self.eq(stats['allocpages'], rostats['allocpages'])
+                self.eq(stats['dbs'], rostats['dbs'])
+                self.eq(0, slab.txnrefcount)
+
+    async def test_lmdbslab_freepages(self):
+
+        def compactPages(slab, dirn):
+            # a compacting copy holds exactly the live pages
+            dstpath = os.path.join(dirn, f'compact{len(os.listdir(dirn))}')
+            os.makedirs(dstpath)
+            slab.lenv.copy(dstpath, compact=True)
+
+            env = lmdb.open(dstpath, readonly=True)
+            try:
+                return env.info()['last_pgno'] + 1
+            finally:
+                env.close()
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+            mdbpath = os.path.join(path, 'data.mdb')
+            copydirn = s_common.gendir(dirn, 'copies')
+
+            async with await s_lmdbslab.Slab.anit(path, map_size=100_000_000) as slab:
+
+                foo = slab.initdb('foo')
+                bar = slab.initdb('bar', dupsort=True)
+                await slab.sync()
+
+                stats = await slab.pageStats()
+                self.notin('freepages', stats)
+                self.notin('freedbpages', stats)
+                self.notin('reclaimratio', stats)
+
+                stats = await slab.pageStats(freepages=True)
+                self.eq(stats['allocpages'] - stats['freepages'] - stats['freedbpages'],
+                        compactPages(slab, copydirn))
+
+                await slab.putmulti([(s_common.int64en(i), b'V' * 1000) for i in range(2000)], db=foo)
+                await slab.putmulti([(b'key', s_common.int64en(i)) for i in range(20000)], dupdata=True, db=bar)
+                await slab.sync()
+
+                # pin the free list so each commit below adds a record
+                rtxn = slab.lenv.begin()
+
+                for i in range(1000):
+                    slab.put(s_common.int64en(i), b'W' * 1000, db=foo)
+                    await slab.sync()
+
+                # a single large record is stored in overflow pages
+                for i in range(1000, 2000):
+                    slab.delete(s_common.int64en(i), db=foo)
+
+                for i in range(10000):
+                    slab.delete(b'key', s_common.int64en(i), db=bar)
+
+                await slab.sync()
+
+                stats = await slab.pageStats(freepages=True)
+                self.gt(stats['freepages'], 1000)
+                self.gt(stats['freedbpages'], 3)
+                self.eq(stats['allocpages'] - stats['freepages'] - stats['freedbpages'],
+                        compactPages(slab, copydirn))
+                self.eq((stats['freepages'] + stats['freedbpages']) / stats['allocpages'], stats['reclaimratio'])
+                self.gt(stats['reclaimratio'], 0.1)
+                self.lt(stats['reclaimratio'], 1.0)
+
+                rtxn.abort()
+
+                slabstats = [s for s in await s_lmdbslab.Slab.getSlabStats(freepages=True) if s['path'] == path][0]
+                self.eq(stats['allocpages'], slabstats['allocpages'])
+                self.eq(stats['freepages'], slabstats['freepages'])
+                self.eq(stats['freedbpages'], slabstats['freedbpages'])
+                self.eq(stats['reclaimratio'], slabstats['reclaimratio'])
+
+                with patch('synapse.lib.lmdbslab._getFreePages', return_value=(None, None)):
+                    nonestats = await slab.pageStats(freepages=True)
+                    self.none(nonestats['freepages'])
+                    self.none(nonestats['freedbpages'])
+                    self.none(nonestats['reclaimratio'])
+                    self.eq(stats['allocpages'], nonestats['allocpages'])
+
+                # the meta page for the transaction must be present and unchanged
+                with slab.lenv.begin() as xact:
+                    txnid = xact.id()
+                    psize = stats['pagesize']
+                    meta = s_lmdbslab._readFreeMeta(mdbpath, psize, txnid)
+                    self.eq((stats['freepages'], stats['freedbpages']),
+                            s_lmdbslab._getFreePages(mdbpath, psize, txnid, meta))
+
+                    self.none(s_lmdbslab._readFreeMeta(mdbpath, psize, txnid + 10))
+                    self.eq((None, None), s_lmdbslab._getFreePages(mdbpath, psize, txnid + 10, None))
+
+                    # a single commit writes the other meta page
+                    slab.put(b'torn', b'\x00', db=foo)
+                    slab.forcecommit()
+                    self.eq(meta, s_lmdbslab._readFreeMeta(mdbpath, psize, txnid))
+
+                    # a second commit overwrites the meta page for the pinned transaction
+                    slab.put(b'torn', b'\x01', db=foo)
+                    slab.forcecommit()
+                    self.none(s_lmdbslab._readFreeMeta(mdbpath, psize, txnid))
+                    self.eq((None, None), s_lmdbslab._getFreePages(mdbpath, psize, txnid, meta, recheck=True))
+
+                    # without another process committing, the pinned free list is still exact
+                    self.eq((stats['freepages'], stats['freedbpages']),
+                            s_lmdbslab._getFreePages(mdbpath, psize, txnid, meta))
+
+                # commits during the walk of a writable slab do not discard the result
+                getfree = s_lmdbslab._getFreePages
+                await slab.sync()
+                before = await slab.pageStats(freepages=True)
+
+                loop = asyncio.get_running_loop()
+
+                async def commit():
+                    for i in range(3):
+                        slab.put(b'walk', s_common.int64en(i), db=foo)
+                        slab.forcecommit()
+
+                def commitfree(*args, **kwargs):
+                    # commit from the loop thread while the walk runs in the executor
+                    asyncio.run_coroutine_threadsafe(commit(), loop).result()
+                    return getfree(*args, **kwargs)
+
+                with patch('synapse.lib.lmdbslab._getFreePages', commitfree):
+                    during = await slab.pageStats(freepages=True)
+
+                self.eq(before['freepages'], during['freepages'])
+                self.eq(before['freedbpages'], during['freedbpages'])
+                self.eq(before['allocpages'], during['allocpages'])
+
+                # a pageStats call after the commits reads the new meta page
+                stats = await slab.pageStats(freepages=True)
+                self.eq(stats['allocpages'] - stats['freepages'] - stats['freedbpages'],
+                        compactPages(slab, copydirn))
+
+            async with await s_lmdbslab.Slab.anit(path, readonly=True) as slab:
+                rostats = await slab.pageStats(freepages=True)
+                self.eq(stats['freepages'], rostats['freepages'])
+                self.eq(stats['freedbpages'], rostats['freedbpages'])
+                self.eq(0, slab.txnrefcount)
+
+            # corrupted or unrecognized data files are not read
+            with open(mdbpath, 'rb') as fd:
+                byts = bytearray(fd.read())
+
+            metas = [byts[pgno * psize:(pgno + 1) * psize] for pgno in (0, 1)]
+            txnid = max(struct.unpack_from('<Q', meta, 144)[0] for meta in metas)
+            metaoffs = [pgno * psize for pgno in (0, 1) if struct.unpack_from('<Q', metas[pgno], 144)[0] == txnid][0]
+
+            def corrupt(offs, fmt, valu):
+                corrpath = os.path.join(dirn, 'corrupt.mdb')
+                data = bytearray(byts)
+                struct.pack_into(fmt, data, offs, valu)
+                with open(corrpath, 'wb') as fd:
+                    fd.write(data)
+                return s_lmdbslab._getFreePages(corrpath, psize, txnid, s_lmdbslab._readFreeMeta(corrpath, psize, txnid))
+
+            self.eq((None, None), corrupt(metaoffs + 16, '<I', 0))
+            self.eq((None, None), corrupt(metaoffs + 20, '<I', 2))
+
+            # free list root beyond the last page or pointing at a meta page
+            self.eq((None, None), corrupt(metaoffs + 80, '<Q', len(byts) // psize + 10))
+            self.eq((None, None), corrupt(metaoffs + 80, '<Q', 0))
+
+            # fewer free list pages than the walk visits
+            self.eq((None, None), corrupt(metaoffs + 56, '<Q', 0))
+
+            # no free list
+            self.eq(0, corrupt(metaoffs + 80, '<Q', s_lmdbslab.MDB_P_INVALID)[0])
 
     async def test_lmdbslab_iter_and_delete(self):
         with self.getTestDir() as dirn:

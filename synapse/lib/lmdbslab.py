@@ -1,5 +1,6 @@
 import os
 import shutil
+import struct
 import asyncio
 import threading
 import collections
@@ -770,6 +771,112 @@ def _mapsizeround(size):
 
     return _roundup(size, MAX_DOUBLE_SIZE)
 
+# LMDB on-disk format constants (data version 1, 64-bit) used to read the free list
+MDB_MAGIC = 0xBEEFC0DE
+MDB_DATA_VERSION = 1
+MDB_PAGEHDRSZ = 16
+MDB_NODESIZE = 8
+MDB_P_INVALID = 0xffffffffffffffff
+MDB_P_BRANCH = 0x01
+MDB_P_LEAF = 0x02
+MDB_F_BIGDATA = 0x01
+
+def _readFreeMeta(path, psize, txnid):
+    '''
+    Read the free list DB record and last page number from the meta page for the given transaction.
+
+    Notes:
+        A commit overwrites the meta page of the transaction two before it, writing the txnid last. To
+        avoid reading a partially overwritten meta page, a writer must not commit while this runs.
+    '''
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        for pgno in (0, 1):
+            byts = os.pread(fd, psize, pgno * psize)
+
+            magic, vers = struct.unpack_from('<II', byts, MDB_PAGEHDRSZ)
+            if magic != MDB_MAGIC or vers != MDB_DATA_VERSION:
+                return None
+
+            # mm_dbs[FREE_DBI] starts at 40, followed by mm_dbs[MAIN_DBI], mm_last_pg and mm_txnid
+            if struct.unpack_from('<Q', byts, 144)[0] == txnid:
+                return struct.unpack_from('<QQQ8xQ', byts, 48) + struct.unpack_from('<Q', byts, 136)
+
+        return None
+
+    finally:
+        os.close(fd)
+
+def _getFreePages(path, psize, txnid, meta, recheck=False):
+    '''
+    Count the pages in the LMDB free list by walking the free list B-tree in the data file.
+
+    The caller must hold the read transaction with the given txnid open, which prevents the pages of its
+    free list from being reused, and pass the meta for it from _readFreeMeta(). If another process may
+    commit to the slab, set recheck to confirm the meta page was not overwritten while it was read.
+
+    Returns:
+        tuple: (freepages, freedbpages), or (None, None) if the free list could not be read consistently.
+    '''
+    if meta is None:
+        return None, None
+
+    fd = os.open(path, os.O_RDONLY)
+    try:
+
+        branch, leaf, overflow, root, lastpg = meta
+
+        def readpage(pgno):
+            if pgno > lastpg:
+                raise s_exc.BadDataValu(mesg=f'Free list page {pgno} is beyond the last page {lastpg}.')
+            return os.pread(fd, psize, pgno * psize)
+
+        free = 0
+        todo = []
+        if root != MDB_P_INVALID:
+            todo.append(root)
+
+        maxpages = branch + leaf
+        while todo:
+
+            maxpages -= 1
+            if maxpages < 0:
+                raise s_exc.BadDataValu(mesg='Free list has more pages than its meta page records.')
+
+            byts = readpage(todo.pop())
+            flags, lower = struct.unpack_from('<HH', byts, 10)
+            if not flags & (MDB_P_BRANCH | MDB_P_LEAF):
+                raise s_exc.BadDataValu(mesg=f'Free list page has unexpected flags {flags}.')
+
+            for i in range((lower - MDB_PAGEHDRSZ) >> 1):
+                offs = struct.unpack_from('<H', byts, MDB_PAGEHDRSZ + i * 2)[0]
+                lo, hi, nflags, ksize = struct.unpack_from('<HHHH', byts, offs)
+
+                if flags & MDB_P_BRANCH:
+                    todo.append(lo | (hi << 16) | (nflags << 32))
+                    continue
+
+                # each record is an ID list whose first entry is the number of free pages
+                data = byts
+                offs += MDB_NODESIZE + ksize
+                if nflags & MDB_F_BIGDATA:
+                    data = readpage(struct.unpack_from('<Q', byts, offs)[0])
+                    offs = MDB_PAGEHDRSZ
+
+                free += struct.unpack_from('<Q', data, offs)[0]
+
+        if recheck and _readFreeMeta(path, psize, txnid) != meta:
+            return None, None
+
+        return free, branch + leaf + overflow
+
+    except s_exc.BadDataValu as e:
+        logger.warning(f'Unable to read the LMDB free list for {path}: {e.get("mesg")}')
+        return None, None
+
+    finally:
+        os.close(fd)
+
 class Slab(s_base.Base):
     '''
     A "monolithic" LMDB instance for use in a asyncio loop thread.
@@ -834,9 +941,12 @@ class Slab(s_base.Base):
                 await asyncio.sleep(0)
 
     @classmethod
-    async def getSlabStats(clas):
+    async def getSlabStats(clas, freepages=False):
         retn = []
-        for slab in clas.allslabs.values():
+        for slab in list(clas.allslabs.values()):
+            if slab.isfini:  # pragma: no cover
+                continue
+
             retn.append({
                 'path': str(slab.path),
                 'xactops': len(slab.xactops),
@@ -849,8 +959,83 @@ class Slab(s_base.Base):
                 'growsize': slab.growsize,
                 'mapasync': True,
                 'commitstats': list(slab.commitstats),
+                **(await slab.pageStats(freepages=freepages)),
             })
         return retn
+
+    async def pageStats(self, freepages=False):
+        '''
+        Get LMDB page accounting for the slab as of the last commit.
+
+        Args:
+            freepages (bool): Also count the pages in the LMDB free list.
+
+        Returns:
+            dict: A dictionary containing ``pagesize``, ``allocpages`` and ``dbs``, and ``freepages``,
+            ``freedbpages`` and ``reclaimratio`` if requested.
+
+        Notes:
+            ``allocpages`` is the number of pages in use in the file (matching ``mdb_stat``), which is the
+            on-disk size of the slab in pages. The map size is not; the file is sparse up to the map size.
+
+            ``dbs`` contains a dict of ``pages``, ``entries``, ``depth`` and ``dupsort`` for each named
+            database opened by the slab. LMDB does not count the pages of dupsort sub-trees in a database's
+            page counts, so ``pages`` is a lower bound for dupsort databases.
+
+            ``freepages`` is the number of pages in the free list (matching ``mdb_stat -f``) and ``freedbpages``
+            is the number of pages holding the free list itself. Their sum is the number of pages an
+            optimization pass would reclaim, and ``reclaimratio`` is that sum divided by ``allocpages``. The
+            python lmdb bindings do not expose the free list, so it is read from the data file, and all three
+            values are None if it could not be read consistently. Reading the free list holds a read
+            transaction open, which prevents the reuse of pages freed while it is read.
+        '''
+        if self.readonly:
+            xact = self._acqXactForReading()
+        else:
+            # use a short-lived read transaction for a view consistent with the last commit
+            xact = self.lenv.begin()
+
+        try:
+            dbs = {}
+            for name, (realdb, dupsort) in self.dbnames.items():
+                if name is None:
+                    continue
+
+                stat = xact.stat(db=realdb)
+                dbs[name] = {
+                    'pages': stat['branch_pages'] + stat['leaf_pages'] + stat['overflow_pages'],
+                    'entries': stat['entries'],
+                    'depth': stat['depth'],
+                    'dupsort': dupsort,
+                }
+
+            psize = self.lenv.stat()['psize']
+            retn = {
+                'pagesize': psize,
+                'allocpages': self.lenv.info()['last_pgno'] + 1,
+                'dbs': dbs,
+            }
+
+            if freepages:
+                # read the meta page in the loop thread where this process can not commit concurrently,
+                # then walk the free list pages which the read transaction prevents from being reused
+                mdbpath = s_common.genpath(self.path, 'data.mdb')
+                meta = _readFreeMeta(mdbpath, psize, xact.id())
+                free, freedb = await s_coro.executor(_getFreePages, mdbpath, psize, xact.id(), meta,
+                                                     recheck=self.readonly)
+                retn['freepages'] = free
+                retn['freedbpages'] = freedb
+                retn['reclaimratio'] = None
+                if free is not None:
+                    retn['reclaimratio'] = (free + freedb) / retn['allocpages']
+
+            return retn
+
+        finally:
+            if self.readonly:
+                self._relXactForReading()
+            else:
+                xact.abort()
 
     async def __anit__(self, path, **kwargs):
 

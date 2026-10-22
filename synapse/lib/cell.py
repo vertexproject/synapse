@@ -891,18 +891,25 @@ class CellApi(s_base.Base):
             yield
 
     @adminapi()
-    async def getDiagInfo(self):
+    async def getDiagInfo(self, freepages=False):
         '''
         Get diagnostic information about the Cell.
+
+        Args:
+            freepages (bool): Also count the pages in each slab's free list.
 
         Returns:
             dict: A dictionary with a ``slabs`` list containing a dict for each open LMDB slab. Each slab
             dict includes the ``path``, map size settings, and a ``commitstats`` list of up to 1000
             ``(starttime, xactopslen, delta)`` tuples for recent commits, oldest first. Times are in
-            milliseconds.
+            milliseconds. Each slab dict also includes LMDB page accounting: the ``pagesize``, the
+            ``allocpages`` in use in the file, and a ``dbs`` dict of ``pages``, ``entries``, ``depth`` and
+            ``dupsort`` for each named database. If ``freepages`` is set, it also includes the ``freepages``
+            in the free list, the ``freedbpages`` holding it, and the ``reclaimratio`` of ``allocpages`` an
+            optimization pass would reclaim. See ``Slab.pageStats()`` for details.
         '''
         return {
-            'slabs': await s_lmdbslab.Slab.getSlabStats(),
+            'slabs': await s_lmdbslab.Slab.getSlabStats(freepages=freepages),
         }
 
     @adminapi()

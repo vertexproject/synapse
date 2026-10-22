@@ -998,6 +998,17 @@ class CellTest(s_t_utils.SynTest):
                 self.nn(slab['lockmemory'])
                 self.nn(slab['recovering'])
                 self.nn(slab['commitstats'])
+                self.nn(slab['pagesize'])
+                self.nn(slab['allocpages'])
+                self.nn(slab['dbs'])
+                self.notin('freepages', slab)
+
+                diag = await proxy.getDiagInfo(freepages=True)
+                for slab in diag['slabs']:
+                    self.ge(slab['freepages'], 0)
+                    self.ge(slab['freedbpages'], 0)
+                    self.ge(slab['reclaimratio'], 0)
+                    self.le(slab['reclaimratio'], 1)
 
             path = s_common.genpath(core.dirn, 'slabs', 'diagtest.lmdb')
             async with await s_lmdbslab.Slab.anit(path) as testslab:
