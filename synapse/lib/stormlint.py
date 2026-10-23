@@ -51,6 +51,30 @@ gtorcalls = (
     ('lib', 'version', 'commit'),
 )
 
+# calls which return an object holding the request headers
+httpcalls = frozenset((
+    ('lib', 'inet', 'http', 'get'),
+    ('lib', 'inet', 'http', 'post'),
+    ('lib', 'inet', 'http', 'head'),
+    ('lib', 'inet', 'http', 'request'),
+    ('lib', 'axon', 'wget'),
+    ('lib', 'axon', 'wput'),
+))
+
+# calls which output their arguments
+printcalls = frozenset((
+    ('lib', 'print'),
+    ('lib', 'pprint'),
+    ('lib', 'warn'),
+    ('lib', 'log', 'debug'),
+    ('lib', 'log', 'info'),
+    ('lib', 'log', 'warning'),
+    ('lib', 'log', 'error'),
+))
+
+# members of an http response or wget result which hold the request headers
+reqkeys = frozenset(('request', 'request_headers', 'history'))
+
 def _apiTable(items):
     return {tuple(name[1:].split('.')): f'{name} was removed{hint}.' for name, hint in items}
 
@@ -1227,12 +1251,12 @@ def _ruleTryCast(ctx):
             if ctx.callPath(call) == ('lib', 'cast'):
                 ctx.report(call, 'Use $lib.trycast() instead of $lib.cast() in a try block.')
 
-def _getBinds(ctx, node):
+def _getBinds(ctx, node, paths):
     '''
-    Return the names a scope assigns, and the names it assigns from $lib.import().
+    Return the names a scope assigns, and the names it assigns from a call to one of the paths.
     '''
     names = set()
-    imports = set()
+    binds = set()
     for oper in ctx.walk((s_ast.SetVarOper, s_ast.VarListSetOper, s_ast.ForLoop), node=node, skip=s_ast.Function):
 
         dest = oper.kids[0]
@@ -1241,10 +1265,10 @@ def _getBinds(ctx, node):
             continue
 
         names.add(dest.valu)
-        if isinstance(oper, s_ast.SetVarOper) and ctx.callPath(oper.kids[1]) == ('lib', 'import'):
-            imports.add(dest.valu)
+        if isinstance(oper, s_ast.SetVarOper) and ctx.callPath(oper.kids[1]) in paths:
+            binds.add(dest.valu)
 
-    return names, imports
+    return names, binds
 
 def _argName(arg):
     '''
@@ -1255,6 +1279,25 @@ def _argName(arg):
 
     return arg.valu
 
+def _getScopes(ctx, paths):
+    '''
+    Return a (node, binds) pair for the module scope and then for each function scope.
+
+    binds are the names in scope which are assigned from a call to one of the paths. A function
+    sees the module binds it does not assign or take as a parameter.
+    '''
+    _, modbinds = _getBinds(ctx, ctx.query, paths)
+
+    scopes = [(ctx.query, modbinds)]
+    for func in ctx.walk(s_ast.Function):
+
+        names, binds = _getBinds(ctx, func.kids[2], paths)
+        names.update(_argName(arg) for arg in func.kids[1].kids)
+        binds.update(modbinds - names)
+        scopes.append((func.kids[2], binds))
+
+    return scopes
+
 @rule('S015', 'return-import', 'medium', default=False)
 def _ruleReturnImport(ctx):
     '''
@@ -1264,15 +1307,8 @@ def _ruleReturnImport(ctx):
 
     This rule is off by default. Turn it on with enable.
     '''
-    _, modimports = _getBinds(ctx, ctx.query)
-
-    for func in ctx.walk(s_ast.Function):
-
-        names, imports = _getBinds(ctx, func.kids[2])
-        names.update(_argName(arg) for arg in func.kids[1].kids)
-        imports.update(modimports - names)
-
-        for node in ctx.walk(s_ast.Return, node=func.kids[2], skip=s_ast.Function):
+    for scope, imports in _getScopes(ctx, (('lib', 'import'),))[1:]:
+        for node in ctx.walk(s_ast.Return, node=scope, skip=s_ast.Function):
 
             if not node.kids:
                 continue
@@ -1282,6 +1318,161 @@ def _ruleReturnImport(ctx):
             if isvar or ctx.callPath(valu) == ('lib', 'import'):
                 ctx.report(node, 'Never return a module from $lib.import(), in a privsep module it inherits root '
                                  'privileges even when bound as $__name.')
+
+def _getLeaks(ctx, node, names):
+    '''
+    Yield (node, name) for each part of a print argument which exposes the request headers: a variable
+    in names, used whole or through its request, request_headers or history member, or a direct call
+    to one of the httpcalls, for which name is None.
+    '''
+    if isinstance(node, s_ast.FuncCall):
+        if ctx.callPath(node) in httpcalls:
+            yield node, None
+
+        return
+
+    for valu in ctx.walk(s_ast.VarValue, node=node, skip=(s_ast.Function, s_ast.FuncCall)):
+
+        name = valu.kids[0].valu
+        if name not in names:
+            continue
+
+        # the whole object, or a member which holds the request headers
+        parent = ctx.parent(valu)
+        if isinstance(parent, s_ast.VarDeref) and parent.kids[0] is valu:
+
+            key = parent.kids[1]
+            if not isinstance(key, s_ast.Const) or key.valu not in reqkeys:
+                continue
+
+        yield valu, name
+
+def _getAncestors(ctx, node, scope):
+    '''
+    Yield the node and each of its parents up to, but not including, the scope.
+    '''
+    while node is not scope:
+        yield node
+        node = ctx.parent(node)
+
+def _isBranch(ctx, node):
+    '''
+    Return True if the node is a block which may not run: an if clause or else query, a try body or
+    catch block, a switch case, a loop, a subquery or an empty block.
+    '''
+    if isinstance(node, (s_ast.ForLoop, s_ast.WhileLoop, s_ast.SubQuery, s_ast.EmptyBlock)):
+        return True
+
+    return isinstance(ctx.parent(node), (s_ast.IfStmt, s_ast.TryCatch, s_ast.SwitchCase))
+
+def _getLive(ctx, scope, names, paths, call):
+    '''
+    Return the names which hold the result of a call to one of the paths at the call.
+
+    A name is live when its latest assignment in the scope before the call is from one of the paths,
+    or when the scope does not assign it before the call (a module bind). A later assignment from
+    anything else ends it, unless the assignment is in a branch which does not also contain the call.
+    A bind after the call is live too when it is in a loop which contains the call, since the next
+    iteration reaches the call with it.
+    '''
+    last = {}
+    carried = set()
+    off = call.astinfo.soff
+    inside = {id(node) for node in _getAncestors(ctx, call, scope)}
+    for oper in ctx.walk((s_ast.SetVarOper, s_ast.VarListSetOper, s_ast.ForLoop), node=scope, skip=s_ast.Function):
+
+        soff = oper.astinfo.soff
+        dest = oper.kids[0]
+        isbind = isinstance(oper, s_ast.SetVarOper) and ctx.callPath(oper.kids[1]) in paths
+
+        if soff >= off:
+            loops = (s_ast.ForLoop, s_ast.WhileLoop)
+            if isbind and any(isinstance(node, loops) and id(node) in inside for node in _getAncestors(ctx, oper, scope)):
+                carried.add(dest.valu)
+
+            continue
+
+        if not isbind and any(_isBranch(ctx, node) and id(node) not in inside for node in _getAncestors(ctx, oper, scope)):
+            continue
+
+        for name in (dest.valu if isinstance(dest, s_ast.VarList) else (dest.valu,)):
+            if name in names and soff >= last.get(name, (-1,))[0]:
+                last[name] = (soff, isbind)
+
+    return {name for name in names if name in carried or last.get(name, (0, True))[1]}
+
+def _followCalls(ctx, scopes):
+    '''
+    Add the parameters of the functions defined in the query which are passed a response to the
+    binds of the function scopes, until no more are added.
+
+    A parameter is added when any call to the function passes a live response or a direct call to
+    one of the httpcalls in that position, whichever call it is. scopes is the result of _getScopes().
+    '''
+    funcs = {}
+    for func, (_, binds) in zip(ctx.walk(s_ast.Function), scopes[1:]):
+        funcs[(func.kids[0].valu,)] = ([_argName(arg) for arg in func.kids[1].kids], binds)
+
+    changed = True
+    while changed:
+        changed = False
+
+        for scope, binds in scopes:
+            for call in ctx.walk(s_ast.FuncCall, node=scope, skip=s_ast.Function):
+
+                func = funcs.get(ctx.callPath(call))
+                if func is None:
+                    continue
+
+                params, fbinds = func
+                live = _getLive(ctx, scope, binds, httpcalls, call)
+
+                args = [*zip(params, call.kids[1].kids), *((kwarg.kids[0].valu, kwarg.kids[1]) for kwarg in call.kids[2].kids)]
+                for name, arg in args:
+
+                    isvar = isinstance(arg, s_ast.VarValue) and arg.kids[0].valu in live
+                    if name in params and name not in fbinds and (isvar or ctx.callPath(arg) in httpcalls):
+                        fbinds.add(name)
+                        changed = True
+
+@rule('S016', 'print-http-resp', 'medium', default=False)
+def _rulePrintHttpResp(ctx):
+    '''
+    An HTTP response or $lib.axon.wget() result is printed or logged. It includes the request
+    headers, which may carry credentials such as an API key. Print fields such as its code and reason
+    instead.
+
+    The rule follows variables assigned from $lib.inet.http calls and $lib.axon.wget() or
+    $lib.axon.wput() in the same scope, until the variable is assigned something else. An assignment
+    in an if, try, switch, loop, subquery or empty block only ends it for a print in the same block.
+    A parameter of a function defined in the same query is followed when any call to the function
+    passes it a response. Suppress a finding for an object which is known to hold no credentials
+    with a noqa comment.
+
+    This rule is off by default. Turn it on with enable.
+    '''
+    scopes = _getScopes(ctx, httpcalls)
+    _followCalls(ctx, scopes)
+
+    for scope, resps in scopes:
+        for call in ctx.walk(s_ast.FuncCall, node=scope, skip=s_ast.Function):
+
+            if ctx.callPath(call) not in printcalls:
+                continue
+
+            live = _getLive(ctx, scope, resps, httpcalls, call)
+
+            args = [*call.kids[1].kids, *(kwarg.kids[1] for kwarg in call.kids[2].kids)]
+            for arg in args:
+                for node, name in _getLeaks(ctx, arg, live):
+
+                    if name is None:
+                        ctx.report(node, 'The result of this call includes the request headers, such as API '
+                                         'credentials. Print fields such as its code and reason instead.')
+                        continue
+
+                    ctx.report(node, f'${name} includes the request headers, such as API credentials. Print '
+                                     f'fields such as ${name}.code and ${name}.reason instead.')
 
 def _getV3Mesg(key, old, new):
 
