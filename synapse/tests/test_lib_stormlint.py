@@ -816,6 +816,11 @@ class StormLintTest(s_t_utils.SynTest):
             function n() { $q = $lib.inet.http.get($u) try { $q = $q.json() $lib.pprint($q) } catch * as e { $lib.print($e) } }
             function o() { $q = $lib.inet.http.get($u) for $x in $y { $q = $q.json() $lib.pprint($q) } }
             function p() { $q = (null) $lib.pprint($q) $q = $lib.inet.http.get($u) }
+            function na(resp) { $lib.print($resp.code) }
+            function nb(resp) { $lib.print($resp) }
+            function nc(resp) { $resp = $resp.json() $lib.print($resp) }
+            $a = $lib.inet.http.get($u) $na($a, 2, 3) $nb(1) $nb($u) $nb($a.code) $nb(resp=$u) $nb(zzz=$a)
+            $nc($lib.inet.http.get($u)) $unknown($a) $obj.$key($a) $lib.str.format($a) $nb(zzz=$lib.inet.http.get($u))
             function s() { $q = (null) $lib.pprint($q) for $x in $y { $q = $lib.inet.http.get($u) } }
         '''), [])
 
@@ -849,6 +854,16 @@ class StormLintTest(s_t_utils.SynTest):
             function w() { $q = (null) for $x in $y { $lib.pprint($q) $q = $lib.inet.http.get($u) } }
             function z() { $q = (null) while $c { $lib.print($q) $q = $lib.axon.wget($u) } }
             $r = (null) for $x in $y { $lib.pprint($r) $r = $lib.inet.http.get($x) }
+            function pa(resp, url) { $lib.pprint($resp) }
+            function pb(x, resp=$d) { $lib.log.info($resp) }
+            function pc(r1) { $pd($r1) }
+            function pd(r2) { $lib.print($r2) }
+            function pe(r3) { $pe($r3) $lib.print($r3) }
+            function pf() { $q = $lib.inet.http.get($u) $pa($q, $u) }
+            $a = $lib.inet.http.get($u) $pa($a, $u)
+            $pb(1, resp=$lib.axon.wget($u))
+            $b = $lib.axon.wget($u) $pc($b)
+            $pe($lib.inet.http.get($u))
         '''), (
             (2, 25, mesg.format('r', 'r', 'r')),
             (3, 31, mesg.format('r', 'r', 'r')),
@@ -877,6 +892,10 @@ class StormLintTest(s_t_utils.SynTest):
             (26, 67, mesg.format('q', 'q', 'q')),
             (27, 62, mesg.format('q', 'q', 'q')),
             (28, 52, mesg.format('r', 'r', 'r')),
+            (29, 50, mesg.format('resp', 'resp', 'resp')),
+            (30, 53, mesg.format('resp', 'resp', 'resp')),
+            (32, 42, mesg.format('r2', 'r2', 'r2')),
+            (33, 51, mesg.format('r3', 'r3', 'r3')),
         ))
 
         # every v3model name is in the 2.x model

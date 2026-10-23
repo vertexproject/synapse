@@ -1401,6 +1401,40 @@ def _getLive(ctx, scope, names, paths, call):
 
     return {name for name in names if name in carried or last.get(name, (0, True))[1]}
 
+def _followCalls(ctx, scopes):
+    '''
+    Add the parameters of the functions defined in the query which are passed a response to the
+    binds of the function scopes, until no more are added.
+
+    A parameter is added when any call to the function passes a live response or a direct call to
+    one of the httpcalls in that position, whichever call it is. scopes is the result of _getScopes().
+    '''
+    funcs = {}
+    for func, (_, binds) in zip(ctx.walk(s_ast.Function), scopes[1:]):
+        funcs[(func.kids[0].valu,)] = ([_argName(arg) for arg in func.kids[1].kids], binds)
+
+    changed = True
+    while changed:
+        changed = False
+
+        for scope, binds in scopes:
+            for call in ctx.walk(s_ast.FuncCall, node=scope, skip=s_ast.Function):
+
+                func = funcs.get(ctx.callPath(call))
+                if func is None:
+                    continue
+
+                params, fbinds = func
+                live = _getLive(ctx, scope, binds, httpcalls, call)
+
+                args = [*zip(params, call.kids[1].kids), *((kwarg.kids[0].valu, kwarg.kids[1]) for kwarg in call.kids[2].kids)]
+                for name, arg in args:
+
+                    isvar = isinstance(arg, s_ast.VarValue) and arg.kids[0].valu in live
+                    if name in params and name not in fbinds and (isvar or ctx.callPath(arg) in httpcalls):
+                        fbinds.add(name)
+                        changed = True
+
 @rule('S016', 'print-http-resp', 'medium', default=False)
 def _rulePrintHttpResp(ctx):
     '''
@@ -1410,12 +1444,17 @@ def _rulePrintHttpResp(ctx):
 
     The rule follows variables assigned from $lib.inet.http calls and $lib.axon.wget() or
     $lib.axon.wput() in the same scope, until the variable is assigned something else. An assignment
-    in an if, try, switch, loop or subquery block only ends it for a print in the same block. Suppress a
-    finding for an object which is known to hold no credentials with a noqa comment.
+    in an if, try, switch, loop, subquery or empty block only ends it for a print in the same block.
+    A parameter of a function defined in the same query is followed when any call to the function
+    passes it a response. Suppress a finding for an object which is known to hold no credentials
+    with a noqa comment.
 
     This rule is off by default. Turn it on with enable.
     '''
-    for scope, resps in _getScopes(ctx, httpcalls):
+    scopes = _getScopes(ctx, httpcalls)
+    _followCalls(ctx, scopes)
+
+    for scope, resps in scopes:
         for call in ctx.walk(s_ast.FuncCall, node=scope, skip=s_ast.Function):
 
             if ctx.callPath(call) not in printcalls:
