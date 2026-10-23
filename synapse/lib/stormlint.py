@@ -1333,7 +1333,7 @@ def _getLeaks(ctx, node, names):
 
         yield valu, name
 
-@rule('S016', 'print-http-resp', 'medium')
+@rule('S016', 'print-http-resp', 'medium', default=False)
 def _rulePrintHttpResp(ctx):
     '''
     An HTTP response or $lib.axon.wget() result is printed or logged. It includes the request
@@ -1343,6 +1343,8 @@ def _rulePrintHttpResp(ctx):
     The rule follows variables assigned from $lib.inet.http calls and $lib.axon.wget() or
     $lib.axon.wput() in the same scope. Suppress a finding for an object which is known to hold
     no credentials with a noqa comment.
+
+    This rule is off by default. Turn it on with enable.
     '''
     _, modresps = _getBinds(ctx, ctx.query, paths=httpcalls)
 

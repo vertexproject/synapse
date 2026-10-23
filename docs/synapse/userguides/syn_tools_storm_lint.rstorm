@@ -99,8 +99,8 @@ it on. See
     # only the 3.x syntax and runtime rules
     python -m synapse.tools.storm.lint --select R mypkg/storm/
 
-    # the default rules, plus S010 and S015 which are off by default
-    python -m synapse.tools.storm.lint --enable S010,S015 mypkg/storm/
+    # the default rules, plus S010, S015 and S016 which are off by default
+    python -m synapse.tools.storm.lint --enable S010,S015,S016 mypkg/storm/
 
     # the default rules, except the style rules
     python -m synapse.tools.storm.lint --ignore S mypkg/storm/
@@ -293,7 +293,7 @@ Synapse 3.x. The ``M`` rules and every ``R`` rule other than ``R004`` are off by
     * - ``S016``
       - ``print-http-resp``
       - medium
-      - yes
+      - no
       - An HTTP response or ``$lib.axon.wget()`` result is printed or logged. It includes the request headers, which
         carry credentials such as an API key. Print fields such as its code and reason instead. The rule follows
         variables assigned from ``$lib.inet.http`` calls and ``$lib.axon.wget()`` or ``$lib.axon.wput()`` in the same

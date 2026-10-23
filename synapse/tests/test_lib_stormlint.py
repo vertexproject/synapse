@@ -75,6 +75,7 @@ class StormLintTest(s_t_utils.SynTest):
             self.false(s_stormlint.rules['W001'].default)
             self.false(s_stormlint.rules['S010'].default)
             self.false(s_stormlint.rules['S015'].default)
+            self.false(s_stormlint.rules['S016'].default)
             self.false(s_stormlint.rules['T001'].v3)
             self.false(s_stormlint.rules['S001'].v3)
 
@@ -118,6 +119,7 @@ class StormLintTest(s_t_utils.SynTest):
             self.notin('W001', defaults)
             self.notin('S010', defaults)
             self.notin('S015', defaults)
+            self.notin('S016', defaults)
             self.eq(idens(s_stormlint.StormLinter(ignore=('T',))), [i for i in defaults if not i.startswith('T')])
             self.eq(idens(s_stormlint.StormLinter(enable=('W001',))), sorted(defaults + ['W001']))
             self.eq(idens(s_stormlint.StormLinter(select=('W',))), ['W001'])
