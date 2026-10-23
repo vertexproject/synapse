@@ -1757,25 +1757,24 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     psize = stats['pagesize']
                     meta = s_lmdbslab._readFreeMeta(mdbpath, psize, txnid)
                     self.eq((stats['freepages'], stats['freedbpages']),
-                            s_lmdbslab._getFreePages(mdbpath, psize, txnid, meta))
+                            s_lmdbslab._getFreePages(mdbpath, psize, meta))
 
                     self.none(s_lmdbslab._readFreeMeta(mdbpath, psize, txnid + 10))
-                    self.eq((None, None), s_lmdbslab._getFreePages(mdbpath, psize, txnid + 10, None))
+                    self.eq((None, None), s_lmdbslab._getFreePages(mdbpath, psize, None))
 
-                    # a single commit writes the other meta page
+                    # once a commit writes the other meta page, the next commit may overwrite this one
                     slab.put(b'torn', b'\x00', db=foo)
                     slab.forcecommit()
-                    self.eq(meta, s_lmdbslab._readFreeMeta(mdbpath, psize, txnid))
+                    self.none(s_lmdbslab._readFreeMeta(mdbpath, psize, txnid))
 
                     # a second commit overwrites the meta page for the pinned transaction
                     slab.put(b'torn', b'\x01', db=foo)
                     slab.forcecommit()
                     self.none(s_lmdbslab._readFreeMeta(mdbpath, psize, txnid))
-                    self.eq((None, None), s_lmdbslab._getFreePages(mdbpath, psize, txnid, meta, recheck=True))
 
-                    # without another process committing, the pinned free list is still exact
+                    # the pinned free list is still exact
                     self.eq((stats['freepages'], stats['freedbpages']),
-                            s_lmdbslab._getFreePages(mdbpath, psize, txnid, meta))
+                            s_lmdbslab._getFreePages(mdbpath, psize, meta))
 
                 # commits during the walk of a writable slab do not discard the result
                 getfree = s_lmdbslab._getFreePages
@@ -1826,7 +1825,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 struct.pack_into(fmt, data, offs, valu)
                 with open(corrpath, 'wb') as fd:
                     fd.write(data)
-                return s_lmdbslab._getFreePages(corrpath, psize, txnid, s_lmdbslab._readFreeMeta(corrpath, psize, txnid))
+                return s_lmdbslab._getFreePages(corrpath, psize, s_lmdbslab._readFreeMeta(corrpath, psize, txnid))
 
             with self.raises(s_exc.BadDataValu):
                 corrupt(metaoffs + 16, '<I', 0)
@@ -1845,6 +1844,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadDataValu):
                 corrupt(metaoffs + 56, '<Q', 0)
 
+            # a meta page which the next commit may be overwriting is not read
+            self.eq((None, None), corrupt(psize - metaoffs + 144, '<Q', txnid + 1))
+
             # a free list page whose node pointers run past the end of the page
             root = struct.unpack_from('<Q', byts, metaoffs + 80)[0]
             with self.raises(struct.error):
@@ -1853,7 +1855,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
             # a missing data file
             meta = s_lmdbslab._readFreeMeta(mdbpath, psize, txnid)
             with self.raises(FileNotFoundError):
-                s_lmdbslab._getFreePages(os.path.join(dirn, 'newp.mdb'), psize, txnid, meta)
+                s_lmdbslab._getFreePages(os.path.join(dirn, 'newp.mdb'), psize, meta)
 
             # no free list
             self.eq(0, corrupt(metaoffs + 80, '<Q', s_lmdbslab.MDB_P_INVALID)[0])

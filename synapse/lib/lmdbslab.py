@@ -786,12 +786,14 @@ def _readFreeMeta(path, psize, txnid):
     Read the free list DB record and last page number from the meta page for the given transaction.
 
     Returns:
-        tuple: (branch, leaf, overflow, root, lastpg) for the free list, or None if the meta page for the
-        transaction has been overwritten.
+        tuple: (branch, leaf, overflow, root, lastpg) for the free list, or None if the transaction is no
+        longer the most recent commit.
 
     Notes:
-        A commit overwrites the meta page of the transaction two before it, writing the txnid last. To
-        avoid reading a partially overwritten meta page, a writer must not commit while this runs.
+        A commit overwrites the meta page of the transaction two before it, writing the txnid last, so a
+        meta page read during that commit could mix old and new values with the old txnid. The meta page
+        is only returned if the other meta page is still older after it was read, which means the commit
+        that would overwrite it has not started.
     '''
     fd = os.open(path, os.O_RDONLY)
     try:
@@ -803,24 +805,31 @@ def _readFreeMeta(path, psize, txnid):
                 raise s_exc.BadDataValu(mesg=f'Unsupported LMDB meta page {magic=} {vers=}.')
 
             # mm_dbs[FREE_DBI] starts at 40, followed by mm_dbs[MAIN_DBI], mm_last_pg and mm_txnid
-            if struct.unpack_from('<Q', byts, 144)[0] == txnid:
-                return struct.unpack_from('<QQQ8xQ', byts, 48) + struct.unpack_from('<Q', byts, 136)
+            if struct.unpack_from('<Q', byts, 144)[0] != txnid:
+                continue
+
+            meta = struct.unpack_from('<QQQ8xQ', byts, 48) + struct.unpack_from('<Q', byts, 136)
+
+            othr = os.pread(fd, 8, (1 - pgno) * psize + 144)
+            if struct.unpack('<Q', othr)[0] > txnid:
+                return None
+
+            return meta
 
         return None
 
     finally:
         os.close(fd)
 
-def _getFreePages(path, psize, txnid, meta, recheck=False):
+def _getFreePages(path, psize, meta):
     '''
     Count the pages in the LMDB free list by walking the free list B-tree in the data file.
 
-    The caller must hold the read transaction with the given txnid open, which prevents the pages of its
-    free list from being reused, and pass the meta for it from _readFreeMeta(). If another process may
-    commit to the slab, set recheck to confirm the meta page was not overwritten while it was read.
+    The caller must hold open the read transaction that meta was read for by _readFreeMeta(), which
+    prevents the pages of its free list from being reused.
 
     Returns:
-        tuple: (freepages, freedbpages), or (None, None) if the meta page for the transaction was overwritten.
+        tuple: (freepages, freedbpages), or (None, None) if meta is None.
 
     Raises:
         s_exc.BadDataValu, struct.error, OSError: If the free list is not readable.
@@ -871,9 +880,6 @@ def _getFreePages(path, psize, txnid, meta, recheck=False):
                     offs = MDB_PAGEHDRSZ
 
                 free += struct.unpack_from('<Q', data, offs)[0]
-
-        if recheck and _readFreeMeta(path, psize, txnid) != meta:
-            return None, None
 
         return free, branch + leaf + overflow
 
@@ -1029,12 +1035,10 @@ class Slab(s_base.Base):
 
                 mdbpath = s_common.genpath(self.path, 'data.mdb')
                 try:
-                    # read the meta page in the loop thread where this process can not commit concurrently,
-                    # then walk the free list pages which the read transaction prevents from being reused.
+                    # the read transaction prevents the free list pages from being reused during the walk.
                     # nothing may read through xact after this await; a commit may resize the map meanwhile.
                     meta = _readFreeMeta(mdbpath, psize, xact.id())
-                    free, freedb = await s_coro.executor(_getFreePages, mdbpath, psize, xact.id(), meta,
-                                                         recheck=self.readonly)
+                    free, freedb = await s_coro.executor(_getFreePages, mdbpath, psize, meta)
 
                 except (s_exc.BadDataValu, struct.error, OSError) as e:
                     logger.warning(f'Unable to read the LMDB free list for {mdbpath}: {e}')
