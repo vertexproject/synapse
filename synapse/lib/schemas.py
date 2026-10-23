@@ -145,7 +145,7 @@ _CronJobSchema = {
 }
 
 reqValidCronDef = s_config.getJsValidator(_CronJobSchema)
-reqValidVault = s_config.getJsValidator({
+vaultSchema = {
     'type': 'object',
     'properties': {
         'name': {'type': 'string', 'pattern': '^.{1,128}$'},
@@ -168,7 +168,9 @@ reqValidVault = s_config.getJsValidator({
         'secrets',
         'configs',
     ],
-})
+}
+
+reqValidVault = s_config.getJsValidator(vaultSchema)
 
 reqValidView = s_config.getJsValidator({
     'type': 'object',
