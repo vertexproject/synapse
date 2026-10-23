@@ -1439,7 +1439,7 @@ def _followCalls(ctx, scopes):
 def _rulePrintHttpResp(ctx):
     '''
     An HTTP response or $lib.axon.wget() result is printed or logged. It includes the request
-    headers, which carry credentials such as an API key. Print fields such as its code and reason
+    headers, which may carry credentials such as an API key. Print fields such as its code and reason
     instead.
 
     The rule follows variables assigned from $lib.inet.http calls and $lib.axon.wget() or
