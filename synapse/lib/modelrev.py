@@ -3,17 +3,98 @@ import logging
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.coro as s_coro
 import synapse.lib.layer as s_layer
+import synapse.lib.types as s_types
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 36)
+maxvers = (3, 1, 0)
 
 class ModelRev:
 
     def __init__(self, core):
         self.core = core
-        self.revs = ()
+        self.revs = (
+            ((3, 1, 0), self.revModel_3_1_0),
+        )
+
+    async def revModel_3_1_0(self, layers):
+
+        def hasBoolType(typ):
+
+            # a prop type is a poly, or an array of one
+            if typ.isarray:
+                typ = typ.arraytype
+
+            return any(isinstance(t, s_types.Bool) for t in typ.getTypeSet())
+
+        def boolifyTval(tval):
+
+            if tval[0] in boolnames:
+                return (tval[0], bool(tval[1]))
+
+            return tval
+
+        def getBoolNorm(valu, stortype):
+            # returns the value with bools in place of legacy ints, or None when it already stores bools
+            # props are a (type, valu) tuple or an array of them
+            if stortype & s_layer.STOR_FLAG_ARRAY:
+                norm = tuple(boolifyTval(tval) for tval in valu)
+            else:
+                norm = boolifyTval(valu)
+
+            if not s_layer.hasBoolDiff(stortype, norm, valu):
+                return None
+
+            return norm
+
+        boolnames = {t.name for t in self.core.model.types.values() if isinstance(t, s_types.Bool)}
+        props = [p for p in self.core.model.getProps() if not p.isform and not p.isrunt and hasBoolType(p.type)]
+        names = {p.name for p in self.core.model.tagprops.values() if isinstance(p.type, s_types.Bool)}
+
+        for layr in layers:
+
+            meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+            for prop in props:
+
+                async for rows in s_coro.chunks(layr.liftByProp(prop.form.name, prop.name), size=1000):
+
+                    nodeedits = []
+                    for _, nid, sref in rows:
+
+                        curv = sref.sode['props'].get(prop.name)
+                        if curv is None or (norm := getBoolNorm(curv[0], curv[1])) is None:
+                            continue
+
+                        nodeedits.append((s_common.int64un(nid), prop.form.name, (
+                            (s_layer.EDIT_PROP_SET, (prop.name, norm, curv[1], curv[2])),
+                        )))
+
+                    if nodeedits:
+                        await layr.saveNodeEdits(nodeedits, meta)
+
+            for form, tag, name in list(layr.getTagPropIndexes()):
+
+                if form is None or tag is None or name not in names:
+                    continue
+
+                async for rows in s_coro.chunks(layr.liftByTagProp(form, tag, name), size=1000):
+
+                    nodeedits = []
+                    for _, nid, sref in rows:
+
+                        tpdict = sref.sode['tagprops'].get(tag)
+                        if tpdict is None or (curv := tpdict.get(name)) is None or curv[0].__class__ is bool:
+                            continue
+
+                        nodeedits.append((s_common.int64un(nid), form, (
+                            (s_layer.EDIT_TAGPROP_SET, (tag, name, bool(curv[0]), curv[1], curv[2])),
+                        )))
+
+                    if nodeedits:
+                        await layr.saveNodeEdits(nodeedits, meta)
 
     async def _uniqSortArray(self, todoprops, layers):
 

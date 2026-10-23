@@ -1507,7 +1507,7 @@ See [Storm Reference - Advanced - Variables](userguides/storm_adv_vars.md#storm-
 
 ### Vault
 
-In Synapse, a vault is a protected storage mechanism that allows you to store secret values (such as API keys) and any associated configuration settings. Vaults support permissions and can be shared with other users or roles. Granting 'read' access to a vault allows someone to use the vault contents without allowing them to see the vault's secret values.
+In Synapse, a vault is a protected storage mechanism that allows you to store secret values (such as API keys) and any associated configuration settings. Vaults support permissions and can be shared with other users or roles. Granting 'read' access to a vault allows someone to see its configuration settings but not its secret values, which are used on their behalf only by a privileged Storm module. See [Storm Reference - Advanced - Vaults](userguides/storm_adv_vaults.md#storm-adv-vaults) for more information.
 
 <a id="gloss-view"></a>
 

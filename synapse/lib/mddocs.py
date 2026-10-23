@@ -140,6 +140,11 @@ _re_md_link_text = regex.compile(r'\[([^\]]*)\]\(([^)\s]+)\)')
 _re_abs_doclink = regex.compile(r'^/docs/[\w.-]+/[\w.-]+(/.+\.md)?/?$')
 _re_inline_code = regex.compile(r'`[^`]*`')
 
+# The values a rebuild of a live page changes from one run to the next -- see normVolatile.
+_re_volatile_sha256 = regex.compile(r'\b[0-9a-f]{64}\b')
+_re_volatile_iden = regex.compile(r'\b[0-9a-f]{32}\b')
+_re_volatile_time = regex.compile(r'\d{4}[-/]\d{2}[-/]\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d+)?')
+
 class _WarningCollector(logging.Handler):
     '''A logging.Handler that only collects WARNING+ records, for classifying against WARNINGS_IGNORE/ERROR.'''
 
@@ -492,6 +497,76 @@ def writeManifest(srcdir, outdir):
 
     return path
 
+def normVolatile(text):
+    '''
+    Blank the values a rebuild of a live page changes from one run to the next --
+    sha256 values, idens (guids) and timestamps -- so two builds of the same page
+    compare equal when nothing else differs.
+
+    Args:
+        text (str): The text to normalize.
+
+    Returns:
+        str: The text with each volatile value replaced by a placeholder.
+    '''
+    text = _re_volatile_sha256.sub('<sha256>', text)
+    text = _re_volatile_iden.sub('<iden>', text)
+    text = _re_volatile_time.sub('<time>', text)
+    return text
+
+def _manifestMatches(srcpath, dstpath, basedir, hashes):
+    '''
+    True if the manifest records both a source page and its built output, and both
+    still hash to what it recorded -- so the source has not changed since the build
+    that produced that output.
+
+    Args:
+        srcpath (str): The source page.
+        dstpath (str): Its built output, which must exist.
+        basedir (str): The manifest's own directory, which its entries are relative to.
+        hashes (dict): {relpath: sha256hex} from loadManifest.
+
+    Returns:
+        bool
+    '''
+    srchash = hashes.get(os.path.relpath(srcpath, basedir))
+    dsthash = hashes.get(os.path.relpath(dstpath, basedir))
+    if srchash is None or dsthash is None:
+        return False
+
+    return hashFile(srcpath) == srchash and hashFile(dstpath) == dsthash
+
+def _keepCommitted(srcpath, dstpath, newpath, basedir, hashes):
+    '''
+    True if a rebuilt page changes nothing worth committing: its source and its
+    committed output still match the manifest (see _manifestMatches), so the source
+    is unchanged, and the rebuilt page equals the committed one once normVolatile
+    blanks the values a rebuild changes.
+
+    The manifest check is what keeps this safe. An edit to the source page --
+    including one to a date or a hash in its own prose -- changes the source hash, so
+    it is never taken for a volatile value.
+
+    Args:
+        srcpath (str): The source page.
+        dstpath (str): The committed built output.
+        newpath (str): The rebuilt page.
+        basedir (str): The manifest's own directory.
+        hashes (dict): {relpath: sha256hex} from loadManifest.
+
+    Returns:
+        bool
+    '''
+    if not os.path.isfile(dstpath) or not _manifestMatches(srcpath, dstpath, basedir, hashes):
+        return False
+
+    with open(dstpath, 'r') as fd:
+        committed = fd.read()
+    with open(newpath, 'r') as fd:
+        rebuilt = fd.read()
+
+    return normVolatile(committed) == normVolatile(rebuilt)
+
 def reuseFiles(srcdir, builtdir, manifest):
     '''
     Which of srcdir's .md pages can skip mdstorm entirely and have builtdir's
@@ -536,15 +611,7 @@ def reuseFiles(srcdir, builtdir, manifest):
         if not os.path.isfile(builtpath):
             continue
 
-        srckey = os.path.relpath(srcpath, basedir)
-        dstkey = os.path.relpath(builtpath, basedir)
-
-        srchash = hashes.get(srckey)
-        dsthash = hashes.get(dstkey)
-        if srchash is None or dsthash is None:
-            continue
-
-        if hashFile(srcpath) != srchash or hashFile(builtpath) != dsthash:
+        if not _manifestMatches(srcpath, builtpath, basedir, hashes):
             continue
 
         with open(srcpath, 'r') as fd:
@@ -1399,6 +1466,13 @@ async def buildBundle(srcdir, outdir, staticdir=None, ci=False, warnfile=None, s
     bundle's own build-time warning file has no business living permanently
     alongside it. If warnfile is given, it is copied there instead.
 
+    A rebuilt .md page is not written over its committed copy when it would change
+    nothing worth committing: the page's source and its committed output still match
+    this bundle's docs.sha256, and the two differ only by values a rebuild always
+    changes (see normVolatile). A live ```mdstorm demo re-executes real Storm queries,
+    so rebuilding one yields fresh guids and timestamps every time; leaving the
+    committed page alone keeps it, its docs.sha256 entry and the diff unchanged.
+
     Args:
         srcdir (str): The doc source directory (containing index.md).
         outdir (str): The canonical, committed bundle directory to merge
@@ -1439,6 +1513,12 @@ async def buildBundle(srcdir, outdir, staticdir=None, ci=False, warnfile=None, s
     dirn = s_common.gendir(stagedir_parent)
     stagedir = tempfile.mkdtemp(prefix='.docsbuild-', dir=dirn)
 
+    # The manifest as the last build left it, read before the merge below and the
+    # writeManifest after it replace it.
+    manifest = getManifestPath(srcdir)
+    basedir = os.path.dirname(manifest)
+    hashes = dict(loadManifest(manifest)) if os.path.isfile(manifest) else {}
+
     try:
         metadata = await buildDocs(srcdir, stagedir, ci=ci, staticdir=staticdir, force=force)
 
@@ -1451,10 +1531,17 @@ async def buildBundle(srcdir, outdir, staticdir=None, ci=False, warnfile=None, s
                         shutil.copy2(os.path.join(curdir, fn), warnfile)
                     continue
 
-                srcpath = os.path.join(curdir, fn)
+                newpath = os.path.join(curdir, fn)
                 dstdir = outdir if reldir == '.' else os.path.join(outdir, reldir)
+                dstpath = os.path.join(dstdir, fn)
+
+                if fn.endswith('.md'):
+                    srcpath = s_common.genpath(srcdir, os.path.relpath(newpath, stagedir))
+                    if _keepCommitted(srcpath, dstpath, newpath, basedir, hashes):
+                        continue
+
                 s_common.gendir(dstdir)
-                shutil.copy2(srcpath, os.path.join(dstdir, fn))
+                shutil.copy2(newpath, dstpath)
     finally:
         shutil.rmtree(stagedir, ignore_errors=True)
 

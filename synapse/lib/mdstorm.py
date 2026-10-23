@@ -804,7 +804,7 @@ class MdStorm(s_base.Base):
 
         pkg = s_genpkg.loadPkgProto(pkgpath)
 
-        if pkg.get('onload') is not None:
+        if pkg.get('onload') is not None or pkg.get('inits') is not None:
             waiter = core.waiter(1, 'core:pkg:onload:complete')
         else:
             waiter = None

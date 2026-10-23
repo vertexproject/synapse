@@ -4,7 +4,7 @@ apt-get clean
 apt-get update
 apt-get -y upgrade
 apt-get install -y libffi-dev
-apt-get install -y locales tini nano gosu build-essential
+apt-get install -y locales tini nano build-essential
 
 python -m pip install --upgrade pip
 
@@ -34,8 +34,10 @@ fi
 # as a user who cannot write either, so they are built here.
 python -m synapse.tools.utils.optimize || exit 1
 
-# Cleanup build time deps and remove problematic files
-apt-get remove -y --purge build-essential
+# Cleanup build time deps and remove problematic files. libffi8 is the runtime library behind
+# ctypes and cffi, so keep it from being autoremoved along with libffi-dev.
+apt-mark manual libffi8
+apt-get remove -y --purge build-essential libffi-dev
 apt-get remove -y --allow-remove-essential --purge e2fsprogs
 apt-get autoremove -y --purge
 apt-get clean

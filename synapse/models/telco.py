@@ -139,6 +139,22 @@ modeldefs = (
                 ),
                 'doc': 'A telephone call.'}),
 
+            ('tel:txtmesg', ('inet:service:message', {}), {
+                'template': {'title': 'text message'},
+                'props': (
+
+                    ('actor:phone', ('tel:phone', {}), {
+                        'doc': 'The phone number of the actor who sent the message.'}),
+
+                    ('to:phone', ('tel:phone', {}), {
+                        'doc': 'The phone number of the primary recipient.'}),
+
+                    ('recipients', ('tel:phone', {}), {
+                        'array': {},
+                        'doc': 'The phone numbers of additional recipients of the message.'}),
+                ),
+                'doc': 'A text message sent over a telephone network such as SMS, MMS, or RCS.'}),
+
             ('tel:phone:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),

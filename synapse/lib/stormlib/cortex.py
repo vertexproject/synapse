@@ -1240,6 +1240,10 @@ class CortexApi(s_stormtypes.Lib):
                       {'name': 'ndef', 'type': 'list', 'desc': 'The ndef tuple (form, valu) of the node.'},
                   ),
                   'returns': {'type': 'int', 'desc': 'The node id or None if the ndef is not found.'}}},
+        {'name': 'provides', 'desc': 'Get the packages this Cortex innately provides.',
+         'type': {'type': 'function', '_funcname': 'provides',
+                  'returns': {'type': 'dict', 'desc': 'The names and versions of the packages this Cortex provides.'}}
+         }
     )
 
     _storm_lib_path = ('cortex',)
@@ -1249,6 +1253,7 @@ class CortexApi(s_stormtypes.Lib):
             'getNodeByNid': self.getNodeByNid,
             'getNdefByNid': self.getNdefByNid,
             'getNidByNdef': self.getNidByNdef,
+            'provides': self.provides,
         }
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -1277,3 +1282,7 @@ class CortexApi(s_stormtypes.Lib):
         nid = self.runt.view.core.getNidByNdef((form, nval))
         if nid is not None:
             return s_common.int64un(nid)
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def provides(self):
+        return self.runt.view.core.getPkgProvides()

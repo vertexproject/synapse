@@ -204,6 +204,7 @@ class BaseTest(s_t_utils.SynTest):
                     :name=" My Rule" :desc="My cool rule"
                     :type=foo.bar
                     :status=disabled.falsepos
+                    :severity=high :priority=low
                     :text="while TRUE { BAD }"
                     :id=WOOT-20 :url=https://vertex.link/rules/WOOT-20
                     :seen=(20200101, 20200201)
@@ -216,6 +217,8 @@ class BaseTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('creator'))
             self.propeq(nodes[0], 'type', 'foo.bar.')
             self.propeq(nodes[0], 'status', 'disabled.falsepos')
+            self.propeq(nodes[0], 'severity', 40)
+            self.propeq(nodes[0], 'priority', 20)
             self.propeq(nodes[0], 'created', 1580601600000000)
             self.propeq(nodes[0], 'updated', 1648771200000000)
             self.propeq(nodes[0], 'name', 'My Rule')

@@ -1795,6 +1795,15 @@ Get a node from the current View by its node id in this Cortex.
 **Returns:**
 The node in the current View if it exists. The return type is [`node`](stormtypes_prims.md#stormprims-node-f527).
 
+<a id="stormlibs-lib-cortex-provides"></a>
+
+### $lib.cortex.provides()
+
+Get the packages this Cortex innately provides.
+
+**Returns:**
+The names and versions of the packages this Cortex provides. The return type is [`dict`](stormtypes_prims.md#stormprims-dict-f527).
+
 <a id="stormlibs-lib-cortex-httpapi"></a>
 
 ## $lib.cortex.httpapi
@@ -5315,6 +5324,67 @@ Known gaps:
 **Returns:**
 The return type is `null`.
 
+<a id="stormlibs-lib-model-migration-loop"></a>
+
+### $lib.model.migration.loop(onview, onlayer=(null), readonly=(false), reverse=(false))
+
+Run a migration callback once for every view, and optionally for every layer which is
+not the write layer of a view, in the Cortex.
+
+Callbacks are embedded Storm queries (`${ ... }`) or query strings, rather than Storm
+functions. Variables from the calling scope, including any captured by an embedded
+query, are not available to them, and nodes are not passed in. Messages from
+`$lib.print()`, `$lib.warn()`, `$lib.fire()` and `$lib.csv.emit()` in a callback are
+passed through to the caller.
+
+- The `onview` callback runs in each view, and can use `$lib.view.get()` to access it.
+- The optional `onlayer` callback runs in the calling view, with `$layer` set to the
+  iden of that layer, and can use `$lib.layer.get($layer)` to access it. It only runs
+  for layers which are not the write layer of a view, such as a layer which is only
+  lower in the layer stack of a view, or a layer in no view, since `onview` already
+  migrated each view's write layer.
+
+Each pass runs `onview` for every view, with parent views before their children, or
+children before their parents when `reverse` is true, then `onlayer` for every layer
+which is not the write layer of a view. The `reverse` option does not change the order
+of `onlayer`. A view or layer created by a callback is picked up by a further pass, and
+passes repeat until one finds nothing new. A view created by a callback is visited after
+the views already in the pass, so a view forked during a `reverse` loop runs after its
+parent. Each view and layer is visited at most once.
+
+The loop does not fail because a view or layer changed underneath it. It emits a
+warning naming the view or layer and continues with the next one when:
+
+- A view or layer is deleted before its callback runs, or while its callback runs.
+- A layer, or the write layer of a view, is read-only. These are skipped unless
+  `readonly` is true, which is intended for migrations which only lift nodes.
+- A layer, or the write layer of a view, becomes read-only while its callback runs.
+
+Any other error raised by a callback is raised to the caller.
+
+The caller must be a global admin.
+
+Examples:
+    Replace a tag on nodes in every view and print each layer which is not the write
+    layer of a view:
+
+        $lib.model.migration.loop(
+            ${ inet:fqdn#old.tag [ -#old.tag +#new.tag ] },
+            onlayer=${ $lib.print(`migrating layer {$layer}`) },
+        )
+
+
+**Args:**
+
+- `onview`: A Storm query to run in each view. The input type may be one of the following: `str`, `storm:query`.
+- `onlayer`: A Storm query to run for each layer which is not the write layer of a view, with `$layer` set to the layer iden. The input type may be one of the following: `null`, `str`, `storm:query`.
+- `readonly` (`boolean`): Include read-only layers, and views with a read-only write layer, rather than skipping them with a warning.
+- `reverse` (`boolean`): Run `onview` for child views before their parents.
+
+
+**Returns:**
+The return type is `null`.
+
 <a id="stormlibs-lib-model-migration-s"></a>
 
 ## $lib.model.migration.s
@@ -5522,13 +5592,15 @@ The return type is `null`.
 
 <a id="stormlibs-lib-pkg-del"></a>
 
-### $lib.pkg.del(name)
+### $lib.pkg.del(name, uninstall=(false), keep=(null))
 
-Delete a Storm Package from the Cortex.
+Delete a Storm Package from the Cortex. Requires the `pkg.del` permission, which also allows `uninstall` to remove vaults owned by any user.
 
 **Args:**
 
 - `name` (`str`): The name of the package to delete.
+- `uninstall` (`boolean`): Run the package uninstall routine in the background, which also removes the package variables, state, queues and vaults.
+- `keep` (`list`): Items to keep when uninstalling. These are declared by the package, or are `vaults` for a package which declares vault types.
 
 
 **Returns:**
@@ -5612,6 +5684,20 @@ Get a read-only dictionary representing the package's persistent state.
 
 **Returns:**
 A read-only dictionary representing the package state. The return type is [`pkg:state`](stormtypes_prims.md#stormprims-pkg-state-f527).
+
+<a id="stormlibs-lib-pkg-status"></a>
+
+### $lib.pkg.status(name)
+
+Get the uninstall status of a Storm Package.
+
+**Args:**
+
+- `name` (`str`): A Storm Package name to get the uninstall status for.
+
+
+**Returns:**
+A dictionary with the `status` ( `uninstalling` or `failed` ), the `keep` items, the `time` of the last status change and any failure `mesg`. Null if the package is not being uninstalled. The return type may be one of the following: [`dict`](stormtypes_prims.md#stormprims-dict-f527), `null`.
 
 <a id="stormlibs-lib-pkg-vars"></a>
 
@@ -6599,13 +6685,14 @@ A Storm Library for interacting with tasks on a Cortex and its mirrors.
 
 <a id="stormlibs-lib-task-kill"></a>
 
-### $lib.task.kill(prefix)
+### $lib.task.kill(prefix, timeout=(null))
 
 Stop a running task on the Cortex or a mirror.
 
 **Args:**
 
 - `prefix` (`str`): The prefix of the task to stop. Tasks will only be stopped if there is a single prefix match.
+- `timeout` (`int`): The number of seconds to wait for each peer to respond.
 
 
 **Returns:**
@@ -6613,9 +6700,14 @@ True if the task was cancelled, False otherwise. The return type is [`boolean`](
 
 <a id="stormlibs-lib-task-list"></a>
 
-### $lib.task.list()
+### $lib.task.list(timeout=(null))
 
 List tasks the current user can access on the Cortex and its mirrors.
+
+**Args:**
+
+- `timeout` (`int`): The number of seconds to wait for each peer to respond.
+
 
 **Yields:**
 Task definitions. The return type is [`dict`](stormtypes_prims.md#stormprims-dict-f527).
@@ -7169,13 +7261,14 @@ Yields vaults. The return type is [`vault`](stormtypes_prims.md#stormprims-vault
 
 <a id="stormlibs-lib-vault-print"></a>
 
-### $lib.vault.print(vault)
+### $lib.vault.print(vault, showsecrets=(false))
 
 Print the details of the specified vault.
 
 **Args:**
 
 - `vault` (`dict`): The vault to print.
+- `showsecrets` (`boolean`): Print the vault secrets. Requires edit permission on the vault.
 
 
 **Returns:**
@@ -7215,11 +7308,11 @@ Register (or version bump) a vault type and its data JSON schema.
 
 Notes:
     Vaults of this type are validated against the provided schema,
-    which is applied to the whole vault definition (its configs,
-    secrets, name, and so on). The version must increment on each
-    change; a version bump migrates existing vaults via the optional
-    migration callback, which is a Storm query that mutates the
-    $configs and $secrets variables in place. Requires admin.
+    which may declare only the configs and secrets sections of a
+    vault. The version must increment on each change; a version bump
+    migrates existing vaults via the optional migration callback,
+    which is a Storm query that receives the vault being migrated
+    as the $vault variable. Requires admin.
 
 
 **Args:**

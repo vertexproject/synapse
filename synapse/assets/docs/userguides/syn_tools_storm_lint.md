@@ -98,14 +98,14 @@ Three options choose which rules run:
 - `--enable` is additive: it adds rules to the selected set, which is mostly used to turn on rules which are off by default.
 - `--ignore` removes rules from the selected set.
 
-Each option takes a comma-separated list of rule IDs or ID prefixes. A prefix matches every rule whose ID starts with it, so `S` matches every style rule and `S01` matches `S010` through `S015`. A rule named by `--select` or `--enable` runs whether or not it is on by default.
+Each option takes a comma-separated list of rule IDs or ID prefixes. A prefix matches every rule whose ID starts with it, so `S` matches every style rule and `S01` matches `S010` through `S016`. A rule named by `--select` or `--enable` runs whether or not it is on by default.
 
 ```bash
 # only the 3.x runtime rules
 python -m synapse.tools.storm.lint --select R mypkg/storm/
 
-# the default rules, plus S010 and S015 which are off by default
-python -m synapse.tools.storm.lint --enable S010,S015 mypkg/storm/
+# the default rules, plus S010, S015 and S016 which are off by default
+python -m synapse.tools.storm.lint --enable S010,S015,S016 mypkg/storm/
 
 # the default rules, except the style rules
 python -m synapse.tools.storm.lint --ignore S mypkg/storm/
@@ -177,6 +177,7 @@ Rule IDs are grouped by prefix: `E` rules report errors, `R` rules report code w
 | `S012` | `lift-filter` | low | yes | A query lifts a form and then filters on one of its properties by a value which does not read the node. Lift by the property instead. |
 | `S014` | `try-cast` | low | yes | A `try` block calls `$lib.cast()`. Use `$lib.trycast()` and check its result instead. |
 | `S015` | `return-import` | medium | no | A function returns a module from `$lib.import()`. In a privsep module the returned module inherits root privileges, and binding the import as `$__name` does not prevent that. Never return an imported module. |
+| `S016` | `print-http-resp` | medium | no | An HTTP response or `$lib.axon.wget()` result is printed or logged. It includes the request headers, which carry credentials such as an API key. Print fields such as its code and reason instead. The rule follows variables assigned from `$lib.inet.http` calls and `$lib.axon.wget()` or `$lib.axon.wput()` in the same scope, until the variable is assigned something else. An assignment in an `if`, `try`, `switch`, loop, subquery or `empty` block only ends it for a print in the same block. A parameter of a function defined in the same query is followed when any call to the function passes it a response. Suppress a finding for an object which is known to hold no credentials with a `noqa` comment. |
 
 ## Linting from Python
 
@@ -189,5 +190,13 @@ linter = s_stormlint.StormLinter(enable=('S015',))
 for finding in linter.lint('$x = $lib.true'):
     print(finding.rule, finding.line, finding.column, finding.mesg)
 ```
+
+By default the rules which check form and property names, such as `S011` and `S012`, use the built-in data model. Pass a data model dictionary, in the shape returned by the Cortex `getModelDict()` API, as `model` to check names against that model instead, including its extended model forms and properties:
+
+```python
+linter = s_stormlint.StormLinter(model=await core.getModelDict())
+```
+
+The Cortex MCP server's `storm_lint` tool lints a query this way against the Cortex's own data model.
 
 `StormLinter` raises `BadArg` for an unknown rule ID or prefix. `lint()` honors `noqa` comments; the `[tool.stormlint]` table is only read by the `storm.lint` tool.

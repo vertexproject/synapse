@@ -4,6 +4,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.json as s_json
+import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_test
 
@@ -1509,3 +1510,9 @@ for $i in $values {
                 self.eq(resp.status, http.HTTPStatus.OK)
                 data = await resp.json()
                 self.eq(data.get('repr'), 'http:api:request: GET /api/ext/reprtest')
+
+    async def test_libcortex_stormpkg_provides(self):
+        async with self.getTestCore() as core:
+            q = 'return($lib.cortex.provides())'
+            retn = await core.callStorm(q)
+            self.eq(retn['synapse'], s_version.version)

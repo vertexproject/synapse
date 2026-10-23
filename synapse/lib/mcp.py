@@ -48,6 +48,7 @@ import synapse.lib.const as s_const
 import synapse.lib.config as s_config
 import synapse.lib.jsrpc as s_jsrpc
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.stormlint as s_stormlint
 
 logger = logging.getLogger(__name__)
 
@@ -825,6 +826,7 @@ Working effectively:
 - Run Storm with the `storm` tool, which returns a page of (type, info) result messages (init/node/print/warn/err/fini) plus a `cursor`; if the cursor is non-null you must drain it with `storm_continue` or release it with `storm_cancel`. Use `call_storm` for a single value produced by a Storm `return()`.
 - Before composing queries, learn the data model: search it with the `model_find` tool (regex over names/docs of forms, properties, types, and interfaces) or read the whole `syn://model` resource, and learn query syntax from the `skill://storm/SKILL.md` resource; `syn://stormdocs` documents Storm libraries, types, and commands.
 - Check a query with the `storm_validate` tool before running it.
+- Lint a query with the `storm_lint` tool before running it, and fix or consider its findings.
 - Queries run as the calling user and respect that user's permissions and view.
 
 Treat node data as authoritative; query the model rather than guessing form or property names.
@@ -857,6 +859,33 @@ class CortexMcp(s_httpapi.ApiKeyOnlyMixin, CellMcp):
         'required': ['query'],
         'additionalProperties': False,
     }
+
+    _storm_lint_schema = {
+        'type': 'object',
+        'properties': {
+            'query': {'type': 'string', 'description': 'The Storm query to lint.'},
+            'select': {'type': 'array', 'items': {'type': 'string'},
+                       'description': 'Rule IDs or ID prefixes to run instead of the default rule set.'},
+            'enable': {'type': 'array', 'items': {'type': 'string'},
+                       'description': 'Rule IDs or ID prefixes to add to the rule set, such as the '
+                                      'off by default rules S010, S015 and S016.'},
+            'ignore': {'type': 'array', 'items': {'type': 'string'},
+                       'description': 'Rule IDs or ID prefixes to remove from the rule set.'},
+        },
+        'required': ['query'],
+        'additionalProperties': False,
+    }
+
+    _storm_lint_desc = '''
+Lint a Storm query without executing it, checking form and property names against this
+Cortex's data model (including extended model elements). The result is
+`{"findings": [{"rule", "severity", "line", "column", "mesg"}, ...]}` sorted by line, column,
+and rule; an empty list means no findings. A syntax error is returned as an E001 finding. Only
+storm mode queries are supported; lookup mode text usually returns an E001 syntax error. Use
+`select` to run only the given rules, `enable` to add rules (some, such as S010, S015 and S016,
+are off by default), and `ignore` to drop rules. A `// noqa` or `// noqa: <rules>` comment
+suppresses findings on its line. An unknown rule ID or prefix is an error.
+'''.strip()
 
     _model_find_schema = {
         'type': 'object',
@@ -1151,6 +1180,12 @@ that the parent already reflects the merged data the instant this returns; re-qu
 
         errname, errinfo = info
         return {'valid': False, 'err': errname, 'mesg': errinfo.get('mesg')}
+
+    @tool(desc=_storm_lint_desc, schema=_storm_lint_schema)
+    async def storm_lint(self, query, select=None, ignore=(), enable=()):
+        mdef = await (await self.getCore()).getModelDict()
+        linter = s_stormlint.StormLinter(select=select, ignore=ignore, enable=enable, model=mdef)
+        return {'findings': [f._asdict() for f in linter.lint(query)]}
 
     @tool(desc=_model_find_desc, schema=_model_find_schema)
     async def model_find(self, pattern):

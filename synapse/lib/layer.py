@@ -257,6 +257,22 @@ STOR_TYPE_POLYARRAY = STOR_FLAG_ARRAY | STOR_TYPE_POLY
 STOR_MASK_ARRAY = 0x7fff
 STOR_MASK_POLY = 0xbfff
 
+def hasBoolDiff(stortype, valu, oldv):
+    '''
+    Return True if a new value stores a bool where an equal old value stores an int (True == 1).
+    '''
+    if stortype & STOR_FLAG_ARRAY:
+        return any(aval[1].__class__ is bool and oval[1].__class__ is not bool for aval, oval in zip(valu, oldv))
+
+    if (stortype & STOR_MASK_POLY) != STOR_TYPE_U8:
+        return False
+
+    if stortype & STOR_FLAG_POLY:
+        valu = valu[1]
+        oldv = oldv[1]
+
+    return valu.__class__ is bool and oldv.__class__ is not bool
+
 # Edit types (etyp)
 
 EDIT_NODE_ADD = 0      # (<etyp>, (<valu>, <type>, <virts>))
@@ -2598,6 +2614,10 @@ class StorTypePoly(StorType):
         if (valu := self.layr.stortypes[realtype].decodeIndx(bytz[10:])) is s_common.novalu:
             return s_common.novalu
 
+        # bool shares the U8 index with small ints
+        if realtype == STOR_TYPE_U8 and (typ := self.layr.core.model.type(typename)) is not None and 'bool' in typ.types:
+            valu = bool(valu)
+
         return (typename, valu)
 
     async def indxByProp(self, form, prop, cmpr, valu, reverse=False, virt=None, stortype=None):
@@ -4834,7 +4854,7 @@ class Layer(s_nexus.Pusher):
 
             oldv, _, oldvirts = props.get(prop, (None, None, None))
 
-            if valu == oldv and virts == oldvirts:
+            if valu == oldv and virts == oldvirts and (oldv is None or not hasBoolDiff(stortype, valu, oldv)):
                 return
 
         return edit
@@ -4913,7 +4933,7 @@ class Layer(s_nexus.Pusher):
         if sode is not None and (tagprops := sode.get('tagprops')) is not None:
             tag, prop, valu, stortype, virts = edit[1]
             if (tp_dict := tagprops.get(tag)) is not None:
-                if tp_dict.get(prop) == (valu, stortype, virts):
+                if (curv := tp_dict.get(prop)) == (valu, stortype, virts) and not hasBoolDiff(stortype, valu, curv[0]):
                     return
 
         return edit
@@ -5299,7 +5319,7 @@ class Layer(s_nexus.Pusher):
 
         oldv, oldt, oldvirts = sode['props'].get(prop, (None, None, None))
 
-        if valu == oldv:
+        if valu == oldv and (oldv is None or not hasBoolDiff(stortype, valu, oldv)):
             if virts != oldvirts:
                 sode['props'][prop] = (valu, stortype, virts)
                 self.dirty[nid] = sode
@@ -5733,7 +5753,7 @@ class Layer(s_nexus.Pusher):
 
                 (oldv, oldt, oldvirts) = oldv
 
-                if (valu, stortype) == (oldv, oldt):
+                if (valu, stortype) == (oldv, oldt) and not hasBoolDiff(stortype, valu, oldv):
                     if virts != oldvirts:
                         sode['tagprops'][tag][prop] = (valu, stortype, virts)
                         self.dirty[nid] = sode

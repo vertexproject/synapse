@@ -1,5 +1,85 @@
 # Synapse Changelog
 
+## v3.7.0 - 2026-10-23
+
+### Automatic Migrations
+
+- Added a model migration which converts stored `bool` property and tag
+  property values to `true`/`false`.
+
+### Model Changes
+
+- Added the `tel:txtmesg` form, which extends `inet:service:message` with the
+  phone numbers of the sender and recipients.
+- Added the `entity:pronoun` type and the `:pronouns` property to the
+  `entity:singular` interface.
+- Added the `:severity` and `:priority` properties to the `meta:rule` form and
+  the `:severity` property to the `base:matched` interface.
+- Added the `doc:requirement:type:taxonomy` taxonomy and the
+  `doc:requirement:type` property.
+- Changed the `bool` type to normalize values to `true`/`false` rather than
+  `1`/`0`.
+
+### Features and Enhancements
+
+- Added the `S016` `storm.lint` rule, which reports printing an HTTP response
+  or `$lib.axon.wget()` result that includes the request headers.
+- Added a `reverse` option to `$lib.model.migration.loop()` to run `onview` for
+  child views before their parents.
+- Added a `timeout` option to `$lib.task.list()`, `$lib.task.kill()`, and the
+  `task.list` and `task.kill` commands.
+- Added `$lib.model.migration.loop()` to run Storm migration callbacks across
+  every view, and every layer which is not the write layer of a view, warning
+  and continuing when one is deleted or read-only.
+- Changed the Synapse docker images to drop privileges with `setpriv` and set
+  `no_new_privs`, including when the container is started as a non-root user.
+  Services in images started as a non-root user can no longer gain privileges
+  from file capabilities or setuid binaries. The images no longer include
+  `gosu`.
+- Storm runtime errors logged by the Cortex no longer include a traceback.
+- Added a `storm_lint` tool to the Cortex MCP server which lints a Storm query
+  with the configurable Storm linting rules, checking form and property names
+  against the Cortex data model.
+- Added `pkg.del --uninstall` and `$lib.pkg.del(uninstall=(true))` to run a
+  package uninstall routine and remove its variables, state, queues and vaults,
+  with `--uninstall-keep` to preserve items. Added `$lib.pkg.status()`.
+- Added `$lib.cortex.provides()` to retrieve the packages the Cortex innately
+  provides to power-ups.
+
+### Bugfixes
+
+- Fixed `$lib.exit()` in a `$lib.markdown` storm block query ending the query
+  that built or refreshed the block.
+- Fixed `$lib.markdown` print blocks logging a duplicate error to the Cortex
+  log when their query fails.
+- Fixed `inet:fqdn` normalization not lowercasing some non-ASCII letters on
+  Python 3.14.8 and later.
+- Fixed the `--load-pkg` option of `mdstorm-setup` not waiting for package
+  `inits` to complete when the package has no `onload`.
+- Fixed an issue which caused lifting a form which has child forms by a guid
+  constructor dictionary containing nested `$as` keys to raise a `BadTypeValu`
+  error.
+- Fixed `vault.set.perm` rejecting `--level deny` and naming the wrong option
+  in its help examples and in its error when a `--role` is not found.
+- Fixed a Storm package's running onload task not being cancelled when the
+  package is deleted or re-added.
+
+### Notes
+
+- Updated the allowed versions of the `aiohttp-socks`, `pygments`, and `xxhash`
+  libraries.
+- Removed `libffi-dev` from the Synapse Docker images.
+- Updated the Docker images to Python `3.14.8`.
+
+### Improved documentation
+
+- Added a Storage Requirements section to the devops guide, and updated the
+  deployment guide to match, which documents network filesystems as unsupported
+  for service storage and requires the `vm.dirty_expire_centisecs` and
+  `vm.dirty_writeback_centisecs` sysctls.
+- Added a Storm guide for vaults covering scopes, permissions, how a vault is
+  found, and use from privileged modules.
+
 ## v3.6.0 - 2026-10-13
 
 ### Model Changes

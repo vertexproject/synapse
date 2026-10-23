@@ -30,6 +30,16 @@ The `storm_validate` MCP tool validates Storm syntax without executing the query
 1. Call `storm_validate` with the query text.
 2. If `valid` is `false`, read `err` / `mesg` (which include line/column info), fix the query, and re-validate before proceeding.
 
+### Linting Storm (Required)
+
+The `storm_lint` MCP tool lints a query against the Cortex's own data model (including extended forms and properties) without executing it. Lint every query before running it, and fix or consider each finding.
+
+- Arguments: `query`, plus optional `select` / `ignore` / `enable` lists of rule codes or code prefixes.
+- Returns `{"findings": [{"rule", "severity", "line", "column", "mesg"}, ...]}`; an empty list means the query is clean.
+- A syntax error is reported as a single `E001` finding with its line and column, so a clean lint also implies valid syntax.
+- Only `storm` mode queries are supported; `lookup` mode text usually returns an `E001` syntax error.
+- Other findings report code which does not run as intended on Synapse 3.x (`R`), pipeline usage which may not do what was intended (`P`), and Storm which could be written more simply (`S`). Suppress a deliberate finding with a trailing `// noqa` or `// noqa: <code>` comment on that line; `E001` cannot be suppressed.
+
 ### Running Storm Queries
 
 The `storm` MCP tool runs a Storm query against the Cortex and returns a **page** of result messages: `{"messages": [(<type>, <info>), ...], "cursor": <str-or-null>}`. Each message is a `(<type>, <info>)` tuple as yielded by the Storm runtime (e.g. `node`, `print`, `warn`, `err`, `fini`).
@@ -986,7 +996,7 @@ $func("positional", key=1)
 
 1. **Isolate the failing query** -- extract the minimal Storm snippet that reproduces the error.
 
-2. **Check the error location** -- the `storm_validate` result (and `BadSyntax`) provides `line` and `column`. Look at that exact position in the query.
+2. **Lint and check the error location** -- run `storm_lint` on the query; its findings (including an `E001` syntax error) and the `storm_validate` result (and `BadSyntax`) provide `line` and `column`. Look at that exact position in the query.
 
 3. **Build up incrementally and check the output at each step** -- for complex queries, construct the query one pipeline stage at a time, running each stage with the `storm` tool and confirming it yields the expected nodes/output before adding the next operation. This pins down which stage changes the results. The focus here is verifying the expected output at each step; you can also `storm_validate` each stage for syntax, or do both:
    ```storm
@@ -1011,6 +1021,7 @@ $func("positional", key=1)
 | Tool / File | Purpose |
 |-------------|---------|
 | `storm_validate` MCP tool | Validate Storm syntax without executing a query |
+| `storm_lint` MCP tool | Lint a query against the Cortex data model (syntax errors as `E001`, plus style/performance findings) |
 | `storm` / `call_storm` MCP tools | Run Storm queries against the Cortex (page of result messages / return a value) |
 | `view_list` / `view_get` MCP tools | List views (for the `view` storm opt) and read the user's default view |
 | `view_fork` / `view_del` / `view_merge` MCP tools | Fork, delete, and merge views (use fork+del to safely test ingest) |

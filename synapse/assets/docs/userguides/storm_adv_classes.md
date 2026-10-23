@@ -427,6 +427,9 @@ class Client {
 }
 ```
 
+> [!NOTE]
+> The module above always reads the vault named `acme-intel`, and it reads it with the privileges of the module. Every user who holds the `acme.intel.user` permission therefore uses that vault's API key, even a user who has no permission on the vault itself. That suits a single key which is shared by everyone who may use the module. When different users should use different vaults, have the calling code find the vault, so that the user's own permission on it is checked, and pass it to the module. See [Using Vaults in Privileged Modules](storm_adv_vaults.md#storm-vaults-privsep).
+
 A user with the `acme.intel.user` permission may construct a `Client` and use it:
 
 ```storm

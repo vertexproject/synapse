@@ -527,31 +527,27 @@ class TypesTest(s_t_utils.SynTest):
         model = s_datamodel.getBaseModel()
         t = model.type('bool')
 
-        self.eq(await t.norm(-1), (1, {}))
-        self.eq(await t.norm(0), (0, {}))
-        self.eq(await t.norm(1), (1, {}))
-        self.eq(await t.norm(2), (1, {}))
-        self.eq(await t.norm(True), (1, {}))
-        self.eq(await t.norm(False), (0, {}))
+        trues = (-1, 1, 2, True, '-1', '1', decimal.Decimal('1'), s_stormtypes.Number('1'),
+                 'trUe', 'T', 'y', ' YES', 'On ')
+        for valu in trues:
+            norm, info = await t.norm(valu)
+            self.true(norm is True)
+            self.eq(info, {})
 
-        self.eq(await t.norm('-1'), (1, {}))
-        self.eq(await t.norm('0'), (0, {}))
-        self.eq(await t.norm('1'), (1, {}))
-
-        self.eq(await t.norm(s_stormtypes.Number('1')), (1, {}))
-        self.eq(await t.norm(s_stormtypes.Number('0')), (0, {}))
-
-        for s in ('trUe', 'T', 'y', ' YES', 'On '):
-            self.eq(await t.norm(s), (1, {}))
-
-        for s in ('faLSe', 'F', 'n', 'NO', 'Off '):
-            self.eq(await t.norm(s), (0, {}))
+        falses = (0, False, '0', decimal.Decimal('0'), s_stormtypes.Number('0'),
+                  'faLSe', 'F', 'n', 'NO', 'Off ')
+        for valu in falses:
+            norm, info = await t.norm(valu)
+            self.true(norm is False)
+            self.eq(info, {})
 
         with self.raises(s_exc.BadTypeValu):
             await t.norm('a')
 
         self.eq(t.repr(1), 'true')
         self.eq(t.repr(0), 'false')
+        self.eq(t.repr(True), 'true')
+        self.eq(t.repr(False), 'false')
 
     async def test_comp(self):
         async with self.getTestCore() as core:
@@ -847,6 +843,18 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:service:message:id=barmesg -> inet:service:platform')
             self.len(1, nodes)
             self.eq(platguid, nodes[0].ndef[1])
+
+            # Lifting a form with child forms does not consume the nested "$as" keys
+            q = '''inet:service:resource=({'id': 'res0', 'platform': {'$as': 'inet:service:platform', 'name': 'resplat'}})'''
+            self.len(1, await core.nodes(f'[ {q} ]'))
+            self.len(1, await core.nodes(q))
+
+            gutor = {'id': 'foomesg', 'platform': {'$as': 'inet:service:platform', 'name': 'fooplatform'},
+                     '$props': {'$try': True, 'text': 'hi'}}
+            mtype = core.model.type('inet:service:message')
+            self.eq(await mtype.norm(gutor), await mtype.norm(gutor))
+            self.eq(gutor, {'id': 'foomesg', 'platform': {'$as': 'inet:service:platform', 'name': 'fooplatform'},
+                            '$props': {'$try': True, 'text': 'hi'}})
 
             # No node lifted if no matching node for inner gutor
             self.len(0, await core.nodes('''

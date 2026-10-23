@@ -23,6 +23,7 @@ stormcmds = [
                     "columns": [
                         {"name": "name", "width": 40},
                         {"name": "vers", "width": 10},
+                        {"name": "status", "width": 20},
                     ],
                     "separators": {
                         "row:outline": false,
@@ -44,8 +45,17 @@ stormcmds = [
                 $lib.print('Loaded storm packages:')
                 $lib.print($printer.header())
                 for $pkg in $pkgs {
+                    $status = ''
+                    $pkgstatus = $lib.pkg.status($pkg.name)
+                    if $pkgstatus {
+                        if ($pkgstatus.status = 'failed') {
+                            $status = 'uninstall failed'
+                        } else {
+                            $status = 'uninstalling'
+                        }
+                    }
                     $row = (
-                        $pkg.name, $pkg.version,
+                        $pkg.name, $pkg.version, $status,
                     )
                     if $cmdopts.verbose {
                         try {
@@ -100,6 +110,12 @@ stormcmds = [
         'desc': 'Remove a storm package from the cortex.',
         'cmdargs': (
             ('name', {'help': 'The name (or name prefix) of the package to remove.'}),
+            ('--uninstall', {'default': False, 'action': 'store_true',
+                'help': 'Run the package uninstall routine in the background. This also removes the package '
+                        'variables, state, queues and vaults.'}),
+            ('--uninstall-keep', {'default': [], 'nargs': '*',
+                'help': 'Items to keep when uninstalling, as declared by the package ( or "vaults" for a '
+                        'package which declares vault types ).'}),
         ),
         'storm': '''
 
@@ -119,7 +135,16 @@ stormcmds = [
 
                 $name = $pkgs.list().index(0)
                 $lib.print(`Removing package: {$name}`)
-                $lib.pkg.del($name)
+
+                if $cmdopts.uninstall {
+                    $lib.warn(`UNINSTALLING {$name}: the package uninstall routine will run in the background and the package variables, state, queues and vaults will be removed unless kept. This cannot be undone.`)
+                }
+
+                $lib.pkg.del($name, uninstall=$cmdopts.uninstall, keep=$cmdopts.uninstall_keep)
+
+                if $cmdopts.uninstall {
+                    $lib.print(`Uninstall of {$name} started. Use pkg.list to check its status.`)
+                }
 
             } else {
 
@@ -301,10 +326,17 @@ class LibPkg(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'boolean',
                               'desc': 'True if the package exists in the Cortex, False if it does not.', }}},
-        {'name': 'del', 'desc': 'Delete a Storm Package from the Cortex.',
+        {'name': 'del', 'desc': 'Delete a Storm Package from the Cortex. Requires the `pkg.del` permission, which also '
+                         'allows `uninstall` to remove vaults owned by any user.',
          'type': {'type': 'function', '_funcname': '_libPkgDel',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the package to delete.', },
+                      {'name': 'uninstall', 'type': 'boolean', 'default': False,
+                       'desc': 'Run the package uninstall routine in the background, which also removes the '
+                               'package variables, state, queues and vaults.', },
+                      {'name': 'keep', 'type': 'list', 'default': None,
+                       'desc': 'Items to keep when uninstalling. These are declared by the package, or are '
+                               '`vaults` for a package which declares vault types.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'list', 'desc': 'Get a list of Storm Packages loaded in the Cortex.',
@@ -341,6 +373,17 @@ class LibPkg(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'pkg:state',
                               'desc': 'A read-only dictionary representing the package state.'}}},
+        {'name': 'status',
+         'desc': 'Get the uninstall status of a Storm Package.',
+         'type': {'type': 'function', '_funcname': '_libPkgStatus',
+                  'args': (
+                      {'name': 'name', 'type': 'str',
+                       'desc': 'A Storm Package name to get the uninstall status for.'},
+                  ),
+                  'returns': {'type': ['dict', 'null'],
+                              'desc': 'A dictionary with the `status` ( `uninstalling` or `failed` ), the `keep` '
+                                      'items, the `time` of the last status change and any failure `mesg`. '
+                                      'Null if the package is not being uninstalled.'}}},
     )
     _storm_lib_perms = (
         {'perm': ('power-ups', '<power-up>', 'admin'), 'gate': 'cortex',
@@ -359,6 +402,7 @@ class LibPkg(s_stormtypes.Lib):
             'vars': self._libPkgVars,
             'queues': self._libPkgQueues,
             'state': self._libPkgState,
+            'status': self._libPkgStatus,
         }
 
     async def _libPkgAdd(self, pkgdef, verify=False):
@@ -381,9 +425,15 @@ class LibPkg(s_stormtypes.Lib):
         name = await s_stormtypes.tostr(name)
         return await self.runt.view.core.hasStormPkg(name)
 
-    async def _libPkgDel(self, name):
+    async def _libPkgDel(self, name, uninstall=False, keep=None):
         self.runt.confirm(('pkg', 'del'), None)
-        await self.runt.view.core.delStormPkg(name)
+        name = await s_stormtypes.tostr(name)
+        uninstall = await s_stormtypes.tobool(uninstall)
+        keep = await s_stormtypes.toprim(keep)
+        if keep is None:
+            keep = ()
+
+        await self.runt.view.core.delStormPkg(name, uninstall=uninstall, keep=keep)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _libPkgList(self):
@@ -409,6 +459,14 @@ class LibPkg(s_stormtypes.Lib):
     async def _libPkgState(self, name):
         name = await s_stormtypes.tostr(name)
         return PkgState(self.runt, name)
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _libPkgStatus(self, name):
+        name = await s_stormtypes.tostr(name)
+        if (status := self.runt.view.core.getStormPkgStatus(name)) is None:
+            return None
+
+        return status
 
 @s_stormtypes.registry.registerLib
 class LibPkgDocs(s_stormtypes.Lib):

@@ -1052,6 +1052,7 @@ _reqValidPkgdefSchema = {
         # push back a definition it read; any supplied value is ignored.
         'svcname': {'type': ['string', 'null']},
         'onload': {'type': 'string'},
+        'uninstall': {'$ref': '#/definitions/uninstalldef'},
         'inits': {
             'type': 'object',
             'properties': {
@@ -1188,6 +1189,30 @@ _reqValidPkgdefSchema = {
             },
             'additionalProperties': False,
             'required': ['name', 'query', 'version']
+        },
+        'uninstalldef': {
+            'type': 'object',
+            'properties': {
+                'query': {'type': 'string'},
+                # arbitrary Storm opts for the uninstall query.
+                'queryopts': {'type': 'object', 'additionalProperties': True},
+                # items the package lets an operator keep when it is uninstalled.
+                'keep': {
+                    'type': 'array',
+                    'items': {'$ref': '#/definitions/uninstallkeepdef'},
+                },
+            },
+            'additionalProperties': False,
+            'required': ['query']
+        },
+        'uninstallkeepdef': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string', 'pattern': '^[a-z0-9_.:-]+$'},
+                'desc': {'type': 'string'},
+            },
+            'additionalProperties': False,
+            'required': ['name', 'desc']
         },
         'apidef': {
             'type': 'object',

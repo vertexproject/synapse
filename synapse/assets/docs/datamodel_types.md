@@ -3580,6 +3580,28 @@ This type implements the following interfaces:
 
 - `('doc:document', {})`
 
+<a id="dm-type-doc-requirement-type-taxonomy"></a>
+
+### doc:requirement:type:taxonomy
+
+A taxonomy of requirement types.
+The `doc:requirement:type:taxonomy` type is derived from the base type: [`taxonomy`](#dm-type-taxonomy).
+
+This type implements the following interfaces:
+
+- `('meta:taxonomy', {})`
+
+This type has the following options set:
+
+- globsuffix: `False`
+- lower: `False`
+- mapping: `None`
+- onespace: `False`
+- regex: `None`
+- replace: `()`
+- strip: `True`
+- upper: `False`
+
 <a id="dm-type-doc-requirement"></a>
 
 ### doc:requirement
@@ -4234,6 +4256,32 @@ This type has the following options set:
 - globsuffix: `False`
 - lower: `False`
 - onespace: `True`
+- regex: `None`
+- replace: `()`
+- strip: `True`
+- upper: `False`
+
+<a id="dm-type-entity-pronoun"></a>
+
+### entity:pronoun
+
+A normalized personal pronoun used to refer to an entity.
+The `entity:pronoun` type is derived from the base type: [`str`](#dm-type-str).
+
+This type has the following options set:
+
+- enums:
+
+| valu |
+|------|
+| he |
+| she |
+| they |
+
+- globsuffix: `False`
+- lower: `True`
+- mapping: `{'him': 'he', 'his': 'he', 'her': 'she', 'hers': 'she', 'them': 'they', 'theirs': 'they'}`
+- onespace: `False`
 - regex: `None`
 - replace: `()`
 - strip: `True`
@@ -11458,6 +11506,18 @@ This type implements the following interfaces:
 - `('base:activity', {})`
 - `('lang:transcript', {})`
 
+<a id="dm-type-tel-txtmesg"></a>
+
+### tel:txtmesg
+
+A text message sent over a telephone network such as SMS, MMS, or RCS.
+The `tel:txtmesg` type is derived from the base type: [`inet:service:message`](#dm-type-inet-service-message).
+
+This type implements the following interfaces:
+
+- `('meta:usable', {})`
+- `('inet:service:action', {})`
+
 <a id="dm-type-tel-phone-type-taxonomy"></a>
 
 ### tel:phone:type:taxonomy
@@ -12147,6 +12207,7 @@ This interface defines the following properties:
 
 - `:rule` (`rule:type`) - The rule which matched the target node.
 - `:rule:version` ([`it:version`](#dm-type-it-version)) - The version of the rule which generated the match.
+- `:severity` ([`meta:score`](#dm-type-meta-score)) - The severity of the match, based on the severity of the associated rule.
 - `:target` (`unknown`) - The target node which matched the rule.
 
 <a id="dm-type-biz-manufactured"></a>
@@ -12443,8 +12504,9 @@ This interface defines the following properties:
 
 - `:org` ([`ou:org`](#dm-type-ou-org)) - An associated organization listed as part of the contact information.
 - `:org:name` ([`entity:name`](#dm-type-entity-name)) - The name of an associated organization listed as part of the contact information.
-- `:title` ([`entity:title`](#dm-type-entity-title)) - The entity title or role for this item.
-- `:titles` ([`entity:title`](#dm-type-entity-title)) - An array of alternate entity titles or roles for this item.
+- `:pronouns` ([`entity:pronoun`](#dm-type-entity-pronoun)) - The pronouns used to refer to the entity.
+- `:title` ([`entity:title`](#dm-type-entity-title)) - The entity title or role for this entity.
+- `:titles` ([`entity:title`](#dm-type-entity-title)) - An array of alternate entity titles or roles for this entity.
 
 <a id="dm-type-entity-stance"></a>
 

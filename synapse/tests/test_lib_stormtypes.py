@@ -1048,6 +1048,15 @@ class StormTypesTest(s_test.SynTest):
             self.false(await core.callStorm('return($lib.trycast(test:guid:size, newp).0)'))
             self.eq(1234, await core.callStorm('return($lib.cast(test:guid:size, 1234))'))
 
+            # bool casts return booleans
+            self.true(await core.callStorm('return($lib.cast(bool, 1))') is True)
+            self.true(await core.callStorm('return($lib.cast(bool, 0))') is False)
+            self.true(await core.callStorm('return($lib.cast(bool, (true)))') is True)
+            self.true(await core.callStorm('return($lib.cast(bool, (false)))') is False)
+            self.eq((True, True), await core.callStorm('return($lib.trycast(bool, yes))'))
+            self.true((await core.callStorm('return($lib.trycast(bool, yes))'))[1] is True)
+            self.eq('valu', await core.callStorm('return($lib.utils.type($lib.cast(bool, 1)))'))
+
             # casting a mutable type (data) returns the raw structure, not a typed value
             self.eq(('1', '2', '3'), await core.callStorm('return($lib.cast(data, (1, 2, 3)))'))
             self.eq((True, ('4', '5')), await core.callStorm('return($lib.trycast(data, (4, 5)))'))
@@ -7415,6 +7424,23 @@ class StormTypesTest(s_test.SynTest):
 
             opts['vars']['prop'] = 'entity:contact:name'
             self.eq([], await core.callStorm(viewq, opts=opts))
+
+            # bool values decoded from the index are bools
+            await core.nodes('[ inet:fqdn=vertex.link ]')
+            opts = {'vars': {'prop': 'inet:fqdn:iszone'}}
+            for vals in (await core.callStorm(viewq, opts=opts), await core.callStorm(layrq, opts=opts)):
+                self.sorteq([('bool', False), ('bool', True)], vals)
+                self.true(all(type(v[1]) is bool for v in vals))
+
+            q = viewq.replace('getPropValues($prop)', 'getPropValues($prop, valu=(1))')
+            vals = await core.callStorm(q, opts=opts)
+            self.eq([('bool', True)], vals)
+            self.true(vals[0][1] is True)
+
+            vals = [v async for v in core.view.iterPropValues('inet:fqdn:issuffix')]
+            self.eq([('bool', False), ('bool', True)], vals)
+            self.true(vals[0][1] is False)
+            self.true(vals[1][1] is True)
 
             nodes = await core.nodes('''[
                 (test:hasiface=1 :size=1)

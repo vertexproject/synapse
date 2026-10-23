@@ -1961,6 +1961,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 :text="title: Suspicious PowerShell"
                 :type=host.process
                 :status=stable
+                :severity=medium
                 :url=https://vertex.link/sigma/SIGMA-001
                 :creator={[ entity:contact=* :name=visi ]}
                 :creator:name=visi
@@ -1981,6 +1982,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'text', 'title: Suspicious PowerShell')
             self.propeq(nodes[0], 'type', 'host.process.')
             self.propeq(nodes[0], 'status', 'stable')
+            self.propeq(nodes[0], 'severity', 30)
             self.propeq(nodes[0], 'url', 'https://vertex.link/sigma/SIGMA-001')
             self.propeq(nodes[0], 'creator:name', 'visi')
             self.propeq(nodes[0], 'created', 1704067200000000)
@@ -2009,6 +2011,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 $rule = { it:app:sigma:rule:id=SIGMA-001 }
                 [ it:app:sigma:matched=({"rule": $rule, "target": $target})
                     :rule:version=1.2.3
+                    :severity=highest
                     :time=2015
                     :sensor={[ it:host=* ]}
                     :activity={[ it:os:posix:cron=* ]}
@@ -2021,6 +2024,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('sensor'))
             self.propeq(nodes[0], 'rule', rule)
             self.propeq(nodes[0], 'rule:version', '1.2.3')
+            self.propeq(nodes[0], 'severity', 50)
             self.propeq(nodes[0], 'time', 1420070400000000)
 
             # the sensor which generated the match may be a different host than

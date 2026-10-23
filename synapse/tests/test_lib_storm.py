@@ -4735,6 +4735,33 @@ class StormTest(s_t_utils.SynTest):
         self.isin('--beep                      : beep beep', helptext)
         self.isin('--boop                      : boop boop', helptext)
 
+        # bool typed args norm to True / False
+        pars = s_storm.Parser()
+        pars.add_argument('flag', type='bool')
+        pars.add_argument('--ques', nargs='?', type='bool', default=True)
+        pars.add_argument('--star', nargs='*', type='bool')
+        pars.add_argument('--pair', nargs=2, type='bool')
+        pars.add_argument('--unset', type='bool', default=False)
+        pars.add_argument('--nodef', type='bool')
+
+        for valu, expt in (('true', True), ('false', False), ('1', True), ('0', False),
+                           ('yes', True), ('no', False), (True, True), (False, False), (1, True), (0, False)):
+            opts = await pars.parse_args([valu, '--ques', valu, '--star', valu, valu, '--pair', valu, valu])
+            self.true(opts.flag is expt)
+            self.true(opts.ques is expt)
+            self.true(all(v is expt for v in opts.star))
+            self.true(all(v is expt for v in opts.pair))
+            self.len(2, opts.star)
+            self.len(2, opts.pair)
+            self.true(opts.unset is False)
+
+        opts = await pars.parse_args(['yes', '--ques'])
+        self.true(opts.ques is True)
+
+        opts = await pars.parse_args(['yes', '--unset', 'true', '--nodef', 'off'])
+        self.true(opts.unset is True)
+        self.true(opts.nodef is False)
+
         # test some nargs type intersections
         pars = s_storm.Parser()
         pars.add_argument('--ques', nargs='?', type='int')

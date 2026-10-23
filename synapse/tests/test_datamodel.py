@@ -588,12 +588,20 @@ class DataModelTest(s_t_utils.SynTest):
             # the reverse-lookup maps are populated from the v2 model map
             self.eq('ou:orgnet', model.formprevnames.get('ou:orgnet4'))
             self.eq('inet:dns:a:ip', model.propprevnames.get('inet:dns:a:ipv4'))
+            self.eq('tel:txtmesg:actor:phone', model.propprevnames.get('tel:txtmesg:from'))
+            self.eq('tel:txtmesg:to:phone', model.propprevnames.get('tel:txtmesg:to'))
+            self.none(model.propprevnames.get('tel:txtmesg:svctype'))
 
             # v2map is exposed in the model dict for API consumers
             mdict = model.getModelDict()
             self.isin('v2map', mdict)
             self.eq(mdict['v2map']['changes']['ou:orgnet4']['became'], 'ou:orgnet')
             self.eq(mdict['v2map']['changes']['inet:dns:a']['props']['ipv4']['became'], ':ip')
+
+            svctype = mdict['v2map']['changes']['tel:txtmesg']['props']['svctype']
+            self.notin('became', svctype)
+            self.isin('`:type`', svctype['reason'])
+            self.eq(svctype['goals'], ['model-refinement'])
 
             # the legacy prevnames key no longer appears in any packed def
             for fdef in mdict['forms'].values():

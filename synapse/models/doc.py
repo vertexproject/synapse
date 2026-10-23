@@ -133,12 +133,22 @@ modeldefs = (
                 ),
                 'doc': 'A group of requirements which define how to implement a policy or goal.'}),
 
+            ('doc:requirement:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'props': (),
+                'doc': 'A taxonomy of requirement types.'}),
+
             ('doc:requirement', ('guid', {}), {
                 'template': {'title': 'requirement'},
                 'interfaces': (
                     ('doc:authorable', {}),
                 ),
                 'props': (
+
+                    ('type', ('doc:requirement:type:taxonomy', {}), {
+                        'doc': 'The type of requirement.'}),
 
                     ('text', ('text', {}), {
                         'doc': 'The requirement definition.'}),

@@ -181,16 +181,16 @@ modules:
 
 To minimize risk, you must very carefully consider what functions to implement within a privileged **Storm** module! Privileged modules should contain the absolute minimum required functionality.
 
-An excellent example use case for a privileged **Storm** module exists when you have an API key or password which you would like to use on a user's behalf without disclosing the actual API key. The **Storm** library `$lib.globals` is a dictionary of protected global variables which regular users may not access without special permissions, so `$lib.globals."<name>"` reads one and `$lib.globals."<name>" = <valu>` sets it. By implementing a privileged **Storm** module which retrieves the API key and uses it on the user's behalf without disclosing it, you may protect the API key from disclosure while also allowing users to use it. For example, `acme.hello.privsep.storm`:
+A common use case for a privileged **Storm** module is when you have an API key or password that you want to use on a user's behalf without disclosing the actual API key. A [vault](../userguides/storm_adv_vaults.md#storm-adv-vaults) stores the key as one of its secrets, which a user who has only been granted `read` access to the vault may not read. By implementing a privileged **Storm** module in this manner, you may protect the API key from disclosure while also allowing users to use it.
+
+The user's own code finds the vault, so that the user's access to the vault is checked, and then passes the vault to the privileged module. For example, `acme.hello.privsep.storm`:
 
 ```storm
-function getFooByBar(bar) {
+function getFooByBar(bar, vault) {
 
-    // Retrieve an API key from protected storage
-    $apikey = $lib.globals."acme:hello:apikey"
-
+    // Use the API key from the vault which the caller was allowed to read
     $headers = ({
-        "apikey": $apikey
+        "apikey": $vault.secrets.apikey
     })
 
     $url = `https://acme.newp/api/v1/foo/{$bar}`
@@ -207,9 +207,43 @@ function getFooByBar(bar) {
 }
 ```
 
-Notice that the `$apikey` is being retrieved and used to call the HTTP API but is not returned to the caller.
+Notice that the API key is used to call the HTTP API but is not returned to the caller. The module does not look up the vault itself, since it would then read any vault the caller named with elevated permissions. The command or module that the user calls finds the vault with [`$lib.vault.bytype()`](../stormtypes_libs.md#stormlibs-lib-vault-bytype) or [`$lib.vault.byname()`](../stormtypes_libs.md#stormlibs-lib-vault-byname) instead, and passes it in:
+
+```storm
+$vault = $lib.vault.bytype(acme-hello)
+$info = $lib.import(acme.hello.privsep).getFooByBar($bar, $vault)
+```
+
+See [Using Vaults in Privileged Modules](../userguides/storm_adv_vaults.md#storm-vaults-privsep) for the rules to follow when writing a privileged module which uses a vault.
 
 The methods of a [class](../userguides/storm_adv_classes.md#storm-class-privileges) declared in a privileged module run with admin privileges as well, just as its functions do, whoever calls them. Review them the same way, and keep any state an elevated method relies on private, since any code holding an instance may set its public values.
+
+<a id="vault-types"></a>
+
+### Vault Types
+
+A **Storm** package which keeps settings or credentials in [vaults](../userguides/storm_adv_vaults.md#storm-adv-vaults) declares each vault type it uses with the `vaults:` key, so that vaults of that type are validated and can be migrated when the package changes:
+
+```yaml
+vaults:
+  acme-hello:
+    version: 1
+    schema:
+      type: object
+      properties:
+        configs:
+          type: object
+          properties:
+            url: { type: string }
+          required: [ url ]
+        secrets:
+          type: object
+          properties:
+            apikey: { type: string, minLength: 2 }
+          required: [ apikey ]
+```
+
+Each entry under `vaults:` is named for a vault type. Here the vault type is `acme-hello`, and a vault type is typically named for the package that uses it. The `type: object` lines are part of the JSON schema and are unrelated to the name of the vault type. The `schema` may describe only the `configs` and `secrets` of a vault. Increase the `version` whenever the `schema` changes, since a version of a type can not be changed once it is registered. An optional `migration` **Storm** query is run for each existing vault of an earlier version, with the vault as the `$vault` variable.
 
 ## Storm Commands
 
@@ -581,6 +615,28 @@ divert $cmdopts.yield $nodeGenrFunc($node)
 ```
 
 When executed, the `acme.hello.mayyield` command will output the nodes received as inputs which is useful for pipelining enrichments. If the user specifies `--yield` the command will output the resulting `inet:dns:a` nodes constructed by the `nodeGenrFunc()` function.
+
+### Data Migrations
+
+A package migrates data it has already created by declaring `inits` versions. Each version's `query` runs once, as root, when the package loads with a `version` greater than the one last run in the **Cortex**:
+
+```yaml
+inits:
+  versions:
+    - name: Replace the acme.old tag
+      version: 1
+      query: $lib.import(acme.hello.migrations).migrateOldTag()
+```
+
+Nodes live in the layers of every view, so a migration usually needs to run in each of them. Use [`$lib.model.migration.loop()`](../stormtypes_libs.md#stormlibs-lib-model-migration-loop) rather than looping over `$lib.view.list(deporder=(true))` with `view.exec`. It runs the `onview` query in each view, where `$lib.view.get()` returns that view. The optional `onlayer` query then mops up the layers which are not the write layer of any view, such as a layer which is only lower in the layer stack of a forked view, or a layer in no view, with `$layer` set to the iden of the layer. The queries can not access variables from the calling scope. When a view or layer is deleted or is read-only, it warns and continues with the next one rather than failing the migration:
+
+```storm
+function migrateOldTag() {
+    $lib.model.migration.loop(${ #acme.old [ -#acme.old +#acme.new ] })
+}
+```
+
+Pass `readonly=(true)` to also visit read-only layers when a migration only lifts nodes.
 
 ### Optic Actions
 

@@ -328,12 +328,14 @@ class InetModelTest(s_t_utils.SynTest):
                             'fqdn': (t.fqdntype.typehash, 'vertex.link', {'subs': {
                                 'domain': (t.fqdntype.typehash, 'link', {'subs': {
                                     'host': (t.fqdntype.hosttype.typehash, 'link', {}),
-                                    'issuffix': (t.fqdntype.booltype.typehash, 1, {})}}),
+                                    'issuffix': (t.fqdntype.booltype.typehash, True, {})}}),
                                 'host': (t.fqdntype.hosttype.typehash, 'vertex', {})}}),
                             'username': (t.usertype.typehash, 'UnitTest', {})}})
             self.eq(await t.norm(email), expected)
 
             valu = (await t.norm('bob\udcfesmith@woot.com'))[0]
+
+            self.eq('visi@xn--aa-hg2o.link', (await t.norm('visi@a\U00010c80a.link'))[0])
 
             with self.raises(s_exc.BadTypeValu) as cm:
                 await t.norm('hehe')
@@ -499,7 +501,7 @@ class InetModelTest(s_t_utils.SynTest):
                     'host': (t.hosttype.typehash, 'vertex', {}),
                     'domain': (t.typehash, 'link', {'subs': {
                         'host': (t.hosttype.typehash, 'link', {}),
-                        'issuffix': (t.booltype.typehash, 1, {}),
+                        'issuffix': (t.booltype.typehash, True, {}),
                     }}),
                 }}),
             }})
@@ -517,7 +519,7 @@ class InetModelTest(s_t_utils.SynTest):
                     'host': (t.hosttype.typehash, 'xn--xampl-3raf', {}),
                     'domain': (t.typehash, 'link', {'subs': {
                         'host': (t.hosttype.typehash, 'link', {}),
-                        'issuffix': (t.booltype.typehash, 1, {}),
+                        'issuffix': (t.booltype.typehash, True, {}),
                     }}),
                 }}),
                 'host': (t.hosttype.typehash, 'xn--tst-6la', {})}})
@@ -530,7 +532,7 @@ class InetModelTest(s_t_utils.SynTest):
             expected = (ex_fqdn, {'subs': {
                 'domain': (t.typehash, 'de', {'subs': {
                     'host': (t.hosttype.typehash, 'de', {}),
-                    'issuffix': (t.booltype.typehash, 1, {}),
+                    'issuffix': (t.booltype.typehash, True, {}),
                 }}),
                 'host': (t.hosttype.typehash, 'xn--fa-hia', {})}})
             self.eq(await t.norm(fqdn), expected)
@@ -542,7 +544,7 @@ class InetModelTest(s_t_utils.SynTest):
             expected = (ex_fqdn, {'subs': {
                 'domain': (t.typehash, 'fm', {'subs': {
                     'host': (t.hosttype.typehash, 'fm', {}),
-                    'issuffix': (t.booltype.typehash, 1, {}),
+                    'issuffix': (t.booltype.typehash, True, {}),
                 }}),
                 'host': (t.hosttype.typehash, 'xn--mp8hai', {})}})
             self.eq(await t.norm(fqdn), expected)
@@ -563,7 +565,7 @@ class InetModelTest(s_t_utils.SynTest):
                         'host': (t.hosttype.typehash, 'baz', {}),
                         'domain': (t.typehash, 'lol', {'subs': {
                             'host': (t.hosttype.typehash, 'lol', {}),
-                            'issuffix': (t.booltype.typehash, 1, {}),
+                            'issuffix': (t.booltype.typehash, True, {}),
                         }}),
                     }}),
                 }}),
@@ -579,7 +581,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'host': (t.hosttype.typehash, fqdn.split('.')[0], {}),
                 'domain': (t.typehash, 'link', {'subs': {
                     'host': (t.hosttype.typehash, 'link', {}),
-                    'issuffix': (t.booltype.typehash, 1, {}),
+                    'issuffix': (t.booltype.typehash, True, {}),
                 }}),
             }})
             self.eq(await t.norm(fqdn), expected)
@@ -596,7 +598,7 @@ class InetModelTest(s_t_utils.SynTest):
                             'host': (t.hosttype.typehash, 'google', {}),
                             'domain': (t.typehash, 'com', {'subs': {
                                 'host': (t.hosttype.typehash, 'com', {}),
-                                'issuffix': (t.booltype.typehash, 1, {}),
+                                'issuffix': (t.booltype.typehash, True, {}),
                             }}),
                         }}),
                     }}),
@@ -606,6 +608,15 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(fqdn, t.repr(fqdn))
 
             await self.asyncraises(s_exc.BadTypeValu, t.norm('www.google\udcfesites.com'))
+
+            # Capital letters are lowercased in the stdlib idna fallback
+            self.eq('xn--aa-hg2o.link', (await t.norm('a\U00010c80a.link'))[0])
+            self.eq('xn--aa-hg2o.link', (await t.norm('a\U00010cc0a.link'))[0])
+            self.eq('xn--aa-kv2o.link', (await t.norm('a\U00010d50a.link'))[0])
+            self.eq('xn--aa-kv2o.link', (await t.norm('a\U00010d70a.link'))[0])
+            self.eq('xn--aa-bm02a.link', (await t.norm('a\U0001e900a.link'))[0])
+            self.eq('xn--aa-bm02a.link', (await t.norm('a\U0001e922a.link'))[0])
+            self.eq('xn--1-bi8r.link', (await t.norm('1\U0001e900.link'))[0])
 
             # IP addresses are NOT valid FQDNs
             await self.asyncraises(s_exc.BadTypeValu, t.norm('1.2.3.4'))
@@ -632,6 +643,11 @@ class InetModelTest(s_t_utils.SynTest):
             self.propeq(node, 'issuffix', 0)
             self.propeq(node, 'iszone', 1)
             self.propeq(node, 'zone', 'vertex.link')
+
+            props = node.pack()[1]['props']
+            self.true(props['issuffix'][0] is False)
+            self.true(props['iszone'][0] is True)
+            self.true(node.get('iszone')[1] is True)
 
             nodes = await core.nodes('inet:fqdn=link')
             self.len(1, nodes)
@@ -1636,7 +1652,7 @@ class InetModelTest(s_t_utils.SynTest):
                                 'host': (t.emailtype.fqdntype.hosttype.typehash, 'vertex', {}),
                                 'domain': (t.emailtype.fqdntype.typehash, 'link', {'subs': {
                                     'host': (t.emailtype.fqdntype.hosttype.typehash, 'link', {}),
-                                    'issuffix': (t.emailtype.fqdntype.booltype.typehash, 1, {}),
+                                    'issuffix': (t.emailtype.fqdntype.booltype.typehash, True, {}),
                                 }}),
                             }}),
                             'username': (t.emailtype.usertype.typehash, 'visi', {})}})
@@ -1787,7 +1803,7 @@ class InetModelTest(s_t_utils.SynTest):
                             'host': (t.fqdntype.hosttype.typehash, 'googlesites', {}),
                             'domain': (t.fqdntype.typehash, 'com', {'subs': {
                                 'host': (t.fqdntype.hosttype.typehash, 'com', {}),
-                                'issuffix': (t.fqdntype.booltype.typehash, 1, {}),
+                                'issuffix': (t.fqdntype.booltype.typehash, True, {}),
                             }}),
                         }}),
                         'host': (t.fqdntype.hosttype.typehash, 'www', {})}}),
@@ -1807,7 +1823,7 @@ class InetModelTest(s_t_utils.SynTest):
                     'host': self._urlhostsub(t, 'inet:fqdn', 'dummyimage.com', {'subs': {
                         'domain': (t.fqdntype.typehash, 'com', {'subs': {
                             'host': (t.fqdntype.hosttype.typehash, 'com', {}),
-                            'issuffix': (t.fqdntype.booltype.typehash, 1, {}),
+                            'issuffix': (t.fqdntype.booltype.typehash, True, {}),
                         }}),
                         'host': (t.fqdntype.hosttype.typehash, 'dummyimage', {})}}),
                 }})
@@ -1879,7 +1895,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'proto': (t.lowstrtype.typehash, 'https', {}),
                 'host': self._urlhostsub(t, 'inet:fqdn', 'server', {'subs': {
                     'host': (t.fqdntype.hosttype.typehash, 'server', {}),
-                    'issuffix': (t.fqdntype.booltype.typehash, 1, {})}}),
+                    'issuffix': (t.fqdntype.booltype.typehash, True, {})}}),
                 'params': (t.strtype.typehash, '', {}),
                 'port': (t.porttype.typehash, 1234, {}),
                 'path': (t.strtype.typehash, '/share/path/to/filename.txt', {}),
@@ -2041,7 +2057,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             lhostsub = {
                 'host': (t.fqdntype.hosttype.typehash, 'localhost', {}),
-                'issuffix': (t.fqdntype.booltype.typehash, 1, {}),
+                'issuffix': (t.fqdntype.booltype.typehash, True, {}),
             }
             url = 'file://localhost/c:/Users/BarUser/stuff/moar/stuff.txt'
             expected = (url, {'subs': {
@@ -2088,7 +2104,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'path': (t.strtype.typehash, '/path/to/foo.txt', {}),
                 'host': self._urlhostsub(t, 'inet:fqdn', 'somehost', {'subs': {
                     'host': (t.fqdntype.hosttype.typehash, 'somehost', {}),
-                    'issuffix': (t.fqdntype.booltype.typehash, 1, {})}}),
+                    'issuffix': (t.fqdntype.booltype.typehash, True, {})}}),
                 'base': (t.strtype.typehash, url, {}),
             }})
             self.eq(await t.norm(url), expected)
@@ -2130,7 +2146,7 @@ class InetModelTest(s_t_utils.SynTest):
                         'host': (t.fqdntype.hosttype.typehash, 'vertex', {}),
                         'domain': (t.fqdntype.typehash, 'link', {'subs': {
                             'host': (t.fqdntype.hosttype.typehash, 'link', {}),
-                            'issuffix': (t.fqdntype.booltype.typehash, 1, {}),
+                            'issuffix': (t.fqdntype.booltype.typehash, True, {}),
                         }}),
                     }}),
                     'host': (t.fqdntype.hosttype.typehash, 'foo', {})}}),
@@ -2146,7 +2162,7 @@ class InetModelTest(s_t_utils.SynTest):
                         'host': (t.fqdntype.hosttype.typehash, 'vertex', {}),
                         'domain': (t.fqdntype.typehash, 'link', {'subs': {
                             'host': (t.fqdntype.hosttype.typehash, 'link', {}),
-                            'issuffix': (t.fqdntype.booltype.typehash, 1, {}),
+                            'issuffix': (t.fqdntype.booltype.typehash, True, {}),
                         }}),
                     }}),
                     'host': (t.fqdntype.hosttype.typehash, 'somehost', {})}}),
@@ -2202,7 +2218,7 @@ class InetModelTest(s_t_utils.SynTest):
                         'host': (t.fqdntype.hosttype.typehash, 'vertex', {}),
                         'domain': (t.fqdntype.typehash, 'link', {'subs': {
                             'host': (t.fqdntype.hosttype.typehash, 'link', {}),
-                            'issuffix': (t.fqdntype.booltype.typehash, 1, {}),
+                            'issuffix': (t.fqdntype.booltype.typehash, True, {}),
                         }}),
                     }}),
                     'host': (t.fqdntype.hosttype.typehash, 'somehost', {})}}),
@@ -2233,7 +2249,7 @@ class InetModelTest(s_t_utils.SynTest):
                         'host': (t.fqdntype.hosttype.typehash, 'vertex', {}),
                         'domain': (t.fqdntype.typehash, 'link', {'subs': {
                             'host': (t.fqdntype.hosttype.typehash, 'link', {}),
-                            'issuffix': (t.fqdntype.booltype.typehash, 1, {}),
+                            'issuffix': (t.fqdntype.booltype.typehash, True, {}),
                         }}),
                     }}),
                     'host': (t.fqdntype.hosttype.typehash, 'host', {})}}),
@@ -2254,7 +2270,7 @@ class InetModelTest(s_t_utils.SynTest):
                         'host': (t.fqdntype.hosttype.typehash, 'vertex', {}),
                         'domain': (t.fqdntype.typehash, 'link', {'subs': {
                             'host': (t.fqdntype.hosttype.typehash, 'link', {}),
-                            'issuffix': (t.fqdntype.booltype.typehash, 1, {}),
+                            'issuffix': (t.fqdntype.booltype.typehash, True, {}),
                         }}),
                     }}),
                     'host': (t.fqdntype.hosttype.typehash, 'host', {})}}),

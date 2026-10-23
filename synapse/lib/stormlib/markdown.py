@@ -1578,7 +1578,7 @@ async def runBlockNodes(runt, text, varz):
     async with runt.getCmdRuntime(query, opts={'vars': varz or {}}) as subr:
         subr.readonly = True
 
-        # A `return()` ends the block's query, not whatever built or refreshed the block.
+        # A `return()` or `$lib.exit()` ends the block's query, not whatever built or refreshed the block.
         try:
             async for item in subr.execute():
 
@@ -1588,7 +1588,7 @@ async def runBlockNodes(runt, text, varz):
                     mesg = f'a storm block may rebuild from at most {BLOCK_MAX_ROWS} rows; add a limit to its query'
                     raise s_exc.BadArg(mesg=mesg, limit=BLOCK_MAX_ROWS)
 
-        except s_stormctrl.StormReturn:
+        except (s_stormctrl.StormReturn, s_stormctrl.StormExit):
             pass
 
     return items
@@ -1613,14 +1613,19 @@ async def runBlockPrints(runt, text, varz):
         subr.bus = subr
         subr._warnonce_keys = runt.bus._warnonce_keys
 
-        # A `return()` ends the block's query, not whatever built or refreshed the block.
+        # A `return()` or `$lib.exit()` ends the block's query, not whatever built or refreshed the block.
         async def execute():
             try:
                 async for _ in subr.execute():
                     await asyncio.sleep(0)
 
-            except s_stormctrl.StormReturn:
+            except (s_stormctrl.StormReturn, s_stormctrl.StormExit):
                 pass
+
+            # Returned, not raised: the caller raises it once, and a task ending in it would also be
+            # logged by `taskDone`. Anything else is a bug, and is logged as well.
+            except (s_exc.SynErr, s_stormctrl.StormCtrlFlow) as e:
+                return e
 
         # Cancelled rather than raised in: the bus logs what a handler raises, and a query that prints
         # without yielding a node gives the caller nowhere else to stop it.
@@ -1636,7 +1641,9 @@ async def runBlockPrints(runt, text, varz):
 
         # the query's own error, unless it was cancelled for printing too much
         if len(lines) <= BLOCK_MAX_ROWS:
-            task.result()
+            exc = task.result()
+            if exc is not None:
+                raise exc
 
     if len(lines) > BLOCK_MAX_ROWS:
         mesg = f'a storm block may print at most {BLOCK_MAX_ROWS} lines; print less'
@@ -1663,6 +1670,10 @@ async def runBlockValu(runt, text, varz):
 
         except s_stormctrl.StormReturn as e:
             return await s_stormtypes.toprim(e.item)
+
+        # ...and a `$lib.exit()` ends it having returned nothing, as running to the end does
+        except s_stormctrl.StormExit:
+            pass
 
     return None
 

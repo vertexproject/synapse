@@ -1,3 +1,5 @@
+import asyncio
+
 from unittest import mock
 
 import synapse.exc as s_exc
@@ -562,6 +564,363 @@ class StormLibPkgTest(s_test.SynTest):
                 self.eq('dog', await core.callStorm('return($lib.pkg.state(pkg0).baz)'))
                 self.eq('emu', await core.callStorm('return($lib.pkg.state(pkg1).bar)'))
                 self.eq('groot', await core.callStorm('return($lib.pkg.state(pkg1).baz)'))
+
+    async def test_stormlib_pkg_uninstall(self):
+
+        vtype = 'synapse-test:uninst'
+        otype = 'synapse-test:other'
+
+        pkgdef = {
+            'name': 'unipkg',
+            'version': '0.0.1',
+            'vaults': {vtype: {'version': 1}},
+            'perms': (
+                {'perm': ('power-ups', 'unipkg', 'admin'), 'gate': 'cortex', 'desc': 'Admin unipkg.'},
+            ),
+            'uninstall': {
+                'query': '''
+                    $lib.print(`uninstalling`)
+                    $lib.warn(`uninstalling loudly`)
+                    $lib.globals.unikeep = $keep
+                    if $lib.globals.unifail { $lib.raise(StormRuntimeError, 'uninstall newp') }
+                    if $lib.globals.unislow { $lib.time.sleep(60) }
+                ''',
+                'keep': (
+                    {'name': 'dmons', 'desc': 'Keep the dmons.'},
+                ),
+            },
+        }
+
+        async def waitgone(core, name):
+            for _ in range(200):
+                if not await core.hasStormPkg(name):
+                    return True
+                await asyncio.sleep(0.05)
+            return False  # pragma: no cover
+
+        async with self.getTestCoreAndProxy() as (core, prox):
+
+            events = []
+
+            async def onbehold(mesg):
+                if mesg[1].get('event').startswith('pkg:'):
+                    events.append(mesg[1].get('event'))
+
+            core.on('cell:beholder', onbehold)
+
+            # schema and keep name validation
+            newp = {'name': 'newp', 'version': '0.0.1'}
+            with self.raises(s_exc.SchemaViolation):
+                await core.addStormPkg({**newp, 'uninstall': {'keep': ()}})
+            with self.raises(s_exc.SchemaViolation):
+                await core.addStormPkg({**newp, 'uninstall': {'query': '', 'x': 1}})
+            with self.raises(s_exc.BadSyntax):
+                await core.addStormPkg({**newp, 'uninstall': {'query': '$lib.('}})
+
+            keep = ({'name': 'vaults', 'desc': 'reserved'},)
+            with self.raises(s_exc.BadPkgDef):
+                await core.addStormPkg({**newp, 'uninstall': {'query': '', 'keep': keep}})
+
+            keep = ({'name': 'dup', 'desc': 'one'}, {'name': 'dup', 'desc': 'two'})
+            with self.raises(s_exc.BadPkgDef):
+                await core.addStormPkg({**newp, 'uninstall': {'query': '', 'keep': keep}})
+
+            keep = ({'name': 'Bad Name', 'desc': 'x'},)
+            with self.raises(s_exc.SchemaViolation):
+                await core.addStormPkg({**newp, 'uninstall': {'query': '', 'keep': keep}})
+
+            # an empty uninstall query is allowed and the keep list is optional
+            await core.addStormPkg({**newp, 'uninstall': {'query': ''}})
+            await core.callStorm('$lib.pkg.del(newp)')
+
+            self.eq(['pkg:add', 'pkg:del'], events)
+            events.clear()
+
+            # state the cortex owns which an uninstall removes
+            await core.addStormPkg(pkgdef)
+            self.none(core.getStormPkgStatus('unipkg'))
+            self.none(await core.callStorm('return($lib.pkg.status(unipkg))'))
+
+            await core.setStormPkgVar('unipkg', 'foo', 'bar')
+            await core.setStormPkgState('unipkg', 'baz', 'faz')
+            await core.addStormPkgQueue('unipkg', 'uniq')
+            await core.addStormPkgQueue('otherpkg', 'otherq')
+
+            await core.addVaultType({'name': otype, 'version': 1})
+            viden = await core.addVault({'name': 'univault', 'type': vtype, 'scope': None,
+                                         'owner': core.auth.rootuser.iden, 'configs': {}, 'secrets': {}})
+            oiden = await core.addVault({'name': 'othervault', 'type': otype, 'scope': None,
+                                         'owner': core.auth.rootuser.iden, 'configs': {}, 'secrets': {}})
+
+            # argument validation
+            with self.raises(s_exc.NoSuchPkg):
+                await core.delStormPkg('newp', uninstall=True)
+            with self.raises(s_exc.BadArg):
+                await core.delStormPkg('unipkg', keep=['dmons'])
+            with self.raises(s_exc.BadArg):
+                await core.delStormPkg('unipkg', uninstall=True, keep=['newp'])
+            with self.raises(s_exc.BadArg):
+                await core.delStormPkg('unipkg', uninstall=True, keep=[1])
+            with self.raises(s_exc.BadArg):
+                await core.delStormPkg('unipkg', uninstall=True, keep='dmons')
+            with self.raises(s_exc.BadArg):
+                await core.delStormPkg('unipkg', uninstall=True, keep=3)
+
+            # a package which declares no vault types cannot keep vaults
+            await core.addStormPkg({**newp, 'uninstall': {'query': ''}})
+            with self.raises(s_exc.BadArg):
+                await core.delStormPkg('newp', uninstall=True, keep=['vaults'])
+            await core.delStormPkg('newp')
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('$lib.pkg.del(unipkg, uninstall=(true), keep=newp)')
+
+            events.clear()
+            self.nn(await core.callStorm('return($lib.pkg.get(unipkg))'))
+
+            # a failed uninstall leaves the package installed and reports why
+            await core.setStormVar('unifail', True)
+
+            waiter = core.waiter(1, 'core:pkg:uninstall:failed')
+            await core.delStormPkg('unipkg', uninstall=True, keep=['dmons'])
+            self.nn(await waiter.wait(timeout=10))
+
+            status = core.getStormPkgStatus('unipkg')
+            self.eq('failed', status['status'])
+            self.eq(['dmons'], status['keep'])
+            self.isin('uninstall newp', status['mesg'])
+            self.true(await core.hasStormPkg('unipkg'))
+            self.eq('failed', await core.callStorm('return($lib.pkg.status(unipkg).status)'))
+            self.eq(status, await prox.getStormPkgStatus('unipkg'))
+            self.eq('bar', await core.getStormPkgVar('unipkg', 'foo'))
+
+            msgs = await core.stormlist('pkg.list')
+            self.stormIsInPrint('uninstall failed', msgs)
+
+            # a retry is allowed after a failure, and a replacement add or a plain delete abandons it
+            await core.addStormPkg(pkgdef)
+            self.none(core.getStormPkgStatus('unipkg'))
+            self.true(await core.hasStormPkg('unipkg'))
+
+            waiter = core.waiter(1, 'core:pkg:uninstall:failed')
+            await core.delStormPkg('unipkg', uninstall=True)
+            self.nn(await waiter.wait(timeout=10))
+            self.eq('failed', core.getStormPkgStatus('unipkg')['status'])
+
+            await core.delStormPkg('unipkg')
+            self.none(core.getStormPkgStatus('unipkg'))
+            self.false(await core.hasStormPkg('unipkg'))
+
+            await core.addStormPkg(pkgdef)
+
+            waiter = core.waiter(1, 'core:pkg:uninstall:failed')
+            await core.delStormPkg('unipkg', uninstall=True)
+            self.nn(await waiter.wait(timeout=10))
+
+            # the retry succeeds and keeps what it was asked to keep
+            await core.setStormVar('unifail', False)
+
+            waiter = core.waiter(1, 'core:pkg:uninstall:complete')
+            await core.delStormPkg('unipkg', uninstall=True, keep=['dmons', 'vaults', 'dmons'])
+            self.nn(await waiter.wait(timeout=10))
+
+            self.eq(['dmons', 'vaults'], await core.getStormVar('unikeep'))
+
+            self.false(await core.hasStormPkg('unipkg'))
+            self.none(core.getStormPkgStatus('unipkg'))
+            self.none(await core.callStorm('return($lib.pkg.status(unipkg))'))
+            self.eq([], [item async for item in core.iterStormPkgVars('unipkg')])
+            self.eq([], [item async for item in core.iterStormPkgState('unipkg')])
+            self.eq([], [item async for item in core.listStormPkgQueues('unipkg')])
+            self.len(1, [item async for item in core.listStormPkgQueues('otherpkg')])
+            self.nn(core.getVault(viden))
+            self.nn(core.getVaultType(vtype))
+
+            # without a keep list the vaults of the package vault types and the types are removed
+            await core.addStormPkg(pkgdef)
+            await core.setStormPkgVar('unipkg', 'foo', 'bar')
+
+            waiter = core.waiter(1, 'core:pkg:uninstall:complete')
+            msgs = await core.stormlist('pkg.del unipkg --uninstall')
+            self.stormIsInWarn('UNINSTALLING unipkg', msgs)
+            self.stormIsInPrint('Uninstall of unipkg started', msgs)
+            self.nn(await waiter.wait(timeout=10))
+
+            self.eq([], await core.getStormVar('unikeep'))
+            self.none(core.getVault(viden))
+            self.none(core.getVaultType(vtype))
+            self.nn(core.getVault(oiden))
+            self.nn(core.getVaultType(otype))
+            self.eq([], [item async for item in core.iterStormPkgVars('unipkg')])
+
+            msgs = await core.stormlist('pkg.del unipkg')
+            self.stormIsInPrint('No package names match', msgs)
+
+            self.eq([
+                'pkg:uninstall:init', 'pkg:uninstall:fail',
+                'pkg:add', 'pkg:uninstall:init', 'pkg:uninstall:fail', 'pkg:del',
+                'pkg:add', 'pkg:uninstall:init', 'pkg:uninstall:fail',
+                'pkg:uninstall:init', 'pkg:del', 'pkg:uninstall:fini',
+                'pkg:add', 'pkg:uninstall:init', 'pkg:del', 'pkg:uninstall:fini',
+            ], events)
+
+            # the cortex refuses to add or uninstall a package which is being uninstalled
+            await core.setStormVar('unislow', True)
+            await core.addStormPkg(pkgdef)
+
+            waiter = core.waiter(1, 'core:pkg:uninstall:start')
+            await core.delStormPkg('unipkg', uninstall=True)
+            self.nn(await waiter.wait(timeout=10))
+
+            self.eq('uninstalling', core.getStormPkgStatus('unipkg')['status'])
+            self.true(any(t.name == 'storm:pkg:uninstall:unipkg' for t in core.boss.tasks.values()))
+            msgs = await core.stormlist('pkg.list')
+            self.stormIsInPrint('uninstalling', msgs)
+
+            with self.raises(s_exc.BadArg):
+                await core.addStormPkg(pkgdef)
+            with self.raises(s_exc.BadArg):
+                await core.delStormPkg('unipkg', uninstall=True)
+
+            # the add handler also refuses, for an add which raced the check
+            await core._addStormPkg({**pkgdef, 'version': '0.0.2'})
+            self.eq('0.0.1', core.stormpkgs['unipkg']['version'])
+
+            # and a plain delete is how an uninstall is abandoned
+            task = core.stormpkguninsttask['unipkg']
+            await core.delStormPkg('unipkg')
+            await asyncio.wait([task], timeout=10)
+            self.true(task.cancelled())
+            self.none(core.getStormPkgStatus('unipkg'))
+            self.false(await core.hasStormPkg('unipkg'))
+            self.eq({}, core.stormpkguninsttask)
+
+            await core.setStormVar('unislow', False)
+
+            # a running onload is cancelled by a re-add, a delete and an uninstall
+            onpkg = {'name': 'onpkg', 'version': '0.0.1', 'onload': '$lib.time.sleep(60)'}
+
+            await core.addStormPkg(onpkg)
+            first = core.stormpkgonload['onpkg']
+
+            await core.addStormPkg({**onpkg, 'version': '0.0.2'})
+            await asyncio.wait([first], timeout=10)
+            self.true(first.cancelled())
+            second = core.stormpkgonload['onpkg']
+            self.ne(first, second)
+
+            await core.delStormPkg('onpkg')
+            await asyncio.wait([second], timeout=10)
+            self.true(second.cancelled())
+            self.notin('onpkg', core.stormpkgonload)
+
+            await core.addStormPkg(onpkg)
+            third = core.stormpkgonload['onpkg']
+
+            waiter = core.waiter(1, 'core:pkg:uninstall:complete')
+            await core.delStormPkg('onpkg', uninstall=True)
+            self.nn(await waiter.wait(timeout=10))
+            self.true(third.cancelled())
+            self.false(await core.hasStormPkg('onpkg'))
+
+            # a finished onload is reaped
+            await core.addStormPkg({'name': 'onpkg', 'version': '0.0.3', 'onload': '$lib.print(hi)'})
+            for _ in range(100):
+                if 'onpkg' not in core.stormpkgonload:
+                    break
+                await asyncio.sleep(0.05)
+            self.notin('onpkg', core.stormpkgonload)
+
+            # telepath and permissions
+            await core.addStormPkg(pkgdef)
+
+            lowuser = await core.addUser('lowuser')
+            aslow = {'user': lowuser.get('iden')}
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('$lib.pkg.del(unipkg, uninstall=(true))', opts=aslow)
+
+            async with core.getLocalProxy(user='lowuser') as lowprox:
+                with self.raises(s_exc.AuthDeny):
+                    await lowprox.getStormPkgStatus('unipkg')
+
+            waiter = core.waiter(1, 'core:pkg:uninstall:complete')
+            await prox.delStormPkg('unipkg', uninstall=True)
+            self.nn(await waiter.wait(timeout=10))
+            self.false(await core.hasStormPkg('unipkg'))
+
+            # an uninstall which raises is a failure too
+            with mock.patch.object(core, 'storm', side_effect=Exception('boom')):
+                await core.addStormPkg(pkgdef)
+
+                waiter = core.waiter(1, 'core:pkg:uninstall:failed')
+                await core.delStormPkg('unipkg', uninstall=True)
+                self.nn(await waiter.wait(timeout=10))
+                self.isin('boom', core.getStormPkgStatus('unipkg')['mesg'])
+
+            # bad query options are a recorded failure rather than a stuck uninstall
+            await core.delStormPkg('unipkg')
+            badopts = {**pkgdef, 'uninstall': {**pkgdef['uninstall'], 'queryopts': {'vars': None}}}
+            await core.addStormPkg(badopts)
+
+            waiter = core.waiter(1, 'core:pkg:uninstall:failed')
+            await core.delStormPkg('unipkg', uninstall=True)
+            self.nn(await waiter.wait(timeout=10))
+            status = core.getStormPkgStatus('unipkg')
+            self.eq('failed', status['status'])
+            self.isin('TypeError', status['mesg'])
+
+            # uninstall and failure for a package which was removed meanwhile are ignored
+            await core.delStormPkg('unipkg')
+            self.none(await core._uninstStormPkg('unipkg', [], s_common.now()))
+            self.none(await core._failStormPkgUninstall('unipkg', 'newp', s_common.now()))
+            self.none(await core._finiStormPkgUninstall('unipkg', []))
+
+            # stale failure and completion events do not act on a package which is not uninstalling
+            await core.addStormPkg(pkgdef)
+            self.none(await core._failStormPkgUninstall('unipkg', 'newp', s_common.now()))
+            self.none(core.getStormPkgStatus('unipkg'))
+            self.none(await core._finiStormPkgUninstall('unipkg', []))
+            self.true(await core.hasStormPkg('unipkg'))
+
+            # an uninstall task for a package which is no longer being uninstalled does nothing
+            core._initStormPkgUninstall('ghostpkg')
+            await asyncio.wait([core.stormpkguninsttask['ghostpkg']], timeout=10)
+
+            # an uninstall which is already running is not started again
+            core.stormpkguninsttask['unipkg'] = asyncio.get_running_loop().create_future()
+            self.none(core._initStormPkgUninstall('unipkg'))
+            core.stormpkguninsttask.pop('unipkg')
+
+        # resuming after a restart, including one in safemode
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn, conf={'safemode': True}) as core:
+
+                await core.addStormPkg(pkgdef)
+                await core.addStormPkg({'name': 'failpkg', 'version': '0.0.1',
+                                        'onload': '$lib.globals.failonload = (true)'})
+                await core.setStormPkgVar('unipkg', 'foo', 'bar')
+
+                core.pkguninst.set('failpkg', {'status': 'failed', 'keep': [], 'time': 1, 'mesg': 'x'})
+
+                waiter = core.waiter(1, 'core:pkg:uninstall:skipped')
+                await core.delStormPkg('unipkg', uninstall=True)
+                events = await waiter.wait(timeout=10)
+                self.eq(events, (('core:pkg:uninstall:skipped', {'pkg': 'unipkg', 'reason': 'safemode'}),))
+
+                self.eq('uninstalling', core.getStormPkgStatus('unipkg')['status'])
+                self.true(await core.hasStormPkg('unipkg'))
+
+            async with self.getTestCore(dirn=dirn, conf={'safemode': False}) as core:
+
+                self.true(await waitgone(core, 'unipkg'))
+                self.none(core.getStormPkgStatus('unipkg'))
+                self.eq([], [item async for item in core.iterStormPkgVars('unipkg')])
+
+                # a failed uninstall stays put until it is retried or deleted
+                self.eq('failed', core.getStormPkgStatus('failpkg')['status'])
+                self.true(await core.hasStormPkg('failpkg'))
+                self.none(await core.getStormVar('failonload'))
 
     async def test_stormlib_pkg_docs(self):
 

@@ -1,3 +1,4 @@
+import logging
 import unittest.mock as mock
 
 import synapse.exc as s_exc
@@ -2184,6 +2185,68 @@ class MarkdownTest(s_test.SynTest):
                 ''')
 
             self.len(0, await core.nodes('inet:fqdn=made.by.print'))
+
+            # a failing query is raised to whoever built the block, and only to them: the task it ran
+            # in must not also end with the error, which the Cortex would log
+            with self.getLoggerStream('synapse.lib.base', level=logging.ERROR) as stream:
+
+                with self.raises(s_exc.StormRaise) as cm:
+                    await core.callStorm('''
+                        $lib.markdown.stormprint(${ $lib.print(hi) $lib.raise(Newp, boom) })
+                    ''')
+
+                self.eq('boom', cm.exception.get('mesg'))
+                self.eq('Newp', cm.exception.get('errname'))
+
+            self.notin('scheduled through Base.schedCoro raised exception', stream.getvalue())
+
+            # a `$lib.exit()` ends the block's query the way a `return()` does, rather than the query
+            # that built or refreshed it, and each block keeps what it had before it exited
+            valu = await core.callStorm('''
+                $prt = $lib.markdown.stormprint(${ $lib.print(hi) $lib.exit() $lib.print(late) })
+                $tbl = $lib.markdown.stormtable(${ inet:fqdn=evil.com $lib.exit() }, form=inet:fqdn)
+                $img = $lib.markdown.stormimage(${ $lib.exit() return(nope) }, urltmpl="/f/{valu}")
+                $doc = $lib.markdown.doc()
+                $doc.add($prt)
+                $doc.add($tbl)
+                $doc.add($img)
+                $done = $doc.refresh()
+                return(($prt.valu, $img.valu, $done.failed, $lib.len($done.rebuilt)))
+            ''')
+            self.isin('hi', valu[0])
+            self.notin('late', valu[0])
+            self.eq('', valu[1])
+            self.eq({}, valu[2])
+            self.eq(3, valu[3])
+
+            # ...so a refresh under `storm()` carries on past it, rather than quietly ending there
+            msgs = await core.stormlist('''
+                $doc = $lib.markdown.doc()
+                $doc.add($lib.markdown.stormprint(${ $lib.print(hi) $lib.exit() }))
+                $doc.refresh()
+                $lib.print(after)
+            ''')
+            self.stormHasNoWarnErr(msgs)
+            self.stormIsInPrint('after', msgs)
+
+            # ...and the same on a refresh, which is where a failing block is run again and again
+            with self.getLoggerStream('synapse.lib.base', level=logging.ERROR) as stream:
+
+                with self.raises(s_exc.StormRaise) as cm:
+                    await core.callStorm('''
+                        $block = $lib.markdown.stormprint(${
+                            if $fail { $lib.raise(Newp, boom) }
+                            $lib.print(hi)
+                        }, vars=({"fail": (false)}))
+                        $doc = $lib.markdown.doc()
+                        $doc.add($block)
+                        $block.setVar(fail, (true))
+                        $block.refresh()
+                    ''')
+
+                self.eq('boom', cm.exception.get('mesg'))
+
+            self.notin('scheduled through Base.schedCoro raised exception', stream.getvalue())
 
     async def test_stormlib_markdown_block_title(self):
 

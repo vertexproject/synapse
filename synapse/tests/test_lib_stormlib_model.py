@@ -329,6 +329,389 @@ class StormlibModelTest(s_test.SynTest):
             self.len(1, nodes)
             self.propeq(nodes[0], '_foo', 'foobarbaz')
 
+            # migration loop
+
+            def getPrints(mesgs):
+                return [m[1]['mesg'] for m in mesgs if m[0] == 'print']
+
+            # onview is required
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('$lib.model.migration.loop()')
+            self.isin("missing 1 required positional argument: 'onview'", cm.exception.get('mesg'))
+
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('$lib.model.migration.loop(onlayer=${ $lib.print(newp) })')
+            self.isin("missing 1 required positional argument: 'onview'", cm.exception.get('mesg'))
+
+            with self.raises(s_exc.BadArg) as cm:
+                await core.nodes('$lib.model.migration.loop((null), onlayer=${ $lib.print(newp) })')
+            self.eq('$lib.model.migration.loop() requires an onview query.', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.nodes('$lib.model.migration.loop(${ $lib.print(newp) })', opts=aslow)
+            self.eq('$lib.model.migration.loop() requires global admin.', cm.exception.get('mesg'))
+
+            defview = core.getView()
+            deflayr = defview.wlyr.iden
+
+            ldef = await core.addLayer({'name': 'looplayr'})
+            lowdef = await core.addLayer({'name': 'lowlayr'})
+            freedef = await core.addLayer({'name': 'freelayr'})
+            vdef = await core.addView({'layers': (ldef['iden'], lowdef['iden']), 'name': 'loopview'})
+            fdef = await core.getView(vdef['iden']).fork()
+
+            layr00 = ldef['iden']
+            view00 = vdef['iden']
+            view01 = fdef['iden']
+            layr01 = fdef['layers'][0]['iden']
+            layrlow = lowdef['iden']
+            layrfree = freedef['iden']
+
+            # views first with parents before children, then layers which are not the write layer
+            # of a view; events are passed through but variables from the caller, or captured by
+            # an embedded query, are not
+            q = """
+                $x = hehe
+                $y = haha
+                $onview = ${ $lib.print(`view {$lib.view.get().iden} {$lib.vars.y} {$lib.vars.view}`) test:str=src }
+                $lib.model.migration.loop(
+                    $onview,
+                    onlayer="$lib.print(`layer {$layer} {$lib.vars.x} {$lib.vars.view}`) $z = newp",
+                )
+                $lib.print(`caller {$lib.vars.z}`)
+            """
+            mesgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(mesgs)
+            self.eq([
+                f'view {defview.iden} null null',
+                f'view {view00} null null',
+                f'view {view01} null null',
+                f'layer {layrlow} null null',
+                f'layer {layrfree} null null',
+                'caller null',
+            ], getPrints(mesgs))
+
+            with self.raises(s_exc.NoSuchVar):
+                await core.nodes('$x = hehe $lib.model.migration.loop(${ }, onlayer=${ $lib.print($x) })')
+
+            with self.raises(s_exc.NoSuchVar):
+                await core.nodes('$x = hehe $lib.model.migration.loop("$lib.print($x)")')
+
+            # onview callbacks run in the view, so $view is not set
+            with self.raises(s_exc.NoSuchVar):
+                await core.nodes('$lib.model.migration.loop(${ $lib.print($view) })')
+
+            # callbacks can not see the caller's variables, so pass values to them using globals
+            await core.setStormVar('view00', view00)
+            await core.setStormVar('view01', view01)
+            await core.setStormVar('layr00', layr00)
+            await core.setStormVar('layr01', layr01)
+            await core.setStormVar('layrlow', layrlow)
+            await core.setStormVar('layrfree', layrfree)
+
+            # read-only layers and views are skipped unless readonly is set, and the write layer
+            # of a view is never passed to onlayer
+            await core.getLayer(layr01).setLayerInfo('readonly', True)
+            await core.getLayer(layrfree).setLayerInfo('readonly', True)
+
+            q = """
+                $lib.model.migration.loop(
+                    ${ $lib.print(`view {$lib.view.get().iden}`) },
+                    onlayer=${ $lib.print(`layer {$layer}`) },
+                    readonly=$readonly,
+                )
+            """
+            mesgs = await core.stormlist(q, opts={'vars': {'readonly': False}})
+            self.stormIsInWarn(f'Layer {layrfree} (freelayr) is read-only and was skipped.', mesgs)
+            self.stormIsInWarn(f'View {view01} has a read-only write layer and was skipped.', mesgs)
+            self.stormNotInWarn(f'Layer {layr01}', mesgs)
+            self.eq([
+                f'view {defview.iden}',
+                f'view {view00}',
+                f'layer {layrlow}',
+            ], getPrints(mesgs))
+
+            mesgs = await core.stormlist(q, opts={'vars': {'readonly': True}})
+            self.stormHasNoWarnErr(mesgs)
+            self.eq([
+                f'view {defview.iden}',
+                f'view {view00}',
+                f'view {view01}',
+                f'layer {layrlow}',
+                f'layer {layrfree}',
+            ], getPrints(mesgs))
+
+            # errors from writing to a layer which was already read-only are raised
+            q = """
+                $lib.model.migration.loop(${ if ($lib.view.get().iden = $lib.globals.view01) { [ test:str=ro ] } }, readonly=(true))
+            """
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes(q)
+
+            q = """
+                $lib.model.migration.loop(${ },
+                    onlayer=${ if ($layer = $lib.globals.layrfree) { $lib.layer.get($layer).set(desc, newp) } },
+                    readonly=(true),
+                )
+            """
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes(q)
+
+            await core.getLayer(layr01).setLayerInfo('readonly', False)
+            await core.getLayer(layrfree).setLayerInfo('readonly', False)
+
+            # a layer set read-only by an earlier callback is skipped
+            q = """
+                $lib.model.migration.loop(
+                    ${
+                        $lib.print(`view {$lib.view.get().iden}`)
+                        $lib.layer.get($lib.globals.layr01).set(readonly, (true))
+                        $lib.layer.get($lib.globals.layrfree).set(readonly, (true))
+                    },
+                    onlayer=${ $lib.print(`layer {$layer}`) },
+                )
+            """
+            mesgs = await core.stormlist(q)
+            self.stormIsInWarn(f'Layer {layrfree} (freelayr) is read-only and was skipped.', mesgs)
+            self.stormIsInWarn(f'View {view01} has a read-only write layer and was skipped.', mesgs)
+            self.eq([
+                f'view {defview.iden}',
+                f'view {view00}',
+                f'layer {layrlow}',
+            ], getPrints(mesgs))
+
+            await core.getLayer(layr01).setLayerInfo('readonly', False)
+            await core.getLayer(layrfree).setLayerInfo('readonly', False)
+
+            # a layer which becomes read-only during its own callback is warned about
+            q = """
+                $lib.model.migration.loop(
+                    ${
+                        $iden = $lib.view.get().iden
+                        $lib.print(`view {$iden}`)
+                        if ($iden = $lib.globals.view01) {
+                            $lib.layer.get($lib.globals.layr01).set(readonly, (true))
+                            [ test:str=ro ]
+                        }
+                    },
+                    onlayer=${
+                        $lib.print(`layer {$layer}`)
+                        if ($layer = $lib.globals.layrlow) {
+                            $lib.layer.get($layer).set(readonly, (true))
+                            $lib.layer.get($layer).set(desc, newp)
+                        }
+                    },
+                )
+            """
+            mesgs = await core.stormlist(q)
+            self.stormIsInWarn(f'View {view01} became read-only while being migrated.', mesgs)
+            self.stormIsInWarn(f'Layer {layrlow} (lowlayr) became read-only while being migrated.', mesgs)
+            self.stormNotInWarn(f'Layer {layr01}', mesgs)
+            self.eq([
+                f'view {defview.iden}',
+                f'view {view00}',
+                f'view {view01}',
+                f'layer {layrlow}',
+                f'layer {layrfree}',
+            ], getPrints(mesgs))
+            self.len(0, await core.nodes('test:str=ro', opts={'view': view01}))
+
+            await core.getLayer(layrlow).setLayerInfo('readonly', False)
+            await core.getLayer(layr01).setLayerInfo('readonly', False)
+
+            # any other error in a view or layer which still exists is raised
+            q = '$lib.model.migration.loop(${ $lib.view.get($lib.guid()) })'
+            with self.raises(s_exc.NoSuchView):
+                await core.nodes(q)
+
+            q = '$lib.model.migration.loop(${ }, onlayer=${ $lib.layer.get($lib.guid()) })'
+            with self.raises(s_exc.NoSuchIden):
+                await core.nodes(q)
+
+            q = """
+                $lib.model.migration.loop(${ }, onlayer=${
+                    if ($layer = $lib.globals.layrlow) { $lib.layer.get($layer).set(readonly, (true)) }
+                    $lib.raise(NewpErr, newp)
+                })
+            """
+            with self.raises(s_exc.StormRaise):
+                await core.nodes(q)
+
+            await core.getLayer(layrlow).setLayerInfo('readonly', False)
+
+            # views and layers deleted by an earlier callback are warned about, and the write
+            # layer of a view deleted before it was migrated is passed to onlayer
+            ldef02 = await core.addLayer()
+            ldef03 = await core.addLayer({'name': 'loopdel'})
+            layr02 = ldef02['iden']
+            layr03 = ldef03['iden']
+            await core.setStormVar('layr02', layr02)
+            await core.setStormVar('layr03', layr03)
+
+            q = """
+                $lib.model.migration.loop(
+                    ${
+                        $iden = $lib.view.get().iden
+                        $lib.print(`view {$iden}`)
+                        if ($iden = $lib.globals.view00) { $lib.view.del($lib.globals.view01) }
+                    },
+                    onlayer=${
+                        $lib.print(`layer {$layer}`)
+                        if ($layer = $lib.globals.layr02) { $lib.layer.del($lib.globals.layr03) }
+                    },
+                )
+            """
+            mesgs = await core.stormlist(q)
+            self.stormIsInWarn(f'Layer {layr03} (loopdel) was deleted before it could be migrated.', mesgs)
+            self.stormIsInWarn(f'View {view01} was deleted before it could be migrated.', mesgs)
+            self.eq([
+                f'view {defview.iden}',
+                f'view {view00}',
+                f'layer {layrlow}',
+                f'layer {layrfree}',
+                f'layer {layr01}',
+                f'layer {layr02}',
+            ], getPrints(mesgs))
+            self.none(core.getView(view01))
+            self.none(core.getLayer(layr03))
+
+            # views and layers deleted by their own callback are warned about, and the write
+            # layer of a view which was migrated is not passed to onlayer once it is deleted
+            await core.delLayer(layr01)
+
+            vdef01 = await core.getView(view00).fork({'name': 'loopfork'}, {'name': 'loopfork'})
+            view01 = vdef01['iden']
+            layr01 = vdef01['layers'][0]['iden']
+            await core.setStormVar('view01', view01)
+
+            q = """
+                $lib.model.migration.loop(
+                    ${
+                        $iden = $lib.view.get().iden
+                        $lib.print(`view {$iden}`)
+                        if ($iden = $lib.globals.view01) {
+                            $lib.view.del($iden)
+                            $lib.view.get($iden)
+                        }
+                    },
+                    onlayer=${
+                        $lib.print(`layer {$layer}`)
+                        if ($layer = $lib.globals.layr02) {
+                            $lib.layer.del($layer)
+                            $lib.layer.get($layer)
+                        }
+                    },
+                )
+            """
+            mesgs = await core.stormlist(q)
+            self.stormIsInWarn(f'Layer {layr02} was deleted while being migrated.', mesgs)
+            self.stormIsInWarn(f'View {view01} (loopfork) was deleted while being migrated.', mesgs)
+            self.eq([
+                f'view {defview.iden}',
+                f'view {view00}',
+                f'view {view01}',
+                f'layer {layrlow}',
+                f'layer {layrfree}',
+                f'layer {layr02}',
+            ], getPrints(mesgs))
+            self.none(core.getView(view01))
+            self.none(core.getLayer(layr02))
+            self.nn(core.getLayer(layr01))
+
+            # views and layers created by a callback are visited by a later pass, and a layer
+            # which became the write layer of a new view is passed to onview instead of onlayer
+            q = """
+                $lib.model.migration.loop(
+                    ${
+                        $view = $lib.view.get()
+                        $lib.print(`view {$view.get(name)}`)
+                        if ($view.iden = $lib.globals.view00) { $lib.view.add(($lib.globals.layr00,), name=loopnew) }
+                    },
+                    onlayer=${
+                        $lib.print(`layer {$lib.layer.get($layer).get(name)}`)
+                        if ($layer = $lib.globals.layrlow) {
+                            $lib.layer.add(({"name": "loopnew"}))
+                            $lib.view.add(($lib.globals.layrfree,), name=freeview)
+                        }
+                    },
+                )
+            """
+            mesgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(mesgs)
+            prints = getPrints(mesgs)
+            self.eq(['view loopnew', 'view freeview', 'layer loopnew'], prints[-3:])
+            self.lt(prints.index('view loopview'), prints.index('layer lowlayr'))
+            self.notin('layer freelayr', prints)
+            self.notin('layer looplayr', prints)
+            self.len(1, [p for p in prints if p == 'layer loopnew'])
+            self.len(1, [p for p in prints if p == 'view loopnew'])
+
+            # reverse runs onview for child views before their parents, without changing the
+            # onlayer order
+            for view in list(core.views.values()):
+                if view.info.get('name') in ('loopnew', 'freeview'):
+                    await core.delView(view.iden)
+
+            vdef01 = await core.getView(view00).fork()
+            view01 = vdef01['iden']
+            vdef02 = await core.getView(view01).fork()
+            view02 = vdef02['iden']
+            await core.setStormVar('view02', view02)
+
+            q = """
+                $lib.model.migration.loop(
+                    ${ $lib.print(`view {$lib.view.get().iden}`) },
+                    onlayer=${ $lib.print(`layer {$layer}`) },
+                    reverse=$reverse,
+                )
+            """
+            mesgs = await core.stormlist(q, opts={'vars': {'reverse': False}})
+            self.stormHasNoWarnErr(mesgs)
+            fwdprints = getPrints(mesgs)
+            fwdlayrs = [p for p in fwdprints if p.startswith('layer ')]
+            self.eq([
+                f'view {defview.iden}',
+                f'view {view00}',
+                f'view {view01}',
+                f'view {view02}',
+            ], fwdprints[:4])
+            self.eq(fwdprints[4:], fwdlayrs)
+            self.isin(f'layer {layrlow}', fwdlayrs)
+
+            mesgs = await core.stormlist(q, opts={'vars': {'reverse': True}})
+            self.stormHasNoWarnErr(mesgs)
+            self.eq([
+                f'view {view02}',
+                f'view {view01}',
+                f'view {view00}',
+                f'view {defview.iden}',
+            ] + fwdlayrs, getPrints(mesgs))
+
+            # views created by a callback during a reverse loop are visited by a later pass
+            q = """
+                $lib.model.migration.loop(
+                    ${
+                        $view = $lib.view.get()
+                        $lib.print(`view {$view.iden}`)
+                        if ($view.iden = $lib.globals.view02) { $view.fork(name=revfork) }
+                    },
+                    onlayer=${ $lib.print(`layer {$layer}`) },
+                    reverse=(true),
+                )
+            """
+            mesgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(mesgs)
+            prints = getPrints(mesgs)
+            self.eq([
+                f'view {view02}',
+                f'view {view01}',
+                f'view {view00}',
+                f'view {defview.iden}',
+            ] + fwdlayrs, prints[:-1])
+            revfork = [v for v in core.views.values() if v.info.get('name') == 'revfork']
+            self.len(1, revfork)
+            self.eq(f'view {revfork[0].iden}', prints[-1])
+
     async def test_stormlib_model_migration_fuse(self):
 
         fuse = 'test:str=$src $n=$node -> { test:str=$dst $lib.model.migration.fuse($n, $node) }'

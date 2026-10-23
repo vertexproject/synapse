@@ -11,4 +11,5 @@ storm_adv_methods.md
 storm_adv_control.md
 storm_adv_functions.md
 storm_adv_classes.md
+storm_adv_vaults.md
 ```

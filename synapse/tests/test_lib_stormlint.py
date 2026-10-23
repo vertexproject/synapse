@@ -70,6 +70,7 @@ class StormLintTest(s_t_utils.SynTest):
             self.false(s_stormlint.rules['W001'].default)
             self.false(s_stormlint.rules['S010'].default)
             self.false(s_stormlint.rules['S015'].default)
+            self.false(s_stormlint.rules['S016'].default)
 
             # selection
             def idens(linter):
@@ -81,6 +82,7 @@ class StormLintTest(s_t_utils.SynTest):
             self.notin('W001', defaults)
             self.notin('S010', defaults)
             self.notin('S015', defaults)
+            self.notin('S016', defaults)
             self.eq(idens(s_stormlint.StormLinter(ignore=('T',))), [i for i in defaults if not i.startswith('T')])
             self.eq(idens(s_stormlint.StormLinter(enable=('W001',))), sorted(defaults + ['W001']))
             self.eq(idens(s_stormlint.StormLinter(select=('W',))), ['W001'])
@@ -207,7 +209,7 @@ class StormLintTest(s_t_utils.SynTest):
             return [f[2:] for f in s_stormlint.StormLinter(select=(iden,)).lint(text)]
 
         for iden in ('E002', 'E003', 'R001', 'R002', 'R003', 'R004', 'R005', 'P001', 'P002', 'S001', 'S002', 'S003',
-                     'S004', 'S005', 'S006', 'S008', 'S010', 'S011', 'S012', 'S014', 'S015'):
+                     'S004', 'S005', 'S006', 'S008', 'S010', 'S011', 'S012', 'S014', 'S015', 'S016'):
             self.true(s_stormlint.rules[iden].doc)
 
         # E002 invalid escapes in double-quoted and backtick strings
@@ -519,6 +521,23 @@ class StormLintTest(s_t_utils.SynTest):
             (3, 3, 'Lift by inet:fqdn:zone*range=(a, b) instead of filtering.'),
         ))
 
+        # S011 and S012 check names against a supplied model dict
+        self.eq(s_stormlint._getModelNames(s_stormlint._getModel().getModelDict()), s_stormlint._getModelNames())
+
+        model = {'forms': {
+            '_foo:bar': {'props': {'zone': {'full': '_foo:bar:zone'}}},
+            'meta:taxonomy': {'props': {'_zone': {'full': 'meta:taxonomy:_zone'}}},
+        }}
+        text = ('[ :p={ _foo:bar=$g } :q={ inet:fqdn=$g } ]\n'
+                '{ _foo:bar +:zone=x }\n{ meta:taxonomy +:_zone=x }\n{ inet:fqdn +:zone=x }')
+        finds = [('S011', 'low', 1, 6), ('S012', 'low', 2, 3), ('S012', 'low', 3, 3)]
+        linter = s_stormlint.StormLinter(select=('S011', 'S012'), model=model)
+        self.eq([f[:4] for f in linter.lint(text)], finds)
+        self.eq([f[:4] for f in linter.lint(text)], finds)
+        self.eq([f[:4] for f in s_stormlint.StormLinter(select=('S011', 'S012')).lint(text)],
+                [('S011', 'low', 1, 25), ('S012', 'low', 4, 3)])
+        self.eq(linter.lint('[ :p={ inet:fqdn=$g } ]\ninet:fqdn +:zone=foo { inet:fqdn +(:zone^=$x) }'), [])
+
         # S014 $lib.cast() in a try block
         self.eq(lint('S014', 'try { $lib.trycast(int, $x) function f() { $lib.cast(int, $x) } } '
                              'catch * as e { $lib.cast(int, $x) }\n$lib.cast(int, $x)'), [])
@@ -546,4 +565,107 @@ class StormLintTest(s_t_utils.SynTest):
             (2, 16, mesg),
             (5, 5, mesg),
             (7, 16, mesg),
+        ))
+
+        # S016 an http response or wget result which is printed or logged
+        self.eq(lint('S016', '''
+            $r = $lib.inet.http.get($u)
+            $w = $lib.axon.wget($u)
+            $lib.print($r.code, $r.json(), $w.ok)
+            $lib.print(`{$r.code} {$r.reason} {$w.size}`, k=$w.hashes)
+            $lib.pprint($r.json())
+            $lib.pprint($r.$key)
+            $lib.pprint($foo($r))
+            $lib.print($lib.str)
+            $lib.log.info($lib.inet.http.urlencode($u))
+            $lib.pprint($other)
+            function f(r) { $lib.pprint($r) }
+            function g() { $r = (1) $lib.pprint($r) }
+            function h() { function inner(r) { $lib.pprint($r) } }
+            function i() { $lib.print($r.code) }
+            $r = $r.json() $lib.pprint($r)
+            function k() { $q = $lib.inet.http.get($u) $q = $q.json() $lib.pprint($q) }
+            function l() { $q = $lib.inet.http.get($u) ($q, $z) = $x $lib.pprint($q) }
+            function m() { $q = $lib.inet.http.get($u) if $c { $q = $q.json() $lib.pprint($q) } }
+            function n() { $q = $lib.inet.http.get($u) try { $q = $q.json() $lib.pprint($q) } catch * as e { $lib.print($e) } }
+            function o() { $q = $lib.inet.http.get($u) for $x in $y { $q = $q.json() $lib.pprint($q) } }
+            function p() { $q = (null) $lib.pprint($q) $q = $lib.inet.http.get($u) }
+            function na(resp) { $lib.print($resp.code) }
+            function nb(resp) { $lib.print($resp) }
+            function nc(resp) { $resp = $resp.json() $lib.print($resp) }
+            $a = $lib.inet.http.get($u) $na($a, 2, 3) $nb(1) $nb($u) $nb($a.code) $nb(resp=$u) $nb(zzz=$a)
+            $nc($lib.inet.http.get($u)) $unknown($a) $obj.$key($a) $lib.str.format($a) $nb(zzz=$lib.inet.http.get($u))
+            function s() { $q = (null) $lib.pprint($q) for $x in $y { $q = $lib.inet.http.get($u) } }
+        '''), [])
+
+        mesg = '${} includes the request headers, such as API credentials. Print fields such as ${}.code and ${}.reason instead.'
+        meth = 'The result of this call includes the request headers, such as API credentials. Print fields such as its code and reason instead.'
+        self.eq(lint('S016', '''$r = $lib.inet.http.get($u)
+            $lib.pprint($r)
+            $lib.print(`resp {$r}`)
+            $lib.warn("bad", extra=$r.request_headers)
+            $lib.log.debug(mesg=$r.request.headers)
+            $lib.print(([$r]))
+            $lib.log.error($r.history)
+            $lib.print($lib.axon.wget($u))
+            $lib.print($lib.inet.http.post($u, body=$b))
+            function f() { $lib.pprint($r) }
+            function g() { $w = $lib.axon.wput($s, $u) $lib.log.warning($w) }
+            function h(r) { $lib.pprint($r) }
+            function i() { function inner() { $lib.pprint($r) } }
+            $lib.pprint($r) $r = $r.json() $lib.pprint($r) $r = $lib.axon.wget($u) $lib.pprint($r)
+            function k() { $q = $lib.axon.wget($u) $lib.print($q) $q = $q.json() $lib.print($q) }
+            if $c { $r = $r.json() } $lib.pprint($r)
+            try { $r = $r.json() } catch * as err { $lib.pprint($r) }
+            switch $c { a: { $r = $r.json() } } $lib.pprint($r)
+            for $x in $y { $r = $r.json() } $lib.pprint($r)
+            while $c { $r = $r.json() } $lib.pprint($r)
+            for $r in $y { $lib.print($x) } $lib.pprint($r)
+            function m() { $q = $lib.axon.wget($u) if $c { $q = $q.json() } else { $q = (1) } $lib.print($q) }
+            function t() { $q = $lib.inet.http.get($u) { $q = $q.json() } $lib.pprint($q) }
+            function v() { $q = $lib.inet.http.get($u) empty { $q = $q.json() } $lib.pprint($q) }
+            function w() { $q = (null) for $x in $y { $lib.pprint($q) $q = $lib.inet.http.get($u) } }
+            function z() { $q = (null) while $c { $lib.print($q) $q = $lib.axon.wget($u) } }
+            $r = (null) for $x in $y { $lib.pprint($r) $r = $lib.inet.http.get($x) }
+            function pa(resp, url) { $lib.pprint($resp) }
+            function pb(x, resp=$d) { $lib.log.info($resp) }
+            function pc(r1) { $pd($r1) }
+            function pd(r2) { $lib.print($r2) }
+            function pe(r3) { $pe($r3) $lib.print($r3) }
+            function pf() { $q = $lib.inet.http.get($u) $pa($q, $u) }
+            $a = $lib.inet.http.get($u) $pa($a, $u)
+            $pb(1, resp=$lib.axon.wget($u))
+            $b = $lib.axon.wget($u) $pc($b)
+            $pe($lib.inet.http.get($u))
+        '''), (
+            (2, 25, mesg.format('r', 'r', 'r')),
+            (3, 31, mesg.format('r', 'r', 'r')),
+            (4, 36, mesg.format('r', 'r', 'r')),
+            (5, 33, mesg.format('r', 'r', 'r')),
+            (6, 26, mesg.format('r', 'r', 'r')),
+            (7, 28, mesg.format('r', 'r', 'r')),
+            (8, 24, meth),
+            (9, 24, meth),
+            (10, 40, mesg.format('r', 'r', 'r')),
+            (11, 73, mesg.format('w', 'w', 'w')),
+            (13, 59, mesg.format('r', 'r', 'r')),
+            (14, 25, mesg.format('r', 'r', 'r')),
+            (14, 96, mesg.format('r', 'r', 'r')),
+            (15, 63, mesg.format('q', 'q', 'q')),
+            (16, 50, mesg.format('r', 'r', 'r')),
+            (17, 65, mesg.format('r', 'r', 'r')),
+            (18, 61, mesg.format('r', 'r', 'r')),
+            (19, 57, mesg.format('r', 'r', 'r')),
+            (20, 53, mesg.format('r', 'r', 'r')),
+            (21, 57, mesg.format('r', 'r', 'r')),
+            (22, 106, mesg.format('q', 'q', 'q')),
+            (23, 87, mesg.format('q', 'q', 'q')),
+            (24, 93, mesg.format('q', 'q', 'q')),
+            (25, 67, mesg.format('q', 'q', 'q')),
+            (26, 62, mesg.format('q', 'q', 'q')),
+            (27, 52, mesg.format('r', 'r', 'r')),
+            (28, 50, mesg.format('resp', 'resp', 'resp')),
+            (29, 53, mesg.format('resp', 'resp', 'resp')),
+            (31, 42, mesg.format('r2', 'r2', 'r2')),
+            (32, 51, mesg.format('r3', 'r3', 'r3')),
         ))

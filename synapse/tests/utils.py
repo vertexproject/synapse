@@ -61,6 +61,7 @@ import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
+import synapse.lib.mddocs as s_mddocs
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.cluster as s_cluster
@@ -2693,10 +2694,7 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         Returns:
             str: The text with each volatile value replaced by a placeholder.
         '''
-        text = regex.sub(r'\b[0-9a-f]{64}\b', '<sha256>', text)
-        text = regex.sub(r'\b[0-9a-f]{32}\b', '<iden>', text)
-        text = regex.sub(r'\d{4}[-/]\d{2}[-/]\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d+)?', '<time>', text)
-        return text
+        return s_mddocs.normVolatile(text)
 
     def eq(self, x, y, msg=None):
         '''

@@ -57,6 +57,14 @@ class DocModelTest(s_t_utils.SynTest):
         self.notin('{title}', loctext)
         self.notin('{happened}', loctext)
 
+        # entity:singular's own {title} template overrides the geo:locatable default
+        sngidx = text.index('### `entity:singular`')
+        nextidx = text.index('### `', sngidx + 1)
+        sngtext = text[sngidx:nextidx]
+        self.isin('The pronouns used to refer to the entity.', sngtext)
+        self.isin('The entity title or role for this entity.', sngtext)
+        self.notin('{title}', sngtext)
+
         # meta:taxonomy uses {$self} which resolves to interface name
         taxidx = text.index('### `meta:taxonomy`')
         nextidx = text.index('### `', taxidx + 1)

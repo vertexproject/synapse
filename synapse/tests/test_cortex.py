@@ -144,6 +144,20 @@ class CortexTest(s_t_utils.SynTest):
                         self.eq('testpkg', core.svcs['testsvc'].sdef.get('pkgname'))
                         self.notin('pkgname', core.svcdefs.get('testsvc'))
 
+                        # a reader replays the uninstall events without touching the
+                        # status, which the leader has already committed
+                        await core._uninstStormPkg('testpkg', [], s_common.now())
+                        self.none(core.getStormPkgStatus('testpkg'))
+                        self.nn(core.stormpkgs.get('testpkg'))
+
+                        await core._failStormPkgUninstall('testpkg', 'newp', s_common.now())
+                        self.none(core.getStormPkgStatus('testpkg'))
+
+                        await core._finiStormPkgUninstall('testpkg', [])
+                        self.none(core.stormpkgs.get('testpkg'))
+
+                        await core._finiStormPkgUninstall('testpkg', [])
+
     async def test_cortex_percommit(self):
         # the Cortex commits its slabs after each nexus transaction rather than
         # on the timed sync loop: its slabs are commitpulse=False and an applied
@@ -1113,6 +1127,22 @@ class CortexTest(s_t_utils.SynTest):
                     await core.callStorm(q, opts=opts)
                 self.eq(cm.exception.get('mesg'),
                         'Generator control statement "stop" used outside of a generator function.')
+
+                # these errors are logged without a traceback
+                with self.getLoggerStream('synapse.lib.view') as stream:
+                    with self.raises(s_exc.StormRuntimeError):
+                        await core.callStorm('if ($i = 2) { break }', opts=opts)
+                    with self.raises(s_exc.StormRaise):
+                        await core.callStorm('$lib.raise(Foo, bar)')
+
+                msgs = [m for m in stream.jsonlines() if 'Error during' in m['message']]
+                self.len(2, msgs)
+                for msg in msgs:
+                    self.eq(msg['level'], 'ERROR')
+                    self.none(msg.get('error'))
+                self.isin('Loop control statement "break" used outside of a loop.', msgs[0]['message'])
+                self.isin('Error during callStorm execution for { $lib.raise(Foo, bar) }: ', msgs[1]['message'])
+                self.isin('StormRaise', msgs[1]['message'])
 
             with self.getLoggerStream('synapse.lib.view') as stream:
                 async with core.getLocalProxy() as proxy:
@@ -3923,6 +3953,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await alist(core.storm(q, opts=asfoo))
             msgs = stream.jsonlines()
             emsg = [m for m in msgs if 'Error during storm execution' in m.get('message')][0]
+            self.eq(emsg['level'], 'ERROR')
+            self.none(emsg.get('error'))
+            self.isin('BadTypeValu', emsg['message'])
             self.eq(emsg['params'].get('view'), view)
             self.eq(emsg['params'].get('text'), q)
             self.eq(emsg['username'], 'foouser')

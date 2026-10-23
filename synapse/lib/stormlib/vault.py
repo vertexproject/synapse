@@ -235,25 +235,24 @@ stormcmds = (
             Examples:
 
                 // Give blackout read permissions to visi's user vault
-                vault.set.perm "my-user-vault" blackout --level read
+                vault.set.perm "my-user-vault" --user blackout --level read
 
                 // Give the contributor role read permissions to visi's user vault
                 vault.set.perm "my-user-vault" --role contributor --level read
 
                 // Revoke blackout's permissions from visi's user vault
-                vault.set.perm "my-user-vault" blackout --revoke
+                vault.set.perm "my-user-vault" --user blackout --revoke
 
-                // Give visi read permissions to the contributor role vault. (Assume
-                // visi is not a member of the contributor role).
-                vault.set.perm "contributor-role-vault" visi read
+                // Explicitly deny blackout access to a global vault.
+                vault.set.perm "my-global-vault" --user blackout --level deny
         ''',
         'cmdargs': (
             ('name', {'type': 'str', 'help': 'The vault name or iden to set permissions on.'}),
             ('--user', {'type': 'str',
-                        'help': 'The user name or role name to update in the vault.'}),
+                        'help': 'The name of the user to update in the vault.'}),
             ('--role', {'type': 'str',
-                        'help': 'Specified when `user` is a role name.'}),
-            ('--level', {'type': 'str', 'help': 'The permission level to grant.'}),
+                        'help': 'The name of the role to update in the vault.'}),
+            ('--level', {'type': 'str', 'help': 'The permission level to set (deny, read, edit, or admin).'}),
             ('--revoke', {'type': 'bool', 'action': 'store_true', 'default': False,
                           'help': 'Specify this flag when revoking an existing permission.'}),
         ),
@@ -269,7 +268,7 @@ stormcmds = (
             $level = (null)
             if $cmdopts.level {
                 $level = $lib.auth.easyperm.level.($cmdopts.level)
-                if (not $level) {
+                if ($level = null) {
                     $levels = ([])
                     for ($key, $val) in $lib.auth.easyperm.level {
                         $levels.append($key)
@@ -284,13 +283,15 @@ stormcmds = (
             if $cmdopts.role {
                 $iden = $lib.auth.roles.byname($cmdopts.role).iden
                 $type = "Role"
+                $who = $cmdopts.role
             } else {
                 $iden = $lib.auth.users.byname($cmdopts.user).iden
                 $type = "User"
+                $who = $cmdopts.user
             }
 
             if (not $iden) {
-                $lib.exit(`{$type} with value {$cmdopts.user} not found.`)
+                $lib.exit(`{$type} with value {$who} not found.`)
             }
 
             // Try iden first then name
@@ -385,6 +386,8 @@ class LibVault(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'vault', 'type': 'dict', 'desc': 'The vault to print.'},
+                      {'name': 'showsecrets', 'type': 'boolean', 'default': False,
+                       'desc': 'Print the vault secrets. Requires edit permission on the vault.'},
                   ),
                   'returns': {'type': 'null'}}},
     )
@@ -554,11 +557,11 @@ class LibVaultType(s_stormtypes.Lib):
 
             Notes:
                 Vaults of this type are validated against the provided schema,
-                which is applied to the whole vault definition (its configs,
-                secrets, name, and so on). The version must increment on each
-                change; a version bump migrates existing vaults via the optional
-                migration callback, which is a Storm query that mutates the
-                $configs and $secrets variables in place. Requires admin.
+                which may declare only the configs and secrets sections of a
+                vault. The version must increment on each change; a version bump
+                migrates existing vaults via the optional migration callback,
+                which is a Storm query that receives the vault being migrated
+                as the $vault variable. Requires admin.
          ''',
          'type': {'type': 'function', '_funcname': '_addType',
                   'args': (

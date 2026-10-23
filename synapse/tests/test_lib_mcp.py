@@ -570,13 +570,15 @@ class McpTest(s_tests.SynTest):
 
             async with self.getHttpSess(headers={'X-API-KEY': apikey}) as sess:
 
-                sid, _ = await self._handshake(sess, url)
+                sid, result = await self._handshake(sess, url)
+                self.isin('`storm_lint`', result['instructions'])
 
                 status, data = await self._rpc(sess, url, sid, 'tools/list')
                 names = [t['name'] for t in data['result']['tools']]
                 self.isin('storm', names)
                 self.isin('call_storm', names)
                 self.isin('model_find', names)
+                self.isin('storm_lint', names)
                 self.isin('storm_validate', names)
 
                 # call_storm returns a value
@@ -590,6 +592,60 @@ class McpTest(s_tests.SynTest):
                 status, data = await self._tool(sess, url, sid, 'storm_validate', {'query': '[ inet:ip=1.2.3.4'})
                 self.false(data['result']['structuredContent']['valid'])
                 self.nn(data['result']['structuredContent'].get('mesg'))
+
+                # storm_lint returns findings in linter order
+                status, data = await self._tool(sess, url, sid, 'storm_lint', {'query': 'inet:ip=1.2.3.4'})
+                self.false(data['result']['isError'])
+                self.eq({'findings': []}, data['result']['structuredContent'])
+
+                s011 = {'rule': 'S011', 'severity': 'low', 'line': 1, 'column': 6,
+                        'mesg': 'Use :p=$g as inet:fqdn (or :p=$g when the property is inet:fqdn typed) '
+                                'instead of a subquery which lifts by value.'}
+                s012 = {'rule': 'S012', 'severity': 'low', 'line': 2, 'column': 3,
+                        'mesg': 'Lift by inet:fqdn:zone=foo instead of filtering.'}
+
+                query = '[ :p={ inet:fqdn=$g } ]\n{ inet:fqdn +:zone=foo }'
+                status, data = await self._tool(sess, url, sid, 'storm_lint', {'query': query})
+                self.eq({'findings': [s011, s012]}, data['result']['structuredContent'])
+
+                status, data = await self._tool(sess, url, sid, 'storm_lint', {'query': query, 'select': ['S012']})
+                self.eq({'findings': [s012]}, data['result']['structuredContent'])
+
+                status, data = await self._tool(sess, url, sid, 'storm_lint', {'query': query, 'ignore': ['S012']})
+                self.eq({'findings': [s011]}, data['result']['structuredContent'])
+
+                # a syntax error is an E001 finding rather than a tool error
+                status, data = await self._tool(sess, url, sid, 'storm_lint', {'query': '[ inet:ip=1.2.3.4'})
+                self.false(data['result']['isError'])
+                finds = data['result']['structuredContent']['findings']
+                self.len(1, finds)
+                self.eq('E001', finds[0]['rule'])
+                self.eq('high', finds[0]['severity'])
+
+                # S010 is off by default
+                query = 'if $v { [ :p=$v ] }'
+                status, data = await self._tool(sess, url, sid, 'storm_lint', {'query': query})
+                self.eq({'findings': []}, data['result']['structuredContent'])
+
+                status, data = await self._tool(sess, url, sid, 'storm_lint', {'query': query, 'enable': ['S010']})
+                self.eq(['S010'], [f['rule'] for f in data['result']['structuredContent']['findings']])
+
+                status, data = await self._tool(sess, url, sid, 'storm_lint', {'query': query, 'select': ['ZZZ']})
+                self.true(data['result']['isError'])
+                self.eq("Unknown lint rule or prefix: 'ZZZ'", data['result']['content'][0]['text'])
+
+                # names are checked against the Cortex model, including extended model elements
+                await core.addForm('_foo:bar', 'str', {}, {})
+                await core.addFormProp('_foo:bar', '_zone', ('str', {}), {})
+
+                status, data = await self._tool(sess, url, sid, 'storm_lint',
+                                                {'query': '[ :p={ _foo:bar=$g } ]\n{ _foo:bar +:_zone=foo }'})
+                self.eq([('S011', 1, 6), ('S012', 2, 3)],
+                        [(f['rule'], f['line'], f['column']) for f in data['result']['structuredContent']['findings']])
+
+                status, data = await self._tool(sess, url, sid, 'storm_lint',
+                                                {'query': '[ :p={ _nope:nope=$g } ]\n{ _nope:nope +:_zone=foo }'})
+                self.eq({'findings': []}, data['result']['structuredContent'])
 
                 # model_find returns the matching subset of the model (types/forms/interfaces)
                 status, data = await self._tool(sess, url, sid, 'model_find', {'pattern': 'inet:ip'})

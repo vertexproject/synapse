@@ -1175,32 +1175,32 @@ storm> inet:ip#rep.trend.earth_preta | count --yield
 inet:ip=66.129.222.1
         :type = unicast
         :version = 4
-        .created = 2026-10-09T14:41:08.268467Z
-        .updated = 2026-10-09T14:41:08.269724Z
+        .created = 2026-10-09T15:19:02.678259Z
+        .updated = 2026-10-09T15:19:02.678855Z
         #rep.trend.earth_preta
 inet:ip=184.82.164.104
         :type = unicast
         :version = 4
-        .created = 2026-10-09T14:41:08.271694Z
-        .updated = 2026-10-09T14:41:08.272387Z
+        .created = 2026-10-09T15:19:02.679654Z
+        .updated = 2026-10-09T15:19:02.679915Z
         #rep.trend.earth_preta
 inet:ip=209.161.249.125
         :type = unicast
         :version = 4
-        .created = 2026-10-09T14:41:08.273553Z
-        .updated = 2026-10-09T14:41:08.274121Z
+        .created = 2026-10-09T15:19:02.680366Z
+        .updated = 2026-10-09T15:19:02.680583Z
         #rep.trend.earth_preta
 inet:ip=69.90.65.240
         :type = unicast
         :version = 4
-        .created = 2026-10-09T14:41:08.275233Z
-        .updated = 2026-10-09T14:41:08.275723Z
+        .created = 2026-10-09T15:19:02.681019Z
+        .updated = 2026-10-09T15:19:02.681234Z
         #rep.trend.earth_preta
 inet:ip=70.62.232.98
         :type = unicast
         :version = 4
-        .created = 2026-10-09T14:41:08.276696Z
-        .updated = 2026-10-09T14:41:08.277175Z
+        .created = 2026-10-09T15:19:02.681683Z
+        .updated = 2026-10-09T15:19:02.681893Z
         #rep.trend.earth_preta
 Counted 5 nodes.
 ```
@@ -2565,8 +2565,8 @@ storm> inet:ip#rep.paloalto.stately_taurus | limit 1
 inet:ip=67.53.148.77
         :type = unicast
         :version = 4
-        .created = 2026-10-09T14:41:08.424847Z
-        .updated = 2026-10-09T14:41:08.426267Z
+        .created = 2026-10-09T15:19:02.747464Z
+        .updated = 2026-10-09T15:19:02.747922Z
         #rep.paloalto.stately_taurus
 ```
 
@@ -2793,8 +2793,8 @@ inet:dns:a=('woot.com', '246.21.93.214')
         :seen.max = 2014-10-19T06:15:04Z
         :seen.duration = 287D 03:40:08
         :seen.precision = microsecond
-        .created = 2026-10-09T14:41:08.47494Z
-        .updated = 2026-10-09T14:41:08.475694Z
+        .created = 2026-10-09T15:19:02.767991Z
+        .updated = 2026-10-09T15:19:02.768594Z
 ```
 
 Return the two most recent DNS A records for `woot.com`, in descending order by `:seen`
@@ -2809,8 +2809,8 @@ inet:dns:a=('woot.com', '246.21.93.214')
         :seen.max = 2014-10-19T06:15:04Z
         :seen.duration = 287D 03:40:08
         :seen.precision = microsecond
-        .created = 2026-10-09T14:41:08.47494Z
-        .updated = 2026-10-09T14:41:08.475694Z
+        .created = 2026-10-09T15:19:02.767991Z
+        .updated = 2026-10-09T15:19:02.768594Z
 inet:dns:a=('woot.com', '107.21.53.159')
         :fqdn = woot.com
         :ip = 107.21.53.159
@@ -2819,8 +2819,8 @@ inet:dns:a=('woot.com', '107.21.53.159')
         :seen.max = 2014-08-14T00:00:00Z
         :seen.duration = 1D 00:00:00
         :seen.precision = microsecond
-        .created = 2026-10-09T14:41:08.468498Z
-        .updated = 2026-10-09T14:41:08.470807Z
+        .created = 2026-10-09T15:19:02.764083Z
+        .updated = 2026-10-09T15:19:02.765975Z
 ```
 
 Return the DNS A record for `woot.com` with the longest duration:
@@ -2835,8 +2835,8 @@ inet:dns:a=('woot.com', '246.21.93.214')
         :seen.max = 2014-10-19T06:15:04Z
         :seen.duration = 287D 03:40:08
         :seen.precision = microsecond
-        .created = 2026-10-09T14:41:08.47494Z
-        .updated = 2026-10-09T14:41:08.475694Z
+        .created = 2026-10-09T15:19:02.767991Z
+        .updated = 2026-10-09T15:19:02.768594Z
 ```
 
 Return a WHOIS record for the most recently registered (`:created`) FQDN associated with the threat cluster Sparkling Unicorn (`#cno.threat.sparkling_unicorn`):
@@ -2846,8 +2846,8 @@ storm> inet:fqdn#cno.threat.sparkling_unicorn -> inet:whois:record | max :create
 inet:whois:record=5200d9b0914e2bfe8bac590aa3f517fc
         :created = 2026-03-26T13:00:00Z
         :fqdn = derp.net
-        .created = 2026-10-09T14:41:08.522977Z
-        .updated = 2026-10-09T14:41:08.522977Z
+        .created = 2026-10-09T15:19:02.786453Z
+        .updated = 2026-10-09T15:19:02.786453Z
 ```
 
 <a id="storm-merge"></a>
@@ -2991,8 +2991,8 @@ inet:dns:a=('woot.com', '75.101.146.4')
         :seen.max = 2013-09-22T00:00:00Z
         :seen.duration = 1D 00:00:00
         :seen.precision = microsecond
-        .created = 2026-10-09T14:41:08.472612Z
-        .updated = 2026-10-09T14:41:08.473447Z
+        .created = 2026-10-09T15:19:02.766843Z
+        .updated = 2026-10-09T15:19:02.767236Z
 ```
 
 Return the two oldest DNS A records for `woot.com`, in ascending order by `:seen`:
@@ -3007,8 +3007,8 @@ inet:dns:a=('woot.com', '75.101.146.4')
         :seen.max = 2013-09-22T00:00:00Z
         :seen.duration = 1D 00:00:00
         :seen.precision = microsecond
-        .created = 2026-10-09T14:41:08.472612Z
-        .updated = 2026-10-09T14:41:08.473447Z
+        .created = 2026-10-09T15:19:02.766843Z
+        .updated = 2026-10-09T15:19:02.767236Z
 inet:dns:a=('woot.com', '246.21.93.214')
         :fqdn = woot.com
         :ip = 246.21.93.214
@@ -3017,8 +3017,8 @@ inet:dns:a=('woot.com', '246.21.93.214')
         :seen.max = 2014-10-19T06:15:04Z
         :seen.duration = 287D 03:40:08
         :seen.precision = microsecond
-        .created = 2026-10-09T14:41:08.47494Z
-        .updated = 2026-10-09T14:41:08.475694Z
+        .created = 2026-10-09T15:19:02.767991Z
+        .updated = 2026-10-09T15:19:02.768594Z
 ```
 
 Return the DNS A record for `woot.com` with the shortest duration:
@@ -3033,8 +3033,8 @@ inet:dns:a=('woot.com', '53.25.18.25')
         :seen.max = 2014-08-13T18:09:22Z
         :seen.duration = 05:24:27
         :seen.precision = microsecond
-        .created = 2026-10-09T14:41:08.477091Z
-        .updated = 2026-10-09T14:41:08.478024Z
+        .created = 2026-10-09T15:19:02.769362Z
+        .updated = 2026-10-09T15:19:02.769754Z
 ```
 
 Return a WHOIS record for the earliest registered (`:created`) FQDN associated with the threat cluster Sparkling Unicorn (`#cno.threat.sparkling_unicorn`):
@@ -3044,8 +3044,8 @@ storm> inet:fqdn#cno.threat.sparkling_unicorn -> inet:whois:record | min :create
 inet:whois:record=b3f03e02c398aeeafe40b80c9fbed15c
         :created = 2025-10-23T09:00:00Z
         :fqdn = hurr.com
-        .created = 2026-10-09T14:41:08.520447Z
-        .updated = 2026-10-09T14:41:08.520447Z
+        .created = 2026-10-09T15:19:02.785607Z
+        .updated = 2026-10-09T15:19:02.785607Z
 ```
 
 <a id="storm-model"></a>
@@ -3459,7 +3459,7 @@ Packages typically contain Storm commands and Storm library code used to impleme
 
 ### pkg.list
 
-The `pkg.list` command lists each Storm package loaded in the Cortex. Output is displayed in tabular form and includes the package name and version information.
+The `pkg.list` command lists each Storm package loaded in the Cortex. Output is displayed in tabular form and includes the package name, version information, and the uninstall status of any package which is being uninstalled.
 
 **Syntax:**
 
@@ -3507,7 +3507,21 @@ Arguments:
 
 ### pkg.del
 
-The `pkg.del` command removes a Storm package from the Cortex.
+The `pkg.del` command removes a Storm package from the Cortex. Removing a package unloads its commands, modules and
+graphs and stops its running onload tasks. It does not remove any data the package created.
+
+With `--uninstall`, the Cortex instead runs the package uninstall routine in the background and then removes the
+package along with its variables, state, queues and, for a package which declares vault types, its vaults and vault
+types. The uninstall survives a restart, and a package which is being uninstalled cannot be added again until it
+finishes. Items the package declares as keepable, and `vaults`, can be preserved with `--uninstall-keep`. The
+uninstall routine cannot be undone, so use it with care.
+
+Running `pkg.del --uninstall` requires only the `pkg.del` permission. The uninstall removes the package's
+vaults, including user scoped vaults owned by other users, so grant `pkg.del` only to users who are trusted to
+do that.
+
+If the uninstall routine fails, the package stays installed and `pkg.list` reports `uninstall failed`. Run
+`pkg.del --uninstall` again to retry, or `pkg.del` without `--uninstall` to abandon the uninstall.
 
 **Syntax:**
 
@@ -3521,6 +3535,10 @@ Usage: pkg.del [options] <name>
 Options:
 
   --help                      : Display the command usage.
+  --uninstall                 : Run the package uninstall routine in the background. This also removes the package
+                                variables, state, queues and vaults.
+  --uninstall-keep [<uninstall_keep> ...]: Items to keep when uninstalling, as declared by the package ( or "vaults" for a package
+                                which declares vault types ). (default: [])
 
 Arguments:
 
@@ -3788,8 +3806,8 @@ storm> inet:service:message | scrape :text
 inet:service:message=c7b00606bd374d4cd9d925d0696e325e
         :platform = 723636292813abbc9884384d3c0caa9f
         :text = IP address 8.8.8.8 and FQDN woot.com seen doing bad things
-        .created = 2026-10-09T14:41:09.60916Z
-        .updated = 2026-10-09T14:41:09.60916Z
+        .created = 2026-10-09T15:19:02.864785Z
+        .updated = 2026-10-09T15:19:02.864785Z
 ```
 
 Scrape the text of a social media post for FQDNs and IP addresses, link the nodes to the original post, and return (yield) the created nodes:
@@ -3799,8 +3817,8 @@ storm> inet:service:message | scrape :text --forms (inet:fqdn, inet:ip) --refs -
 inet:ip=8.8.8.8
         :type = unicast
         :version = 4
-        .created = 2026-10-09T14:41:09.617547Z
-        .updated = 2026-10-09T14:41:09.617547Z
+        .created = 2026-10-09T15:19:02.868004Z
+        .updated = 2026-10-09T15:19:02.868004Z
         <(*)- * = 1
          <(refs)- * = 1
           <(refs)- inet:service:message = 1
@@ -3810,8 +3828,8 @@ inet:fqdn=woot.com
         :issuffix = false
         :iszone = true
         :zone = woot.com
-        .created = 2026-10-09T14:41:08.468498Z
-        .updated = 2026-10-09T14:41:08.469718Z
+        .created = 2026-10-09T15:19:02.764083Z
+        .updated = 2026-10-09T15:19:02.76458Z
         <(*)- * = 1
          <(refs)- * = 1
           <(refs)- inet:service:message = 1
@@ -3953,18 +3971,18 @@ storm> inet:email sleep 1.0
 inet:email=bar@gmail.com
         :fqdn = gmail.com
         :username = bar
-        .created = 2026-10-09T14:41:09.647186Z
-        .updated = 2026-10-09T14:41:09.647186Z
+        .created = 2026-10-09T15:19:02.881779Z
+        .updated = 2026-10-09T15:19:02.881779Z
 inet:email=baz@gmail.com
         :fqdn = gmail.com
         :username = baz
-        .created = 2026-10-09T14:41:09.649275Z
-        .updated = 2026-10-09T14:41:09.649275Z
+        .created = 2026-10-09T15:19:02.8825Z
+        .updated = 2026-10-09T15:19:02.8825Z
 inet:email=foo@gmail.com
         :fqdn = gmail.com
         :username = foo
-        .created = 2026-10-09T14:41:09.644242Z
-        .updated = 2026-10-09T14:41:09.644242Z
+        .created = 2026-10-09T15:19:02.880347Z
+        .updated = 2026-10-09T15:19:02.880347Z
 ```
 
 <a id="storm-spin"></a>
@@ -4199,6 +4217,7 @@ Options:
 
   --help                      : Display the command usage.
   --verbose                   : Enable verbose output.
+  --timeout <timeout>         : The timeout in seconds to wait for each peer to respond. (default: None)
 ```
 
 <a id="storm-task-kill"></a>
@@ -4219,6 +4238,7 @@ Usage: task.kill [options] <iden>
 Options:
 
   --help                      : Display the command usage.
+  --timeout <timeout>         : The timeout in seconds to wait for each peer to respond. (default: None)
 
 Arguments:
 
@@ -4277,13 +4297,13 @@ inet:fqdn=foo.mydomain.com
         :issuffix = false
         :iszone = false
         :zone = mydomain.com
-        .created = 2026-10-09T14:41:12.690292Z
-        .updated = 2026-10-09T14:41:12.692137Z
+        .created = 2026-10-09T15:19:05.920488Z
+        .updated = 2026-10-09T15:19:05.921601Z
 inet:ip=8.8.8.8
         :type = unicast
         :version = 4
-        .created = 2026-10-09T14:41:09.617547Z
-        .updated = 2026-10-09T14:41:09.617547Z
+        .created = 2026-10-09T15:19:02.868004Z
+        .updated = 2026-10-09T15:19:02.868004Z
         <(*)- * = 1
          <(refs)- * = 1
           <(refs)- inet:service:message = 1
@@ -4293,26 +4313,26 @@ inet:fqdn=bar.mydomain.com
         :issuffix = false
         :iszone = false
         :zone = mydomain.com
-        .created = 2026-10-09T14:41:12.693265Z
-        .updated = 2026-10-09T14:41:12.693819Z
+        .created = 2026-10-09T15:19:05.922338Z
+        .updated = 2026-10-09T15:19:05.922699Z
 inet:ip=34.56.78.90
         :type = unicast
         :version = 4
-        .created = 2026-10-09T14:41:12.693265Z
-        .updated = 2026-10-09T14:41:12.693265Z
+        .created = 2026-10-09T15:19:05.922338Z
+        .updated = 2026-10-09T15:19:05.922338Z
 inet:fqdn=baz.mydomain.com
         :domain = mydomain.com
         :host = baz
         :issuffix = false
         :iszone = false
         :zone = mydomain.com
-        .created = 2026-10-09T14:41:12.695318Z
-        .updated = 2026-10-09T14:41:12.695871Z
+        .created = 2026-10-09T15:19:05.923607Z
+        .updated = 2026-10-09T15:19:05.923954Z
 inet:ip=127.0.0.2
         :type = loopback
         :version = 4
-        .created = 2026-10-09T14:41:12.695318Z
-        .updated = 2026-10-09T14:41:12.695318Z
+        .created = 2026-10-09T15:19:05.923607Z
+        .updated = 2026-10-09T15:19:05.923607Z
 ```
 
 Return the set of FQDNs and IP addresses associated with a set of DNS A records along with the original DNS A records:
@@ -4325,57 +4345,57 @@ inet:fqdn=foo.mydomain.com
         :issuffix = false
         :iszone = false
         :zone = mydomain.com
-        .created = 2026-10-09T14:41:12.690292Z
-        .updated = 2026-10-09T14:41:12.692137Z
+        .created = 2026-10-09T15:19:05.920488Z
+        .updated = 2026-10-09T15:19:05.921601Z
 inet:ip=8.8.8.8
         :type = unicast
         :version = 4
-        .created = 2026-10-09T14:41:09.617547Z
-        .updated = 2026-10-09T14:41:09.617547Z
+        .created = 2026-10-09T15:19:02.868004Z
+        .updated = 2026-10-09T15:19:02.868004Z
         <(*)- * = 1
          <(refs)- * = 1
           <(refs)- inet:service:message = 1
 inet:dns:a=('foo.mydomain.com', '8.8.8.8')
         :fqdn = foo.mydomain.com
         :ip = 8.8.8.8
-        .created = 2026-10-09T14:41:12.690292Z
-        .updated = 2026-10-09T14:41:12.690292Z
+        .created = 2026-10-09T15:19:05.920488Z
+        .updated = 2026-10-09T15:19:05.920488Z
 inet:fqdn=bar.mydomain.com
         :domain = mydomain.com
         :host = bar
         :issuffix = false
         :iszone = false
         :zone = mydomain.com
-        .created = 2026-10-09T14:41:12.693265Z
-        .updated = 2026-10-09T14:41:12.693819Z
+        .created = 2026-10-09T15:19:05.922338Z
+        .updated = 2026-10-09T15:19:05.922699Z
 inet:ip=34.56.78.90
         :type = unicast
         :version = 4
-        .created = 2026-10-09T14:41:12.693265Z
-        .updated = 2026-10-09T14:41:12.693265Z
+        .created = 2026-10-09T15:19:05.922338Z
+        .updated = 2026-10-09T15:19:05.922338Z
 inet:dns:a=('bar.mydomain.com', '34.56.78.90')
         :fqdn = bar.mydomain.com
         :ip = 34.56.78.90
-        .created = 2026-10-09T14:41:12.693265Z
-        .updated = 2026-10-09T14:41:12.693265Z
+        .created = 2026-10-09T15:19:05.922338Z
+        .updated = 2026-10-09T15:19:05.922338Z
 inet:fqdn=baz.mydomain.com
         :domain = mydomain.com
         :host = baz
         :issuffix = false
         :iszone = false
         :zone = mydomain.com
-        .created = 2026-10-09T14:41:12.695318Z
-        .updated = 2026-10-09T14:41:12.695871Z
+        .created = 2026-10-09T15:19:05.923607Z
+        .updated = 2026-10-09T15:19:05.923954Z
 inet:ip=127.0.0.2
         :type = loopback
         :version = 4
-        .created = 2026-10-09T14:41:12.695318Z
-        .updated = 2026-10-09T14:41:12.695318Z
+        .created = 2026-10-09T15:19:05.923607Z
+        .updated = 2026-10-09T15:19:05.923607Z
 inet:dns:a=('baz.mydomain.com', '127.0.0.2')
         :fqdn = baz.mydomain.com
         :ip = 127.0.0.2
-        .created = 2026-10-09T14:41:12.695318Z
-        .updated = 2026-10-09T14:41:12.695318Z
+        .created = 2026-10-09T15:19:05.923607Z
+        .updated = 2026-10-09T15:19:05.923607Z
 ```
 
 **Usage Notes:**
@@ -4420,44 +4440,44 @@ storm> syn:tag=cno | tree { $node.value -> syn:tag:up }
 syn:tag=cno
         :base = cno
         :depth = 0
-        .created = 2026-10-09T14:41:08.511043Z
-        .updated = 2026-10-09T14:41:08.511043Z
+        .created = 2026-10-09T15:19:02.782564Z
+        .updated = 2026-10-09T15:19:02.782564Z
 syn:tag=cno.threat
         :base = threat
         :depth = 1
         :up = cno
-        .created = 2026-10-09T14:41:08.511043Z
-        .updated = 2026-10-09T14:41:08.511043Z
+        .created = 2026-10-09T15:19:02.782564Z
+        .updated = 2026-10-09T15:19:02.782564Z
 syn:tag=cno.threat.sparkling_unicorn
         :base = sparkling_unicorn
         :depth = 2
         :up = cno.threat
-        .created = 2026-10-09T14:41:08.511043Z
-        .updated = 2026-10-09T14:41:08.511043Z
+        .created = 2026-10-09T15:19:02.782564Z
+        .updated = 2026-10-09T15:19:02.782564Z
 syn:tag=cno.ttp
         :base = ttp
         :depth = 1
         :up = cno
-        .created = 2026-10-09T14:41:12.714493Z
-        .updated = 2026-10-09T14:41:12.714493Z
+        .created = 2026-10-09T15:19:05.936503Z
+        .updated = 2026-10-09T15:19:05.936503Z
 syn:tag=cno.ttp.phish
         :base = phish
         :depth = 2
         :up = cno.ttp
-        .created = 2026-10-09T14:41:12.714493Z
-        .updated = 2026-10-09T14:41:12.714493Z
+        .created = 2026-10-09T15:19:05.936503Z
+        .updated = 2026-10-09T15:19:05.936503Z
 syn:tag=cno.mal
         :base = mal
         :depth = 1
         :up = cno
-        .created = 2026-10-09T14:41:12.716094Z
-        .updated = 2026-10-09T14:41:12.716094Z
+        .created = 2026-10-09T15:19:05.937486Z
+        .updated = 2026-10-09T15:19:05.937486Z
 syn:tag=cno.mal.redtree
         :base = redtree
         :depth = 2
         :up = cno.mal
-        .created = 2026-10-09T14:41:12.716094Z
-        .updated = 2026-10-09T14:41:12.716094Z
+        .created = 2026-10-09T15:19:05.937486Z
+        .updated = 2026-10-09T15:19:05.937486Z
 ```
 
 **Usage Notes:**
@@ -4732,7 +4752,7 @@ Arguments:
 
 ## vault
 
-Storm includes `vault.*` commands that allow you to create and manage vaults (see [Vault](../glossary.md#gloss-vault)).
+Storm includes `vault.*` commands that allow you to create and manage vaults (see [Vault](../glossary.md#gloss-vault)). See [Storm Reference - Advanced - Vaults](storm_adv_vaults.md#storm-adv-vaults) for how vault scopes, permissions, and privileged modules work.
 
 - [vault.add](storm_ref_cmd.md#storm-vault-add)
 - [vault.list](storm_ref_cmd.md#storm-vault-list)
@@ -4867,26 +4887,25 @@ Set permissions on a vault.
 Examples:
 
     // Give blackout read permissions to visi's user vault
-    vault.set.perm "my-user-vault" blackout --level read
+    vault.set.perm "my-user-vault" --user blackout --level read
 
     // Give the contributor role read permissions to visi's user vault
     vault.set.perm "my-user-vault" --role contributor --level read
 
     // Revoke blackout's permissions from visi's user vault
-    vault.set.perm "my-user-vault" blackout --revoke
+    vault.set.perm "my-user-vault" --user blackout --revoke
 
-    // Give visi read permissions to the contributor role vault. (Assume
-    // visi is not a member of the contributor role).
-    vault.set.perm "contributor-role-vault" visi read
+    // Explicitly deny blackout access to a global vault.
+    vault.set.perm "my-global-vault" --user blackout --level deny
 
 Usage: vault.set.perm [options] <name>
 
 Options:
 
   --help                      : Display the command usage.
-  --user <user>               : The user name or role name to update in the vault.
-  --role <role>               : Specified when `user` is a role name.
-  --level <level>             : The permission level to grant.
+  --user <user>               : The name of the user to update in the vault.
+  --role <role>               : The name of the role to update in the vault.
+  --level <level>             : The permission level to set (deny, read, edit, or admin).
   --revoke                    : Specify this flag when revoking an existing permission.
 
 Arguments:

@@ -255,7 +255,7 @@ inet:service:account=7ab324ea3fc562ab820ff1e93dc9f4b7
 
 ```stormdoc
 storm> inet:fqdn=mail.mydomain.com $fqdn=$node $lib.print($fqdn)
-Node{(('inet:fqdn', 'mail.mydomain.com'), {'nid': 30, 'meta': {'created': 1791556845940907, 'updated': 1791556845943962}, 'tags': {}, 'props': {'host': ('mail', {'t': 'str:lower'}), 'domain': ('mydomain.com', {'t': 'inet:fqdn'}), 'issuffix': (0, {'t': 'bool'}), 'iszone': (0, {'t': 'bool'}), 'zone': ('mydomain.com', {'t': 'inet:fqdn'})}, 'tagprops': {}, 'n1verbs': {}, 'n2verbs': {}})}
+Node{(('inet:fqdn', 'mail.mydomain.com'), {'nid': 30, 'meta': {'created': 1791556845940907, 'updated': 1791556845943962}, 'tags': {}, 'props': {'host': ('mail', {'t': 'str:lower'}), 'domain': ('mydomain.com', {'t': 'inet:fqdn'}), 'issuffix': (False, {'t': 'bool'}), 'iszone': (False, {'t': 'bool'}), 'zone': ('mydomain.com', {'t': 'inet:fqdn'})}, 'tagprops': {}, 'n1verbs': {}, 'n2verbs': {}})}
 inet:fqdn=mail.mydomain.com
         :domain = mydomain.com
         :host = mail

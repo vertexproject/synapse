@@ -692,7 +692,7 @@ class Fqdn(s_types.Type):
             valu = idna.encode(valu, uts46=True).decode('utf8')
         except idna.IDNAError:
             try:
-                valu = valu.encode('idna').decode('utf8').lower()
+                valu = valu.lower().encode('idna').decode('utf8')
             except UnicodeError:
                 mesg = 'Failed to encode/decode the value with idna/utf8.'
                 raise s_exc.BadTypeValu(valu=valu, name=self.name,
@@ -724,7 +724,7 @@ class Fqdn(s_types.Type):
             pinfo = nextfo
             await asyncio.sleep(0)
 
-        pinfo['issuffix'] = (self.booltype.typehash, 1, {})
+        pinfo['issuffix'] = (self.booltype.typehash, True, {})
 
         return valu, {'subs': subs}
 

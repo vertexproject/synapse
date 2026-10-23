@@ -167,6 +167,7 @@ modeldefs = (
                 'doc': 'An interface for entities which have initiative to act.'}),
 
             ('entity:singular', {
+                'template': {'title': 'entity'},
                 'interfaces': (
                     ('geo:locatable', {'prefix': 'birth:place', 'template': {'happened': 'was born'}}),
                     ('geo:locatable', {'prefix': 'death:place', 'template': {'happened': 'died'}}),
@@ -184,6 +185,10 @@ modeldefs = (
                     ('titles', ('entity:title', {}), {
                         'array': {},
                         'doc': 'An array of alternate entity titles or roles for this {title}.'}),
+
+                    ('pronouns', ('entity:pronoun', {}), {
+                        'array': {},
+                        'doc': 'The pronouns used to refer to the {title}.'}),
                 ),
                 'doc': 'Properties which apply to entities which may represent a person.'}),
 
@@ -252,6 +257,11 @@ modeldefs = (
                 ),
                 'props': (),
                 'doc': 'A title or position name used by an entity.'}),
+
+            ('entity:pronoun', ('str', {'lower': True, 'enums': 'he,she,they',
+                                        'mapping': {'him': 'he', 'his': 'he', 'her': 'she', 'hers': 'she',
+                                                    'them': 'they', 'theirs': 'they'}}), {
+                'doc': 'A normalized personal pronoun used to refer to an entity.'}),
 
             ('entity:contact:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (

@@ -765,23 +765,23 @@ class Bool(Type):
 
         ival = s_common.intify(valu)
         if ival is not None:
-            return int(bool(ival)), {}
+            return bool(ival), {}
 
         sval = valu.lower().strip()
         if sval in ('true', 't', 'y', 'yes', 'on'):
-            return 1, {}
+            return True, {}
 
         if sval in ('false', 'f', 'n', 'no', 'off'):
-            return 0, {}
+            return False, {}
 
         raise s_exc.BadTypeValu(name=self.name, valu=valu,
                                 mesg='Failed to norm bool')
 
     async def _normPyInt(self, valu, opts):
-        return int(bool(valu)), {}
+        return bool(valu), {}
 
     async def _normNumber(self, valu, opts):
-        return int(bool(valu.valu)), {}
+        return bool(valu.valu), {}
 
     def repr(self, valu):
         return repr(bool(valu)).lower()
@@ -1255,6 +1255,9 @@ class Guid(Type):
             mesg = f'Type "{self.name}" is not a form and cannot be normalized using a dictionary.'
             raise s_exc.BadTypeValu(mesg=mesg)
 
+        # copy so the caller's dict can be normalized again
+        valu = dict(valu)
+
         asname = valu.pop('$as', s_common.novalu)
         if asname is not s_common.novalu:
             if not isinstance(asname, str):
@@ -1301,7 +1304,8 @@ class Guid(Type):
 
         norms = await self._normProps(form, valu, opts)
         if props:
-            tryprops = props.pop('$try', trycast)
+            tryprops = props.get('$try', trycast)
+            props = {k: v for (k, v) in props.items() if k != '$try'}
             # Pass norms as context so that virt keys in $props (e.g. "price.currency")
             # can seed their base-prop value from the deconfliction dict when the base
             # is not itself present in $props.

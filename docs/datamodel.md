@@ -1109,9 +1109,27 @@ A single requirement, often defined by a standard.
 | `:standard` | `doc:standard` | The standard which defined the requirement. |
 | `:supersedes` | `array of doc:requirement` | An array of requirement versions which are superseded by this requirement. |
 | `:text` | `text` | The requirement definition. |
+| `:type` | `doc:requirement:type:taxonomy` | The type of requirement. |
 | `:updated` | `time` | The time that the requirement was last updated. |
 | `:url` | `inet:url` | The URL where the requirement is available. |
 | `:version` | `it:version` | The version of the requirement. |
+
+### `doc:requirement:type:taxonomy`
+
+A taxonomy of requirement types.
+
+| Interface |
+|-----------|
+| `meta:taxonomy` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:base` | `taxon` | The base taxon. |
+| `:depth` | `int` | The depth indexed from 0. |
+| `:desc` | `text` | A definition of the taxonomy entry. |
+| `:name` | `title` | A brief name for the definition. |
+| `:parent` | `doc:requirement:type:taxonomy` | The taxonomy parent. |
+| `:sort` | `int` | A display sort order for siblings. |
 
 ### `doc:resume`
 
@@ -1975,6 +1993,7 @@ A set of contact information which is used by an entity.
 | `:place:latlong:accuracy` | `phys:distance` | The accuracy of the latlong where the contact was located. |
 | `:place:loc` | `loc` | The geopolitical location where the contact was located. |
 | `:place:name` | `geo:name` | The name of the place where the contact was located. |
+| `:pronouns` | `array of entity:pronoun` | The pronouns used to refer to the contact. |
 | `:resolved` | `ou:org`, `ps:person` | The resolved entity to which this contact belongs. |
 | `:seen` | `ival` | The contact was observed during the time interval. |
 | `:social:accounts` | `array of inet:service:account` | Social media or other online accounts listed for the contact. |
@@ -5462,6 +5481,7 @@ An instance of a Sigma rule hit.
 | `:rule` | `it:app:sigma:rule` | The rule which matched the target node. |
 | `:rule:version` | `it:version` | The version of the rule which generated the match. |
 | `:sensor` | `it:host` | The sensor host node that produced the match. |
+| `:severity` | `meta:score` | The severity of the match, based on the severity of the associated Sigma rule. |
 | `:target` | `it:log:event` | The target node which matched the Sigma rule. |
 | `:time` | `time` | The time that the match occurred. |
 
@@ -5486,7 +5506,9 @@ A Sigma rule.
 | `:id` | `base:id` | The Sigma rule ID. |
 | `:ids` | `array of base:id` | An array of alternate IDs for the Sigma rule. |
 | `:name` | `base:name` | The rule name. |
+| `:priority` | `meta:score` | An order of importance for the evaluation of the Sigma rule. |
 | `:seen` | `ival` | The Sigma rule was observed during the time interval. |
+| `:severity` | `meta:score` | The severity of the Sigma rule and any associated matches. |
 | `:status` | `title` | The status of the rule. |
 | `:supersedes` | `array of it:app:sigma:rule` | An array of Sigma rule versions which are superseded by this Sigma rule. |
 | `:text` | `text` | The text of the Sigma rule. |
@@ -5512,6 +5534,7 @@ An instance of a snort rule hit.
 | `:rule` | `it:app:snort:rule` | The rule which matched the target node. |
 | `:rule:version` | `it:version` | The version of the rule which generated the match. |
 | `:sensor` | `it:host` | The sensor host node that produced the match. |
+| `:severity` | `meta:score` | The severity of the match, based on the severity of the associated Snort rule. |
 | `:target` | `inet:flow` | The target node which matched the Snort rule. |
 | `:time` | `time` | The time that the match occurred. |
 
@@ -5537,7 +5560,9 @@ A snort rule.
 | `:id` | `base:id` | The Snort rule ID. |
 | `:ids` | `array of base:id` | An array of alternate IDs for the Snort rule. |
 | `:name` | `base:name` | The rule name. |
+| `:priority` | `meta:score` | An order of importance for the evaluation of the Snort rule. |
 | `:seen` | `ival` | The Snort rule was observed during the time interval. |
+| `:severity` | `meta:score` | The severity of the Snort rule and any associated matches. |
 | `:status` | `title` | The status of the rule. |
 | `:supersedes` | `array of it:app:snort:rule` | An array of Snort rule versions which are superseded by this Snort rule. |
 | `:text` | `text` | The text of the Snort rule. |
@@ -5563,6 +5588,7 @@ An instance of a suricata rule hit.
 | `:rule` | `it:app:suricata:rule` | The rule which matched the target node. |
 | `:rule:version` | `it:version` | The version of the rule which generated the match. |
 | `:sensor` | `it:host` | The sensor host node that produced the match. |
+| `:severity` | `meta:score` | The severity of the match, based on the severity of the associated Suricata rule. |
 | `:target` | `inet:flow` | The target node which matched the Suricata rule. |
 | `:time` | `time` | The time that the match occurred. |
 
@@ -5587,7 +5613,9 @@ A suricata rule.
 | `:id` | `base:id` | The Suricata rule ID. |
 | `:ids` | `array of base:id` | An array of alternate IDs for the Suricata rule. |
 | `:name` | `base:name` | The rule name. |
+| `:priority` | `meta:score` | An order of importance for the evaluation of the Suricata rule. |
 | `:seen` | `ival` | The Suricata rule was observed during the time interval. |
+| `:severity` | `meta:score` | The severity of the Suricata rule and any associated matches. |
 | `:status` | `title` | The status of the rule. |
 | `:supersedes` | `array of it:app:suricata:rule` | An array of Suricata rule versions which are superseded by this Suricata rule. |
 | `:text` | `text` | The text of the Suricata rule. |
@@ -5611,6 +5639,7 @@ An instance of a YARA rule matching a target.
 | `:activity` | `base:activity` | A parent activity which includes this match. |
 | `:rule` | `it:app:yara:rule` | The rule which matched the target node. |
 | `:rule:version` | `it:version` | The version of the rule which generated the match. |
+| `:severity` | `meta:score` | The severity of the match, based on the severity of the associated YARA rule. |
 | `:target` | `it:app:yara:target` | The target node which matched the YARA rule. |
 | `:time` | `time` | The time that the match occurred. |
 
@@ -5635,7 +5664,9 @@ A YARA rule.
 | `:id` | `base:id` | The YARA rule ID. |
 | `:ids` | `array of base:id` | An array of alternate IDs for the YARA rule. |
 | `:name` | `base:name` | The rule name. |
+| `:priority` | `meta:score` | An order of importance for the evaluation of the YARA rule. |
 | `:seen` | `ival` | The YARA rule was observed during the time interval. |
+| `:severity` | `meta:score` | The severity of the YARA rule and any associated matches. |
 | `:status` | `title` | The status of the rule. |
 | `:supersedes` | `array of it:app:yara:rule` | An array of YARA rule versions which are superseded by this YARA rule. |
 | `:text` | `text` | The text of the YARA rule. |
@@ -8203,7 +8234,9 @@ A generic rule linked to matches with -(matches)> edges.
 | `:id` | `base:id` | The rule ID. |
 | `:ids` | `array of base:id` | An array of alternate IDs for the rule. |
 | `:name` | `base:name` | The rule name. |
+| `:priority` | `meta:score` | An order of importance for the evaluation of the rule. |
 | `:seen` | `ival` | The rule was observed during the time interval. |
+| `:severity` | `meta:score` | The severity of the rule and any associated matches. |
 | `:status` | `title` | The status of the rule. |
 | `:supersedes` | `array of meta:rule` | An array of rule versions which are superseded by this rule. |
 | `:text` | `text` | The text of the rule. |
@@ -9531,6 +9564,7 @@ A person or persona.
 | `:place:latlong:accuracy` | `phys:distance` | The accuracy of the latlong where the person was located. |
 | `:place:loc` | `loc` | The geopolitical location where the person was located. |
 | `:place:name` | `geo:name` | The name of the place where the person was located. |
+| `:pronouns` | `array of entity:pronoun` | The pronouns used to refer to the person. |
 | `:social:accounts` | `array of inet:service:account` | Social media or other online accounts listed for the person. |
 | `:title` | `entity:title` | The entity title or role for this person. |
 | `:titles` | `array of entity:title` | An array of alternate entity titles or roles for this person. |
@@ -10698,6 +10732,55 @@ A taxonomy of phone number types.
 | `:parent` | `tel:phone:type:taxonomy` | The taxonomy parent. |
 | `:sort` | `int` | A display sort order for siblings. |
 
+### `tel:txtmesg`
+
+A text message sent over a telephone network such as SMS, MMS, or RCS.
+
+| Interface |
+|-----------|
+| `base:event` |
+| `entity:action` |
+| `entity:event` |
+| `inet:service:action` |
+| `inet:service:base` |
+| `meta:causal` |
+| `meta:usable` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `base:activity` | A parent activity which includes this text message. |
+| `:actor` | `inet:service:account`, `inet:service:agent` | The service account or agent which performed the action. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the text message. |
+| `:actor:phone` | `tel:phone` | The phone number of the actor who sent the message. |
+| `:attachments` | `array of file:attachment` | An array of files attached to the message. |
+| `:client` | `inet:client` | The network address of the client which initiated the action. |
+| `:client:host` | `it:host` | The client host which initiated the action. |
+| `:client:software` | `it:software` | The client software used to initiate the action. |
+| `:client:software:name` | `it:softwarename` | The name of the client software used to send the message. |
+| `:file` | `file:bytes` | The raw file that the message was extracted from. |
+| `:hashtags` | `array of lang:hashtag` | An array of hashtags mentioned within the message. |
+| `:id` | `base:id` | A platform specific ID which identifies the text message. |
+| `:links` | `array of inet:hyperlink` | An array of links contained within the message. |
+| `:mentions` | `array of inet:service:account, inet:service:role` | Contactable entities mentioned within the message. |
+| `:place` | `geo:place` | The place that the message was sent from. |
+| `:place:name` | `geo:name` | The name of the place that the message was sent from. |
+| `:platform` | `inet:service:platform` | The platform where the action was initiated. |
+| `:public` | `bool` | Set to true if the message is publicly visible. |
+| `:recipients` | `array of tel:phone` | The phone numbers of additional recipients of the message. |
+| `:replyto` | `inet:service:message` | The message that this message was sent in reply to. Used for message threading. |
+| `:repost` | `inet:service:message` | The original message reposted by this message. |
+| `:server` | `inet:server` | The network address of the server which handled the action. |
+| `:server:host` | `it:host` | The server host which handled the action. |
+| `:session` | `inet:service:session` | The session which initiated the action. |
+| `:status` | `title` | The message status. |
+| `:text` | `text` | The text body of the message. |
+| `:time` | `time` | The time that the actor initiated the action. |
+| `:title` | `title` | The message title. |
+| `:to` | `inet:service:account`, `inet:service:channel`, `inet:service:role` | The destination account, role, or channel which received the message. |
+| `:to:phone` | `tel:phone` | The phone number of the primary recipient. |
+| `:type` | `inet:service:message:type:taxonomy` | The type of message. |
+| `:url` | `inet:url` | The URL where the message may be viewed. |
+
 ### `transport:air:craft`
 
 An individual aircraft.
@@ -11551,6 +11634,7 @@ Properties which are common to matches based on rules.
 |----------|------|-----|
 | `:rule` | `rule:type` | The rule which matched the target node. |
 | `:rule:version` | `it:version` | The version of the rule which generated the match. |
+| `:severity` | `meta:score` | The severity of the match, based on the severity of the associated rule. |
 | `:target` | `` | The target node which matched the rule. |
 
 | Form |
@@ -11993,8 +12077,9 @@ Properties which apply to entities which may represent a person.
 |----------|------|-----|
 | `:org` | `ou:org` | An associated organization listed as part of the contact information. |
 | `:org:name` | `entity:name` | The name of an associated organization listed as part of the contact information. |
-| `:title` | `entity:title` | The entity title or role for this item. |
-| `:titles` | `array of entity:title` | An array of alternate entity titles or roles for this item. |
+| `:pronouns` | `array of entity:pronoun` | The pronouns used to refer to the entity. |
+| `:title` | `entity:title` | The entity title or role for this entity. |
+| `:titles` | `array of entity:title` | An array of alternate entity titles or roles for this entity. |
 
 | Form |
 |------|
@@ -12315,6 +12400,7 @@ Properties common to events within a service platform.
 | `inet:search:query` |
 | `inet:service:emote` |
 | `inet:service:message` |
+| `tel:txtmesg` |
 
 ### `inet:service:action:authorized`
 
@@ -12819,6 +12905,7 @@ Properties common to taxonomies.
 | `doc:contract:type:taxonomy` |
 | `doc:policy:type:taxonomy` |
 | `doc:report:type:taxonomy` |
+| `doc:requirement:type:taxonomy` |
 | `doc:resume:type:taxonomy` |
 | `doc:standard:type:taxonomy` |
 | `econ:account:type:taxonomy` |
@@ -12939,6 +13026,7 @@ An interface implemented by forms which can be used by an actor.
 | `risk:mitigation` |
 | `risk:vuln` |
 | `tel:phone` |
+| `tel:txtmesg` |
 
 ### `ou:promotable`
 

@@ -23,9 +23,9 @@ Synapse services **require persistent storage**. Each `docker` container expects
 
 Ensure that you have an updated install of [docker](https://docs.docker.com/engine/install/) and [docker-compose](https://docs.docker.com/compose/install/).
 
-Synapse service docker containers run their service process as an unprivileged user named `synuser` with UID `999`. The containers start as `root` and their entrypoint prepares the mapped `/vertex/storage` volume, adjusts its ownership to `synuser`, and drops privileges to `synuser` before starting the service. You do not need to pre-create the storage volume or change its ownership.
+Synapse service docker containers run their service process as an unprivileged user named `synuser` with UID `999`. The containers start as `root` and their entrypoint prepares the mapped `/vertex/storage` volume, adjusts its ownership to `synuser`, and drops privileges to `synuser` before starting the service. The service process also runs with the Linux `no_new_privs` flag set, so neither it nor its child processes can gain privileges through setuid binaries or file capabilities. You do not need to pre-create the storage volume or change its ownership. To run a command inside a container as the service user, use `docker exec --user synuser <container> ...`.
 
-Default kernel parameters on most Linux distributions are not optimized for database performance. We recommend adding the following lines to `/etc/sysctl.conf` on all systems being used to host Synapse services:
+Add the following lines to `/etc/sysctl.conf` on all systems being used to host Synapse services. The `vm.dirty_expire_centisecs` and `vm.dirty_writeback_centisecs` settings are **required** (see [Storage Requirements](devopsguide.md#devops-task-storage)). The `vm.swappiness` setting is a recommended tuning value:
 
 ```text
 vm.swappiness=10
@@ -35,7 +35,7 @@ vm.dirty_writeback_centisecs=20
 
 See [Performance Tuning](devopsguide.md#devops-task-performance) for a list of additional tuning options.
 
-We will use the directory `/srv/syn/` on the host systems as the base directory used to deploy the Synapse services. Each service will be deployed in separate `/srv/syn/<svcname>` directories. This directory can be changed to whatever you would like, and the services may be deployed to any host provided that the hosts can directly connect to each other. It is critical to performance that these storage volumes be low-latency. More latent storage mechanisms such as spinning disks, NFS, or EFS should be avoided!
+We will use the directory `/srv/syn/` on the host systems as the base directory used to deploy the Synapse services. Each service will be deployed in separate `/srv/syn/<svcname>` directories. This directory can be changed to whatever you would like, and the services may be deployed to any host provided that the hosts can directly connect to each other. These storage volumes must be a local filesystem on low-latency block storage attached to a single host. Network filesystems such as NFS and EFS are unsupported for service storage. See [Storage Requirements](devopsguide.md#devops-task-storage) for details.
 
 We highly recommend that hosts used to run Synapse services deploy a log aggregation agent to make it easier to view the logs from the various containers in a single place.
 

@@ -666,6 +666,18 @@ changes:
       src:
         became: :caller:phone
         goals: [renamed]
+  tel:txtmesg:
+    props:
+      from:
+        became: :actor:phone
+        goals: [renamed]
+      svctype:
+        goals: [model-refinement]
+        reason: The message service type is now recorded with the `:type` taxonomy (for example `sms`, `mms`, or `rcs`).
+      to:
+        became: :to:phone
+        goals: [renamed]
+        reason: The inherited `inet:service:message:to` property is the destination account, role, or channel.
   transport:cargo:
     props:
       loaded:

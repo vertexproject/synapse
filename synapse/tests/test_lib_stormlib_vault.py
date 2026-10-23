@@ -434,6 +434,25 @@ class StormlibVaultTest(s_test.SynTest):
             msgs = await core.stormlist('vault.list --type $vtype', opts=opts)
             self.stormIsInPrint('contributor: admin', msgs)
 
+            # deny is a valid level which is stored as an explicit denial
+            msgs = await core.stormlist('vault.set.perm rvault --level deny --user visi1')
+            self.stormHasNoWarnErr(msgs)
+            self.stormIsInPrint('Successfully set permissions on vault rvault.', msgs)
+
+            vault = core.getVaultByName('rvault')
+            self.eq(vault['permissions']['users'][visi1.iden], s_cell.PERM_DENY)
+            self.false(core._hasEasyPerm(vault, visi1, s_cell.PERM_READ))
+
+            # the not found message names the user or role which was specified
+            msgs = await core.stormlist('vault.set.perm rvault --level read --role newprole')
+            self.stormIsInWarn('Role with value newprole not found.', msgs)
+
+            msgs = await core.stormlist('vault.set.perm rvault --level read --user newpuser')
+            self.stormIsInWarn('User with value newpuser not found.', msgs)
+
+            msgs = await core.stormlist('vault.set.perm rvault --level newplevel --user visi1')
+            self.stormIsInWarn('Invalid level specified: newplevel. Level must be one of: deny, read, edit, admin.', msgs)
+
             # vault.del
             msgs = await core.stormlist('vault.del uvault')
             self.stormIsInPrint('Successfully deleted vault uvault.', msgs)

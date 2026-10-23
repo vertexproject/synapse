@@ -167,7 +167,10 @@ SYNDEV_NEXUS_REPLAY=1 python -m pytest synapse/tests/
   built output still match that manifest's recorded sha256 is reused as-is instead of rebuilt (skipping mdstorm
   entirely, so no Cortex boot for an unchanged `mdstorm-setup` page) -- a page with its own ` ```mdtoc ` fence
   is never reused, since its rendered link list can drift from a sibling page's title alone. Pass `force=True`
-  (CLI: `--force`) to always rebuild every page instead. `docs/` holds
+  (CLI: `--force`) to always rebuild every page instead. A rebuilt page is still not written over its
+  committed copy when its source and committed output match that manifest and the two differ only by
+  sha256 values, idens and timestamps (`synapse.lib.mddocs.normVolatile`), which a live ` ```mdstorm ` demo
+  changes on every build. `docs/` holds
   only directive-bearing files (see
   `synapse/assets/docs/contributing/doc_mastering.md`); a plain page lives in the committed bundle dir and is
   edited there directly.
@@ -206,7 +209,7 @@ Default behavior (no flags) produces:
 
 and starts with `docker builder prune -a -f`. `--no-prune` and `--only-base` are the supported escape hatches for callers that need lighter-touch behavior; the script must continue to be runnable directly with no flags for standalone use (CI base image publish, etc.).
 
-`docker/scripts/test.sh [TAG]` smoke-tests the produced images. It runs the synapse base entrypoint, checks the image's precompiled bytecode and Storm grammar parser cache with `synapse.tools.utils.optimize --check`, imports the modules a service boot does not load, starts the four service-variant containers, and polls each one's Docker `Health.Status` every 2s up to a 300s timeout. The poll loop exits as soon as a container reports a decisive status (anything other than `starting`); a final `healthy` check decides the script's exit code. An EXIT trap stops all containers on both success and failure paths so nothing leaks.
+`docker/scripts/test.sh [TAG]` smoke-tests the produced images. It runs the synapse base entrypoint, checks the image's precompiled bytecode and Storm grammar parser cache with `synapse.tools.utils.optimize --check`, imports the modules a service boot does not load, checks that the build-only packages (`libffi-dev`, `curl`, `xz-utils`) are absent while `libffi8` stays, starts the four service-variant containers, and polls each one's Docker `Health.Status` every 2s up to a 300s timeout. The poll loop exits as soon as a container reports a decisive status (anything other than `starting`); a final `healthy` check decides the script's exit code. An EXIT trap stops all containers on both success and failure paths so nothing leaks.
 
 ## Important Notes
 

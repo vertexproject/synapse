@@ -1751,7 +1751,7 @@ Packages typically contain Storm commands and Storm library code used to impleme
 
 ### pkg.list
 
-The `pkg.list` command lists each Storm package loaded in the Cortex. Output is displayed in tabular form and includes the package name and version information.
+The `pkg.list` command lists each Storm package loaded in the Cortex. Output is displayed in tabular form and includes the package name, version information, and the uninstall status of any package which is being uninstalled.
 
 **Syntax:**
 
@@ -1777,7 +1777,21 @@ pkg.load --help
 
 ### pkg.del
 
-The `pkg.del` command removes a Storm package from the Cortex.
+The `pkg.del` command removes a Storm package from the Cortex. Removing a package unloads its commands, modules and
+graphs and stops its running onload tasks. It does not remove any data the package created.
+
+With `--uninstall`, the Cortex instead runs the package uninstall routine in the background and then removes the
+package along with its variables, state, queues and, for a package which declares vault types, its vaults and vault
+types. The uninstall survives a restart, and a package which is being uninstalled cannot be added again until it
+finishes. Items the package declares as keepable, and `vaults`, can be preserved with `--uninstall-keep`. The
+uninstall routine cannot be undone, so use it with care.
+
+Running `pkg.del --uninstall` requires only the `pkg.del` permission. The uninstall removes the package's
+vaults, including user scoped vaults owned by other users, so grant `pkg.del` only to users who are trusted to
+do that.
+
+If the uninstall routine fails, the package stays installed and `pkg.list` reports `uninstall failed`. Run
+`pkg.del --uninstall` again to retry, or `pkg.del` without `--uninstall` to abandon the uninstall.
 
 **Syntax:**
 
@@ -2388,7 +2402,7 @@ uptime --help
 
 ## vault
 
-Storm includes `vault.*` commands that allow you to create and manage vaults (see [Vault](../glossary.md#gloss-vault)).
+Storm includes `vault.*` commands that allow you to create and manage vaults (see [Vault](../glossary.md#gloss-vault)). See [Storm Reference - Advanced - Vaults](storm_adv_vaults.md#storm-adv-vaults) for how vault scopes, permissions, and privileged modules work.
 
 - [vault.add](storm_ref_cmd.md#storm-vault-add)
 - [vault.list](storm_ref_cmd.md#storm-vault-list)

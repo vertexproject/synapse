@@ -304,8 +304,7 @@ class SynModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(('syn:prop', 'test:type10:intprop'), node.ndef)
-            self.nn(node.get('computed'))
-            self.propeq(node, 'computed', 0)
+            self.true(node.get('computed')[1] is False)
             self.propeq(node, 'type', ['test:int2030'])
             self.propeq(node, 'array', False)
             self.propeq(node, 'form', 'test:type10')

@@ -1510,7 +1510,7 @@ pkg.add
     default: false
 
 pkg.del
-    Controls access to deleting storm packages.
+    Controls access to deleting storm packages, including uninstalling them and removing their vaults.
     gate: cortex
     default: false
 

@@ -439,6 +439,12 @@ modeldefs = (
                     ('status', ('title', {}), {
                         'doc': 'The status of the rule.'}),
 
+                    ('severity', ('meta:score', {}), {
+                        'doc': 'The severity of the {title} and any associated matches.'}),
+
+                    ('priority', ('meta:score', {}), {
+                        'doc': 'An order of importance for the evaluation of the {title}.'}),
+
                     ('url', ('inet:url', {}), {
                         'doc': 'A URL which documents the {title}.'}),
 
@@ -842,6 +848,9 @@ modeldefs = (
 
                     ('rule:version', ('it:version', {}), {
                         'doc': 'The version of the rule which generated the {title}.'}),
+
+                    ('severity', ('meta:score', {}), {
+                        'doc': 'The severity of the {title}, based on the severity of the associated {rule}.'}),
                 ),
             }),
 

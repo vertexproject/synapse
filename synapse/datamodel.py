@@ -279,7 +279,7 @@ class Prop:
             'form': self.form.name,
             'relname': self.name,
             'base': self.name.split(':')[-1],
-            'computed': int(self.info.get('computed', False)),
+            'computed': bool(self.info.get('computed', False)),
             'extmodel': self.isext,
         }
 

@@ -459,9 +459,13 @@ class CoreApi(s_cell.CellApi):
         self.user.confirm(('pkg', 'add'))
         return await self.cell.addStormPkg(pkgdef, verify=verify)
 
-    async def delStormPkg(self, iden):
+    async def delStormPkg(self, iden, *, uninstall=False, keep=()):
         self.user.confirm(('pkg', 'del'))
-        return await self.cell.delStormPkg(iden)
+        return await self.cell.delStormPkg(iden, uninstall=uninstall, keep=keep)
+
+    @s_cell.adminapi()
+    async def getStormPkgStatus(self, name):
+        return self.cell.getStormPkgStatus(name)
 
     @s_cell.adminapi()
     async def getStormPkgs(self):
@@ -755,6 +759,11 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         self.stormpkgvars = {}   # type: Dict[str, s_lmdbslab.SafeKeyVal]
         self.stormpkgstate = {}  # type: Dict[str, s_lmdbslab.SafeKeyVal]
 
+        # name: running onload / uninstall task for a package. Only populated while
+        # the cortex is active.
+        self.stormpkgonload = {}
+        self.stormpkguninsttask = {}
+
         # storm services, keyed by the cell type name of the service. a service
         # is unique by cell type for a deployment, so no separate iden is needed.
         self.svcs = {}
@@ -873,6 +882,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         self.tagmeta = self.cortexdata.getSubKeyVal('tagmeta:')
         self.cmddefs = self.cortexdata.getSubKeyVal('storm:cmds:')
         self.pkgdefs = self.cortexdata.getSubKeyVal('storm:packages:')
+        self.pkguninst = self.cortexdata.getSubKeyVal('storm:pkg:uninstall:')
         self.svcdefs = self.cortexdata.getSubKeyVal('storm:services:')
         self.quedefs = self.cortexdata.getSubKeyVal('storm:queues:')
 
@@ -1218,7 +1228,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             {'perm': ('pkg', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to adding storm packages.'},
             {'perm': ('pkg', 'del'), 'gate': 'cortex',
-             'desc': 'Controls access to deleting storm packages.'},
+             'desc': 'Controls access to deleting storm packages, including uninstalling them and removing their vaults.'},
 
             {'perm': ('storm',), 'gate': 'cortex',
              'desc': 'Controls all Storm permissions.'},
@@ -1333,7 +1343,14 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             await view.initMergeTask()
 
         for pkgdef in list(self.stormpkgs.values()):
-            self._runStormPkgOnload(pkgdef)
+            pkgname = pkgdef.get('name')
+
+            # a package which is being uninstalled resumes its uninstall, and one
+            # whose uninstall failed stays quiet until it is retried or deleted.
+            if (status := self.pkguninst.get(pkgname)) is None:
+                self._runStormPkgOnload(pkgdef)
+            elif status.get('status') == 'uninstalling':
+                self._initStormPkgUninstall(pkgname)
 
         # a passive cortex does not register storm service packages, so reconcile
         # them now that we are the leader. the service may have changed the
@@ -2189,18 +2206,38 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             self._reqStormPkgSigned(pkgdef)
 
         await self._normStormPkg(pkgdef)
+
+        name = pkgdef.get('name')
+        if self._isStormPkgUninstalling(name):
+            mesg = f'Storm package {name} is currently being uninstalled.'
+            raise s_exc.BadArg(mesg=mesg, name=name)
+
         return await self._push('pkg:add', pkgdef)
 
     @s_nexus.Pusher.onPush('pkg:add')
     async def _addStormPkg(self, pkgdef):
         name = pkgdef.get('name')
 
+        # a readonly cortex reads the status through to the leader's current value, which
+        # may be ahead of the event being replayed, so only a writer consults it.
+        reinstall = False
+        if not self.readonly:
+
+            # an add which raced a leader side check must not disturb a running uninstall
+            if self._isStormPkgUninstalling(name):
+                return
+
+            # adding a package whose uninstall failed abandons the uninstall and
+            # reinstalls it, even if the definition is unchanged.
+            if self.pkguninst.pop(name, None) is not None:
+                reinstall = True
+
         if not self.readonly:
             # pkgdefs holds the last-loaded def, so bounce an identical re-add
             # and drop the old def on a changed re-add.
             olddef = self.pkgdefs.get(name, None)
             if olddef is not None:
-                if s_hashitem.hashitem(pkgdef) != s_hashitem.hashitem(olddef):
+                if reinstall or s_hashitem.hashitem(pkgdef) != s_hashitem.hashitem(olddef):
                     self._dropStormPkg(olddef)
                 else:
                     return
@@ -2229,21 +2266,86 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             if self._reqAddableVaultType(vtdef):
                 await self._addVaultType(vtdef)
 
+        gates, perms = self._getStormPkgBeholdPerms(pkgdef)
+        await self.feedBeholder('pkg:add', pkgdef, gates=gates, perms=perms)
+
+    def _getStormPkgBeholdPerms(self, pkgdef):
         gates = []
         perms = []
         pkgperms = pkgdef.get('perms')
         if pkgperms:
             gates = [p['gate'] for p in pkgperms if p.get('gate') is not None]
             perms = [p['perm'] for p in pkgperms if p.get('perm') is not None]
-        await self.feedBeholder('pkg:add', pkgdef, gates=gates, perms=perms)
+        return gates, perms
 
-    async def delStormPkg(self, name):
+    def getStormPkgStatus(self, name):
+        '''
+        Get the uninstall status of a Storm package.
+
+        Args:
+            name (str): The name of the package.
+
+        Returns:
+            (dict|None): A dict with the `status` ( "uninstalling" or "failed" ), the `keep` items,
+            the `time` the status last changed and, for a failed uninstall, the failure `mesg`. None
+            if the package is not being uninstalled.
+        '''
+        return self.pkguninst.get(name)
+
+    def _isStormPkgUninstalling(self, name):
+        status = self.pkguninst.get(name)
+        return status is not None and status.get('status') == 'uninstalling'
+
+    def _reqStormPkgKeep(self, pkgdef, keep):
+        '''
+        Validate the items to keep when uninstalling a package.
+        '''
+        valid = {kdef['name'] for kdef in pkgdef.get('uninstall', {}).get('keep', ())}
+        if pkgdef.get('vaults'):
+            valid.add('vaults')
+
+        if isinstance(keep, str) or not isinstance(keep, (list, tuple)):
+            mesg = 'Uninstall keep items must be a list of strings.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        for item in keep:
+            if not isinstance(item, str) or item not in valid:
+                mesg = f'Invalid uninstall keep item: {item}'
+                raise s_exc.BadArg(mesg=mesg, valid=sorted(valid))
+
+        return list(dict.fromkeys(keep))
+
+    async def delStormPkg(self, name, *, uninstall=False, keep=()):
+        '''
+        Delete a Storm package.
+
+        Args:
+            name (str): The name of the package.
+            uninstall (bool): Run the package uninstall routine, which removes the package
+                configuration, state, queues and vaults as well as the package itself. The
+                uninstall runs in the background and survives a restart.
+            keep (list): Items to keep when uninstalling. These must be declared by the
+                package, or be `vaults` for a package which declares vault types.
+        '''
         pkgdef = self.pkgdefs.get(name)
         if pkgdef is None:
             mesg = f'No storm package: {name}.'
             raise s_exc.NoSuchPkg(mesg=mesg)
 
-        return await self._push('pkg:del', name)
+        if not uninstall:
+            if keep:
+                mesg = 'Uninstall keep items require an uninstall.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            return await self._push('pkg:del', name)
+
+        if self._isStormPkgUninstalling(name):
+            mesg = f'Storm package {name} is already being uninstalled.'
+            raise s_exc.BadArg(mesg=mesg, name=name)
+
+        keep = self._reqStormPkgKeep(pkgdef, keep)
+
+        return await self._push('pkg:uninstall', name, keep, s_common.now())
 
     @s_nexus.Pusher.onPush('pkg:del')
     async def _delStormPkg(self, name):
@@ -2257,19 +2359,178 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         if pkgdef is None:
             return
 
+        # a deleted package must not leave work running, and deleting is how an
+        # operator abandons an uninstall.
+        self._cancelStormPkgOnload(name)
+        if (task := self.stormpkguninsttask.pop(name, None)) is not None:
+            task.cancel()
+
+        if not self.readonly:
+            self.pkguninst.pop(name, None)
+
+        await self._dropStormPkgDef(name, pkgdef)
+
+    async def _dropStormPkgDef(self, name, pkgdef):
+
         if not self.readonly:
             self.pkgdefs.pop(name, None)
         self._dropStormPkg(pkgdef)
 
         self._clearPermDefs()
 
-        gates = []
-        perms = []
-        pkgperms = pkgdef.get('perms')
-        if pkgperms:
-            gates = [p['gate'] for p in pkgperms if p.get('gate') is not None]
-            perms = [p['perm'] for p in pkgperms if p.get('perm') is not None]
+        gates, perms = self._getStormPkgBeholdPerms(pkgdef)
         await self.feedBeholder('pkg:del', {'name': name}, gates=gates, perms=perms)
+
+    @s_nexus.Pusher.onPush('pkg:uninstall')
+    async def _uninstStormPkg(self, name, keep, time):
+
+        pkgdef = self.stormpkgs.get(name)
+        if pkgdef is None:
+            return
+
+        if not self.readonly:
+
+            # a replay must not restart or re-announce the uninstall
+            if self._isStormPkgUninstalling(name):
+                return
+
+            self.pkguninst.set(name, {'status': 'uninstalling', 'keep': keep, 'time': time})
+
+        gates, perms = self._getStormPkgBeholdPerms(pkgdef)
+        await self.feedBeholder('pkg:uninstall:init', {'name': name, 'keep': keep}, gates=gates, perms=perms)
+
+        if self.isactive:
+            self._initStormPkgUninstall(name)
+
+    def _initStormPkgUninstall(self, name):
+        '''
+        Start the background uninstall task for a package.
+        '''
+        # a finished task may not have been reaped yet, so a retry must not be mistaken for a duplicate
+        if (task := self.stormpkguninsttask.get(name)) is not None and not task.done():
+            return
+
+        async def _uninstall():
+
+            async with await self.boss.promote(f'storm:pkg:uninstall:{name}', self.auth.rootuser,
+                                               info={'name': name}, background=True, protected=True):
+
+                if self.safemode:
+                    await self.fire('core:pkg:uninstall:skipped', pkg=name, reason='safemode')
+                    return
+
+                if (task := self._cancelStormPkgOnload(name)) is not None:
+                    await asyncio.gather(task, return_exceptions=True)
+
+                pkgdef = self.stormpkgs.get(name)
+                status = self.pkguninst.get(name)
+
+                # the package was deleted or re-added while we were waiting
+                if pkgdef is None or status is None or status.get('status') != 'uninstalling':
+                    return
+
+                keep = status.get('keep')
+                logextra = self.getLogExtra(pkg=name, vers=pkgdef.get('version'))
+
+                await self.fire('core:pkg:uninstall:start', pkg=name, keep=keep)
+
+                failed = None
+
+                if (udef := pkgdef.get('uninstall')) is not None:
+
+                    try:
+                        opts = copy.deepcopy(udef.get('queryopts', {}))
+                        opts.setdefault('vars', {})['keep'] = list(keep)
+
+                        async for mesg in self.storm(udef['query'], opts=opts):
+                            match mesg[0]:
+                                case 'print':
+                                    logger.info(f'{name} uninstall output: {mesg[1].get("mesg")}', extra=logextra)
+                                case 'warn':
+                                    logger.warning(f'{name} uninstall output: {mesg[1].get("mesg")}', extra=logextra)
+                                case 'err':
+                                    logger.error(f'{name} uninstall output: {mesg[1]}', extra=logextra)
+                                    failed = f'{mesg[1][0]}: {mesg[1][1].get("mesg")}'
+                            await asyncio.sleep(0)
+
+                    except Exception as exc:
+                        logger.warning(f'Uninstall query failed for package: {name}', exc_info=exc, extra=logextra)
+                        failed = f'{exc.__class__.__name__}: {exc}'
+
+                if failed is not None:
+                    await self._push('pkg:uninstall:fail', name, failed, s_common.now())
+                    await self.fire('core:pkg:uninstall:failed', pkg=name, mesg=failed)
+                    return
+
+                await self._push('pkg:uninstall:fini', name, keep)
+                await self.fire('core:pkg:uninstall:complete', pkg=name)
+
+        task = self.runActiveTask(_uninstall())
+
+        def _fini(task):
+            if self.stormpkguninsttask.get(name) is task:
+                self.stormpkguninsttask.pop(name, None)
+
+        self.stormpkguninsttask[name] = task
+        task.add_done_callback(_fini)
+
+    @s_nexus.Pusher.onPush('pkg:uninstall:fail')
+    async def _failStormPkgUninstall(self, name, mesg, time):
+
+        pkgdef = self.stormpkgs.get(name)
+        if pkgdef is None:
+            return
+
+        if not self.readonly:
+
+            # a replay, or a failure which raced a delete or re-add, is not a failure of the current uninstall
+            status = self.pkguninst.get(name)
+            if status is None or status.get('status') != 'uninstalling':
+                return
+
+            status.update({'status': 'failed', 'mesg': mesg, 'time': time})
+            self.pkguninst.set(name, status)
+
+        gates, perms = self._getStormPkgBeholdPerms(pkgdef)
+        await self.feedBeholder('pkg:uninstall:fail', {'name': name, 'mesg': mesg}, gates=gates, perms=perms)
+
+    @s_nexus.Pusher.onPush('pkg:uninstall:fini')
+    async def _finiStormPkgUninstall(self, name, keep):
+        '''
+        Remove everything the cortex owns for a package, then the package.
+        '''
+        # source the def from the in-memory registry for the same reason _delStormPkg does
+        pkgdef = self.stormpkgs.get(name)
+        if pkgdef is None:
+            return
+
+        if not self.readonly:
+
+            status = self.pkguninst.get(name)
+            if status is None or status.get('status') != 'uninstalling':
+                return
+
+            if 'vaults' not in keep:
+                for vtype in pkgdef.get('vaults', {}):
+                    for vault in [v for v in self._getVaults() if v.get('type') == vtype]:
+                        await self._hndldelVault(vault.get('iden'))
+                    await self._delVaultType(vtype)
+
+            for qinfo in [q for q in self.stormpkgqueue.list() if q.get('pkgname') == name]:
+                await self._delStormPkgQueue(name, qinfo.get('name'))
+
+            await self._getStormPkgVarKV(name).truncate()
+            await self._getStormPkgStateKV(name).truncate()
+
+            self.stormpkgvars.pop(name, None)
+            self.stormpkgstate.pop(name, None)
+
+            self.pkguninst.pop(name, None)
+
+        await self._dropStormPkgDef(name, pkgdef)
+
+        gates, perms = self._getStormPkgBeholdPerms(pkgdef)
+        await self.feedBeholder('pkg:uninstall:fini', {'name': name, 'keep': keep}, gates=gates, perms=perms)
 
     def getStormPkgSvc(self, name):
         '''
@@ -2337,6 +2598,9 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         except Exception as e:
             name = pkgdef.get('name', '')
             logger.exception(f'Error loading pkg: {name}, {str(e)}')
+
+    def getPkgProvides(self):
+        return {name: self.VERSION for name in self.PKG_PROVIDES}
 
     async def _getStormDepPkg(self, pkgname):
         '''
@@ -2525,6 +2789,22 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         # Validate package def (post normalization)
         s_schemas.reqValidPkgdef(pkgdef)
 
+        if (uninstall := pkgdef.get('uninstall')) is not None:
+
+            if validstorm:
+                await self.getStormQuery(uninstall.get('query'))
+
+            keepnames = set()
+            for kdef in uninstall.get('keep', ()):
+                kname = kdef.get('name')
+
+                # vaults are kept by the cortex, not the package uninstall query
+                if kname == 'vaults' or kname in keepnames:
+                    mesg = f'Uninstall keep name is reserved or duplicated: {kname}'
+                    raise s_exc.BadPkgDef(mesg=mesg, name=kname)
+
+                keepnames.add(kname)
+
         for configvar in pkgdef.get('configvars', ()):
             self._reqStormPkgVarType(pkgname, configvar.get('type'))
 
@@ -2691,7 +2971,28 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
                 await self.fire('core:pkg:onload:complete', pkg=name, storvers=curvers)
 
-            self.runActiveTask(_onload())
+            # a re-add must not leave the previous onload running alongside the new one
+            self._cancelStormPkgOnload(name)
+
+            task = self.runActiveTask(_onload())
+
+            def _fini(task):
+                if self.stormpkgonload.get(name) is task:
+                    self.stormpkgonload.pop(name, None)
+
+            self.stormpkgonload[name] = task
+            task.add_done_callback(_fini)
+
+    def _cancelStormPkgOnload(self, name):
+        '''
+        Cancel the running onload/inits task for a package, if there is one.
+
+        Returns:
+            (asyncio.Task|None): The cancelled task, which the caller may await.
+        '''
+        if (task := self.stormpkgonload.pop(name, None)) is not None:
+            task.cancel()
+        return task
 
     # N.B. This function is intentionally not async in order to prevent possible user race conditions for code
     # executing outside of the nexus lock.
@@ -7373,11 +7674,11 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
     async def replaceVaultSecrets(self, iden, valu):
         '''
-        Replace the entire vault config.
+        Replace the entire vault secrets.
 
         Args:
             iden (str): The iden of the vault to edit.
-            valu (str): New secrets object to store on the vault.
+            valu (dict): New secrets object to store on the vault.
 
         Raises:
             synapse.exc.BadArg: `valu` is not a dictionary.
@@ -7426,7 +7727,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
         Raises: None
 
-        Yields: tuples of vault info: (<iden>, <name>, <type>, <scope>).
+        Yields: vault definition dictionaries.
         '''
         for vault in self._getVaults():
             yield vault

@@ -172,3 +172,31 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'recipient:phone', '1234567890')
             self.propeq(nodes[0], 'period', (978307200000000, 978307200000001, 1))
             self.propeq(nodes[0], 'connected', True)
+
+            self.eq(core.model.form('tel:txtmesg').type.subof, 'inet:service:message')
+
+            nodes = await core.nodes('''
+                [ tel:txtmesg=*
+                    :actor:phone="+1 (703) 555-1212"
+                    :to:phone="123 456 7890"
+                    :recipients=("+1 (703) 555-2424", "123 456 7890", "+1 (703) 555-2424")
+                    :text="hello there"
+                    :time=2001
+                    :file={[ file:bytes=* ]}
+                    :type=sms
+                ]
+            ''')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'actor:phone', '17035551212')
+            self.propeq(nodes[0], 'to:phone', '1234567890')
+            self.propeq(nodes[0], 'recipients', ('1234567890', '17035552424'))
+            self.propeq(nodes[0], 'text', 'hello there')
+            self.propeq(nodes[0], 'time', 978307200000000)
+            self.propeq(nodes[0], 'type', 'sms.')
+            self.nn(nodes[0].get('file'))
+
+            self.len(1, await core.nodes('inet:service:message +:actor:phone=17035551212'))
+            self.len(1, await core.nodes('inet:service:message:text="hello there" +tel:txtmesg'))
+            self.len(1, await core.nodes('tel:txtmesg:recipients*[=17035552424]'))
+            self.len(1, await core.nodes('tel:txtmesg :actor:phone -> tel:phone +tel:phone=17035551212'))
+            self.len(1, await core.nodes('tel:txtmesg :file -> file:bytes'))

@@ -1862,12 +1862,12 @@ class View(s_nexus.Pusher):  # type: ignore
                 else:
                     mesg = f'Generator control statement "{e.statement}" used outside of a generator function.'
                 logmesg = f'Error during storm execution for {{ {text} }} - {mesg}'
-                logger.exception(logmesg, extra=self.core.getLogExtra(text=text))
+                logger.error(logmesg, extra=self.core.getLogExtra(text=text))
                 raise s_exc.StormRuntimeError(mesg=mesg, statement=e.statement, highlight=e.get('highlight')) from e
 
-            except Exception:
-                logger.exception(f'Error during callStorm execution for {{ {text} }}',
-                                 extra=self.core.getLogExtra(text=text, view=self.iden))
+            except Exception as e:
+                logger.error(f'Error during callStorm execution for {{ {text} }}: {e}',
+                             extra=self.core.getLogExtra(text=text, view=self.iden))
                 # Any other exceptions will be raised to
                 # callers as expected.
                 raise
@@ -2012,8 +2012,10 @@ class View(s_nexus.Pusher):  # type: ignore
                 logmesg = f'Error during storm execution for {{ {text} }}'
                 if mesg:
                     logmesg = f'{logmesg} - {mesg}'
+                else:
+                    logmesg = f'{logmesg}: {e}'
 
-                logger.exception(logmesg, extra=self.core.getLogExtra(text=text, view=self.iden))
+                logger.error(logmesg, extra=self.core.getLogExtra(text=text, view=self.iden))
 
                 enfo = s_common.err(e)
                 enfo[1].pop('esrc', None)

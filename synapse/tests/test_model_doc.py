@@ -52,6 +52,7 @@ class DocModelTest(s_tests.SynTest):
             nodes = await core.nodes('''
                 [ doc:requirement=*
                     :id=V-99
+                    :type=technical.access
                     :priority=low
                     :optional=(false)
                     :desc="Some requirement text."
@@ -62,11 +63,13 @@ class DocModelTest(s_tests.SynTest):
             ''')
             self.propeq(nodes[0], 'id', 'V-99')
             self.propeq(nodes[0], 'desc', 'Some requirement text.')
+            self.propeq(nodes[0], 'type', 'technical.access.')
             self.propeq(nodes[0], 'priority', 20)
             self.propeq(nodes[0], 'optional', 0)
             self.nn(nodes[0].get('standard'))
             self.len(1, await core.nodes('doc:requirement <(meets)- meta:technique'))
             self.len(1, await core.nodes('doc:requirement -> doc:standard'))
+            self.len(1, await core.nodes('doc:requirement:type:taxonomy=technical.access'))
 
             nodes = await core.nodes('''
                 [ doc:resume=*

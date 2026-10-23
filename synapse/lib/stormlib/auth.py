@@ -104,14 +104,14 @@ stormcmds = (
                 }
                 if ($cmdopts.locked != null) {
                     $user.setLocked($cmdopts.locked)
-                    $lib.print(`User ({$cmdopts.username}) locked status set to {$cmdopts.locked=1}.`)
+                    $lib.print(`User ({$cmdopts.username}) locked status set to {$cmdopts.locked}.`)
                 }
                 if ($cmdopts.admin != null) {
                     $user.setAdmin($cmdopts.admin, gateiden=$cmdopts.gate)
                     if $cmdopts.gate {
-                        $lib.print(`User ({$cmdopts.username}) admin status set to {$cmdopts.admin=1} for auth gate {$cmdopts.gate}.`)
+                        $lib.print(`User ({$cmdopts.username}) admin status set to {$cmdopts.admin} for auth gate {$cmdopts.gate}.`)
                     } else {
-                        $lib.print(`User ({$cmdopts.username}) admin status set to {$cmdopts.admin=1}.`)
+                        $lib.print(`User ({$cmdopts.username}) admin status set to {$cmdopts.admin}.`)
                     }
                 }
                 if ($cmdopts.gate != null and $cmdopts.admin = null) {

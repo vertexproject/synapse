@@ -33,6 +33,7 @@ class EntityModelTest(s_t_utils.SynTest):
                     :org:name=vertex
                     :title="lead developer"
                     :titles=("senior dev", "team lead")
+                    :pronouns=(him, HE, they, " Theirs ")
                     :resolved={[ ps:person=* ]}
                     :birth:place:country:code=us
                     :death:place:country:code=zz
@@ -92,6 +93,17 @@ class EntityModelTest(s_t_utils.SynTest):
             self.propeq(node, 'org:name', 'vertex')
             self.propeq(node, 'title', 'lead developer')
             self.propeq(node, 'titles', ('senior dev', 'team lead'))
+            self.propeq(node, 'pronouns', ('he', 'they'))
+            self.len(1, await core.nodes('entity:contact:pronouns*[=his]'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('entity:contact:pronouns [ :pronouns=(xe,) ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.model.type('entity:pronoun').norm('xe')
+
+            self.nn(core.model.prop('ps:person:pronouns'))
+            self.none(core.model.prop('ou:org:pronouns'))
 
             # entity:resolvable interface props
             self.nn(node.get('resolved'))

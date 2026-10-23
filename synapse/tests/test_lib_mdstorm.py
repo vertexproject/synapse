@@ -14,6 +14,26 @@ import synapse.tools.storm._cli as s_storm
 
 import synapse.tests.utils as s_test
 
+INITPKG = {
+    'name': 'initpkg',
+    'version': '0.0.1',
+    'inits': {
+        'versions': (
+            {
+                'name': 'first',
+                'version': 0,
+                'inaugural': True,
+                'query': '''
+                    $time = $lib.globals.init_sleep
+                    if ($time = null) { $time = (0) }
+                    $lib.time.sleep($time)
+                    $lib.globals.initpkg = initpkg-done
+                ''',
+            },
+        ),
+    },
+}
+
 class NonCellMockCell:
     def __init__(self, dirn, conf):
         self.dirn = dirn
@@ -1630,12 +1650,40 @@ class MdStormFullTest(s_test.SynTest):
             async with await s_mdstorm.MdStorm.anit(path) as mdstorm:
                 await mdstorm.run()
 
+        # a package with inits but no onload is waited on until its inits finish
+        with self.getTestDir() as dirn:
+            initpkg_yaml = s_common.genpath(dirn, 'initpkg.yaml')
+            s_common.yamlsave(INITPKG, initpkg_yaml)
+
+            path = s_common.genpath(dirn, 'pkginits.md')
+            with open(path, 'w') as fd:
+                fd.write('\n'.join((
+                    '```mdstorm-setup',
+                    '```',
+                    '',
+                    '```mdstorm',
+                    '--hide',
+                    '--',
+                    '$lib.globals.init_sleep = 1',
+                    '```',
+                    '',
+                )))
+
+            async with await s_mdstorm.MdStorm.anit(path) as mdstorm:
+                await mdstorm.run()
+                await mdstorm._loadStormPkg(initpkg_yaml)
+                core = mdstorm._reqCore()
+                self.eq('initpkg-done', await core.callStorm('return($lib.globals.initpkg)'))
+
     async def test_mdstorm_pkg_and_svc_onload_timeout(self):
         testpkg_yaml = self.getTestFilePath('stormpkg', 'testpkg.yaml')
         oldv = s_mdstorm.ONLOAD_TIMEOUT
         s_mdstorm.ONLOAD_TIMEOUT = 0.1
         try:
             with self.getTestDir() as dirn:
+                initpkg_yaml = s_common.genpath(dirn, 'initpkg.yaml')
+                s_common.yamlsave(INITPKG, initpkg_yaml)
+
                 path = s_common.genpath(dirn, 'pkgtimeout.md')
                 with open(path, 'w') as fd:
                     fd.write('\n'.join((
@@ -1646,6 +1694,7 @@ class MdStormFullTest(s_test.SynTest):
                         '--hide',
                         '--',
                         '$lib.globals.onload_sleep = 2',
+                        '$lib.globals.init_sleep = 2',
                         '```',
                         '',
                     )))
@@ -1655,6 +1704,10 @@ class MdStormFullTest(s_test.SynTest):
                     with self.raises(s_exc.SynErr) as ectx:
                         await mdstorm._loadStormPkg(testpkg_yaml)
                     self.eq('Package onload failed to run for testpkg', ectx.exception.errinfo['mesg'])
+
+                    with self.raises(s_exc.SynErr) as ectx:
+                        await mdstorm._loadStormPkg(initpkg_yaml)
+                    self.eq('Package onload failed to run for initpkg', ectx.exception.errinfo['mesg'])
 
                     with self.raises(s_exc.SynErr) as ectx:
                         await mdstorm._startStormSvc(

@@ -1721,6 +1721,99 @@ class MdDocsTest(s_test.SynTest):
             with open(s_common.genpath(outdir, 'page1.md')) as fd:
                 self.eq('# Page One\n\nAlready built, never touched again.\n', fd.read())
 
+    async def test_buildbundle_keeps_committed_page_when_only_volatile_values_differ(self):
+
+        self.eq('<sha256> <iden> <time> <time>',
+                s_mddocs.normVolatile(f'{"a" * 64} {"b" * 32} 2026-09-16 14:03:22 2026/09/16T14:03:22.415'))
+        # a 64 character run is one sha256, not two idens
+        self.eq('<sha256>', s_mddocs.normVolatile('c' * 64))
+        self.eq('hello storm!', s_mddocs.normVolatile('hello storm!'))
+
+        def getText(path):
+            with open(path) as fd:
+                return fd.read()
+
+        def getSrc(prose='2026-01-01 00:00:00', extra=()):
+            return '\n'.join((
+                '# Live', '', f'Released {prose}.', '',
+                '```mdstorm-setup', '```', '',
+                '```mdstorm', '$lib.print($lib.guid())', *extra, '```', '',
+            ))
+
+        with self.getTestDir() as workdir:
+            srcdir = s_common.genpath(workdir, 'docs')
+            outdir = s_common.genpath(workdir, 'built')
+            manifest = s_mddocs.getManifestPath(srcdir)
+            livepath = s_common.genpath(outdir, 'live.md')
+
+            _write(srcdir, 'index.md', '# Index\n\n- [Live](live.md)\n')
+            _write(srcdir, 'live.md', getSrc())
+            _write(srcdir, 'data.txt', 'one\n')
+
+            await s_mddocs.buildBundle(srcdir, outdir)
+
+            committed = getText(livepath)
+            recorded = getText(manifest)
+            self.isin('storm> $lib.print($lib.guid())', committed)
+            self.eq('one\n', getText(s_common.genpath(outdir, 'data.txt')))
+
+            # a forced rebuild renders the page with a fresh guid, but source and
+            # committed output still match the manifest and nothing else differs, so
+            # the committed page and the manifest are left alone
+            staged = []
+            realbuild = s_mddocs.buildDocs
+
+            async def spy(sdir, odir, **kwargs):
+                ret = await realbuild(sdir, odir, **kwargs)
+                staged.append(getText(s_common.genpath(odir, 'live.md')))
+                return ret
+
+            with mock.patch('synapse.lib.mddocs.buildDocs', spy):
+                await s_mddocs.buildBundle(srcdir, outdir, force=True)
+
+            self.ne(committed, staged[0])
+            self.eq(s_mddocs.normVolatile(committed), s_mddocs.normVolatile(staged[0]))
+            self.eq(committed, getText(livepath))
+            self.eq(recorded, getText(manifest))
+
+            # a real change to the rendered output replaces the page and the manifest,
+            # and an asset is always copied
+            _write(srcdir, 'live.md', getSrc(extra=('$lib.print(second)',)))
+            _write(srcdir, 'data.txt', 'two\n')
+            await s_mddocs.buildBundle(srcdir, outdir, force=True)
+
+            text = getText(livepath)
+            self.isin('$lib.print(second)', text)
+            self.ne(recorded, getText(manifest))
+            self.eq('two\n', getText(s_common.genpath(outdir, 'data.txt')))
+
+            # an edit to the source that differs only by a time in its own prose is
+            # still an edit: the source no longer matches the manifest
+            _write(srcdir, 'live.md', getSrc(prose='2026-02-02 00:00:00', extra=('$lib.print(second)',)))
+            await s_mddocs.buildBundle(srcdir, outdir, force=True)
+
+            text = getText(livepath)
+            self.isin('Released 2026-02-02 00:00:00.', text)
+
+            # so is a built page that no longer matches the manifest, even if the
+            # difference is only a guid
+            guid = s_mddocs._re_volatile_iden.search(text).group(0)
+            with open(livepath, 'w') as fd:
+                fd.write(text.replace(guid, 'f' * 32))
+
+            await s_mddocs.buildBundle(srcdir, outdir, force=True)
+            self.notin('f' * 32, getText(livepath))
+
+            # with no manifest nothing is kept, and a page not yet committed is written
+            text = getText(livepath)
+            os.remove(manifest)
+            _write(srcdir, 'index.md', '# Index\n\n- [Live](live.md)\n- [New](new.md)\n')
+            _write(srcdir, 'new.md', '# New\n')
+            await s_mddocs.buildBundle(srcdir, outdir, force=True)
+
+            self.ne(text, getText(livepath))
+            self.eq('# New\n', getText(s_common.genpath(outdir, 'new.md')))
+
     def test_lintfencestyle_spaced_opener(self):
         with self.getTestDir() as outdir:
             path = s_common.genpath(outdir, 'page.md')
