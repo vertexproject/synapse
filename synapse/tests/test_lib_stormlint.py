@@ -809,6 +809,9 @@ class StormLintTest(s_t_utils.SynTest):
             function h() { function inner(r) { $lib.pprint($r) } }
             function i() { $lib.print($r.code) }
             function j(x, r=$u) { $lib.pprint($r) }
+            $r = $r.json() $lib.pprint($r)
+            function k() { $q = $lib.inet.http.get($u) $q = $q.json() $lib.pprint($q) }
+            function l() { $q = $lib.inet.http.get($u) ($q, $z) = $x $lib.pprint($q) }
         '''), [])
 
         mesg = '${} includes the request headers, such as API credentials. Print fields such as ${}.code and ${}.reason instead.'
@@ -827,6 +830,8 @@ class StormLintTest(s_t_utils.SynTest):
             function h(r) { $lib.pprint($r) }
             function i() { function inner() { $lib.pprint($r) } }
             function j(x, y=$r) { $lib.pprint($y) $lib.pprint($r) }
+            $lib.pprint($r) $r = $r.json() $lib.pprint($r) $r = $lib.axon.wget($u) $lib.pprint($r)
+            function k() { $q = $lib.axon.wget($u) $lib.print($q) $q = $q.json() $lib.print($q) }
         '''), (
             (2, 25, mesg.format('r', 'r', 'r')),
             (3, 31, mesg.format('r', 'r', 'r')),
@@ -840,6 +845,9 @@ class StormLintTest(s_t_utils.SynTest):
             (11, 73, mesg.format('w', 'w', 'w')),
             (13, 59, mesg.format('r', 'r', 'r')),
             (14, 63, mesg.format('r', 'r', 'r')),
+            (15, 25, mesg.format('r', 'r', 'r')),
+            (15, 96, mesg.format('r', 'r', 'r')),
+            (16, 63, mesg.format('q', 'q', 'q')),
         ))
 
         # every v3model name is in the 2.x model

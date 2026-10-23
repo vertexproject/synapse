@@ -1347,6 +1347,26 @@ def _getLeaks(ctx, node, names):
 
         yield valu, name
 
+def _getLive(ctx, scope, names, paths, off):
+    '''
+    Return the names which still hold the result of a call to one of the paths at the offset, which
+    is not the case for a name whose latest assignment in the scope before it is from something else.
+    '''
+    last = {}
+    for oper in ctx.walk((s_ast.SetVarOper, s_ast.VarListSetOper, s_ast.ForLoop), node=scope, skip=s_ast.Function):
+
+        soff = oper.astinfo.soff
+        if soff >= off:
+            continue
+
+        dest = oper.kids[0]
+        isbind = isinstance(oper, s_ast.SetVarOper) and ctx.callPath(oper.kids[1]) in paths
+        for name in (dest.valu if isinstance(dest, s_ast.VarList) else (dest.valu,)):
+            if name in names and soff >= last.get(name, (-1,))[0]:
+                last[name] = (soff, isbind)
+
+    return {name for name in names if last.get(name, (0, True))[1]}
+
 @rule('S016', 'print-http-resp', 'medium', default=False)
 def _rulePrintHttpResp(ctx):
     '''
@@ -1355,8 +1375,8 @@ def _rulePrintHttpResp(ctx):
     instead.
 
     The rule follows variables assigned from $lib.inet.http calls and $lib.axon.wget() or
-    $lib.axon.wput() in the same scope. Suppress a finding for an object which is known to hold
-    no credentials with a noqa comment.
+    $lib.axon.wput() in the same scope, until the variable is assigned something else. Suppress a
+    finding for an object which is known to hold no credentials with a noqa comment.
 
     This rule is off by default. Turn it on with enable.
     '''
@@ -1366,9 +1386,11 @@ def _rulePrintHttpResp(ctx):
             if ctx.callPath(call) not in printcalls:
                 continue
 
+            live = _getLive(ctx, scope, resps, httpcalls, call.astinfo.soff)
+
             args = [*call.kids[1].kids, *(kwarg.kids[1] for kwarg in call.kids[2].kids)]
             for arg in args:
-                for node, name in _getLeaks(ctx, arg, resps):
+                for node, name in _getLeaks(ctx, arg, live):
 
                     if name is None:
                         ctx.report(node, 'The result of this call includes the request headers, such as API '

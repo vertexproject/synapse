@@ -297,7 +297,7 @@ Synapse 3.x. The ``M`` rules and every ``R`` rule other than ``R004`` are off by
       - An HTTP response or ``$lib.axon.wget()`` result is printed or logged. It includes the request headers, which
         carry credentials such as an API key. Print fields such as its code and reason instead. The rule follows
         variables assigned from ``$lib.inet.http`` calls and ``$lib.axon.wget()`` or ``$lib.axon.wput()`` in the same
-        scope. Suppress a finding for an object which is known to hold no credentials with a ``noqa`` comment.
+        scope, until the variable is assigned something else. Suppress a finding for an object which is known to hold no credentials with a ``noqa`` comment.
     * - ``R001``
       - ``lib-constant``
       - high
