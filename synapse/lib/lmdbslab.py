@@ -782,6 +782,7 @@ MDB_P_BRANCH = 0x01
 MDB_P_LEAF = 0x02
 MDB_F_BIGDATA = 0x01
 MDB_F_SUBDATA = 0x02
+MDB_DUPSORT = 0x04
 
 # leaf pages within this many pages of the previous leaf may be read by the same readahead
 MDB_NEAR_PAGES = 32
@@ -839,6 +840,11 @@ def _getPageStats(path, psize, meta, names):
     Returns:
         tuple: (freepages, freedbpages, order) where order maps each name in names which is present in
         the main DB to a (seqratio, nearratio) tuple, or None if meta is None.
+
+    Notes:
+        Leaf pages are measured in the order a scan reads them. For a dupsort DB, that is each leaf page
+        followed by the leaf pages of the dupsort sub-trees it contains, which requires reading the leaf
+        pages of the DB itself.
 
     Raises:
         s_exc.BadDataValu, struct.error, OSError: If the pages are not readable.
@@ -917,41 +923,40 @@ def _getPageStats(path, psize, meta, names):
 
                 for offs, lo, hi, nflags, ksize in nodes:
                     if nflags & MDB_F_SUBDATA and byts[offs + MDB_NODESIZE:offs + MDB_NODESIZE + ksize] == name:
-                        offs += MDB_NODESIZE + ksize
-                        depth, dbbranch = struct.unpack_from('<6xHQ', byts, offs)
-                        return depth, dbbranch, struct.unpack_from('<Q', byts, offs + 40)[0]
+                        return readrec(byts, offs + MDB_NODESIZE + ksize)
 
                 return None
 
             raise s_exc.BadDataValu(mesg='Main DB is deeper than the maximum depth.')
 
-        order = {}
-        for name in names:
+        def readrec(byts, offs):
+            # a DB record is (pad, flags, depth, branch, leaf, overflow, entries, root)
+            dbflags, depth, dbbranch = struct.unpack_from('<4xHHQ', byts, offs)
+            return dbflags, depth, dbbranch, struct.unpack_from('<Q', byts, offs + 40)[0]
 
-            dbrec = finddb(name)
-            if dbrec is None:
-                continue
-
-            depth, dbbranch, dbroot = dbrec
-
+        def leaves(dbrec):
             # walk the branch pages in key order to list the leaf pages without reading them
-            seq = near = pairs = 0
-            prev = None
+            dbflags, depth, maxpages, pgno = dbrec
 
             todo = []
-            if dbroot != MDB_P_INVALID:
-                todo.append((dbroot, 1))
+            if pgno != MDB_P_INVALID:
+                todo.append((pgno, 1))
 
-            maxpages = dbbranch
             while todo:
 
                 pgno, level = todo.pop()
                 if level >= depth:
-                    if prev is not None:
-                        pairs += 1
-                        seq += pgno == prev + 1
-                        near += abs(pgno - prev) <= MDB_NEAR_PAGES
-                    prev = pgno
+                    yield pgno
+
+                    if dbflags & MDB_DUPSORT:
+                        byts, flags, nodes = readnodes(pgno)
+                        if not flags & MDB_P_LEAF:
+                            raise s_exc.BadDataValu(mesg=f'Page {pgno} is not a leaf page at depth {level}.')
+
+                        for offs, lo, hi, nflags, ksize in nodes:
+                            if nflags & MDB_F_SUBDATA:
+                                yield from leaves(readrec(byts, offs + MDB_NODESIZE + ksize))
+
                     continue
 
                 maxpages -= 1
@@ -964,6 +969,23 @@ def _getPageStats(path, psize, meta, names):
 
                 for offs, lo, hi, nflags, ksize in reversed(nodes):
                     todo.append((lo | (hi << 16) | (nflags << 32), level + 1))
+
+        order = {}
+        for name in names:
+
+            dbrec = finddb(name)
+            if dbrec is None:
+                continue
+
+            seq = near = pairs = 0
+            prev = None
+
+            for pgno in leaves(dbrec):
+                if prev is not None:
+                    pairs += 1
+                    seq += pgno == prev + 1
+                    near += abs(pgno - prev) <= MDB_NEAR_PAGES
+                prev = pgno
 
             if pairs:
                 order[name] = (seq / pairs, near / pairs)
@@ -1093,7 +1115,8 @@ class Slab(s_base.Base):
             the fraction where the second is within 32 pages of the first, which a readahead may read with it.
             Both are None for a database with fewer than two leaf pages. Updates scatter leaf pages because
             LMDB copies each modified page to a free page or the end of the file, and a compacting copy writes
-            them in key order again. The leaf pages of dupsort sub-trees are not included.
+            them in key order again. For a dupsort database, the leaf pages of its dupsort sub-trees are
+            included in the order a scan reads them, which requires reading the leaf pages of the database.
 
             The python lmdb bindings do not expose the free list or page numbers, so they are read from the
             data file, and all of these values are None if they could not be read consistently. Reading them

@@ -1882,6 +1882,10 @@ class LmdbSlabTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadDataValu):
                 corrupt(recoffs + 6, '<H', depth + 1)
 
+            # a branch page where the depth of a dupsort DB requires a leaf page
+            with self.raises(s_exc.BadDataValu):
+                corrupt(recoffs + 4, '<I', s_lmdbslab.MDB_DUPSORT | (1 << 16))
+
     async def test_lmdbslab_pagestats_order(self):
 
         def copyOrder(slab, dirn, names):
@@ -1910,10 +1914,15 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 await slab.putmulti([(b'z' + s_common.int64en(i), b'V' * 100) for i in range(2000)])
 
                 foo = slab.initdb('foo')
+                verb = slab.initdb('verb', dupsort=True)
                 slab.initdb('empty')
                 await slab.sync()
 
                 await slab.putmulti([(s_common.int64en(i), b'V' * 40) for i in range(50000)], db=foo)
+
+                # a few keys with many values each, which LMDB stores in dupsort sub-trees
+                await slab.putmulti([(s_common.int64en(i % 20), s_common.int64en(i) * 8) for i in range(40000)],
+                                    dupdata=True, db=verb)
                 await slab.sync()
 
                 stats = await slab.pageStats()
@@ -1925,6 +1934,10 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.gt(stats['dbs']['foo']['nearratio'], 0.9)
                 self.none(stats['dbs']['empty']['seqratio'])
                 self.none(stats['dbs']['empty']['nearratio'])
+
+                # the sub-trees were written together, so their leaf pages are interleaved
+                self.lt(stats['dbs']['verb']['seqratio'], 0.1)
+                self.nn(stats['dbs']['verb']['nearratio'])
 
                 # updates in later commits copy leaf pages out of key order without growing the free list much
                 rand = random.Random(1)
@@ -1939,9 +1952,11 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.lt(stats['reclaimratio'], 0.2)
 
                 # a compacting copy writes the leaf pages in key order again
-                order = copyOrder(slab, dirn, (b'foo', b'empty', b'newp'))
+                order = copyOrder(slab, dirn, (b'foo', b'verb', b'empty', b'newp'))
                 self.gt(order[b'foo'][0], 0.9)
                 self.gt(order[b'foo'][1], 0.9)
+                self.gt(order[b'verb'][0], 0.9)
+                self.gt(order[b'verb'][1], 0.9)
                 self.eq((None, None), order[b'empty'])
                 self.notin(b'newp', order)
 
