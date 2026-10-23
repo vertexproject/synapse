@@ -1006,8 +1006,13 @@ class CellTest(s_t_utils.SynTest):
                     self.notin('seqratio', info)
                     self.notin('nearratio', info)
 
+                # other slabs open in the test process may belong to deleted test directories
                 diag = await proxy.getDiagInfo(pagestats=True)
-                for slab in diag['slabs']:
+                slabs = [s for s in diag['slabs'] if s['path'].startswith(core.dirn)]
+                paths = [s['path'] for s in slabs]
+                self.isin(str(core.slab.path), paths)
+                self.isin(str(core.getLayer().layrslab.path), paths)
+                for slab in slabs:
                     self.ge(slab['freepages'], 0)
                     self.ge(slab['freedbpages'], 0)
                     self.ge(slab['reclaimratio'], 0)
