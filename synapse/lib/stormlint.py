@@ -1358,9 +1358,9 @@ def _getAncestors(ctx, node, scope):
 def _isBranch(ctx, node):
     '''
     Return True if the node is a block which may not run: an if clause or else query, a try body or
-    catch block, a switch case, or a loop.
+    catch block, a switch case, a loop, a subquery or an empty block.
     '''
-    if isinstance(node, (s_ast.ForLoop, s_ast.WhileLoop)):
+    if isinstance(node, (s_ast.ForLoop, s_ast.WhileLoop, s_ast.SubQuery, s_ast.EmptyBlock)):
         return True
 
     return isinstance(ctx.parent(node), (s_ast.IfStmt, s_ast.TryCatch, s_ast.SwitchCase))
@@ -1370,21 +1370,28 @@ def _getLive(ctx, scope, names, paths, call):
     Return the names which hold the result of a call to one of the paths at the call.
 
     A name is live when its latest assignment in the scope before the call is from one of the paths,
-    or when the scope does not assign it before the call (a module bind, or a bind later in a loop).
-    A later assignment from anything else ends it, unless the assignment is in a branch which does
-    not also contain the call.
+    or when the scope does not assign it before the call (a module bind). A later assignment from
+    anything else ends it, unless the assignment is in a branch which does not also contain the call.
+    A bind after the call is live too when it is in a loop which contains the call, since the next
+    iteration reaches the call with it.
     '''
     last = {}
+    carried = set()
     off = call.astinfo.soff
     inside = {id(node) for node in _getAncestors(ctx, call, scope)}
     for oper in ctx.walk((s_ast.SetVarOper, s_ast.VarListSetOper, s_ast.ForLoop), node=scope, skip=s_ast.Function):
 
         soff = oper.astinfo.soff
-        if soff >= off:
-            continue
-
         dest = oper.kids[0]
         isbind = isinstance(oper, s_ast.SetVarOper) and ctx.callPath(oper.kids[1]) in paths
+
+        if soff >= off:
+            loops = (s_ast.ForLoop, s_ast.WhileLoop)
+            if isbind and any(isinstance(node, loops) and id(node) in inside for node in _getAncestors(ctx, oper, scope)):
+                carried.add(dest.valu)
+
+            continue
+
         if not isbind and any(_isBranch(ctx, node) and id(node) not in inside for node in _getAncestors(ctx, oper, scope)):
             continue
 
@@ -1392,7 +1399,7 @@ def _getLive(ctx, scope, names, paths, call):
             if name in names and soff >= last.get(name, (-1,))[0]:
                 last[name] = (soff, isbind)
 
-    return {name for name in names if last.get(name, (0, True))[1]}
+    return {name for name in names if name in carried or last.get(name, (0, True))[1]}
 
 @rule('S016', 'print-http-resp', 'medium', default=False)
 def _rulePrintHttpResp(ctx):
@@ -1403,7 +1410,7 @@ def _rulePrintHttpResp(ctx):
 
     The rule follows variables assigned from $lib.inet.http calls and $lib.axon.wget() or
     $lib.axon.wput() in the same scope, until the variable is assigned something else. An assignment
-    in an if, try, switch or loop block only ends it for a print in the same block. Suppress a
+    in an if, try, switch, loop or subquery block only ends it for a print in the same block. Suppress a
     finding for an object which is known to hold no credentials with a noqa comment.
 
     This rule is off by default. Turn it on with enable.
