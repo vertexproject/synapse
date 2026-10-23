@@ -909,7 +909,8 @@ class CellApi(s_base.Base):
             includes the ``freepages`` in the free list, the ``freedbpages`` holding it, and the
             ``reclaimratio`` of ``allocpages`` that a compacting copy, such as ``onboot:optimize`` makes,
             would reclaim, and each database includes the ``seqratio`` and ``nearratio`` of its leaf pages
-            that are in key order in the file. See ``Slab.pageStats()`` for details.
+            that are in key order in the file, excluding dupsort sub-trees. See ``Slab.pageStats()`` for
+            details.
         '''
         return {
             'slabs': await s_lmdbslab.Slab.getSlabStats(pagestats=pagestats),
