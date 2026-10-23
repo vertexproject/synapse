@@ -1256,7 +1256,7 @@ def _getBinds(ctx, node, paths):
     Return the names a scope assigns, and the names it assigns from a call to one of the paths.
     '''
     names = set()
-    imports = set()
+    binds = set()
     for oper in ctx.walk((s_ast.SetVarOper, s_ast.VarListSetOper, s_ast.ForLoop), node=node, skip=s_ast.Function):
 
         dest = oper.kids[0]
@@ -1266,9 +1266,9 @@ def _getBinds(ctx, node, paths):
 
         names.add(dest.valu)
         if isinstance(oper, s_ast.SetVarOper) and ctx.callPath(oper.kids[1]) in paths:
-            imports.add(dest.valu)
+            binds.add(dest.valu)
 
-    return names, imports
+    return names, binds
 
 def _argName(arg):
     '''
@@ -1347,12 +1347,36 @@ def _getLeaks(ctx, node, names):
 
         yield valu, name
 
-def _getLive(ctx, scope, names, paths, off):
+def _getAncestors(ctx, node, scope):
     '''
-    Return the names which still hold the result of a call to one of the paths at the offset, which
-    is not the case for a name whose latest assignment in the scope before it is from something else.
+    Yield the node and each of its parents up to, but not including, the scope.
+    '''
+    while node is not scope:
+        yield node
+        node = ctx.parent(node)
+
+def _isBranch(ctx, node):
+    '''
+    Return True if the node is a block which may not run: an if clause or else query, a try body or
+    catch block, a switch case, or a loop.
+    '''
+    if isinstance(node, (s_ast.ForLoop, s_ast.WhileLoop)):
+        return True
+
+    return isinstance(ctx.parent(node), (s_ast.IfStmt, s_ast.TryCatch, s_ast.SwitchCase))
+
+def _getLive(ctx, scope, names, paths, call):
+    '''
+    Return the names which hold the result of a call to one of the paths at the call.
+
+    A name is live when its latest assignment in the scope before the call is from one of the paths,
+    or when the scope does not assign it before the call (a module bind, or a bind later in a loop).
+    A later assignment from anything else ends it, unless the assignment is in a branch which does
+    not also contain the call.
     '''
     last = {}
+    off = call.astinfo.soff
+    inside = {id(node) for node in _getAncestors(ctx, call, scope)}
     for oper in ctx.walk((s_ast.SetVarOper, s_ast.VarListSetOper, s_ast.ForLoop), node=scope, skip=s_ast.Function):
 
         soff = oper.astinfo.soff
@@ -1361,6 +1385,9 @@ def _getLive(ctx, scope, names, paths, off):
 
         dest = oper.kids[0]
         isbind = isinstance(oper, s_ast.SetVarOper) and ctx.callPath(oper.kids[1]) in paths
+        if not isbind and any(_isBranch(ctx, node) and id(node) not in inside for node in _getAncestors(ctx, oper, scope)):
+            continue
+
         for name in (dest.valu if isinstance(dest, s_ast.VarList) else (dest.valu,)):
             if name in names and soff >= last.get(name, (-1,))[0]:
                 last[name] = (soff, isbind)
@@ -1375,7 +1402,8 @@ def _rulePrintHttpResp(ctx):
     instead.
 
     The rule follows variables assigned from $lib.inet.http calls and $lib.axon.wget() or
-    $lib.axon.wput() in the same scope, until the variable is assigned something else. Suppress a
+    $lib.axon.wput() in the same scope, until the variable is assigned something else. An assignment
+    in an if, try, switch or loop block only ends it for a print in the same block. Suppress a
     finding for an object which is known to hold no credentials with a noqa comment.
 
     This rule is off by default. Turn it on with enable.
@@ -1386,7 +1414,7 @@ def _rulePrintHttpResp(ctx):
             if ctx.callPath(call) not in printcalls:
                 continue
 
-            live = _getLive(ctx, scope, resps, httpcalls, call.astinfo.soff)
+            live = _getLive(ctx, scope, resps, httpcalls, call)
 
             args = [*call.kids[1].kids, *(kwarg.kids[1] for kwarg in call.kids[2].kids)]
             for arg in args:
