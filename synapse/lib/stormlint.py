@@ -1251,7 +1251,7 @@ def _ruleTryCast(ctx):
             if ctx.callPath(call) == ('lib', 'cast'):
                 ctx.report(call, 'Use $lib.trycast() instead of $lib.cast() in a try block.')
 
-def _getBinds(ctx, node, paths=(('lib', 'import'),)):
+def _getBinds(ctx, node, paths):
     '''
     Return the names a scope assigns, and the names it assigns from a call to one of the paths.
     '''
@@ -1279,6 +1279,25 @@ def _argName(arg):
 
     return arg.valu
 
+def _getScopes(ctx, paths):
+    '''
+    Return a (node, binds) pair for the module scope and then for each function scope.
+
+    binds are the names in scope which are assigned from a call to one of the paths. A function
+    sees the module binds it does not assign or take as a parameter.
+    '''
+    _, modbinds = _getBinds(ctx, ctx.query, paths)
+
+    scopes = [(ctx.query, modbinds)]
+    for func in ctx.walk(s_ast.Function):
+
+        names, binds = _getBinds(ctx, func.kids[2], paths)
+        names.update(_argName(arg) for arg in func.kids[1].kids)
+        binds.update(modbinds - names)
+        scopes.append((func.kids[2], binds))
+
+    return scopes
+
 @rule('S015', 'return-import', 'medium', default=False)
 def _ruleReturnImport(ctx):
     '''
@@ -1288,15 +1307,8 @@ def _ruleReturnImport(ctx):
 
     This rule is off by default. Turn it on with enable.
     '''
-    _, modimports = _getBinds(ctx, ctx.query)
-
-    for func in ctx.walk(s_ast.Function):
-
-        names, imports = _getBinds(ctx, func.kids[2])
-        names.update(_argName(arg) for arg in func.kids[1].kids)
-        imports.update(modimports - names)
-
-        for node in ctx.walk(s_ast.Return, node=func.kids[2], skip=s_ast.Function):
+    for scope, imports in _getScopes(ctx, (('lib', 'import'),))[1:]:
+        for node in ctx.walk(s_ast.Return, node=scope, skip=s_ast.Function):
 
             if not node.kids:
                 continue
@@ -1309,7 +1321,9 @@ def _ruleReturnImport(ctx):
 
 def _getLeaks(ctx, node, names):
     '''
-    Yield (node, name) for each use in an output argument of a response which holds the request headers.
+    Yield (node, name) for each part of a print argument which exposes the request headers: a variable
+    in names, used whole or through its request, request_headers or history member, or a direct call
+    to one of the httpcalls, for which name is None.
     '''
     if isinstance(node, s_ast.FuncCall):
         if ctx.callPath(node) in httpcalls:
@@ -1346,17 +1360,7 @@ def _rulePrintHttpResp(ctx):
 
     This rule is off by default. Turn it on with enable.
     '''
-    _, modresps = _getBinds(ctx, ctx.query, paths=httpcalls)
-
-    scopes = [(ctx.query, modresps)]
-    for func in ctx.walk(s_ast.Function):
-
-        names, resps = _getBinds(ctx, func.kids[2], paths=httpcalls)
-        names.update(_argName(arg) for arg in func.kids[1].kids)
-        resps.update(modresps - names)
-        scopes.append((func.kids[2], resps))
-
-    for scope, resps in scopes:
+    for scope, resps in _getScopes(ctx, httpcalls):
         for call in ctx.walk(s_ast.FuncCall, node=scope, skip=s_ast.Function):
 
             if ctx.callPath(call) not in printcalls:
