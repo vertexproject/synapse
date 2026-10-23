@@ -891,12 +891,13 @@ class CellApi(s_base.Base):
             yield
 
     @adminapi()
-    async def getDiagInfo(self, freepages=False):
+    async def getDiagInfo(self, pagestats=False):
         '''
         Get diagnostic information about the Cell.
 
         Args:
-            freepages (bool): Also count the pages in each slab's free list.
+            pagestats (bool): Also count the pages in each slab's free list and measure the leaf page order
+                of each named database.
 
         Returns:
             dict: A dictionary with a ``slabs`` list containing a dict for each open LMDB slab. Each slab
@@ -904,13 +905,14 @@ class CellApi(s_base.Base):
             ``(starttime, xactopslen, delta)`` tuples for recent commits, oldest first. Times are in
             milliseconds. Each slab dict also includes LMDB page accounting: the ``pagesize``, the
             ``allocpages`` in use in the file, and a ``dbs`` dict of ``pages``, ``entries``, ``depth`` and
-            ``dupsort`` for each named database the slab has opened. If ``freepages`` is set, it also
+            ``dupsort`` for each named database the slab has opened. If ``pagestats`` is set, it also
             includes the ``freepages`` in the free list, the ``freedbpages`` holding it, and the
             ``reclaimratio`` of ``allocpages`` that a compacting copy, such as ``onboot:optimize`` makes,
-            would reclaim. See ``Slab.pageStats()`` for details.
+            would reclaim, and each database includes the ``seqratio`` and ``nearratio`` of its leaf pages
+            that are in key order in the file. See ``Slab.pageStats()`` for details.
         '''
         return {
-            'slabs': await s_lmdbslab.Slab.getSlabStats(freepages=freepages),
+            'slabs': await s_lmdbslab.Slab.getSlabStats(pagestats=pagestats),
         }
 
     @adminapi()

@@ -1002,13 +1002,21 @@ class CellTest(s_t_utils.SynTest):
                 self.nn(slab['allocpages'])
                 self.nn(slab['dbs'])
                 self.notin('freepages', slab)
+                for info in slab['dbs'].values():
+                    self.notin('seqratio', info)
+                    self.notin('nearratio', info)
 
-                diag = await proxy.getDiagInfo(freepages=True)
+                diag = await proxy.getDiagInfo(pagestats=True)
                 for slab in diag['slabs']:
                     self.ge(slab['freepages'], 0)
                     self.ge(slab['freedbpages'], 0)
                     self.ge(slab['reclaimratio'], 0)
                     self.le(slab['reclaimratio'], 1)
+                    for info in slab['dbs'].values():
+                        for name in ('seqratio', 'nearratio'):
+                            if info[name] is not None:
+                                self.ge(info[name], 0)
+                                self.le(info[name], 1)
 
             path = s_common.genpath(core.dirn, 'slabs', 'diagtest.lmdb')
             async with await s_lmdbslab.Slab.anit(path) as testslab:
@@ -1030,14 +1038,18 @@ class CellTest(s_t_utils.SynTest):
                 self.le(0, delta)
 
                 async with core.getLocalProxy() as proxy:
-                    diag = await proxy.getDiagInfo(freepages=True)
+                    diag = await proxy.getDiagInfo(pagestats=True)
 
                 diagslab = [s for s in diag['slabs'] if s['path'] == str(testslab.path)][0]
-                pagestats = await testslab.pageStats(freepages=True)
+                pagestats = await testslab.pageStats(pagestats=True)
                 for name in ('pagesize', 'allocpages', 'dbs', 'freepages', 'freedbpages', 'reclaimratio'):
                     self.eq(pagestats[name], diagslab[name])
 
                 self.eq(5, diagslab['dbs']['test']['entries'])
+
+                # a single leaf page has no order
+                self.none(diagslab['dbs']['test']['seqratio'])
+                self.none(diagslab['dbs']['test']['nearratio'])
 
     async def test_cell_system_info(self):
         with self.getTestDir() as dirn:

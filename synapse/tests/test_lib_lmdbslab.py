@@ -1,5 +1,6 @@
 import os
 import lmdb
+import random
 import struct
 import asyncio
 import pathlib
@@ -1661,7 +1662,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq(stats['dbs'], rostats['dbs'])
                 self.eq(0, slab.txnrefcount)
 
-    async def test_lmdbslab_freepages(self):
+    async def test_lmdbslab_pagestats_walk(self):
 
         def compactPages(slab, dirn):
             # a compacting copy holds exactly the live pages
@@ -1692,7 +1693,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.notin('freedbpages', stats)
                 self.notin('reclaimratio', stats)
 
-                stats = await slab.pageStats(freepages=True)
+                stats = await slab.pageStats(pagestats=True)
                 self.eq(stats['allocpages'] - stats['freepages'] - stats['freedbpages'],
                         compactPages(slab, copydirn))
 
@@ -1716,7 +1717,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 await slab.sync()
 
-                stats = await slab.pageStats(freepages=True)
+                stats = await slab.pageStats(pagestats=True)
                 self.gt(stats['freepages'], 1000)
                 self.gt(stats['freedbpages'], 3)
                 self.eq(stats['allocpages'] - stats['freepages'] - stats['freedbpages'],
@@ -1727,7 +1728,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 rtxn.abort()
 
-                slabstats = [s for s in await s_lmdbslab.Slab.getSlabStats(freepages=True) if s['path'] == path][0]
+                slabstats = [s for s in await s_lmdbslab.Slab.getSlabStats(pagestats=True) if s['path'] == path][0]
                 self.eq(stats['allocpages'], slabstats['allocpages'])
                 self.eq(stats['freepages'], slabstats['freepages'])
                 self.eq(stats['freedbpages'], slabstats['freedbpages'])
@@ -1735,17 +1736,17 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 # an unreadable free list is logged and reported as None
                 with self.getLoggerStream('synapse.lib.lmdbslab') as stream:
-                    with patch('synapse.lib.lmdbslab._getFreePages', side_effect=struct.error('newp')):
-                        errstats = await slab.pageStats(freepages=True)
-                    self.isin('Unable to read the LMDB free list', stream.getvalue())
+                    with patch('synapse.lib.lmdbslab._getPageStats', side_effect=struct.error('newp')):
+                        errstats = await slab.pageStats(pagestats=True)
+                    self.isin('Unable to read the LMDB pages', stream.getvalue())
 
                 self.none(errstats['freepages'])
                 self.none(errstats['freedbpages'])
                 self.none(errstats['reclaimratio'])
                 self.eq(stats['allocpages'], errstats['allocpages'])
 
-                with patch('synapse.lib.lmdbslab._getFreePages', return_value=(None, None)):
-                    nonestats = await slab.pageStats(freepages=True)
+                with patch('synapse.lib.lmdbslab._getPageStats', return_value=None):
+                    nonestats = await slab.pageStats(pagestats=True)
                     self.none(nonestats['freepages'])
                     self.none(nonestats['freedbpages'])
                     self.none(nonestats['reclaimratio'])
@@ -1755,31 +1756,31 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 with slab.lenv.begin() as xact:
                     txnid = xact.id()
                     psize = stats['pagesize']
-                    meta = s_lmdbslab._readFreeMeta(mdbpath, psize, txnid)
+                    meta = s_lmdbslab._readMeta(mdbpath, psize, txnid)
                     self.eq((stats['freepages'], stats['freedbpages']),
-                            s_lmdbslab._getFreePages(mdbpath, psize, meta))
+                            s_lmdbslab._getPageStats(mdbpath, psize, meta, ())[:2])
 
-                    self.none(s_lmdbslab._readFreeMeta(mdbpath, psize, txnid + 10))
-                    self.eq((None, None), s_lmdbslab._getFreePages(mdbpath, psize, None))
+                    self.none(s_lmdbslab._readMeta(mdbpath, psize, txnid + 10))
+                    self.none(s_lmdbslab._getPageStats(mdbpath, psize, None, ()))
 
                     # once a commit writes the other meta page, the next commit may overwrite this one
                     slab.put(b'torn', b'\x00', db=foo)
                     slab.forcecommit()
-                    self.none(s_lmdbslab._readFreeMeta(mdbpath, psize, txnid))
+                    self.none(s_lmdbslab._readMeta(mdbpath, psize, txnid))
 
                     # a second commit overwrites the meta page for the pinned transaction
                     slab.put(b'torn', b'\x01', db=foo)
                     slab.forcecommit()
-                    self.none(s_lmdbslab._readFreeMeta(mdbpath, psize, txnid))
+                    self.none(s_lmdbslab._readMeta(mdbpath, psize, txnid))
 
                     # the pinned free list is still exact
                     self.eq((stats['freepages'], stats['freedbpages']),
-                            s_lmdbslab._getFreePages(mdbpath, psize, meta))
+                            s_lmdbslab._getPageStats(mdbpath, psize, meta, ())[:2])
 
                 # commits during the walk of a writable slab do not discard the result
-                getfree = s_lmdbslab._getFreePages
+                getfree = s_lmdbslab._getPageStats
                 await slab.sync()
-                before = await slab.pageStats(freepages=True)
+                before = await slab.pageStats(pagestats=True)
 
                 loop = asyncio.get_running_loop()
 
@@ -1793,20 +1794,20 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     asyncio.run_coroutine_threadsafe(commit(), loop).result()
                     return getfree(*args, **kwargs)
 
-                with patch('synapse.lib.lmdbslab._getFreePages', commitfree):
-                    during = await slab.pageStats(freepages=True)
+                with patch('synapse.lib.lmdbslab._getPageStats', commitfree):
+                    during = await slab.pageStats(pagestats=True)
 
                 self.eq(before['freepages'], during['freepages'])
                 self.eq(before['freedbpages'], during['freedbpages'])
                 self.eq(before['allocpages'], during['allocpages'])
 
                 # a pageStats call after the commits reads the new meta page
-                stats = await slab.pageStats(freepages=True)
+                stats = await slab.pageStats(pagestats=True)
                 self.eq(stats['allocpages'] - stats['freepages'] - stats['freedbpages'],
                         compactPages(slab, copydirn))
 
             async with await s_lmdbslab.Slab.anit(path, readonly=True) as slab:
-                rostats = await slab.pageStats(freepages=True)
+                rostats = await slab.pageStats(pagestats=True)
                 self.eq(stats['freepages'], rostats['freepages'])
                 self.eq(stats['freedbpages'], rostats['freedbpages'])
                 self.eq(0, slab.txnrefcount)
@@ -1825,7 +1826,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 struct.pack_into(fmt, data, offs, valu)
                 with open(corrpath, 'wb') as fd:
                     fd.write(data)
-                return s_lmdbslab._getFreePages(corrpath, psize, s_lmdbslab._readFreeMeta(corrpath, psize, txnid))
+                return s_lmdbslab._getPageStats(corrpath, psize, s_lmdbslab._readMeta(corrpath, psize, txnid), (b'foo', b'bar'))
 
             with self.raises(s_exc.BadDataValu):
                 corrupt(metaoffs + 16, '<I', 0)
@@ -1845,7 +1846,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 corrupt(metaoffs + 56, '<Q', 0)
 
             # a meta page which the next commit may be overwriting is not read
-            self.eq((None, None), corrupt(psize - metaoffs + 144, '<Q', txnid + 1))
+            self.none(corrupt(psize - metaoffs + 144, '<Q', txnid + 1))
 
             # a free list page whose node pointers run past the end of the page
             root = struct.unpack_from('<Q', byts, metaoffs + 80)[0]
@@ -1853,12 +1854,96 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 corrupt(root * psize + 12, '<H', 60000)
 
             # a missing data file
-            meta = s_lmdbslab._readFreeMeta(mdbpath, psize, txnid)
+            meta = s_lmdbslab._readMeta(mdbpath, psize, txnid)
             with self.raises(FileNotFoundError):
-                s_lmdbslab._getFreePages(os.path.join(dirn, 'newp.mdb'), psize, meta)
+                s_lmdbslab._getPageStats(os.path.join(dirn, 'newp.mdb'), psize, meta, ())
 
             # no free list
             self.eq(0, corrupt(metaoffs + 80, '<Q', s_lmdbslab.MDB_P_INVALID)[0])
+
+            # no main DB or a main DB deeper than the maximum
+            self.eq({}, corrupt(metaoffs + 128, '<Q', s_lmdbslab.MDB_P_INVALID)[2])
+
+            with patch('synapse.lib.lmdbslab.MDB_MAXDEPTH', 0):
+                with self.raises(s_exc.BadDataValu):
+                    corrupt(metaoffs + 16, '<I', s_lmdbslab.MDB_MAGIC)
+
+            # the record of a named DB in the main DB, whose root page is a leaf
+            mainroot = struct.unpack_from('<Q', byts, metaoffs + 128)[0]
+            recoffs = mainroot * psize + byts[mainroot * psize:(mainroot + 1) * psize].index(b'foo') + 3
+            depth = struct.unpack_from('<H', byts, recoffs + 6)[0]
+            self.gt(depth, 1)
+
+            # fewer branch pages than the walk visits
+            with self.raises(s_exc.BadDataValu):
+                corrupt(recoffs + 8, '<Q', 0)
+
+            # a leaf page where the depth requires a branch page
+            with self.raises(s_exc.BadDataValu):
+                corrupt(recoffs + 6, '<H', depth + 1)
+
+    async def test_lmdbslab_pagestats_order(self):
+
+        def copyOrder(slab, dirn, names):
+            # the leaf page order of a compacting copy
+            dstpath = os.path.join(dirn, 'compact')
+            os.makedirs(dstpath)
+            slab.lenv.copy(dstpath, compact=True)
+
+            env = lmdb.open(dstpath, readonly=True)
+            try:
+                with env.begin() as xact:
+                    mdbpath = os.path.join(dstpath, 'data.mdb')
+                    psize = env.stat()['psize']
+                    meta = s_lmdbslab._readMeta(mdbpath, psize, xact.id())
+                    return s_lmdbslab._getPageStats(mdbpath, psize, meta, names)[2]
+            finally:
+                env.close()
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+            async with await s_lmdbslab.Slab.anit(path, map_size=100_000_000) as slab:
+
+                # records in the main DB around the named DB records, so finding them descends branch pages
+                await slab.putmulti([(b'a' + s_common.int64en(i), b'V' * 100) for i in range(2000)])
+                await slab.putmulti([(b'z' + s_common.int64en(i), b'V' * 100) for i in range(2000)])
+
+                foo = slab.initdb('foo')
+                slab.initdb('empty')
+                await slab.sync()
+
+                await slab.putmulti([(s_common.int64en(i), b'V' * 40) for i in range(50000)], db=foo)
+                await slab.sync()
+
+                stats = await slab.pageStats()
+                self.notin('seqratio', stats['dbs']['foo'])
+                self.notin('nearratio', stats['dbs']['foo'])
+
+                stats = await slab.pageStats(pagestats=True)
+                self.gt(stats['dbs']['foo']['seqratio'], 0.9)
+                self.gt(stats['dbs']['foo']['nearratio'], 0.9)
+                self.none(stats['dbs']['empty']['seqratio'])
+                self.none(stats['dbs']['empty']['nearratio'])
+
+                # updates in later commits copy leaf pages out of key order without growing the free list much
+                rand = random.Random(1)
+                for i in range(300):
+                    for j in range(50):
+                        slab.put(s_common.int64en(rand.randrange(50000)), b'W' * rand.randrange(20, 120), db=foo)
+                    await slab.sync()
+
+                stats = await slab.pageStats(pagestats=True)
+                self.lt(stats['dbs']['foo']['seqratio'], 0.1)
+                self.lt(stats['dbs']['foo']['nearratio'], 0.2)
+                self.lt(stats['reclaimratio'], 0.2)
+
+                # a compacting copy writes the leaf pages in key order again
+                order = copyOrder(slab, dirn, (b'foo', b'empty', b'newp'))
+                self.gt(order[b'foo'][0], 0.9)
+                self.gt(order[b'foo'][1], 0.9)
+                self.eq((None, None), order[b'empty'])
+                self.notin(b'newp', order)
 
     async def test_lmdbslab_iter_and_delete(self):
         with self.getTestDir() as dirn:

@@ -1,6 +1,6 @@
 ---
 desc: Added LMDB page accounting to each slab returned by the `getDiagInfo()` API, and
-  a `freepages` option to include free list page counts.
+  a `pagestats` option to include free list page counts and leaf page order.
 desc:literal: false
 prs: []
 type: feat
