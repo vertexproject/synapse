@@ -1,0 +1,6 @@
+---
+desc: Updated the Synapse Docker images from Debian Bookworm to Debian Trixie.
+desc:literal: false
+prs: []
+type: feat
+...

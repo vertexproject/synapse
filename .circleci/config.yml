@@ -658,6 +658,7 @@ workflows:
             branches:
               only:
                 - master
+                - epiphyte/trixie
 
       - build_docker_tag:
           requires:
