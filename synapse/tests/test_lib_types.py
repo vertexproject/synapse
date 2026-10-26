@@ -1547,6 +1547,48 @@ class TypesTest(s_t_utils.SynTest):
             self.len(6, nodes)
             self.eq({node.ndef[1] for node in nodes}, {'b', 'c', 'd'})
 
+            # (wildcard, last tick before, first tick, last tick, first tick after)
+            windows = (
+                ('2021*', '2020/12/31 23:59:59.999', '2021/01/01', '2021/12/31 23:59:59.999', '2022/01/01'),
+                ('202105*', '2021/04/30 23:59:59.999', '2021/05/01', '2021/05/31 23:59:59.999', '2021/06/01'),
+                ('2021/05/13*', '2021/05/12 23:59:59.999', '2021/05/13', '2021/05/13 23:59:59.999', '2021/05/14'),
+                ('2021051301*', '2021/05/13 00:59:59.999', '2021/05/13 01:00', '2021/05/13 01:59:59.999', '2021/05/13 02:00'),
+                ('202105130102*', '2021/05/13 01:01:59.999', '2021/05/13 01:02', '2021/05/13 01:02:59.999', '2021/05/13 01:03'),
+                ('20210513010203*', '2021/05/13 01:02:02.999', '2021/05/13 01:02:03', '2021/05/13 01:02:03.999', '2021/05/13 01:02:04'),
+            )
+
+            async def names(text, wild):
+                nodes = await core.nodes(text, opts={'vars': {'wild': wild}})
+                return sorted(n.ndef[1] for n in nodes)
+
+            for wild, before, first, last, after in windows:
+
+                await core.nodes('test:str | delnode')
+                await core.nodes('''[
+                    (test:str=before :tick=$before)
+                    (test:str=first :tick=$first)
+                    (test:str=last :tick=$last)
+                    (test:str=after :tick=$after)
+                ]''', opts={'vars': {'before': before, 'first': first, 'last': last, 'after': after}})
+
+                # = matches the window, the first tick of the next window is excluded
+                self.eq(['first', 'last'], await names('test:str:tick=$wild', wild), msg=wild)
+                self.eq(['first', 'last'], await names('test:str +:tick=$wild', wild), msg=wild)
+                self.eq(['after', 'before'], await names('test:str -:tick=$wild', wild), msg=wild)
+                self.eq(['first', 'last'], await names('test:str:tick*in=($wild,)', wild), msg=wild)
+
+                # < and <= both mean less than or equal to the last tick of the window
+                for cmpr in ('<', '<='):
+                    self.eq(['before', 'first', 'last'], await names(f'test:str:tick{cmpr}$wild', wild), msg=wild)
+                    self.eq(['before', 'first', 'last'], await names(f'test:str +:tick{cmpr}$wild', wild), msg=wild)
+                    self.eq(['after'], await names(f'test:str -:tick{cmpr}$wild', wild), msg=wild)
+
+                # > and >= compare against the first tick of the window
+                self.eq(['after', 'last'], await names('test:str:tick>$wild', wild), msg=wild)
+                self.eq(['after', 'last'], await names('test:str +:tick>$wild', wild), msg=wild)
+                self.eq(['after', 'first', 'last'], await names('test:str:tick>=$wild', wild), msg=wild)
+                self.eq(['after', 'first', 'last'], await names('test:str +:tick>=$wild', wild), msg=wild)
+
     async def test_edges(self):
         model = s_datamodel.Model()
         e = model.type('edge')
