@@ -3,6 +3,7 @@ desc: Fixed the tag permission checks when merging a layer. A node with a single
   in the layer was checked for another tag in the layer instead of its own tag, and
   parent tags which exist in a lower layer were checked as leaf tags.
 desc:literal: false
-prs: []
+prs:
+- 5072
 type: bug
 ...
