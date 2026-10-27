@@ -9257,7 +9257,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(hdef00, await core.getViewHook(iden00))
 
                 # a replayed mod for a deleted hook is a no-op
-                self.none(await core._modViewHook(newp, {'name': 'newp'}, s_common.now()))
+                self.none(await core._modViewHook(newp, {'name': 'newp', 'updated': s_common.now()}))
 
                 await asyncio.sleep(0.005)
                 hdef = await core.modViewHook(iden01, {'enabled': True})

@@ -5208,17 +5208,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if storm is not None:
             await self.getStormQuery(storm)
 
-        return await self._push('view:hook:mod', iden, dict(opts), s_common.now())
+        opts = dict(opts)
+        opts['updated'] = s_common.now()
+
+        return await self._push('view:hook:mod', iden, opts)
 
     @s_nexus.Pusher.onPush('view:hook:mod')
-    async def _modViewHook(self, iden, opts, updated):
+    async def _modViewHook(self, iden, opts):
         hdef = self.viewhooks.get(iden)
         if hdef is None:
             return None
 
         hdef = copy.deepcopy(hdef)
         hdef.update(opts)
-        hdef['updated'] = updated
         hdef = s_schemas.reqValidViewHook(hdef)
 
         self.viewhooks[iden] = hdef

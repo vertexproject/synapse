@@ -19,7 +19,8 @@ class ViewHookTest(s_test.SynTest):
             visi = await core.auth.addUser('visi')
             asvisi = {'user': visi.iden}
 
-            self.eq([], await core.callStorm('return($lib.view.hook.list())'))
+            listq = '$hooks = () for $hook in $lib.view.hook.list() { $hooks.append($hook) } return($hooks)'
+            self.eq([], await core.callStorm(listq))
 
             # $lib.view functions still work alongside the nested lib
             self.len(1, await core.callStorm('return($lib.view.list())'))
@@ -61,7 +62,7 @@ class ViewHookTest(s_test.SynTest):
             # get and list are allowed in a readonly runtime
             ropts = {'vars': {'iden': iden}, 'readonly': True}
             self.eq('woot', await core.callStorm('return($lib.view.hook.get($iden).name)', opts=ropts))
-            self.len(2, await core.callStorm('return($lib.view.hook.list())', opts=ropts))
+            self.len(2, await core.callStorm(listq, opts=ropts))
 
             with self.raises(s_exc.IsReadOnly):
                 await core.callStorm('$lib.view.hook.get($iden).name = newp', opts=ropts)
@@ -125,7 +126,7 @@ class ViewHookTest(s_test.SynTest):
                 await core.callStorm('$lib.view.hook.get($iden)', opts={'user': visi.iden, 'vars': {'iden': iden}})
 
             with self.raises(s_exc.AuthDeny):
-                await core.callStorm('$lib.view.hook.list()', opts=asvisi)
+                await core.callStorm('for $hook in $lib.view.hook.list() { }', opts=asvisi)
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$lib.view.hook.del($iden)', opts={'user': visi.iden, 'vars': {'iden': iden}})
@@ -157,7 +158,7 @@ class ViewHookTest(s_test.SynTest):
             await core.callStorm('$lib.view.hook.del($iden)', opts={'user': visi.iden, 'vars': {'iden': iden}})
             await core.callStorm('$lib.view.hook.del($iden)', opts={'vars': {'iden': iden2}})
             await core.callStorm('$lib.view.hook.del($iden)', opts={'vars': {'iden': iden3}})
-            self.eq([], await core.callStorm('return($lib.view.hook.list())'))
+            self.eq([], await core.callStorm(listq))
 
             with self.raises(s_exc.NoSuchIden):
                 await core.getViewHook(iden)

@@ -152,7 +152,7 @@ class LibViewHook(s_stormtypes.Lib):
                   'returns': {'type': 'view:hook', 'desc': 'The view hook.'}}},
         {'name': 'list', 'desc': 'List the view hooks.',
          'type': {'type': 'function', '_funcname': '_methHookList', 'args': (),
-                  'returns': {'type': 'list', 'desc': 'A list of `view:hook` objects.'}}},
+                  'returns': {'name': 'Yields', 'type': 'view:hook', 'desc': 'Yields `view:hook` objects.'}}},
     )
 
     def getObjLocals(self):
@@ -194,4 +194,6 @@ class LibViewHook(s_stormtypes.Lib):
         self.runt.reqAdmin(mesg='Listing view hooks requires admin privileges.')
         hdefs = await self.runt.snap.core.getViewHooks()
         hdefs.sort(key=lambda hdef: hdef.get('created'))
-        return [ViewHook(self.runt, hdef) for hdef in hdefs]
+
+        for hdef in hdefs:
+            yield ViewHook(self.runt, hdef)
