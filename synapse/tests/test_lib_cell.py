@@ -205,16 +205,20 @@ class CellTest(s_t_utils.SynTest):
                 host, port = await echo.dmon.listen('tcp://127.0.0.1:0/')
 
                 url = f'tcp://127.0.0.1:{port}/echo00'
-                await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
+                with self.raises(s_exc.AuthDeny):
+                    await s_telepath.openurl(url)
 
                 url = f'tcp://fake@127.0.0.1:{port}/echo00'
-                await self.asyncraises(s_exc.NoSuchUser, s_telepath.openurl(url))
+                with self.raises(s_exc.NoSuchUser):
+                    await s_telepath.openurl(url)
 
                 url = f'tcp://root@127.0.0.1:{port}/echo00'
-                await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
+                with self.raises(s_exc.AuthDeny):
+                    await s_telepath.openurl(url)
 
                 url = f'tcp://root:newpnewp@127.0.0.1:{port}/echo00'
-                await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
+                with self.raises(s_exc.AuthDeny):
+                    await s_telepath.openurl(url)
 
                 root_url = f'tcp://root:secretsauce@127.0.0.1:{port}/echo00'
                 async with await s_telepath.openurl(root_url) as proxy:
@@ -276,12 +280,15 @@ class CellTest(s_t_utils.SynTest):
 
                     # User cannot get authinfo for other items since they are
                     # not an admin or do not have those roles.
-                    await self.asyncraises(s_exc.AuthDeny, proxy.getUserInfo('root'))
-                    await self.asyncraises(s_exc.AuthDeny, proxy.getRoleInfo('privrole'))
+                    with self.raises(s_exc.AuthDeny):
+                        await proxy.getUserInfo('root')
+                    with self.raises(s_exc.AuthDeny):
+                        await proxy.getRoleInfo('privrole')
 
                     # Basic auth checks
                     self.true(await proxy.icando('foo', 'bar'))
-                    await self.asyncraises(s_exc.AuthDeny, proxy.icando('foo', 'newp'))
+                    with self.raises(s_exc.AuthDeny):
+                        await proxy.icando('foo', 'newp')
 
                     # happy path perms
                     await visi.addRule((True, ('hive:set', 'foo', 'bar')))
@@ -364,8 +371,8 @@ class CellTest(s_t_utils.SynTest):
                     await proxy.setUserLocked(visi.iden, True)
                     info = await proxy.getUserInfo('visi')
                     self.true(info.get('locked'))
-                    await self.asyncraises(s_exc.AuthDeny,
-                                           s_telepath.openurl(visi_url))
+                    with self.raises(s_exc.AuthDeny):
+                        await s_telepath.openurl(visi_url)
 
                     await proxy.setUserLocked(visi.iden, False)
                     info = await proxy.getUserInfo('visi')
@@ -375,8 +382,8 @@ class CellTest(s_t_utils.SynTest):
 
                 async with await s_telepath.openurl(root_url) as proxy:  # type: EchoAuthApi
 
-                    await self.asyncraises(s_exc.NoSuchUser,
-                                           proxy.setUserArchived('newp', True))
+                    with self.raises(s_exc.NoSuchUser):
+                        await proxy.setUserArchived('newp', True)
                     await proxy.setUserArchived(visi.iden, True)
                     info = await proxy.getUserInfo('visi')
                     self.true(info.get('archived'))
@@ -385,8 +392,8 @@ class CellTest(s_t_utils.SynTest):
                     self.len(1, users)
                     users = await proxy.getAuthUsers(archived=True)
                     self.len(2, users)
-                    await self.asyncraises(s_exc.AuthDeny,
-                                           s_telepath.openurl(visi_url))
+                    with self.raises(s_exc.AuthDeny):
+                        await s_telepath.openurl(visi_url)
 
                     await proxy.setUserArchived(visi.iden, False)
                     info = await proxy.getUserInfo('visi')
@@ -395,8 +402,8 @@ class CellTest(s_t_utils.SynTest):
                     users = await proxy.getAuthUsers(archived=True)
                     self.len(2, users)
 
-                    await self.asyncraises(s_exc.AuthDeny,
-                                           s_telepath.openurl(visi_url))
+                    with self.raises(s_exc.AuthDeny):
+                        await s_telepath.openurl(visi_url)
 
                 await echo.setHiveKey(('foo', 'bar'), [1, 2, 3, 4])
                 self.eq([1, 2, 3, 4], await echo.getHiveKey(('foo', 'bar')))
@@ -470,7 +477,8 @@ class CellTest(s_t_utils.SynTest):
                     self.true(await proxy.allowed(('hehe', 'haha')))
 
                 url = f'tcp://root@127.0.0.1:{port}/'
-                await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
+                with self.raises(s_exc.AuthDeny):
+                    await s_telepath.openurl(url)
 
             os.unlink(s_common.genpath(dirn, 'cell.yaml'))
             # Pass the auth data in via conf directly
@@ -686,7 +694,8 @@ class CellTest(s_t_utils.SynTest):
             async with await EchoAuth.anit(dirn) as cell, cell.getLocalProxy() as prox:
                 cell.dynitems['self'] = cell
                 self.eq(42, await prox.dyncall('self', s_common.todo('answer')))
-                await self.asyncraises(s_exc.BadArg, prox.dyncall('self', s_common.todo('badanswer')))
+                with self.raises(s_exc.BadArg):
+                    await prox.dyncall('self', s_common.todo('badanswer'))
 
                 self.eq([1, 2], await s_t_utils.alist(await prox.dyncall('self', s_common.todo('stream'))))
 
@@ -825,9 +834,12 @@ class CellTest(s_t_utils.SynTest):
                     # test backup running
                     ind = await prox.getNexsIndx()
                     cell.backuprunning = True
-                    await self.asyncraises(s_exc.SlabInUse, prox.rotateNexsLog())
-                    await self.asyncraises(s_exc.SlabInUse, prox.cullNexsLog(0))
-                    await self.asyncraises(s_exc.SlabInUse, prox.trimNexsLog())
+                    with self.raises(s_exc.SlabInUse):
+                        await prox.rotateNexsLog()
+                    with self.raises(s_exc.SlabInUse):
+                        await prox.cullNexsLog(0)
+                    with self.raises(s_exc.SlabInUse):
+                        await prox.trimNexsLog()
                     cell.backuprunning = False
                     self.eq(ind, await prox.getNexsIndx())
 
@@ -886,7 +898,8 @@ class CellTest(s_t_utils.SynTest):
                 async with cell.getLocalProxy() as prox:
 
                     # trim raises because we cannot cull at the rotated offset
-                    await self.asyncraises(s_exc.BadConfValu, prox.trimNexsLog())
+                    with self.raises(s_exc.BadConfValu):
+                        await prox.trimNexsLog()
 
                     # we can still manually cull
                     offs = await prox.rotateNexsLog()
@@ -906,7 +919,8 @@ class CellTest(s_t_utils.SynTest):
 
                     self.eq(0, await prox.rotateNexsLog())
                     self.false(await prox.cullNexsLog(3))
-                    await self.asyncraises(s_exc.BadConfValu, prox.trimNexsLog())
+                    with self.raises(s_exc.BadConfValu):
+                        await prox.trimNexsLog()
 
     async def test_cell_nexusrotate(self):
 
@@ -1191,7 +1205,8 @@ class CellTest(s_t_utils.SynTest):
 
                     with mock.patch.object(s_cell.Cell, 'BACKUP_SPAWN_TIMEOUT', 0.1):
                         with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_sleeperProc)):
-                            await self.asyncraises(s_exc.SynErr, proxy.runBackup('_sleeperProc'))
+                            with self.raises(s_exc.SynErr):
+                                await proxy.runBackup('_sleeperProc')
 
                     info = await proxy.getBackupInfo()
                     errinfo = info.get('lastexception')
@@ -1203,7 +1218,8 @@ class CellTest(s_t_utils.SynTest):
                     with mock.patch.object(s_cell.Cell, 'BACKUP_SPAWN_TIMEOUT', 8.0):
 
                         with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_sleeper2Proc)):
-                            await self.asyncraises(s_exc.SynErr, proxy.runBackup('_sleeper2Proc'))
+                            with self.raises(s_exc.SynErr):
+                                await proxy.runBackup('_sleeper2Proc')
 
                         info = await proxy.getBackupInfo()
                         laststart2 = info['laststart']
@@ -1213,7 +1229,8 @@ class CellTest(s_t_utils.SynTest):
                         self.eq(errinfo['errinfo']['mesg'], 'backup subprocess start timed out')
 
                     with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_exiterProc)):
-                        await self.asyncraises(s_exc.SpawnExit, proxy.runBackup('_exiterProc'))
+                        with self.raises(s_exc.SpawnExit):
+                            await proxy.runBackup('_exiterProc')
 
                     info = await proxy.getBackupInfo()
                     laststart3 = info['laststart']
@@ -1293,10 +1310,12 @@ class CellTest(s_t_utils.SynTest):
                         return real
 
                     with mock.patch('shutil.disk_usage', lowspace):
-                        await self.asyncraises(s_exc.LowSpace, proxy.runBackup())
+                        with self.raises(s_exc.LowSpace):
+                            await proxy.runBackup()
 
                         with mock.patch('os.stat', diffdev):
-                            await self.asyncraises(s_exc.LowSpace, proxy.runBackup())
+                            with self.raises(s_exc.LowSpace):
+                                await proxy.runBackup()
 
                 user = await core.auth.getUserByName('root')
                 with self.raises(s_exc.SynErr) as cm:
@@ -1779,7 +1798,8 @@ class CellTest(s_t_utils.SynTest):
                                 await asyncio.wait_for(evt0.wait(), timeout=2)
 
                         fail = s_t_utils.alist(proxy.iterNewBackupArchive('alreadystreaming', remove=True))
-                        await self.asyncraises(s_exc.BackupAlreadyRunning, fail)
+                        with self.raises(s_exc.BackupAlreadyRunning):
+                            await fail
                         task.cancel()
                         await asyncio.wait_for(evt1.wait(), timeout=2)
 
@@ -1847,7 +1867,8 @@ class CellTest(s_t_utils.SynTest):
                     await asyncio.sleep(0)
 
                     fail = s_t_utils.alist(proxy.iterNewBackupArchive('alreadyrunning', remove=True))
-                    await self.asyncraises(s_exc.BackupAlreadyRunning, fail)
+                    with self.raises(s_exc.BackupAlreadyRunning):
+                        await fail
                     await asyncio.wait_for(task, 5)
 
             with tarfile.open(bkuppath, 'r:gz') as tar:

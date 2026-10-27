@@ -720,13 +720,18 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('test:float', 42.1))
 
             self.len(1, await core.nodes('[ test:float=42.0 :closed=0.0]'))
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ test:float=42.0 :closed=-1.0]'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ test:float=42.0 :closed=-1.0]')
             self.len(1, await core.nodes('[ test:float=42.0 :closed=360.0]'))
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ test:float=42.0 :closed=NaN]'))
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ test:float=42.0 :closed=360.1]'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ test:float=42.0 :closed=NaN]')
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ test:float=42.0 :closed=360.1]')
 
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ test:float=42.0 :open=0.0]'))
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ test:float=42.0 :open=360.0]'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ test:float=42.0 :open=0.0]')
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ test:float=42.0 :open=360.0]')
             self.len(1, await core.nodes('[ test:float=42.0 :open=0.001]'))
             self.len(1, await core.nodes('[ test:float=42.0 :open=359.0]'))
 

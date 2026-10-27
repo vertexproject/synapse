@@ -116,7 +116,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             path = os.path.join(dirn, 'test.lmdb')
 
-            await self.asyncraises(s_exc.BadArg, s_lmdbslab.Slab.anit(path, map_size=None))
+            with self.raises(s_exc.BadArg):
+                await s_lmdbslab.Slab.anit(path, map_size=None)
 
             slab = await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True)
 
@@ -1198,7 +1199,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     await mque.sets('woot', 1, ('lols',))
 
                 await mque.add('woot', {'some': 'info'})
-                await self.asyncraises(s_exc.DupName, mque.add('woot', {}))
+                with self.raises(s_exc.DupName):
+                    await mque.add('woot', {})
 
                 self.true(mque.exists('woot'))
 
@@ -1515,7 +1517,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq(b'hehe', slab.get(b'\x00\x01', db=foo))
 
                 # Can't re-open while already open
-                await self.asyncraises(s_exc.SlabAlreadyOpen, s_lmdbslab.Slab.anit(path))
+                with self.raises(s_exc.SlabAlreadyOpen):
+                    await s_lmdbslab.Slab.anit(path)
 
     async def test_lmdbslab_copyslab(self):
 
@@ -1536,7 +1539,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     foo = slabcopy.initdb('foo')
                     self.eq(b'hehe', slabcopy.get(b'\x00\x01', db=foo))
 
-                await self.asyncraises(s_exc.DataAlreadyExists, slab.copyslab(copypath))
+                with self.raises(s_exc.DataAlreadyExists):
+                    await slab.copyslab(copypath)
 
     async def test_lmdbbackup_saveto_yields(self):
 

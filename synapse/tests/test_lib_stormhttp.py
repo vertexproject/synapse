@@ -707,7 +707,8 @@ class StormHttpTest(s_test.SynTest):
             self.stormIsInWarn('HTTP proxy argument to $lib.null is deprecated', msgs)
             self.stormIsInPrint('connect to proxy 127.0.0.1:1', msgs)
 
-            await self.asyncraises(s_exc.BadArg, core.nodes('$lib.axon.wget("http://vertex.link", proxy=(1.1))'))
+            with self.raises(s_exc.BadArg):
+                await core.nodes('$lib.axon.wget("http://vertex.link", proxy=(1.1))')
 
             # todo: setting the synapse version can be removed once proxy=true support is released
             try:
@@ -734,7 +735,8 @@ class StormHttpTest(s_test.SynTest):
             self.stormIsInWarn('HTTP proxy argument to $lib.null is deprecated', msgs)
             self.stormIsInPrint('connect to proxy 127.0.0.1:1', msgs)
 
-            await self.asyncraises(s_exc.BadArg, core.nodes('$lib.inet.http.get("http://vertex.link", proxy=(1.1))'))
+            with self.raises(s_exc.BadArg):
+                await core.nodes('$lib.inet.http.get("http://vertex.link", proxy=(1.1))')
 
         async with self.getTestCore() as core:
 
@@ -1043,10 +1045,14 @@ class StormHttpTest(s_test.SynTest):
                 try:
                     oldv = core.axoninfo['synapse']['version']
                     core.axoninfo['synapse']['version'] = (2, 161, 0)
-                    await self.asyncraises(s_exc.BadVersion, core.callStorm(axon_queries['postfile'], opts=opts))
-                    await self.asyncraises(s_exc.BadVersion, core.callStorm(axon_queries['wget'], opts=opts))
-                    await self.asyncraises(s_exc.BadVersion, core.callStorm(axon_queries['wput'], opts=opts))
-                    await self.asyncraises(s_exc.BadVersion, core.nodes(axon_queries['urlfile'], opts=opts))
+                    with self.raises(s_exc.BadVersion):
+                        await core.callStorm(axon_queries['postfile'], opts=opts)
+                    with self.raises(s_exc.BadVersion):
+                        await core.callStorm(axon_queries['wget'], opts=opts)
+                    with self.raises(s_exc.BadVersion):
+                        await core.callStorm(axon_queries['wput'], opts=opts)
+                    with self.raises(s_exc.BadVersion):
+                        await core.nodes(axon_queries['urlfile'], opts=opts)
                 finally:
                     core.axoninfo['synapse']['version'] = oldv
 
@@ -1076,17 +1082,20 @@ class StormHttpTest(s_test.SynTest):
 
                 ## schema violation
                 sslopts['newp'] = 'wut'
-                await self.asyncraises(s_exc.SchemaViolation, core.callStorm(q, opts=opts))
+                with self.raises(s_exc.SchemaViolation):
+                    await core.callStorm(q, opts=opts)
                 sslopts.pop('newp')
 
                 ## missing key
                 sslopts['client_cert'] = user_fullchain
                 sslopts['client_key'] = None
-                await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
+                with self.raises(s_exc.BadArg):
+                    await core.callStorm(q, opts=opts)
 
                 ## bad cert
                 sslopts['client_cert'] = 'not-gonna-work'
-                await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
+                with self.raises(s_exc.BadArg):
+                    await core.callStorm(q, opts=opts)
 
             # Provide a CA certificate directly
             async with self.getTestCore(dirn=dirn) as core:

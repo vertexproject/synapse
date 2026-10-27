@@ -112,7 +112,8 @@ class AuthTest(s_test.SynTest):
             self.none(user.allowed(('boo', 'foo')))
             self.eq('yolo', user.allowed(('boo', 'foo'), default='yolo'))
 
-            await self.asyncraises(s_exc.NoSuchRole, user.revoke('newp'))
+            with self.raises(s_exc.NoSuchRole):
+                await user.revoke('newp')
 
             await user.revoke(role.iden)
             self.none(user.allowed(('baz', 'faz')))
@@ -124,12 +125,14 @@ class AuthTest(s_test.SynTest):
             # second grant does nothing
             await user.grant(role.iden)
 
-            await self.asyncraises(s_exc.NoSuchRole, auth.delRole('accountants'))
+            with self.raises(s_exc.NoSuchRole):
+                await auth.delRole('accountants')
 
             await auth.delRole(role.iden)
             self.false(user.allowed(('baz', 'faz')))
 
-            await self.asyncraises(s_exc.NoSuchUser, auth.delUser('fred@accountancy.com'))
+            with self.raises(s_exc.NoSuchUser):
+                await auth.delUser('fred@accountancy.com')
 
             await auth.delUser(user.iden)
             self.false(user.allowed(('baz', 'faz')))
@@ -342,7 +345,8 @@ class AuthTest(s_test.SynTest):
                 # Rando can access main view but not a fork
                 self.eq(1, await fredcore.count('test:int'))
 
-                await self.asyncraises(s_exc.AuthDeny, fredcore.count('test:int', opts=viewopts))
+                with self.raises(s_exc.AuthDeny):
+                    await fredcore.count('test:int', opts=viewopts)
 
                 viewiden = view2.iden
                 layriden = view2.layers[0].iden
@@ -350,7 +354,8 @@ class AuthTest(s_test.SynTest):
                 # Add to a non-existent authgate
                 rule = (True, ('view', 'read'))
                 badiden = 'XXX'
-                await self.asyncraises(s_exc.NoSuchAuthGate, prox.addUserRule(fred['iden'], rule, gateiden=badiden))
+                with self.raises(s_exc.NoSuchAuthGate):
+                    await prox.addUserRule(fred['iden'], rule, gateiden=badiden)
 
                 # Rando can access forked view with explicit perms
                 await prox.addUserRule(fred['iden'], rule, gateiden=viewiden)
@@ -359,8 +364,10 @@ class AuthTest(s_test.SynTest):
                 friends = await prox.addRole('friends')
 
                 # But still can't write to layer
-                await self.asyncraises(s_exc.AuthDeny, fredcore.count('[test:int=12]', opts=viewopts))
-                await self.asyncraises(s_exc.AuthDeny, fredcore.count('test:int=11 [:loc=us]', opts=viewopts))
+                with self.raises(s_exc.AuthDeny):
+                    await fredcore.count('[test:int=12]', opts=viewopts)
+                with self.raises(s_exc.AuthDeny):
+                    await fredcore.count('test:int=11 [:loc=us]', opts=viewopts)
 
                 # fred can write to forked view's write layer with explicit perm through role
 
@@ -368,18 +375,21 @@ class AuthTest(s_test.SynTest):
                 await prox.addRoleRule(friends['iden'], rule, gateiden=layriden)
 
                 # Before granting, still fails
-                await self.asyncraises(s_exc.AuthDeny, fredcore.count('[test:int=12]', opts=viewopts))
+                with self.raises(s_exc.AuthDeny):
+                    await fredcore.count('[test:int=12]', opts=viewopts)
 
                 # After granting, succeeds
                 await prox.addUserRole(fred['iden'], friends['iden'])
                 self.eq(1, await fredcore.count('test:int=11 [:loc=ru]', opts=viewopts))
 
                 # But adding a node still fails
-                await self.asyncraises(s_exc.AuthDeny, fredcore.count('[test:int=12]', opts=viewopts))
+                with self.raises(s_exc.AuthDeny):
+                    await fredcore.count('[test:int=12]', opts=viewopts)
 
                 # After removing rule from friends, fails again
                 await prox.delRoleRule(friends['iden'], rule, gateiden=layriden)
-                await self.asyncraises(s_exc.AuthDeny, fredcore.count('test:int=11 [:loc=us]', opts=viewopts))
+                with self.raises(s_exc.AuthDeny):
+                    await fredcore.count('test:int=11 [:loc=us]', opts=viewopts)
 
                 rule = (True, ('node', 'add',))
                 await prox.addUserRule(fred['iden'], rule, gateiden=layriden)
@@ -388,7 +398,8 @@ class AuthTest(s_test.SynTest):
                 # Add an explicit DENY for adding test:int nodes
                 rule = (False, ('node', 'add', 'test:int'))
                 await prox.addUserRule(fred['iden'], rule, indx=0, gateiden=layriden)
-                await self.asyncraises(s_exc.AuthDeny, fredcore.count('[test:int=13]', opts=viewopts))
+                with self.raises(s_exc.AuthDeny):
+                    await fredcore.count('[test:int=13]', opts=viewopts)
 
                 # Adding test:str is allowed though
                 self.eq(1, await fredcore.count('[test:str=foo]', opts=viewopts))
@@ -407,7 +418,8 @@ class AuthTest(s_test.SynTest):
 
                 # Deleting a role removes all the authgate-specific role rules
                 await prox.delRole(friends['iden'])
-                await self.asyncraises(s_exc.AuthDeny, fredcore.count('test:int=11 [:loc=ru]', opts=viewopts))
+                with self.raises(s_exc.AuthDeny):
+                    await fredcore.count('test:int=11 [:loc=ru]', opts=viewopts)
 
                 friends = await prox.addRole('friends')
                 await prox.addRoleRule(friends['iden'], rule, gateiden=layriden)

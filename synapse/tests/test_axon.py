@@ -357,8 +357,10 @@ Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
             self.true(await s_coro.event_wait(evt, 5))
 
             # make sure exceptions within sha256tolink get re-raised
-            await self.asyncraises(s_exc.NoSuchFile, s_t_utils.alist(axon.csvrows(pennhash)))
-            await self.asyncraises(s_exc.NoSuchFile, s_t_utils.alist(axon.readlines(s_common.ehex(pennhash))))
+            with self.raises(s_exc.NoSuchFile):
+                await s_t_utils.alist(axon.csvrows(pennhash))
+            with self.raises(s_exc.NoSuchFile):
+                await s_t_utils.alist(axon.readlines(s_common.ehex(pennhash)))
 
         # CSV with alternative delimiter
         data = '''foo|bar|baz
@@ -1000,17 +1002,26 @@ bar baz",vv
             async with await s_telepath.openurl(aurl) as prox:  # type: s_axon.AxonApi
                 # Ensure the user can't do things with bytes they don't have permissions too.
                 await self.agenraises(s_exc.AuthDeny, prox.get(asdfhash))
-                await self.asyncraises(s_exc.AuthDeny, prox.has(asdfhash))
-                await self.asyncraises(s_exc.AuthDeny, prox.hashset(asdfhash))
+                with self.raises(s_exc.AuthDeny):
+                    await prox.has(asdfhash)
+                with self.raises(s_exc.AuthDeny):
+                    await prox.hashset(asdfhash)
                 await self.agenraises(s_exc.AuthDeny, prox.hashes(0))
                 await self.agenraises(s_exc.AuthDeny, prox.history(0))
-                await self.asyncraises(s_exc.AuthDeny, prox.del_(asdfhash))
-                await self.asyncraises(s_exc.AuthDeny, prox.dels((asdfhash,)))
-                await self.asyncraises(s_exc.AuthDeny, prox.wants((asdfhash,)))
-                await self.asyncraises(s_exc.AuthDeny, prox.put(abuf))
-                await self.asyncraises(s_exc.AuthDeny, prox.puts((abuf,)))
-                await self.asyncraises(s_exc.AuthDeny, prox.upload())
-                await self.asyncraises(s_exc.AuthDeny, prox.metrics())
+                with self.raises(s_exc.AuthDeny):
+                    await prox.del_(asdfhash)
+                with self.raises(s_exc.AuthDeny):
+                    await prox.dels((asdfhash,))
+                with self.raises(s_exc.AuthDeny):
+                    await prox.wants((asdfhash,))
+                with self.raises(s_exc.AuthDeny):
+                    await prox.put(abuf)
+                with self.raises(s_exc.AuthDeny):
+                    await prox.puts((abuf,))
+                with self.raises(s_exc.AuthDeny):
+                    await prox.upload()
+                with self.raises(s_exc.AuthDeny):
+                    await prox.metrics()
                 # now add rules and run the test suite
                 await user.addRule((True, ('health',)))
                 await user.addRule((True, ('axon', 'get',)))
@@ -1089,7 +1100,8 @@ bar baz",vv
             self.false(resp.get('ok'))
             self.isin('InvalidUrlClientError: vertex.link', resp.get('mesg', ''))
 
-            await self.asyncraises(s_exc.BadArg, proxy.wget('http://vertex.link', proxy=1.1))
+            with self.raises(s_exc.BadArg):
+                await proxy.wget('http://vertex.link', proxy=1.1)
 
     async def test_axon_wput(self):
 

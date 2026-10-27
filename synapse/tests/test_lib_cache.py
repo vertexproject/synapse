@@ -98,7 +98,8 @@ class CacheTest(s_t_utils.SynTest):
 
         cache = s_cache.FixedCache(callback, size=2)
 
-        await self.asyncraises(s_exc.BadOperArg, cache.aget('FOO'))
+        with self.raises(s_exc.BadOperArg):
+            await cache.aget('FOO')
 
         async def acallback(name):
             return name.lower()

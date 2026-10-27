@@ -676,7 +676,8 @@ class StormTypesTest(s_test.SynTest):
                 await core.callStorm('return($lib.guid(foo, valu=bar))')
             self.eq('Valu cannot be specified if positional arguments are provided', ectx.exception.errinfo['mesg'])
 
-            await self.asyncraises(s_exc.NoSuchType, core.callStorm('return($lib.guid(valu=$lib))'))
+            with self.raises(s_exc.NoSuchType):
+                await core.callStorm('return($lib.guid(valu=$lib))')
 
             async with core.getLocalProxy() as prox:
                 mesgs = [m async for m in prox.storm('$lib.print("hi there")') if m[0] == 'print']
@@ -1488,7 +1489,8 @@ class StormTypesTest(s_test.SynTest):
             self.eq('', await core.callStorm(q))
 
             q = '$foo="quickbrownfox" return ( $foo.slice("newp") )'
-            await self.asyncraises(s_exc.BadCast, core.callStorm(q))
+            with self.raises(s_exc.BadCast):
+                await core.callStorm(q)
 
             q = '$foo="foobar" return ( $foo.reverse() )'
             self.eq('raboof', await core.callStorm(q))
@@ -4669,12 +4671,14 @@ class StormTypesTest(s_test.SynTest):
 
             # sad
 
-            await self.asyncraises(s_exc.NoSuchForm, core.callStorm(scmd, opts={'vars': {'form': 'newp:newp'}}))
+            with self.raises(s_exc.NoSuchForm):
+                await core.callStorm(scmd, opts={'vars': {'form': 'newp:newp'}})
 
             lowuser = await core.auth.addUser('low')
             lowopts = opts | {'user': lowuser.iden, 'view': view_prop}
 
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=lowopts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=lowopts)
 
             await lowuser.addRule((True, ('view', 'read')), gateiden=view_prop)
             await core.callStorm(scmd, opts=lowopts)
@@ -4954,12 +4958,14 @@ class StormTypesTest(s_test.SynTest):
 
             # Can't merge the first forked view if it has children
             q = f'$lib.view.get({forkiden}).merge()'
-            await self.asyncraises(s_exc.CantMergeView, core.callStorm(q))
+            with self.raises(s_exc.CantMergeView):
+                await core.callStorm(q)
 
             # Can't merge the child forked view if the parent is read only
             core.views[childiden].parent.layers[0].readonly = True
             q = f'$lib.view.get({childiden}).merge()'
-            await self.asyncraises(s_exc.ReadOnlyLayer, core.callStorm(q))
+            with self.raises(s_exc.ReadOnlyLayer):
+                await core.callStorm(q)
 
             core.views[childiden].parent.layers[0].readonly = False
             await core.nodes(q)
@@ -4975,15 +4981,22 @@ class StormTypesTest(s_test.SynTest):
             self.notin(childiden, core.views)
 
             # Sad paths
-            await self.asyncraises(s_exc.NoSuchView, core.nodes('$lib.view.del(foo)'))
-            await self.asyncraises(s_exc.NoSuchView, core.nodes('$lib.view.get(foo)'))
-            await self.asyncraises(s_exc.CantMergeView, core.nodes('$lib.view.get().merge()'))
-            await self.asyncraises(s_exc.NoSuchLayer, core.nodes(f'view.add --layers {s_common.guid()}'))
-            await self.asyncraises(s_exc.SynErr, core.nodes('$lib.view.del($lib.view.get().iden)'))
-            await self.asyncraises(s_exc.SchemaViolation, core.nodes('$lib.view.add(([]))'))
+            with self.raises(s_exc.NoSuchView):
+                await core.nodes('$lib.view.del(foo)')
+            with self.raises(s_exc.NoSuchView):
+                await core.nodes('$lib.view.get(foo)')
+            with self.raises(s_exc.CantMergeView):
+                await core.nodes('$lib.view.get().merge()')
+            with self.raises(s_exc.NoSuchLayer):
+                await core.nodes(f'view.add --layers {s_common.guid()}')
+            with self.raises(s_exc.SynErr):
+                await core.nodes('$lib.view.del($lib.view.get().iden)')
+            with self.raises(s_exc.SchemaViolation):
+                await core.nodes('$lib.view.add(([]))')
 
             q = '$iden = $lib.layer.get().iden $lib.view.add(([$iden, $iden]))'
-            await self.asyncraises(s_exc.SchemaViolation, core.nodes(q))
+            with self.raises(s_exc.SchemaViolation):
+                await core.nodes(q)
 
             # Check helper commands
             # Get the main view
@@ -5440,13 +5453,16 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint(f'Deleted trigger: {goodbuid}', mesgs)
 
             q = 'trigger.del deadbeef12341234'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
             q = 'trigger.enable deadbeef12341234'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
             q = 'trigger.disable deadbeef12341234'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
             mesgs = await core.stormlist(f'trigger.disable {goodbuid2}')
             self.stormIsInPrint('Disabled trigger', mesgs)
@@ -5458,7 +5474,8 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('Modified trigger', mesgs)
 
             q = 'trigger.mod deadbeef12341234 {#foo}'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
             await core.nodes('trigger.add tag:add --tag another --query {[ +#count2 ]}')
 
@@ -5657,7 +5674,8 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint(f'Modified trigger: {othr}', mesgs)
 
             await core.stormlist(f'trigger.del {othr}')
-            await self.asyncraises(s_exc.NoSuchIden, core.callStorm(f'return($lib.trigger.get({othr}))'))
+            with self.raises(s_exc.NoSuchIden):
+                await core.callStorm(f'return($lib.trigger.get({othr}))')
 
             # Test manipulating triggers as another user
             bond = await core.auth.addUser('bond')
@@ -7514,7 +7532,8 @@ words\tword\twrd'''
             # wget
 
             scmd = 'return($lib.axon.wget($url, ssl=$lib.false).code)'
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
             self.eq(200, await core.callStorm(scmd, opts=opts))
@@ -7527,7 +7546,8 @@ words\tword\twrd'''
             # wput
 
             scmd = 'return($lib.axon.wput($sha256, $url, method=post, ssl=$lib.false).code)'
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             await visi.addRule((True, ('storm', 'lib', 'axon', 'wput')))
             self.eq(200, await core.callStorm(scmd, opts=opts))
@@ -7541,20 +7561,24 @@ words\tword\twrd'''
 
             opts['view'] = mainview
             scmd = 'yield $lib.axon.urlfile($url, ssl=$lib.false) return($node)'
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             await visi.addRule((True, ('node', 'add', 'file:bytes')), gateiden=mainlayr)
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             await visi.addRule((True, ('node', 'add', 'inet:urlfile')), gateiden=mainlayr)
             self.nn(await core.callStorm(scmd, opts=opts))
 
             # won't work in another view
             opts['view'] = forkview
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
             opts.pop('view')
 
             await visi.delRule((True, ('storm', 'lib', 'axon', 'wget')))
@@ -7566,7 +7590,8 @@ words\tword\twrd'''
             # del
 
             scmd = 'return($lib.axon.del($sha256))'
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             await visi.addRule((True, ('storm', 'lib', 'axon', 'del')))
             self.true(await core.callStorm(scmd, opts=opts))
@@ -7581,7 +7606,8 @@ words\tword\twrd'''
             # dels
 
             scmd = 'return($lib.axon.dels(($sha256,)))'
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             await visi.addRule((True, ('storm', 'lib', 'axon', 'del')))
             self.eq([True], await core.callStorm(scmd, opts=opts))
@@ -7596,7 +7622,8 @@ words\tword\twrd'''
             # list
 
             scmd = '$x=$lib.null for $x in $lib.axon.list() { } return($x)'
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             await visi.addRule((True, ('storm', 'lib', 'axon', 'has')))
             self.nn(await core.callStorm(scmd, opts=opts))
@@ -7609,7 +7636,8 @@ words\tword\twrd'''
             # readlines
 
             scmd = '$x=$lib.null for $x in $lib.axon.readlines($sha256) { } return($x)'
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             await visi.addRule((True, ('storm', 'lib', 'axon', 'get')))
             self.nn(await core.callStorm(scmd, opts=opts))
@@ -7622,7 +7650,8 @@ words\tword\twrd'''
             # jsonlines
 
             scmd = '$x=$lib.null for $x in $lib.axon.jsonlines($sha256) { } return($x)'
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             await visi.addRule((True, ('storm', 'lib', 'axon', 'get')))
             self.nn(await core.callStorm(scmd, opts=opts))
@@ -7635,7 +7664,8 @@ words\tword\twrd'''
             # csvrows
 
             scmd = '$x=$lib.null for $x in $lib.axon.csvrows($sha256) { } return($x)'
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             await visi.addRule((True, ('storm', 'lib', 'axon', 'get')))
             self.nn(await core.callStorm(scmd, opts=opts))
@@ -7648,7 +7678,8 @@ words\tword\twrd'''
             # metrics
 
             scmd = 'return($lib.axon.metrics())'
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             await visi.addRule((True, ('storm', 'lib', 'axon', 'has')))
             self.nn(await core.callStorm(scmd, opts=opts))
@@ -8406,8 +8437,8 @@ words\tword\twrd'''
             emptyhash = s_common.ehex(emptyhash)
 
             opts = {'user': visi.iden, 'vars': {'sha256': sha256_s, 'emptyhash': emptyhash}}
-            await self.asyncraises(s_exc.AuthDeny,
-                core.callStorm('return($lib.axon.read($sha256, offs=3, size=3))', opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.axon.read($sha256, offs=3, size=3))', opts=opts)
             await visi.addRule((True, ('storm', 'lib', 'axon', 'get')))
 
             q = 'return($lib.axon.read($sha256, offs=3, size=3))'
@@ -8421,11 +8452,14 @@ words\tword\twrd'''
             self.eq(b'', await core.callStorm(q, opts=opts))
 
             q = 'return($lib.axon.read($sha256, size=0))'
-            await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
+            with self.raises(s_exc.BadArg):
+                await core.callStorm(q, opts=opts)
             q = 'return($lib.axon.read($sha256, offs=-1, size=1))'
-            await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
+            with self.raises(s_exc.BadArg):
+                await core.callStorm(q, opts=opts)
             q = 'return($lib.axon.read($sha256, size=2097152))'
-            await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
+            with self.raises(s_exc.BadArg):
+                await core.callStorm(q, opts=opts)
 
             intdata = struct.pack('>QQQ', 1, 2, 3)
             size, sha256 = await core.axon.put(intdata)
@@ -8434,7 +8468,8 @@ words\tword\twrd'''
 
             await visi.delRule((True, ('storm', 'lib', 'axon', 'get')))
             q = 'return($lib.axon.unpack($sha256, fmt=">Q"))'
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(q, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(q, opts=opts)
             await visi.addRule((True, ('storm', 'lib', 'axon', 'get')))
 
             q = 'return($lib.axon.unpack($sha256, fmt=">Q"))'
@@ -8447,7 +8482,9 @@ words\tword\twrd'''
             self.eq((2, 3), await core.callStorm(q, opts=opts))
 
             q = 'return($lib.axon.unpack($sha256, fmt="not a valid format"))'
-            await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
+            with self.raises(s_exc.BadArg):
+                await core.callStorm(q, opts=opts)
 
             q = 'return($lib.axon.unpack($sha256, fmt=">Q", offs=24))'
-            await self.asyncraises(s_exc.BadDataValu, core.callStorm(q, opts=opts))
+            with self.raises(s_exc.BadDataValu):
+                await core.callStorm(q, opts=opts)

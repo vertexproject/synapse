@@ -378,7 +378,8 @@ class BaseTest(s_t_utils.SynTest):
     async def test_baseref_gen(self):
 
         async with await s_base.BaseRef.anit() as refs:
-            await self.asyncraises(s_exc.NoSuchCtor, refs.gen('woot'))
+            with self.raises(s_exc.NoSuchCtor):
+                await refs.gen('woot')
 
         async def ctor(name):
             return await s_base.Base.anit()
@@ -582,7 +583,8 @@ class BaseTest(s_t_utils.SynTest):
             task = base.schedCoro(slowtask())
             self.true(await s_coro.event_wait(event, 3.0))
 
-        await self.asyncraises(asyncio.CancelledError, task)
+        with self.raises(asyncio.CancelledError):
+            await task
 
     async def test_lib_base_scope(self):
 

@@ -1312,7 +1312,8 @@ class LayerTest(s_t_utils.SynTest):
             cdir = s_common.gendir(copylayr.dirn, 'adir')
             self.true(os.path.exists(cdir))
 
-            await self.asyncraises(s_exc.NoSuchLayer, prox.cloneLayer('newp'))
+            with self.raises(s_exc.NoSuchLayer):
+                await prox.cloneLayer('newp')
 
             self.false(layr.readonly)
 
@@ -1700,8 +1701,10 @@ class LayerTest(s_t_utils.SynTest):
                 self.gt(len(edits2), len(edits1))
 
                 self.true(await core.callStorm('$layer=$lib.layer.get() $layer.set(readonly, $lib.true) return($layer.get(readonly))'))
-                await self.asyncraises(s_exc.IsReadOnly, core.nodes('[inet:ipv4=7.7.7.7]'))
-                await self.asyncraises(s_exc.IsReadOnly, core.nodes('$lib.layer.get().set(logedits, $lib.false)'))
+                with self.raises(s_exc.IsReadOnly):
+                    await core.nodes('[inet:ipv4=7.7.7.7]')
+                with self.raises(s_exc.IsReadOnly):
+                    await core.nodes('$lib.layer.get().set(logedits, $lib.false)')
 
                 self.false(await core.callStorm('$layer=$lib.layer.get() $layer.set(readonly, $lib.false) return($layer.get(readonly))'))
                 self.len(1, await core.nodes('[inet:ipv4=7.7.7.7]'))

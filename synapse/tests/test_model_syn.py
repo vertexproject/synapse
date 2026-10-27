@@ -392,13 +392,16 @@ class SynModelTest(s_t_utils.SynTest):
             self.len(2, nodes)
 
             # Can't add an edge to a runt node
-            await self.asyncraises(s_exc.IsRuntForm, nodes[0].addEdge('newp', 'newp'))
+            with self.raises(s_exc.IsRuntForm):
+                await nodes[0].addEdge('newp', 'newp')
 
             q = core.nodes('syn:form [ +(newp)> { inet:ipv4 } ]')
-            await self.asyncraises(s_exc.IsRuntForm, q)
+            with self.raises(s_exc.IsRuntForm):
+                await q
 
             q = core.nodes('test:str [ +(newp)> { syn:form } ]')
-            await self.asyncraises(s_exc.IsRuntForm, q)
+            with self.raises(s_exc.IsRuntForm):
+                await q
 
         # Ensure that the model runts are re-populated after a model load has occurred.
         with self.getTestDir() as dirn:

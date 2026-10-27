@@ -490,7 +490,8 @@ class NodeTest(s_t_utils.SynTest):
             self.len(0, [m for m in msgs if m[0] == 'print'])
 
             await core.nodes('[ test:str=foo <(baz)+ { [test:str=baz] } ]')
-            await self.asyncraises(s_exc.CantDelNode, core.nodes('test:str=foo | delnode'))
+            with self.raises(s_exc.CantDelNode):
+                await core.nodes('test:str=foo | delnode')
 
             await core.nodes('test:str=foo | delnode --force')
             self.len(0, await core.nodes('test:str=foo'))

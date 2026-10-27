@@ -135,9 +135,11 @@ class StormTest(s_t_utils.SynTest):
             self.eq(props.get('name'), 'burrito corp')
             self.eq(props.get('desc'), 'burritos man')
 
-            await self.asyncraises(s_exc.BadTypeValu, core.addNode(core.auth.rootuser, 'ou:org', {'name': 'org name 77', 'phone': 'lolnope'}, props={'desc': 'an org desc'}))
+            with self.raises(s_exc.BadTypeValu):
+                await core.addNode(core.auth.rootuser, 'ou:org', {'name': 'org name 77', 'phone': 'lolnope'}, props={'desc': 'an org desc'})
 
-            await self.asyncraises(s_exc.BadTypeValu, core.addNode(core.auth.rootuser, 'ou:org', {'name': 'org name 77'}, props={'desc': 'an org desc', 'phone': 'lolnope'}))
+            with self.raises(s_exc.BadTypeValu):
+                await core.addNode(core.auth.rootuser, 'ou:org', {'name': 'org name 77'}, props={'desc': 'an org desc', 'phone': 'lolnope'})
 
             node = await core.addNode(core.auth.rootuser, 'ou:org', {'$try': True, '$props': {'phone': 'invalid'}, 'name': 'org name 77'}, props={'desc': 'an org desc'})
             self.nn(node)
@@ -3083,7 +3085,8 @@ class StormTest(s_t_utils.SynTest):
                     'query': '...',
                 })
 
-                await self.asyncraises(s_exc.BadSyntax, core.addStormPkg(pkg))
+                with self.raises(s_exc.BadSyntax):
+                    await core.addStormPkg(pkg)
 
                 pkg['inits']['versions'].pop(2)
 
@@ -3095,7 +3098,8 @@ class StormTest(s_t_utils.SynTest):
                     'query': '$lib.print("")',
                 })
 
-                await self.asyncraises(s_exc.BadPkgDef, core.addStormPkg(pkg))
+                with self.raises(s_exc.BadPkgDef):
+                    await core.addStormPkg(pkg)
 
                 pkg['inits']['versions'].pop(2)
 
@@ -3280,11 +3284,13 @@ class StormTest(s_t_utils.SynTest):
 
             # Max recursion fail
             q = '[ inet:fqdn=www.vertex.link ] | tree { inet:fqdn=www.vertex.link }'
-            await self.asyncraises(s_exc.RecursionLimitHit, core.nodes(q))
+            with self.raises(s_exc.RecursionLimitHit):
+                await core.nodes(q)
 
             # Runtsafety test
             q = '[ inet:fqdn=www.vertex.link ] $q=:domain | tree $q'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
     async def test_storm_movetag(self):
 
@@ -3511,7 +3517,8 @@ class StormTest(s_t_utils.SynTest):
 
             # Runtsafety test
             q = '[ test:str=hehe ]  | movetag $node.iden() haha'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
     async def test_storm_spin(self):
 
@@ -4038,7 +4045,8 @@ class StormTest(s_t_utils.SynTest):
 
             # Sad path
             q = 'inet:ipv4=1.2.3.4 | tee'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
             # Runtsafe tee
             q = 'tee { inet:ipv4=1.2.3.4 } { inet:ipv4 -> * }'
@@ -4139,7 +4147,8 @@ class StormTest(s_t_utils.SynTest):
 
             # Runtsafety test
             q = '[ inet:fqdn=www.vertex.link ] $q=:domain | tee $q'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
     async def test_storm_parallel(self):
 
@@ -4168,7 +4177,8 @@ class StormTest(s_t_utils.SynTest):
 
             # Runtsafety test
             q = '[ inet:fqdn=www.vertex.link ] $q=:domain | parallel $q'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
             nodes = await core.nodes('ou:org | parallel ${ $foo=bar [ :name=$foo ]}')
             self.true(all([n.get('name') == 'bar' for n in nodes]))
@@ -5888,7 +5898,8 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             q = 'runas visi { [ inet:fqdn=bar.com ] }'
-            await self.asyncraises(s_exc.AuthDeny, core.nodes(q))
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes(q)
 
             await visi.addRule((True, ('node', 'add')))
 
@@ -5903,7 +5914,8 @@ class StormTest(s_t_utils.SynTest):
             self.len(4, [item for item in items if item[-1]['user'] == visi.iden])
 
             q = 'inet:fqdn $n=$node runas visi { yield $n [ +#atag ] }'
-            await self.asyncraises(s_exc.AuthDeny, core.nodes(q))
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes(q)
 
             await visi.addRule((True, ('node', 'tag', 'add')))
 
@@ -5912,14 +5924,16 @@ class StormTest(s_t_utils.SynTest):
                 self.nn(node.tags.get('atag'))
 
             async with core.getLocalProxy(user='visi') as asvisi:
-                await self.asyncraises(s_exc.AuthDeny, asvisi.callStorm(q))
+                with self.raises(s_exc.AuthDeny):
+                    await asvisi.callStorm(q)
 
             q = '$tag=btag runas visi { inet:fqdn=foo.com [ +#$tag ] }'
             await core.nodes(q)
             nodes = await core.nodes('inet:fqdn=foo.com')
             self.nn(nodes[0].tags.get('btag'))
 
-            await self.asyncraises(s_exc.NoSuchUser, core.nodes('runas newp { inet:fqdn=foo.com }'))
+            with self.raises(s_exc.NoSuchUser):
+                await core.nodes('runas newp { inet:fqdn=foo.com }')
 
             cmd0 = {
                 'name': 'asroot.not',
@@ -5950,7 +5964,8 @@ class StormTest(s_t_utils.SynTest):
             await core.stormlist('auth.user.addrule visi power-ups.woot.user')
             await core.callStorm('return($lib.import(woot.runas).asroot())', opts=asvisi)
 
-            await self.asyncraises(s_exc.AuthDeny, core.nodes('asroot.not'))
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('asroot.not')
 
             nodes = await core.nodes('asroot.yep | inet:fqdn=foo.com')
             for node in nodes:

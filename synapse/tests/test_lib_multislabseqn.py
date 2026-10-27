@@ -161,7 +161,8 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 retn = await msqn.add('foo13b', indx=13)
                 self.eq(13, retn)
 
-                await self.asyncraises(s_exc.BadIndxValu, msqn.add('foo7', indx=7))
+                with self.raises(s_exc.BadIndxValu):
+                    await msqn.add('foo7', indx=7)
 
                 retn = await alist(msqn.iter(1))
                 exp = [(11, 'foo11b'), (12, 'foo12'), (13, 'foo13b'), (14, 'foo14'), (15, 'done')]
@@ -259,7 +260,8 @@ class MultiSlabSeqn(s_t_utils.SynTest):
 
                 # cull with only one seqn
                 self.true(await msqn.cull(2))
-                await self.asyncraises(s_exc.BadIndxValu, msqn.get(2))
+                with self.raises(s_exc.BadIndxValu):
+                    await msqn.get(2)
 
                 await msqn.rotate()
 
@@ -274,15 +276,18 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 self.eq('foo4', retn)
 
                 self.true(await msqn.cull(4))
-                await self.asyncraises(s_exc.BadIndxValu, msqn.get(4))
-                await self.asyncraises(s_exc.BadIndxValu, msqn.add('foo12', indx=4))
+                with self.raises(s_exc.BadIndxValu):
+                    await msqn.get(4)
+                with self.raises(s_exc.BadIndxValu):
+                    await msqn.add('foo12', indx=4)
 
                 retn = await msqn.get(5)
                 self.eq('foo5', retn)
 
                 it = msqn.iter(0)
                 retn = await it.__anext__()
-                await self.asyncraises(s_exc.SlabInUse, msqn.cull(6))
+                with self.raises(s_exc.SlabInUse):
+                    await msqn.cull(6)
                 await it.aclose()
 
                 # culling on the tail just moves firstindx forward
@@ -295,8 +300,10 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 retn = await alist(msqn.iter(1))
                 self.eq([(12, 'foo12'), (13, 'foo13'), (14, 'foo14')], retn)
 
-                await self.asyncraises(s_exc.BadIndxValu, msqn.get(11))
-                await self.asyncraises(s_exc.BadIndxValu, msqn.add('foo', indx=11))
+                with self.raises(s_exc.BadIndxValu):
+                    await msqn.get(11)
+                with self.raises(s_exc.BadIndxValu):
+                    await msqn.add('foo', indx=11)
 
                 # Make sure it deleted a slab
                 fns = sorted(s_common.listdir(dirn, glob='*.lmdb'))

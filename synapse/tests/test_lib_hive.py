@@ -147,9 +147,12 @@ class HiveTest(s_test.SynTest):
     async def test_hive_rename(self):
         async with self.getTestHive() as hive:
             await hive.loadHiveTree(tree0)
-            await self.asyncraises(s_exc.BadHivePath, hive.rename(('hehe',), ('hoho',)))
-            await self.asyncraises(s_exc.BadHivePath, hive.rename(('newp',), ('newp2',)))
-            await self.asyncraises(s_exc.BadHivePath, hive.rename(('hehe',), ('hehe', 'foo')))
+            with self.raises(s_exc.BadHivePath):
+                await hive.rename(('hehe',), ('hoho',))
+            with self.raises(s_exc.BadHivePath):
+                await hive.rename(('newp',), ('newp2',))
+            with self.raises(s_exc.BadHivePath):
+                await hive.rename(('hehe',), ('hehe', 'foo'))
 
             await hive.rename(('hehe',), ('lolo',))
             self.eq('haha', await hive.get(('lolo',)))
