@@ -577,7 +577,8 @@ class BaseTest(s_t_utils.SynTest):
 
         items = [item async for item in s_base.schedGenr(goodgenr())]
         self.eq(items, ['foo', 'bar'])
-        await self.agenraises(s_exc.SynErr, s_base.schedGenr(badgenr()))
+        with self.raises(s_exc.SynErr):
+            await s_t_utils.alist(s_base.schedGenr(badgenr()))
 
         async with await s_base.Base.anit() as base:
             task = base.schedCoro(slowtask())

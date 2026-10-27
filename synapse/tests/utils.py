@@ -1940,10 +1940,13 @@ class SynTest(unittest.TestCase):
         '''
         Helper to validate that an async generator will throw an exception.
 
+        Deprecated and will be removed on 2026-12-31. Use ``with self.raises(exc): await alist(genr)`` instead.
+
         Args:
             exc: Exception class to catch
             gfunc: async Generator
         '''
+        s_common.deprdate('SynTest.agenraises()', '2026-12-31')
         with self.raises(exc):
             await alist(gfunc)
 

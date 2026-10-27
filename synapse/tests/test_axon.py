@@ -1001,13 +1001,16 @@ bar baz",vv
             aurl = f'tcp://user:test@127.0.0.1:{port}/axon'
             async with await s_telepath.openurl(aurl) as prox:  # type: s_axon.AxonApi
                 # Ensure the user can't do things with bytes they don't have permissions too.
-                await self.agenraises(s_exc.AuthDeny, prox.get(asdfhash))
+                with self.raises(s_exc.AuthDeny):
+                    await s_t_utils.alist(prox.get(asdfhash))
                 with self.raises(s_exc.AuthDeny):
                     await prox.has(asdfhash)
                 with self.raises(s_exc.AuthDeny):
                     await prox.hashset(asdfhash)
-                await self.agenraises(s_exc.AuthDeny, prox.hashes(0))
-                await self.agenraises(s_exc.AuthDeny, prox.history(0))
+                with self.raises(s_exc.AuthDeny):
+                    await s_t_utils.alist(prox.hashes(0))
+                with self.raises(s_exc.AuthDeny):
+                    await s_t_utils.alist(prox.history(0))
                 with self.raises(s_exc.AuthDeny):
                     await prox.del_(asdfhash)
                 with self.raises(s_exc.AuthDeny):

@@ -828,13 +828,16 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(retn, [-99999.9, -42.1])
 
             # <= NaN
-            await self.agenraises(s_exc.NotANumberCompared, stor.indxBy(indxby, '<=', math.nan))
+            with self.raises(s_exc.NotANumberCompared):
+                await alist(stor.indxBy(indxby, '<=', math.nan))
 
             # >= NaN
-            await self.agenraises(s_exc.NotANumberCompared, stor.indxBy(indxby, '>=', math.nan))
+            with self.raises(s_exc.NotANumberCompared):
+                await alist(stor.indxBy(indxby, '>=', math.nan))
 
             # 1.0 to NaN
-            await self.agenraises(s_exc.NotANumberCompared, stor.indxBy(indxby, 'range=', (1.0, math.nan)))
+            with self.raises(s_exc.NotANumberCompared):
+                await alist(stor.indxBy(indxby, 'range=', (1.0, math.nan)))
 
     async def test_layer_stortype_guid(self):
         stor = s_layer.StorTypeGuid(None)
