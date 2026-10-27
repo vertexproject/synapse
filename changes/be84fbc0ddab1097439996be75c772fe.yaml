@@ -1,0 +1,7 @@
+---
+desc: Deprecated ``SynTest.asyncraises()``; use ``SynTest.raises()`` as a context
+  manager instead. It will be removed on 2026-12-31.
+desc:literal: false
+prs: []
+type: deprecation
+...
