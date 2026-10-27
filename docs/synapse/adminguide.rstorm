@@ -1349,8 +1349,8 @@ elements are all impacted by permissions in various ways, including:
 Refer to the :ref:`storm-ref-automation` section of the :ref:`userguide` for a detailed discussion of
 automation in Synapse (including permissions considerations).
 
-Synapse admins can also add **view hooks**, which are Storm queries that run as the admin who created them when a
-view is created, merged, or deleted. A ``merging`` or ``deleted`` hook which raises an error aborts the merge or
+Synapse admins can also add **view hooks**, which are Storm queries that run as ``root`` when a view is created,
+merged, or deleted. A ``merging`` or ``deleted`` hook which raises an error aborts the merge or
 delete. Only global admins can manage view hooks. See :ref:`auto-view-hooks` for details.
 
 

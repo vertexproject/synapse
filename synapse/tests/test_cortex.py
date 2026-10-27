@@ -9276,7 +9276,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     'creator': root,
                 })).get('iden')
 
-                # the runner runs enabled hooks of the type, by created, as the creator in the view
+                # the runner runs enabled hooks of the type, by created, as root in the view
                 view = core.getView()
                 fork = await view.fork()
                 forkiden = fork.get('iden')
@@ -9284,13 +9284,13 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 # the fork already ran the created hooks
                 self.eq([
-                    ('hook00', 'visi', forkiden),
+                    ('hook00', 'root', forkiden),
                     ('hook01b', 'root', forkiden),
                 ], await core.callStorm(popq))
 
                 await core._runViewHooks('created', fork)
                 self.eq([
-                    ('hook00', 'visi', forkiden),
+                    ('hook00', 'root', forkiden),
                     ('hook01b', 'root', forkiden),
                 ], await core.callStorm(popq))
 
@@ -9330,20 +9330,17 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 self.eq([], await core.callStorm(popq))
 
-                # hooks whose creator is locked or deleted are skipped
-                await visi.setLocked(True)
-                with self.getLoggerStream('synapse.cortex') as stream:
-                    await core._runViewHooks('created', fork)
+                # hooks whose creator is locked or deleted still run as root
+                hooks = [('hook00', 'root', forkiden), ('hook01b', 'root', forkiden)]
 
-                self.eq([('hook01b', 'root', forkiden)], await core.callStorm(popq))
-                self.isin('creator visi is locked', stream.getvalue())
+                await visi.setLocked(True)
+                await core._runViewHooks('created', fork)
+                self.eq(hooks, await core.callStorm(popq))
 
                 await core.auth.delUser(visi.iden)
-                with self.getLoggerStream('synapse.cortex') as stream:
-                    await core._runViewHooks('created', fork)
-
-                self.eq([('hook01b', 'root', forkiden)], await core.callStorm(popq))
-                self.isin(f'creator {visi.iden} does not exist', stream.getvalue())
+                await core._runViewHooks('created', fork)
+                self.eq(hooks, await core.callStorm(popq))
+                self.eq(visi.iden, (await core.getViewHook(iden00)).get('creator'))
 
                 await core.delViewHook(iden02)
                 with self.raises(s_exc.NoSuchIden):

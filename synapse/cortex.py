@@ -5125,7 +5125,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def addViewHook(self, hdef):
         '''
-        Add a view hook which runs a Storm query as its creator on a view lifecycle event.
+        Add a view hook which runs a Storm query as root on a view lifecycle event.
 
         Args:
             hdef (dict): The hook definition containing name, type, storm, creator, and optionally iden and enabled.
@@ -5240,9 +5240,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         Run the enabled view hooks of the given type in the view, ordered by creation time.
 
-        Hooks do not run in safemode or from within the storm of a running hook. A hook
-        whose creator is deleted or locked is skipped. Exceptions propagate to the caller
-        unless errok is set, in which case they are logged and the remaining hooks run.
+        Hooks run as the root user. They do not run in safemode or from within the storm
+        of a running hook. Exceptions propagate to the caller unless errok is set, in which
+        case they are logged and the remaining hooks run.
 
         Args:
             htype (str): The hook type (created, merging, or deleted).
@@ -5261,26 +5261,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         hdefs.sort(key=lambda hdef: hdef.get('created'))
 
+        root = self.auth.rootuser.iden
         token = ViewHookRunning.set(True)
         try:
             for hdef in hdefs:
 
                 iden = hdef.get('iden')
-                creator = hdef.get('creator')
-
-                user = self.auth.user(creator)
-                if user is None:
-                    logger.warning(f'Skipping view hook {iden} because its creator {creator} does not exist',
-                                   extra=self.getLogExtra(iden=iden, view=view.iden, user=creator))
-                    continue
-
-                if user.isLocked():
-                    logger.warning(f'Skipping view hook {iden} because its creator {user.name} is locked',
-                                   extra=self.getLogExtra(iden=iden, view=view.iden, user=creator))
-                    continue
 
                 # hooks run locally rather than on a storm pool mirror
-                opts = {'user': creator, 'view': view.iden, 'mirror': False}
+                opts = {'user': root, 'view': view.iden, 'mirror': False}
 
                 try:
                     await self.callStorm(hdef.get('storm'), opts=opts)
@@ -5290,7 +5279,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         raise
 
                     logger.exception(f'Error running {htype} view hook {iden} in view {view.iden}',
-                                     extra=self.getLogExtra(iden=iden, view=view.iden, user=creator))
+                                     extra=self.getLogExtra(iden=iden, view=view.iden, creator=hdef.get('creator')))
 
         finally:
             ViewHookRunning.reset(token)

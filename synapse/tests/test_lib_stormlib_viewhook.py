@@ -159,7 +159,7 @@ class ViewHookTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchIden):
                 await core.getViewHook(iden)
 
-            # hooks added from storm run as their creator in the view for each lifecycle event
+            # hooks added from storm run as root in the view for each lifecycle event
             hookput = '$lib.queue.gen(hooks).put(($name, $lib.auth.users.get().name, $lib.view.get().iden))'
 
             q = '''
@@ -170,16 +170,16 @@ class ViewHookTest(s_test.SynTest):
             await core.callStorm(q, opts={'user': visi.iden, 'vars': {'hookput': hookput}})
 
             forkiden = await core.callStorm('return($lib.view.get().fork().iden)')
-            self.eq([('created', 'visi', forkiden)], await core.callStorm(HOOKPOP))
+            self.eq([('created', 'root', forkiden)], await core.callStorm(HOOKPOP))
 
             await core.callStorm('$lib.view.del($iden)', opts={'vars': {'iden': forkiden}})
             self.none(core.getView(forkiden))
-            self.eq([('deleted', 'visi', forkiden)], await core.callStorm(HOOKPOP))
+            self.eq([('deleted', 'root', forkiden)], await core.callStorm(HOOKPOP))
 
             forkiden = await core.callStorm('return($lib.view.get().fork().iden)')
-            self.eq([('created', 'visi', forkiden)], await core.callStorm(HOOKPOP))
+            self.eq([('created', 'root', forkiden)], await core.callStorm(HOOKPOP))
 
             await core.nodes('[ test:str=hookmerge ]', opts={'view': forkiden})
             await core.callStorm('$lib.view.get().merge()', opts={'view': forkiden})
             self.len(1, await core.nodes('test:str=hookmerge'))
-            self.eq([('merging', 'visi', forkiden)], await core.callStorm(HOOKPOP))
+            self.eq([('merging', 'root', forkiden)], await core.callStorm(HOOKPOP))

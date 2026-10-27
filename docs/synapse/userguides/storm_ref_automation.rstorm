@@ -1151,9 +1151,9 @@ Each view hook has a **type** which determines when it runs:
 View hooks have the following properties:
 
 - **Storage.** View hooks are stored within (global to) a Cortex and run for every view.
-- **Execution.** A view hook runs as the user who created it, in the view that is being created, merged, or
-  deleted. Enabled hooks of a given type run in the order they were created. A hook whose creator has been
-  deleted or locked is skipped, and hooks do not run when the Cortex is in safe mode.
+- **Execution.** A view hook runs as the ``root`` user, in the view that is being created, merged, or deleted.
+  The hook's ``creator`` records the user who added it, and does not affect how the hook runs. Enabled hooks of a
+  given type run in the order they were created. Hooks do not run when the Cortex is in safe mode.
 - **Permissions.** Only a global **admin** can add, view, modify, or delete view hooks.
 - **Recursion.** Views created, merged, or deleted by the Storm query of a running view hook do not run view hooks.
 

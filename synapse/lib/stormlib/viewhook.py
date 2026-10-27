@@ -25,7 +25,7 @@ class ViewHook(s_stormtypes.Prim):
         {'name': 'enabled', 'desc': 'Set to true if the view hook is enabled.',
          'type': {'type': ['gtor', 'stor'], '_gtorfunc': '_gtorEnabled', '_storfunc': '_storEnabled',
                   'returns': {'type': 'boolean'}}},
-        {'name': 'creator', 'desc': 'The iden of the user the view hook runs as.',
+        {'name': 'creator', 'desc': 'The iden of the user who added the view hook.',
          'type': {'type': 'gtor', '_gtorfunc': '_gtorCreator', 'returns': {'type': 'str'}}},
         {'name': 'created', 'desc': 'The time the view hook was created.',
          'type': {'type': 'gtor', '_gtorfunc': '_gtorCreated', 'returns': {'type': 'time'}}},
@@ -129,7 +129,7 @@ class LibViewHook(s_stormtypes.Lib):
     '''
     A Storm Library for managing view hooks.
 
-    A view hook runs a Storm query as its creator, in the view, when a view is created,
+    A view hook runs a Storm query as root, in the view, when a view is created,
     about to be merged, or about to be deleted. An exception raised by a `merging` or
     `deleted` hook aborts the merge or delete. Managing view hooks requires admin privileges.
     '''
