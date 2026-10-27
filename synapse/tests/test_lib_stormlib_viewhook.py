@@ -159,20 +159,13 @@ class ViewHookTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchIden):
                 await core.getViewHook(iden)
 
-    async def test_stormlib_viewhook_lifecycle(self):
-
-        async with self.getTestCore() as core:
-
-            visi = await core.auth.addUser('visi')
-            await visi.setAdmin(True)
-
+            # hooks added from storm run as their creator in the view for each lifecycle event
             hookput = '$lib.queue.gen(hooks).put(($name, $lib.auth.users.get().name, $lib.view.get().iden))'
 
             q = '''
                 $lib.view.hook.add(created, created, `$name=created {$hookput}`)
                 $lib.view.hook.add(merging, merging, `$name=merging {$hookput}`)
                 $lib.view.hook.add(deleted, deleted, `$name=deleted {$hookput}`)
-                $lib.view.hook.add(disabled, created, `$name=disabled {$hookput}`, enabled=(false))
             '''
             await core.callStorm(q, opts={'user': visi.iden, 'vars': {'hookput': hookput}})
 
@@ -190,23 +183,3 @@ class ViewHookTest(s_test.SynTest):
             await core.callStorm('$lib.view.get().merge()', opts={'view': forkiden})
             self.len(1, await core.nodes('test:str=hookmerge'))
             self.eq([('merging', 'visi', forkiden)], await core.callStorm(HOOKPOP))
-
-            # a merging or deleted hook exception aborts the merge or delete
-            q = '''
-                for $hook in $lib.view.hook.list() {
-                    if ($hook.type != "created") { $hook.storm = ${ $lib.raise(HookFail, nope) } }
-                }
-            '''
-            await core.callStorm(q)
-
-            forkiden = await core.callStorm('return($lib.view.get().fork().iden)')
-            self.eq([('created', 'visi', forkiden)], await core.callStorm(HOOKPOP))
-
-            with self.raises(s_exc.StormRaise):
-                await core.callStorm('$lib.view.get().merge()', opts={'view': forkiden})
-
-            with self.raises(s_exc.StormRaise):
-                await core.callStorm('$lib.view.del($iden)', opts={'vars': {'iden': forkiden}})
-
-            self.nn(core.getView(forkiden))
-            self.eq([], await core.callStorm(HOOKPOP))

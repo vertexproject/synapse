@@ -1140,8 +1140,11 @@ Each view hook has a **type** which determines when it runs:
 - ``created``: Runs in a newly created view, including forks. The view has already been created when the hook
   runs, so an error raised by a ``created`` hook is logged and does **not** prevent the view from being created.
 - ``merging``: Runs in a view that is about to be merged into its parent. An error raised by a ``merging`` hook
-  **aborts** the merge and leaves the view intact. For a view that requires a merge vote, ``merging`` hooks run
-  when the merge request is made; an error rejects the merge request.
+  **aborts** the merge and leaves the view intact. The view remains writable while ``merging`` hooks run, and any
+  edits a ``merging`` hook makes to the view are included in the merge. For a view that requires a merge vote,
+  ``merging`` hooks run once when the merge request is made, and an error rejects the merge request. The view
+  remains writable until the merge is approved, so ``merging`` hooks are not a check on edits made after the
+  request.
 - ``deleted``: Runs in a view that is about to be deleted. An error raised by a ``deleted`` hook **aborts** the
   delete. The delete that occurs after a view is merged by a merge vote does not run ``deleted`` hooks.
 
