@@ -109,6 +109,7 @@ import synapse.lib.stormlib.version as s_stormlib_version  # noqa: F401
 import synapse.lib.stormlib.easyperm as s_stormlib_easyperm  # noqa: F401
 import synapse.lib.stormlib.ethereum as s_stormlib_ethereum  # noqa: F401
 import synapse.lib.stormlib.modelext as s_stormlib_modelext  # noqa: F401
+import synapse.lib.stormlib.viewhook as s_stormlib_viewhook  # noqa: F401
 import synapse.lib.stormlib.compression as s_stormlib_compression  # noqa: F401
 import synapse.lib.stormlib.notifications as s_stormlib_notifications  # noqa: F401
 
