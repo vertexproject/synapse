@@ -7,6 +7,7 @@ import logging
 import textwrap
 import contextlib
 import collections
+import contextvars
 
 from collections.abc import Mapping
 
@@ -113,6 +114,9 @@ import synapse.lib.stormlib.notifications as s_stormlib_notifications  # noqa: F
 
 logger = logging.getLogger(__name__)
 stormlogger = logging.getLogger('synapse.storm')
+
+# set while view hooks run so lifecycle events from hook storm do not run hooks
+ViewHookRunning = contextvars.ContextVar('ViewHookRunning', default=False)
 
 '''
 A Cortex implements the synapse hypergraph object.
@@ -947,6 +951,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # NOTE: we may not make *any* nexus actions in this method
         self.macrodb = self.slab.initdb('storm:macros')
         self.httpextapidb = self.slab.initdb('http:ext:apis')
+        self.viewhookdb = self.slab.initdb('view:hooks')
 
         if self.inaugural:
             self.cellinfo.set('cortex:version', s_version.version)
@@ -1041,6 +1046,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self._exthttpapiorder = b'exthttpapiorder'
         self._exthttpapicache = s_cache.FixedCache(self._getHttpExtApiByPath, size=1000)
         self._initCortexExtHttpApi()
+
+        self.viewhooks = {}  # iden -> hdef
+        self._initViewHooks()
 
         self.model = s_datamodel.Model(core=self)
 
@@ -5104,6 +5112,187 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 continue
             return iden, match.groups()
         return None, ()
+
+    def _initViewHooks(self):
+        self.viewhooks.clear()
+
+        hdefs = [s_msgpack.un(byts) for _, byts in self.slab.scanByFull(db=self.viewhookdb)]
+        hdefs.sort(key=lambda hdef: hdef.get('created'))
+
+        for hdef in hdefs:
+            self.viewhooks[hdef.get('iden')] = hdef
+
+    async def addViewHook(self, hdef):
+        '''
+        Add a view hook which runs a Storm query as its creator on a view lifecycle event.
+
+        Args:
+            hdef (dict): The hook definition containing name, type, storm, creator, and optionally iden and enabled.
+
+        Returns:
+            dict: The new hook definition.
+        '''
+        hdef = dict(hdef)
+        hdef.setdefault('iden', s_common.guid())
+        hdef.setdefault('enabled', True)
+
+        hdef['created'] = s_common.now()
+        hdef['updated'] = hdef['created']
+
+        hdef = s_schemas.reqValidViewHook(hdef)
+
+        iden = hdef['iden']
+        if self.viewhooks.get(iden) is not None:
+            raise s_exc.DupIden(mesg=f'Duplicate iden specified for view hook: {iden}', iden=iden)
+
+        creator = hdef['creator']
+        if self.auth.user(creator) is None:
+            raise s_exc.NoSuchUser(mesg=f'No user found with iden: {creator}', user=creator)
+
+        await self.getStormQuery(hdef['storm'])
+
+        return await self._push('view:hook:add', hdef)
+
+    @s_nexus.Pusher.onPush('view:hook:add')
+    async def _addViewHook(self, hdef):
+        iden = hdef.get('iden')
+        self.viewhooks[iden] = hdef
+        self.slab.put(s_common.uhex(iden), s_msgpack.en(hdef), db=self.viewhookdb)
+        return copy.deepcopy(hdef)
+
+    async def delViewHook(self, iden):
+        '''
+        Delete a view hook.
+
+        Args:
+            iden (str): The iden of the hook.
+        '''
+        if self.viewhooks.get(iden) is None:
+            raise s_exc.NoSuchIden(mesg=f'No view hook for {iden=}', iden=iden)
+
+        return await self._push('view:hook:del', iden)
+
+    @s_nexus.Pusher.onPush('view:hook:del')
+    async def _delViewHook(self, iden):
+        self.viewhooks.pop(iden, None)
+        self.slab.pop(s_common.uhex(iden), db=self.viewhookdb)
+
+    async def modViewHook(self, iden, name, valu):
+        '''
+        Modify the name, type, storm, or enabled field of a view hook.
+
+        Args:
+            iden (str): The iden of the hook.
+            name (str): The name of the field to set.
+            valu: The new value of the field.
+
+        Returns:
+            dict: The updated hook definition.
+        '''
+        if name not in ('name', 'type', 'storm', 'enabled'):
+            raise s_exc.BadArg(mesg=f'Cannot set {name=} on view hook', name=name)
+
+        hdef = self.viewhooks.get(iden)
+        if hdef is None:
+            raise s_exc.NoSuchIden(mesg=f'No view hook for {iden=}', iden=iden)
+
+        hdef = copy.deepcopy(hdef)
+        hdef[name] = valu
+        s_schemas.reqValidViewHook(hdef)
+
+        if name == 'storm':
+            await self.getStormQuery(valu)
+
+        return await self._push('view:hook:mod', iden, name, valu, s_common.now())
+
+    @s_nexus.Pusher.onPush('view:hook:mod')
+    async def _modViewHook(self, iden, name, valu, updated):
+        hdef = self.viewhooks.get(iden)
+        if hdef is None:
+            return None
+
+        hdef = copy.deepcopy(hdef)
+        hdef[name] = valu
+        hdef['updated'] = updated
+        hdef = s_schemas.reqValidViewHook(hdef)
+
+        self.viewhooks[iden] = hdef
+        self.slab.put(s_common.uhex(iden), s_msgpack.en(hdef), db=self.viewhookdb)
+
+        return copy.deepcopy(hdef)
+
+    async def getViewHook(self, iden):
+        hdef = self.viewhooks.get(iden)
+        if hdef is None:
+            raise s_exc.NoSuchIden(mesg=f'No view hook for {iden=}', iden=iden)
+
+        return copy.deepcopy(hdef)
+
+    async def getViewHooks(self, type=None):
+        hdefs = self.viewhooks.values()
+        if type is not None:
+            hdefs = [hdef for hdef in hdefs if hdef.get('type') == type]
+
+        return copy.deepcopy(list(hdefs))
+
+    async def _runViewHooks(self, htype, view, errok=False):
+        '''
+        Run the enabled view hooks of the given type in the view, ordered by creation time.
+
+        Hooks do not run in safemode or from within the storm of a running hook. A hook
+        whose creator is deleted or locked is skipped. Exceptions propagate to the caller
+        unless errok is set, in which case they are logged and the remaining hooks run.
+
+        Args:
+            htype (str): The hook type (created, merging, or deleted).
+            view (View): The view the hook storm runs in.
+            errok (bool): Log hook exceptions rather than raising them.
+        '''
+        if self.safemode:
+            return
+
+        if ViewHookRunning.get():
+            return
+
+        hdefs = [hdef for hdef in self.viewhooks.values() if hdef.get('type') == htype and hdef.get('enabled')]
+        if not hdefs:
+            return
+
+        hdefs.sort(key=lambda hdef: hdef.get('created'))
+
+        token = ViewHookRunning.set(True)
+        try:
+            for hdef in hdefs:
+
+                iden = hdef.get('iden')
+                creator = hdef.get('creator')
+
+                user = self.auth.user(creator)
+                if user is None:
+                    logger.warning(f'Skipping view hook {iden} because its creator {creator} does not exist',
+                                   extra=self.getLogExtra(iden=iden, view=view.iden, user=creator))
+                    continue
+
+                if user.isLocked():
+                    logger.warning(f'Skipping view hook {iden} because its creator {user.name} is locked',
+                                   extra=self.getLogExtra(iden=iden, view=view.iden, user=creator))
+                    continue
+
+                # hooks run locally rather than on a storm pool mirror
+                opts = {'user': creator, 'view': view.iden, 'mirror': False}
+
+                try:
+                    await self.callStorm(hdef.get('storm'), opts=opts)
+
+                except Exception:
+                    if not errok:
+                        raise
+
+                    logger.exception(f'Error running {htype} view hook {iden} in view {view.iden}',
+                                     extra=self.getLogExtra(iden=iden, view=view.iden, user=creator))
+
+        finally:
+            ViewHookRunning.reset(token)
 
     async def getCellApi(self, link, user, path):
 
