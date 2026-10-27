@@ -9282,7 +9282,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                 forkiden = fork.get('iden')
                 fork = core.getView(forkiden)
 
-                self.eq([], await core.callStorm(popq))
+                # the fork already ran the created hooks
+                self.eq([
+                    ('hook00', 'visi', forkiden),
+                    ('hook01b', 'root', forkiden),
+                ], await core.callStorm(popq))
 
                 await core._runViewHooks('created', fork)
                 self.eq([

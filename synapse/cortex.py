@@ -5481,10 +5481,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         s_schemas.reqValidView(vdef)
 
-        if nexs:
-            return await self._push('view:add', vdef)
-        else:
+        if not nexs:
             return await self._addView(vdef)
+
+        pack = await self._push('view:add', vdef)
+        await self._runViewHooks('created', self.reqView(vdef['iden']), errok=True)
+        return pack
 
     @s_nexus.Pusher.onPush('view:add')
     async def _addView(self, vdef):
@@ -5534,13 +5536,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             the deleted View, the Layer will be preserved, otherwise it will be
             deleted as well.
         '''
-        view = self.views.get(iden)
-        if view is None:
-            raise s_exc.NoSuchView(mesg=f'No such view {iden=}', iden=iden)
+        view = self._reqViewDelAllowed(iden)
+        await self._runViewHooks('deleted', view)
+        return await self._delViewWithLayerNoHooks(iden)
 
-        if view.info.get('protected'):
-            mesg = f'Cannot delete view ({iden}) that has protected set.'
-            raise s_exc.CantDelView(mesg=mesg)
+    async def _delViewWithLayerNoHooks(self, iden):
+        # used by a completed merge, which already ran the merging hooks
+        view = self._reqViewDelAllowed(iden)
 
         layriden = view.layers[0].iden
         pareiden = None
@@ -5614,6 +5616,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             layr.deloffs = nexsitem[0]
 
     async def delView(self, iden):
+        view = self._reqViewDelAllowed(iden)
+        await self._runViewHooks('deleted', view)
+        return await self._push('view:del', iden)
+
+    def _reqViewDelAllowed(self, iden):
         view = self.views.get(iden)
         if view is None:
             raise s_exc.NoSuchView(mesg=f'No such view {iden=}', iden=iden)
@@ -5622,7 +5629,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = f'Cannot delete view ({iden}) that has protected set.'
             raise s_exc.CantDelView(mesg=mesg)
 
-        return await self._push('view:del', iden)
+        return view
 
     @s_nexus.Pusher.onPush('view:del')
     async def _delView(self, iden):
