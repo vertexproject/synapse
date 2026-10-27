@@ -391,8 +391,8 @@ class ViewTest(s_t_utils.SynTest):
             self.eq([('deleted', 'root', forkiden)], await core.callStorm(HOOKPOP))
 
             # merging and deleted hook exceptions abort and leave the view intact
-            await core.modViewHook(merging, 'storm', '$lib.raise(HookFail, nomerge)')
-            await core.modViewHook(deleted, 'storm', '$lib.raise(HookFail, nodel)')
+            await core.modViewHook(merging, {'storm': '$lib.raise(HookFail, nomerge)'})
+            await core.modViewHook(deleted, {'storm': '$lib.raise(HookFail, nodel)'})
 
             forkiden = (await core.view.fork()).get('iden')
             forkview = core.getView(forkiden)
@@ -418,8 +418,8 @@ class ViewTest(s_t_utils.SynTest):
             self.nn(core.getLayer(forkview.layers[0].iden))
 
             # disabled hooks do not run
-            await core.modViewHook(merging, 'enabled', False)
-            await core.modViewHook(deleted, 'enabled', False)
+            await core.modViewHook(merging, {'enabled': False})
+            await core.modViewHook(deleted, {'enabled': False})
 
             await core.callStorm('$lib.view.get().merge()', opts={'view': forkiden})
             self.len(1, await core.nodes('test:str=hookfail'))
@@ -428,7 +428,7 @@ class ViewTest(s_t_utils.SynTest):
             self.none(core.getView(forkiden))
 
             # a created hook exception is logged and the view is kept
-            await core.modViewHook(created, 'storm', '$lib.raise(HookFail, nocreate)')
+            await core.modViewHook(created, {'storm': '$lib.raise(HookFail, nocreate)'})
             with self.getLoggerStream('synapse.cortex') as stream:
                 forkiden = (await core.view.fork()).get('iden')
 
@@ -436,7 +436,7 @@ class ViewTest(s_t_utils.SynTest):
             self.isin(f'Error running created view hook {created} in view {forkiden}', stream.getvalue())
 
             # lifecycle events from hook storm do not run hooks
-            await core.modViewHook(created, 'storm', f'$name=created {HOOKPUT} $lib.view.get().fork()')
+            await core.modViewHook(created, {'storm': f'$name=created {HOOKPUT} $lib.view.get().fork()'})
             forkiden = (await core.view.fork()).get('iden')
             self.eq([('created', 'root', forkiden)], await core.callStorm(HOOKPOP))
             self.len(1, [v async for v in core.getView(forkiden).children()])
@@ -1139,7 +1139,7 @@ class ViewTest(s_t_utils.SynTest):
 
             self.none(forkview.getMergeRequest())
 
-            await core.modViewHook(hdef.get('iden'), 'storm', f'$name=merging {HOOKPUT}')
+            await core.modViewHook(hdef.get('iden'), {'storm': f'$name=merging {HOOKPUT}'})
             await core.callStorm(setmerge, opts={'view': forkiden})
             self.nn(forkview.getMergeRequest())
             self.eq([('merging', 'root', forkiden)], await core.callStorm(HOOKPOP))

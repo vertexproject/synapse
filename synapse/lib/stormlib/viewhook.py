@@ -78,7 +78,7 @@ class ViewHook(s_stormtypes.Prim):
 
     async def _setHookValu(self, name, valu):
         self.runt.reqAdmin(mesg='Modifying a view hook requires admin privileges.')
-        self.valu = await self.runt.snap.core.modViewHook(self.iden, name, valu)
+        self.valu = await self.runt.snap.core.modViewHook(self.iden, {name: valu})
 
     async def _storName(self, name):
         await self._setHookValu('name', await s_stormtypes.tostr(name))

@@ -5178,42 +5178,46 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.viewhooks.pop(iden, None)
         self.slab.pop(s_common.uhex(iden), db=self.viewhookdb)
 
-    async def modViewHook(self, iden, name, valu):
+    async def modViewHook(self, iden, opts):
         '''
-        Modify the name, type, storm, or enabled field of a view hook.
+        Modify the name, type, storm, or enabled fields of a view hook.
 
         Args:
             iden (str): The iden of the hook.
-            name (str): The name of the field to set.
-            valu: The new value of the field.
+            opts (dict): The fields to set and their new values.
 
         Returns:
             dict: The updated hook definition.
         '''
-        if name not in ('name', 'type', 'storm', 'enabled'):
-            raise s_exc.BadArg(mesg=f'Cannot set {name=} on view hook', name=name)
+        if not opts:
+            raise s_exc.BadArg(mesg='No view hook fields specified.')
+
+        for name in opts.keys():
+            if name not in ('name', 'type', 'storm', 'enabled'):
+                raise s_exc.BadArg(mesg=f'Cannot set {name=} on view hook', name=name)
 
         hdef = self.viewhooks.get(iden)
         if hdef is None:
             raise s_exc.NoSuchIden(mesg=f'No view hook for {iden=}', iden=iden)
 
         hdef = copy.deepcopy(hdef)
-        hdef[name] = valu
+        hdef.update(opts)
         s_schemas.reqValidViewHook(hdef)
 
-        if name == 'storm':
-            await self.getStormQuery(valu)
+        storm = opts.get('storm')
+        if storm is not None:
+            await self.getStormQuery(storm)
 
-        return await self._push('view:hook:mod', iden, name, valu, s_common.now())
+        return await self._push('view:hook:mod', iden, dict(opts), s_common.now())
 
     @s_nexus.Pusher.onPush('view:hook:mod')
-    async def _modViewHook(self, iden, name, valu, updated):
+    async def _modViewHook(self, iden, opts, updated):
         hdef = self.viewhooks.get(iden)
         if hdef is None:
             return None
 
         hdef = copy.deepcopy(hdef)
-        hdef[name] = valu
+        hdef.update(opts)
         hdef['updated'] = updated
         hdef = s_schemas.reqValidViewHook(hdef)
 

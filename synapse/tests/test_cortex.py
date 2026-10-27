@@ -5869,7 +5869,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     vhiden = vhdef.get('iden')
 
                     await asyncio.sleep(0.005)
-                    vhmod = await core00.modViewHook(vhiden, 'name', 'wow')
+                    vhmod = await core00.modViewHook(vhiden, {'name': 'wow'})
                     self.gt(vhmod.get('updated'), vhdef.get('updated'))
 
                     await core01.sync()
@@ -9223,42 +9223,60 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core.delViewHook(newp)
 
                 with self.raises(s_exc.NoSuchIden):
-                    await core.modViewHook(newp, 'name', 'newp')
+                    await core.modViewHook(newp, {'name': 'newp'})
 
                 for name in ('iden', 'creator', 'created', 'updated', 'newp'):
                     with self.raises(s_exc.BadArg):
-                        await core.modViewHook(iden00, name, 'newp')
+                        await core.modViewHook(iden00, {name: 'newp'})
+
+                    with self.raises(s_exc.BadArg):
+                        await core.modViewHook(iden00, {'name': 'hook00b', name: 'newp'})
+
+                with self.raises(s_exc.BadArg):
+                    await core.modViewHook(iden00, {})
 
                 with self.raises(s_exc.SchemaViolation):
-                    await core.modViewHook(iden00, 'type', 'newp')
+                    await core.modViewHook(iden00, {'type': 'newp'})
 
                 with self.raises(s_exc.SchemaViolation):
-                    await core.modViewHook(iden00, 'enabled', 'newp')
+                    await core.modViewHook(iden00, {'enabled': 'newp'})
 
                 with self.raises(s_exc.SchemaViolation):
-                    await core.modViewHook(iden00, 'name', '')
+                    await core.modViewHook(iden00, {'name': ''})
 
                 with self.raises(s_exc.BadSyntax):
-                    await core.modViewHook(iden00, 'storm', '| | |')
+                    await core.modViewHook(iden00, {'storm': '| | |'})
+
+                # a bad value in any field changes nothing
+                with self.raises(s_exc.SchemaViolation):
+                    await core.modViewHook(iden00, {'name': 'hook00b', 'enabled': False, 'type': 'newp'})
+
+                with self.raises(s_exc.BadSyntax):
+                    await core.modViewHook(iden00, {'name': 'hook00b', 'storm': '| | |'})
 
                 self.eq(hdef00, await core.getViewHook(iden00))
 
                 # a replayed mod for a deleted hook is a no-op
-                self.none(await core._modViewHook(newp, 'name', 'newp', s_common.now()))
+                self.none(await core._modViewHook(newp, {'name': 'newp'}, s_common.now()))
 
                 await asyncio.sleep(0.005)
-                hdef = await core.modViewHook(iden01, 'enabled', True)
+                hdef = await core.modViewHook(iden01, {'enabled': True})
                 self.true(hdef.get('enabled'))
                 self.gt(hdef.get('updated'), hdef01.get('updated'))
                 self.eq(hdef01.get('created'), hdef.get('created'))
 
-                hdef = await core.modViewHook(iden01, 'type', 'created')
+                hdef = await core.modViewHook(iden01, {'type': 'created'})
                 self.eq('created', hdef.get('type'))
 
-                hdef = await core.modViewHook(iden01, 'name', 'hook01b')
+                # several fields update together with one updated time
+                await asyncio.sleep(0.005)
+                prev = hdef
+                hdef = await core.modViewHook(iden01, {'name': 'hook01b', 'storm': f'$name=hook01b {storm}'})
                 self.eq('hook01b', hdef.get('name'))
-
-                hdef = await core.modViewHook(iden01, 'storm', f'$name=hook01b {storm}')
+                self.eq(f'$name=hook01b {storm}', hdef.get('storm'))
+                self.eq('created', hdef.get('type'))
+                self.true(hdef.get('enabled'))
+                self.gt(hdef.get('updated'), prev.get('updated'))
                 self.eq(hdef, await core.getViewHook(iden01))
 
                 iden02 = (await core.addViewHook({
@@ -9301,7 +9319,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq([], await core.callStorm(popq))
 
                 # exceptions propagate to the caller after earlier hooks run
-                await core.modViewHook(iden02, 'enabled', True)
+                await core.modViewHook(iden02, {'enabled': True})
                 with self.raises(s_exc.StormRaise):
                     await core._runViewHooks('created', fork)
 
@@ -9309,8 +9327,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.false(s_cortex.ViewHookRunning.get())
 
                 # errok logs the exception and runs the remaining hooks
-                await core.modViewHook(iden02, 'storm', f'$lib.raise(HookFail, nope) $name=hook02 {storm}')
-                await core.modViewHook(iden00, 'storm', f'$lib.raise(HookFail, nope) $name=hook00 {storm}')
+                await core.modViewHook(iden02, {'storm': f'$lib.raise(HookFail, nope) $name=hook02 {storm}'})
+                await core.modViewHook(iden00, {'storm': f'$lib.raise(HookFail, nope) $name=hook00 {storm}'})
                 with self.getLoggerStream('synapse.cortex') as stream:
                     await core._runViewHooks('created', fork, errok=True)
 
@@ -9318,8 +9336,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.isin(f'Error running created view hook {iden00} in view {forkiden}', stream.getvalue())
                 self.isin(f'Error running created view hook {iden02} in view {forkiden}', stream.getvalue())
 
-                await core.modViewHook(iden00, 'storm', f'$name=hook00 {storm}')
-                await core.modViewHook(iden02, 'enabled', False)
+                await core.modViewHook(iden00, {'storm': f'$name=hook00 {storm}'})
+                await core.modViewHook(iden02, {'enabled': False})
 
                 # hooks do not run from within a running hook
                 token = s_cortex.ViewHookRunning.set(True)
