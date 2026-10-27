@@ -463,7 +463,7 @@ class View(s_nexus.Pusher):  # type: ignore
             await self.core.feedBeholder('view:merge:fini', {'view': self.iden, 'merge': merge, 'votes': votes})
 
             # remove the view and top layer
-            await self.core._delViewWithLayerNoHooks(self.iden)
+            await self.core.delViewWithLayer(self.iden, hooks=False)
 
         except Exception as e: # pragma: no cover
             logger.exception(f'Error while merging view: {self.iden}')

@@ -31,9 +31,6 @@ class ViewHook(s_stormtypes.Prim):
          'type': {'type': 'gtor', '_gtorfunc': '_gtorCreated', 'returns': {'type': 'time'}}},
         {'name': 'updated', 'desc': 'The time the view hook was last modified.',
          'type': {'type': 'gtor', '_gtorfunc': '_gtorUpdated', 'returns': {'type': 'time'}}},
-        {'name': 'pack', 'desc': 'Get the view hook definition.',
-         'type': {'type': 'function', '_funcname': '_methPack', 'args': (),
-                  'returns': {'type': 'dict', 'desc': 'The view hook definition.'}}},
     )
 
     def __init__(self, runt, hdef):
@@ -59,21 +56,10 @@ class ViewHook(s_stormtypes.Prim):
             'updated': self._gtorUpdated,
         })
 
-        self.locls.update(self.getObjLocals())
-
-    def getObjLocals(self):
-        return {
-            'pack': self._methPack,
-        }
-
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.valu.get("name")} ({self.iden})'
 
     def value(self):
-        return copy.deepcopy(self.valu)
-
-    @s_stormtypes.stormfunc(readonly=True)
-    async def _methPack(self):
         return copy.deepcopy(self.valu)
 
     async def _setHookValu(self, name, valu):

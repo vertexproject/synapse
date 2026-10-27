@@ -417,6 +417,20 @@ class ViewTest(s_t_utils.SynTest):
             self.nn(core.getView(forkiden))
             self.nn(core.getLayer(forkview.layers[0].iden))
 
+            # hooks=False skips the raising deleted hook
+            skipiden = (await core.view.fork()).get('iden')
+            self.eq([('created', 'root', skipiden)], await core.callStorm(HOOKPOP))
+            await core.delView(skipiden, hooks=False)
+            self.none(core.getView(skipiden))
+
+            skipiden = (await core.view.fork()).get('iden')
+            skiplayr = core.getView(skipiden).layers[0].iden
+            self.eq([('created', 'root', skipiden)], await core.callStorm(HOOKPOP))
+            await core.delViewWithLayer(skipiden, hooks=False)
+            self.none(core.getView(skipiden))
+            self.none(core.getLayer(skiplayr))
+            self.eq([], await core.callStorm(HOOKPOP))
+
             # disabled hooks do not run
             await core.modViewHook(merging, {'enabled': False})
             await core.modViewHook(deleted, {'enabled': False})

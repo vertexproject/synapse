@@ -24,15 +24,15 @@ class ViewHookTest(s_test.SynTest):
             # $lib.view functions still work alongside the nested lib
             self.len(1, await core.callStorm('return($lib.view.list())'))
 
-            hdef = await core.callStorm('return($lib.view.hook.add(woot, created, ${ $lib.print(hi) }).pack())')
-            iden = hdef.get('iden')
+            iden = await core.callStorm('return($lib.view.hook.add(woot, created, ${ $lib.print(hi) }).iden)')
+            hdef = await core.getViewHook(iden)
+            self.eq(iden, hdef.get('iden'))
             self.eq('woot', hdef.get('name'))
             self.eq('created', hdef.get('type'))
             self.eq(' $lib.print(hi) ', hdef.get('storm'))
             self.true(hdef.get('enabled'))
             self.eq(core.auth.rootuser.iden, hdef.get('creator'))
             self.eq(hdef.get('created'), hdef.get('updated'))
-            self.eq(hdef, await core.getViewHook(iden))
 
             opts = {'vars': {'iden': iden}}
             q = '''
@@ -46,7 +46,8 @@ class ViewHookTest(s_test.SynTest):
             msgs = await core.stormlist('$lib.print($lib.view.hook.get($iden))', opts=opts)
             self.stormIsInPrint(f'view:hook: woot ({iden})', msgs)
 
-            hdef2 = await core.callStorm('return($lib.view.hook.add(nope, deleted, "", enabled=(false)).pack())')
+            iden2 = await core.callStorm('return($lib.view.hook.add(nope, deleted, "", enabled=(false)).iden)')
+            hdef2 = await core.getViewHook(iden2)
             self.false(hdef2.get('enabled'))
             self.eq('deleted', hdef2.get('type'))
 
@@ -55,7 +56,7 @@ class ViewHookTest(s_test.SynTest):
                 for $hook in $lib.view.hook.list() { $retn.append($hook.iden) }
                 return($retn)
             ''')
-            self.eq([iden, hdef2.get('iden')], hooks)
+            self.eq([iden, iden2], hooks)
 
             # get and list are allowed in a readonly runtime
             ropts = {'vars': {'iden': iden}, 'readonly': True}
@@ -148,12 +149,14 @@ class ViewHookTest(s_test.SynTest):
 
             # a global admin may manage hooks and is the creator of the ones they add
             await visi.setAdmin(True)
-            hdef3 = await core.callStorm('return($lib.view.hook.add(visi, created, "").pack())', opts=asvisi)
-            self.eq(visi.iden, hdef3.get('creator'))
+            q = '$hook = $lib.view.hook.add(visi, created, "") return(($hook.iden, $hook.creator))'
+            iden3, creator = await core.callStorm(q, opts=asvisi)
+            self.eq(visi.iden, creator)
+            self.eq(visi.iden, (await core.getViewHook(iden3)).get('creator'))
 
             await core.callStorm('$lib.view.hook.del($iden)', opts={'user': visi.iden, 'vars': {'iden': iden}})
-            await core.callStorm('$lib.view.hook.del($iden)', opts={'vars': {'iden': hdef2.get('iden')}})
-            await core.callStorm('$lib.view.hook.del($iden)', opts={'vars': {'iden': hdef3.get('iden')}})
+            await core.callStorm('$lib.view.hook.del($iden)', opts={'vars': {'iden': iden2}})
+            await core.callStorm('$lib.view.hook.del($iden)', opts={'vars': {'iden': iden3}})
             self.eq([], await core.callStorm('return($lib.view.hook.list())'))
 
             with self.raises(s_exc.NoSuchIden):
