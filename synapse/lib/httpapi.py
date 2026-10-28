@@ -1323,25 +1323,13 @@ _vaultErrCodes = (
 
 _vaultErrs = tuple(errcls for errcls, _ in _vaultErrCodes)
 
-class VaultHandler(Handler):
+class VaultHandler(StormHandler):
     '''
     Base class for the vault HTTP APIs.
 
-    Subclasses implement _runVault(body), and must only access vaults through _callVault().
+    Subclasses implement _runVault(body).
     '''
     _vaultValidator = None
-
-    async def _callVault(self, name, *args, **kwargs):
-        '''
-        Call the CoreApi compatible vault method `name` as the HTTP user.
-        '''
-        user = self.cell.auth.user(await self.useriden())
-
-        # the Cortex resolves user and role scoped vaults for an explicit user iden
-        if name == 'getVaultByType':
-            args = (args[0], user.iden, *args[1:])
-
-        return await s_coro.ornot(getattr(self.cell, name), *args, user=user, **kwargs)
 
     async def _handleVault(self):
 
@@ -1371,7 +1359,8 @@ class VaultListV1(VaultHandler):
         return await self._handleVault()
 
     async def _runVault(self, body):
-        return await self._callVault('getVaults')
+        core = self.getCore()
+        return await core.getVaults(user=await self.useriden())
 
 class VaultGetV1(VaultHandler):
     '''
@@ -1387,9 +1376,13 @@ class VaultGetV1(VaultHandler):
 
     async def _runVault(self, body):
 
+        core = self.getCore()
+        useriden = await self.useriden()
+
+        # the local Cortex getters are sync while the CoreApi getters are async
         iden = body.get('iden')
         if iden is not None:
-            vault = await self._callVault('getVault', iden)
+            vault = await s_coro.ornot(core.getVault, iden, user=useriden)
             if vault is None:
                 raise s_exc.NoSuchIden(mesg=f'Vault not found for iden: {iden}.', iden=iden)
 
@@ -1397,14 +1390,14 @@ class VaultGetV1(VaultHandler):
 
         name = body.get('name')
         if name is not None:
-            vault = await self._callVault('getVaultByName', name)
+            vault = await s_coro.ornot(core.getVaultByName, name, user=useriden)
             if vault is None:
                 raise s_exc.NoSuchName(mesg=f'Vault not found for name: {name}.', name=name)
 
             return vault
 
         vtype = body.get('type')
-        vault = await self._callVault('getVaultByType', vtype, scope=body.get('scope'))
+        vault = await s_coro.ornot(core.getVaultByType, vtype, scope=body.get('scope'), user=useriden)
         if vault is None:
             raise s_exc.NoSuchName(mesg=f'Vault not found for type: {vtype}.', name=vtype)
 
@@ -1420,8 +1413,11 @@ class VaultAddV1(VaultHandler):
         return await self._handleVault()
 
     async def _runVault(self, body):
-        iden = await self._callVault('addVault', body)
-        return await self._callVault('getVault', iden)
+        core = self.getCore()
+        useriden = await self.useriden()
+
+        iden = await core.addVault(body, user=useriden)
+        return await s_coro.ornot(core.getVault, iden, user=useriden)
 
 class VaultModV1(VaultHandler):
     '''
@@ -1433,7 +1429,8 @@ class VaultModV1(VaultHandler):
         return await self._handleVault()
 
     async def _runVault(self, body):
-        return await self._callVault('modVault', body)
+        core = self.getCore()
+        return await core.modVault(body, user=await self.useriden())
 
 class VaultDelV1(VaultHandler):
     '''
@@ -1445,7 +1442,8 @@ class VaultDelV1(VaultHandler):
         return await self._handleVault()
 
     async def _runVault(self, body):
-        await self._callVault('delVault', body.get('iden'))
+        core = self.getCore()
+        await core.delVault(body.get('iden'), user=await self.useriden())
 
 class OnePassIssueV1(Handler):
     '''

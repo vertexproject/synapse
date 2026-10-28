@@ -8711,6 +8711,27 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.notin('secrets', vaults[riden])
             self.eq({'apikey': 'usersecret'}, vaults[uiden]['secrets'])
 
+            # a user iden may be used in place of a user
+            self.eq(vault, core.getVault(uiden, user=visi1.iden))
+            self.notin('secrets', core.getVaultByName('role1', user=visi1.iden))
+            self.eq(uiden, core.getVaultByType(vtype1, user=visi1.iden)['iden'])
+            self.eq(riden, core.getVaultByType(vtype1, scope='role', user=visi1)['iden'])
+            self.eq(vaults, {v['iden']: v for v in await core.getVaults(user=visi1.iden)})
+
+            with self.raises(s_exc.AuthDeny):
+                core.getVault(uiden, user=visi2.iden)
+
+            with self.raises(s_exc.NoSuchUser) as cm:
+                core.getVault(uiden, user=newp)
+            self.eq(f'No user with iden {newp}.', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.NoSuchUser):
+                await core.getVaults(user=newp)
+
+            with self.raises(s_exc.BadArg) as cm:
+                core.getVaultByType(vtype1)
+            self.eq('A useriden or user is required to get a vault by type.', cm.exception.get('mesg'))
+
             # read permission is not enough to edit, set perms, or delete
             rvdef = core.reqVault(riden)
             rvdef['configs'] = {'color': 'blue'}
