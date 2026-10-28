@@ -1506,14 +1506,10 @@ class AgendaTest(s_t_utils.SynTest):
 
             # modify period with 'now' and recurring
             with self.raises(s_exc.BadConfValu):
-                await core.updateCronJob(
-                    guid, reqs={'now': True},
-                    incunit='day', incvals=1)
+                await core.updateCronJob(guid, reqs={'now': True}, incunit='day', incvals=1)
 
             with self.raises(s_exc.BadConfValu):
-                await core.updateCronJob(
-                    guid, reqs=[{'hour': 12, 'minute': 0}, {'now': True}],
-                    incunit='day', incvals=1)
+                await core.updateCronJob(guid, reqs=[{'hour': 12, 'minute': 0}, {'now': True}], incunit='day', incvals=1)
 
             # modify period for a non-recurring job
             cdef = {
@@ -1529,8 +1525,7 @@ class AgendaTest(s_t_utils.SynTest):
 
             # modify with an invalid iden
             with self.raises(s_exc.NoSuchIden):
-                await agenda.mod(
-                    'nonexistent', {'query': '#test'})
+                await agenda.mod('nonexistent', {'query': '#test'})
 
             # modify a recurring period that's in the past
             cdef = {'creator': core.auth.rootuser.iden,
@@ -1543,12 +1538,7 @@ class AgendaTest(s_t_utils.SynTest):
             guid = adef.get('iden')
             past_year = datetime.datetime.now(tz.utc).year - 1
             with self.raises(s_exc.BadTime):
-                await agenda.mod(guid, cdef={
-                    'reqs': {s_tu.YEAR: past_year, s_tu.MONTH: 1, s_tu.DAYOFMONTH: 1,
-                             s_tu.HOUR: 0, s_tu.MINUTE: 0},
-                    'incunit': s_agenda.TimeUnit.YEAR,
-                    'incvals': 1,
-                })
+                await agenda.mod(guid, cdef={'reqs': {s_tu.YEAR: past_year, s_tu.MONTH: 1, s_tu.DAYOFMONTH: 1, s_tu.HOUR: 0, s_tu.MINUTE: 0}, 'incunit': s_agenda.TimeUnit.YEAR, 'incvals': 1})
 
             # modify with empty increment values
             cdef = {'creator': core.auth.rootuser.iden,
@@ -1560,11 +1550,7 @@ class AgendaTest(s_t_utils.SynTest):
             adef = await agenda.add(cdef)
             guid = adef.get('iden')
             with self.raises(s_exc.BadTime):
-                await agenda.mod(guid, cdef={
-                    'reqs': {s_tu.HOUR: 11, s_tu.MINUTE: 0},
-                    'incunit': s_agenda.TimeUnit.DAY,
-                    'incvals': [],
-                })
+                await agenda.mod(guid, cdef={'reqs': {s_tu.HOUR: 11, s_tu.MINUTE: 0}, 'incunit': s_agenda.TimeUnit.DAY, 'incvals': []})
 
     async def test_agenda_period_add_storm(self):
 

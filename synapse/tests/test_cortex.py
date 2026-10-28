@@ -8313,8 +8313,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             ]
 
             with self.raises(s_exc.NoSuchLayer):
-                await alist(prox.iterTagPropRows(badiden, 'foo', 'score', form='inet:ipv4',
-                                                 stortype=s_layer.STOR_TYPE_I64, startvalu=42))
+                await alist(prox.iterTagPropRows(badiden, 'foo', 'score', form='inet:ipv4', stortype=s_layer.STOR_TYPE_I64, startvalu=42))
 
             rows = await alist(prox.iterTagPropRows(layriden, 'foo', 'score', form='inet:ipv4',
                                                     stortype=s_layer.STOR_TYPE_I64, startvalu=42))

@@ -192,8 +192,7 @@ class DriveTest(s_t_utils.SynTest):
                     await cell.setDriveItemProp(s_common.guid(), versinfo, ('lolnope',), 'not real')
 
                 with self.raises(s_exc.BadArg):
-                    await cell.setDriveItemProp(iden, versinfo, ('blorp', 0, 'neato'),
-                                                                 'my special string')
+                    await cell.setDriveItemProp(iden, versinfo, ('blorp', 0, 'neato'), 'my special string')
 
                 data[1]['blorp'] = {
                     'bleep': [{'neato': 'thing'}]

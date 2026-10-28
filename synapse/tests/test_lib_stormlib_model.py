@@ -1344,8 +1344,7 @@ class StormlibModelTest(s_test.SynTest):
             opts = {'vars': {'guidval': guidval}}
             await core.nodes('[ test:guid=$guidval ]', opts=opts)
             with self.raises(s_exc.BadArg):
-                await core.nodes('test:str=fuse-src00 $n=$node -> { test:guid=$guidval $lib.model.migration.fuse($n, $node) }',
-                               opts=opts)
+                await core.nodes('test:str=fuse-src00 $n=$node -> { test:guid=$guidval $lib.model.migration.fuse($n, $node) }', opts=opts)
 
             # src runt form raises IsRuntForm
             with self.raises(s_exc.IsRuntForm):
