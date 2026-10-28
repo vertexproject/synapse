@@ -563,16 +563,23 @@ class StormLibAuthTest(s_test.SynTest):
             self.len(1, [m for m in msgs if m[0] == 'node'])
 
             # lowuser does not have asroot perms and gets denied importing certain modules
-            await self.asyncraises(s_exc.AuthDeny, core.nodes('yield $lib.import(authtest.mod.deny).func()', opts=aslowuser))
-            await self.asyncraises(s_exc.AuthDeny, core.nodes('yield $lib.import(authtest.mod.default).func()', opts=aslowuser))
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('yield $lib.import(authtest.mod.deny).func()', opts=aslowuser)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('yield $lib.import(authtest.mod.default).func()', opts=aslowuser)
+
             # ...and for modules they can import perms are not elevated so they can only add test:guid nodes
             self.len(1, await core.nodes('yield $lib.import(authtest.mod.allow).func()', opts=aslowuser))
             msgs = await core.stormlist('yield $lib.import(authtest.mod.warn).func()', opts=aslowuser)
             self.stormIsInWarn('permissions will not be elevated.', msgs)
             self.len(1, [m for m in msgs if m[0] == 'node'])
             # ...and gets denied on adding test:str nodes
-            await self.asyncraises(s_exc.AuthDeny, core.nodes('yield $lib.import(authtest.mod.allow).func2()', opts=aslowuser))
-            await self.asyncraises(s_exc.AuthDeny, core.nodes('yield $lib.import(authtest.mod.warn).func2()', opts=aslowuser))
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('yield $lib.import(authtest.mod.allow).func2()', opts=aslowuser)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('yield $lib.import(authtest.mod.warn).func2()', opts=aslowuser)
 
     async def test_stormlib_auth_userjson(self):
 
@@ -645,7 +652,8 @@ class StormLibAuthTest(s_test.SynTest):
             q = 'return($lib.auth.users.byname(visi).vars.foo)'
             self.eq('foovalu', await core.callStorm(q, opts=asvisi))
 
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(q, opts=asothr))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(q, opts=asothr)
 
             await core.callStorm('$lib.auth.users.byname(visi).vars.foo=barvalu')
 
@@ -1537,10 +1545,12 @@ class StormLibAuthTest(s_test.SynTest):
             self.len(1, await core.nodes('[ test:str=foo ]', opts=opts))
 
             opts['user'] = ureader.iden
-            await self.asyncraises(s_exc.AuthDeny, core.nodes('test:str', opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('test:str', opts=opts)
 
             opts['user'] = uwriter.iden
-            await self.asyncraises(s_exc.AuthDeny, core.nodes('test:str', opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('test:str', opts=opts)
 
             # add a read user
             opts['user'] = uowner.iden
@@ -1559,7 +1569,8 @@ class StormLibAuthTest(s_test.SynTest):
             '''
 
             opts['view'] = None
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             opts['view'] = viewiden
             viewgate, layrgate = await core.callStorm(scmd, opts=opts)
@@ -1568,7 +1579,8 @@ class StormLibAuthTest(s_test.SynTest):
 
             opts['user'] = ureader.iden
             self.len(1, await core.nodes('test:str', opts=opts))
-            await self.asyncraises(s_exc.AuthDeny, core.nodes('[ test:str=bar ]', opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('[ test:str=bar ]', opts=opts)
 
             # add a user as admin
             opts['user'] = uowner.iden
@@ -1584,7 +1596,8 @@ class StormLibAuthTest(s_test.SynTest):
             '''
 
             opts['view'] = None
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             opts['view'] = viewiden
             viewgate, layrgate = await core.callStorm(scmd, opts=opts)
@@ -1616,7 +1629,8 @@ class StormLibAuthTest(s_test.SynTest):
             '''
 
             opts['view'] = None
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             opts['view'] = viewiden
             await core.callStorm(scmd, opts=opts)
@@ -1644,13 +1658,16 @@ class StormLibAuthTest(s_test.SynTest):
             '''
 
             opts['view'] = None
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             opts['view'] = viewiden
             await core.callStorm(scmd, opts=opts)
 
             opts['user'] = ureader.iden
-            await self.asyncraises(s_exc.AuthDeny, core.nodes('[ test:str=baz ]', opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('[ test:str=baz ]', opts=opts)
+
             self.len(3, await core.nodes('test:str', opts=opts))
 
     async def test_stormlib_auth_gates(self):

@@ -695,7 +695,9 @@ class CortexTest(s_t_utils.SynTest):
 
             divert $lib.true $x()
             '''
-            await self.asyncraises(s_exc.BadArg, core.nodes(storm))
+            with self.raises(s_exc.BadArg):
+                await core.nodes(storm)
+
             self.len(2, await core.nodes('ou:org +#cat'))
 
             storm = '''
@@ -710,7 +712,9 @@ class CortexTest(s_t_utils.SynTest):
 
             divert $lib.true $x()
             '''
-            await self.asyncraises(s_exc.BadArg, core.nodes(storm))
+            with self.raises(s_exc.BadArg):
+                await core.nodes(storm)
+
             self.len(4, await core.nodes('ou:org +#dog'))
 
             # functions that return a generator
@@ -1925,16 +1929,35 @@ class CortexTest(s_t_utils.SynTest):
             for name, valu in tags:
                 self.eq(valu, (946684800000, 946684800001))
 
-            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag='' #$tag"))
-            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag='' #$tag=2020"))
-            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag=$lib.null #foo.$tag"))
-            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag=(foo, bar) #$tag"))
-            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag=(foo, bar) ##$tag"))
-            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag=(foo, bar) inet:fqdn#$tag"))
-            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("test:int $tag=$lib.null +#foo.$tag"))
-            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("test:int $tag=(foo, bar) $lib.print(#$tag)"))
-            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("test:int $tag=(foo, bar) +#$tag"))
-            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("test:int $tag=(foo, bar) +#$tag=2020"))
+            with self.raises(s_exc.BadTypeValu):
+                await wcore.nodes("$tag='' #$tag")
+
+            with self.raises(s_exc.BadTypeValu):
+                await wcore.nodes("$tag='' #$tag=2020")
+
+            with self.raises(s_exc.BadTypeValu):
+                await wcore.nodes("$tag=$lib.null #foo.$tag")
+
+            with self.raises(s_exc.BadTypeValu):
+                await wcore.nodes("$tag=(foo, bar) #$tag")
+
+            with self.raises(s_exc.BadTypeValu):
+                await wcore.nodes("$tag=(foo, bar) ##$tag")
+
+            with self.raises(s_exc.BadTypeValu):
+                await wcore.nodes("$tag=(foo, bar) inet:fqdn#$tag")
+
+            with self.raises(s_exc.BadTypeValu):
+                await wcore.nodes("test:int $tag=$lib.null +#foo.$tag")
+
+            with self.raises(s_exc.BadTypeValu):
+                await wcore.nodes("test:int $tag=(foo, bar) $lib.print(#$tag)")
+
+            with self.raises(s_exc.BadTypeValu):
+                await wcore.nodes("test:int $tag=(foo, bar) +#$tag")
+
+            with self.raises(s_exc.BadTypeValu):
+                await wcore.nodes("test:int $tag=(foo, bar) +#$tag=2020")
 
     async def test_base_types1(self):
 
@@ -3001,7 +3024,8 @@ class CortexTest(s_t_utils.SynTest):
 
             self.len(0, core.boss.ps())
 
-            await self.asyncraises(asyncio.CancelledError, task)
+            with self.raises(asyncio.CancelledError):
+                await task
 
     async def test_cortex_formcounts(self):
 
@@ -3404,7 +3428,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.none(await proxy.delStormPkg('foosball'))
             pkgs = await proxy.getStormPkgs()
             self.len(0, pkgs)
-            await self.asyncraises(s_exc.NoSuchPkg, proxy.delStormPkg('foosball'))
+            with self.raises(s_exc.NoSuchPkg):
+                await proxy.delStormPkg('foosball')
 
             self.none(await core._delStormPkg('foosball'))
 
@@ -3523,8 +3548,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                 },)
             }
 
-            await self.asyncraises(s_exc.SchemaViolation, core.addStormPkg(badcmdpkg))
-            await self.asyncraises(s_exc.BadArg, s_common.aspin(core.storm(None)))
+            with self.raises(s_exc.SchemaViolation):
+                await core.addStormPkg(badcmdpkg)
+
+            with self.raises(s_exc.BadArg):
+                await s_common.aspin(core.storm(None))
 
     async def test_onsetdel(self):
 
@@ -3611,8 +3639,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 node = await snap.addNode('test:str', 'foo')
 
-                await self.asyncraises(s_exc.NoSuchProp, node.set('newpnewp', 10))
-                await self.asyncraises(s_exc.BadTypeValu, node.set('tick', (20, 30)))
+                with self.raises(s_exc.NoSuchProp):
+                    await node.set('newpnewp', 10)
+
+                with self.raises(s_exc.BadTypeValu):
+                    await node.set('tick', (20, 30))
 
                 # FIXME Snap.strict manipulation, remove in 3.0.0
                 snap.strict = False
@@ -3941,7 +3972,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             $y = ([(1.23)])
             $x.$y = "foo"
             '''
-            await self.asyncraises(s_exc.BadArg, core.nodes(text))
+            with self.raises(s_exc.BadArg):
+                await core.nodes(text)
 
             text = '''
             $y = ([(1.23)])
@@ -3949,7 +3981,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 $y: "foo"
             })
             '''
-            await self.asyncraises(s_exc.BadArg, core.nodes(text))
+            with self.raises(s_exc.BadArg):
+                await core.nodes(text)
 
     async def test_storm_varlist_compute(self):
 
@@ -4072,11 +4105,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.callStorm('$lib.graph.mod($iden, $info)', opts={'vars': {'iden': iden2, 'info': mods}})
 
             q = '$lib.graph.mod($iden, ({"iden": "foo"}))'
-            await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts={'vars': {'iden': iden2}}))
+            with self.raises(s_exc.BadArg):
+                await core.callStorm(q, opts={'vars': {'iden': iden2}})
 
             gdef['scope'] = 'power-up'
             gdef['power-up'] = 'newp'
-            await self.asyncraises(s_exc.SynErr, core._addStormGraph(gdef))
+            with self.raises(s_exc.SynErr):
+                await core._addStormGraph(gdef)
 
             gdef = await core.callStorm('return($lib.graph.get($iden))', opts={'vars': {'iden': iden}})
             self.eq(gdef['name'], 'foo')
@@ -4222,7 +4257,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # Runtsafety test
             q = '[ test:int=1 ]  | graph --degrees $node.value()'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
             opts = {'vars': {'iden': iden, 'iden2': iden2}}
             q = '''
@@ -4247,7 +4283,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             uopts['user'] = visi.iden
             opts['vars']['useriden'] = visi.iden
 
-            await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.del($iden2)', opts=uopts))
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.graph.del($iden2)', opts=uopts)
+
             await core.nodes('$lib.graph.grant($iden2, users, $useriden, 3)', opts=opts)
 
             await core.nodes('$lib.graph.mod($iden2, ({"name": "newname"}))', opts=uopts)
@@ -4255,7 +4293,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(gdef['name'], 'newname')
 
             await core.nodes('$lib.graph.revoke($iden2, users, $useriden)', opts=opts)
-            await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.mod($iden2, ({"name": "newp"}))', opts=uopts))
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.graph.mod($iden2, ({"name": "newp"}))', opts=uopts)
 
             await core.nodes('$lib.graph.grant($iden2, users, $useriden, 3)', opts=opts)
             await core.nodes('$lib.graph.del($iden2)', opts=uopts)
@@ -4263,7 +4302,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(2, await core.callStorm('return($lib.graph.list())', opts=opts))
 
             q = '$lib.graph.del($lib.guid(graph.powerup, testgraph))'
-            await self.asyncraises(s_exc.AuthDeny, core.nodes(q))
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes(q)
 
             await core.callStorm('pkg.del graph.powerup')
             await core.callStorm('return($lib.graph.del($iden))', opts={'vars': {'iden': iden}})
@@ -4271,13 +4311,21 @@ class CortexBasicTest(s_t_utils.SynTest):
             gdefs = await core.callStorm('return($lib.graph.list())')
             self.len(0, gdefs)
 
-            await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.del(foo)'))
-            await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.get(foo)'))
-            await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.activate(foo)'))
-            await self.asyncraises(s_exc.NoSuchIden, core.delStormGraph('foo'))
+            with self.raises(s_exc.NoSuchIden):
+                await core.nodes('$lib.graph.del(foo)')
+
+            with self.raises(s_exc.NoSuchIden):
+                await core.nodes('$lib.graph.get(foo)')
+
+            with self.raises(s_exc.NoSuchIden):
+                await core.nodes('$lib.graph.activate(foo)')
+
+            with self.raises(s_exc.NoSuchIden):
+                await core.delStormGraph('foo')
 
             q = '$lib.graph.add(({"name": "foo", "forms": {"newp": {}}}))'
-            await self.asyncraises(s_exc.NoSuchForm, core.nodes(q))
+            with self.raises(s_exc.NoSuchForm):
+                await core.nodes(q)
 
             iden = await core.callStorm('''
                 $rules = ({
@@ -4376,7 +4424,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 }
             }
 
-            await self.asyncraises(s_exc.BadSyntax, core.addStormGraph(bad_form_pivot))
+            with self.raises(s_exc.BadSyntax):
+                await core.addStormGraph(bad_form_pivot)
 
             bad_form_filter = {
                 'name': 'bad form filter',
@@ -4388,21 +4437,24 @@ class CortexBasicTest(s_t_utils.SynTest):
                 }
             }
 
-            await self.asyncraises(s_exc.BadSyntax, core.addStormGraph(bad_form_filter))
+            with self.raises(s_exc.BadSyntax):
+                await core.addStormGraph(bad_form_filter)
 
             bad_global_filter = {
                 'name': 'bad global filter',
                 'filters': ['+++:wat']
             }
 
-            await self.asyncraises(s_exc.BadSyntax, core.addStormGraph(bad_global_filter))
+            with self.raises(s_exc.BadSyntax):
+                await core.addStormGraph(bad_global_filter)
 
             bad_global_pivot = {
                 'name': 'bad global pivot',
                 'pivots': ['-> * |||']
             }
 
-            await self.asyncraises(s_exc.BadSyntax, core.addStormGraph(bad_global_pivot))
+            with self.raises(s_exc.BadSyntax):
+                await core.addStormGraph(bad_global_pivot)
 
     async def test_storm_two_level_assignment(self):
         async with self.getTestCore() as core:
@@ -4650,10 +4702,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(0, nodes)
 
             # Ensure that add/edit a read-only runt prop fails, whether or not it exists.
-            await self.asyncraises(s_exc.IsRuntForm,
-                                   core.nodes('test:runt=beep [:tick=3001]'))
-            await self.asyncraises(s_exc.IsRuntForm,
-                                   core.nodes('test:runt=woah [:tick=3001]'))
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('test:runt=beep [:tick=3001]')
+
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('test:runt=woah [:tick=3001]')
 
             # Ensure that we can add/edit secondary props which has a callback.
             nodes = await core.nodes('test:runt=beep [:lulz=beepbeep.sys]')
@@ -4666,16 +4719,19 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('lulz'), 'woah.sys')
 
             # A edit may throw an exception due to some prop-specific normalization reason.
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('test:runt=woah [:lulz=no.way]'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:runt=woah [:lulz=no.way]')
 
             # Setting a property which has no callback or ro fails.
-            await self.asyncraises(s_exc.IsRuntForm, core.nodes('test:runt=woah [:newp=pennywise]'))
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('test:runt=woah [:newp=pennywise]')
 
             # Ensure that delete a read-only runt prop fails, whether or not it exists.
-            await self.asyncraises(s_exc.IsRuntForm,
-                                   core.nodes('test:runt=beep [-:tick]'))
-            await self.asyncraises(s_exc.IsRuntForm,
-                                   core.nodes('test:runt=woah [-:tick]'))
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('test:runt=beep [-:tick]')
+
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('test:runt=woah [-:tick]')
 
             # Ensure that we can delete a secondary prop which has a callback.
             nodes = await core.nodes('test:runt=beep [-:lulz]')
@@ -4685,15 +4741,22 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.none(nodes[0].get('lulz'))
 
             # Deleting a property which has no callback or ro fails.
-            await self.asyncraises(s_exc.IsRuntForm, core.nodes('test:runt=woah [-:newp]'))
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('test:runt=woah [-:newp]')
 
             # # Ensure that adding tags on runt nodes fails
-            await self.asyncraises(s_exc.IsRuntForm, core.nodes('test:runt=beep [+#hehe]'))
-            await self.asyncraises(s_exc.IsRuntForm, core.nodes('test:runt=beep [-#hehe]'))
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('test:runt=beep [+#hehe]')
+
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('test:runt=beep [-#hehe]')
 
             # Ensure that adding / deleting test runt nodes fails
-            await self.asyncraises(s_exc.IsRuntForm, core.nodes('[test:runt=" oh MY! "]'))
-            await self.asyncraises(s_exc.IsRuntForm, core.nodes('test:runt=beep | delnode'))
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('[test:runt=" oh MY! "]')
+
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('test:runt=beep | delnode')
 
             # Sad path for underlying Cortex.runRuntLift
             nodes = await alist(core.runRuntLift('test:newp', 'newp'))
@@ -5022,7 +5085,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(0, await core1.nodes('test:int=8 -#newtag.1234'))
 
             core1.view.layers[0].readonly = True
-            await self.asyncraises(s_exc.IsReadOnly, core1.addFeedData('syn.nodes', data))
+            with self.raises(s_exc.IsReadOnly):
+                await core1.addFeedData('syn.nodes', data)
 
             await core1.nodes('model.deprecated.lock ou:org:sic')
 
@@ -5592,10 +5656,12 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # Test invalid comparisons
             q = '$val=(1,2,3) [test:str=$("foo" >= $val)]'
-            await self.asyncraises(s_exc.BadCast, core.nodes(q))
+            with self.raises(s_exc.BadCast):
+                await core.nodes(q)
 
             q = '$val=(1,2,3) [test:str=$($val >= "foo")]'
-            await self.asyncraises(s_exc.BadCast, core.nodes(q))
+            with self.raises(s_exc.BadCast):
+                await core.nodes(q)
 
             q = '$val=42 [test:str=$(42<$val)]'
             nodes = await core.nodes(q)
@@ -5857,7 +5923,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core01.nodes('[ inet:fqdn=www.vertex.link ]')
                     self.len(1, await core01.nodes('inet:fqdn=www.vertex.link'))
 
-                    await self.asyncraises(s_exc.SynErr, core01.delView(core01.view.iden))
+                    with self.raises(s_exc.SynErr):
+                        await core01.delView(core01.view.iden)
 
                     # get the nexus index
                     nexusind = core01.nexsroot.nexslog.index()
@@ -5909,7 +5976,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 # Try a write with the leader down
                 with patch('synapse.lib.nexus.FOLLOWER_WRITE_WAIT_S', 2):
-                    await self.asyncraises(s_exc.LinkErr, core01.nodes('[inet:ipv4=7.7.7.8]'))
+                    with self.raises(s_exc.LinkErr):
+                        await core01.nodes('[inet:ipv4=7.7.7.8]')
 
                 # Bring the leader back up and try again
                 async with self.getTestCore(dirn=path00) as core00:
@@ -5950,7 +6018,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 lowuser = await core00.auth.addUser('low')
                 opts = {'user': lowuser.iden}
-                await self.asyncraises(s_exc.AuthDeny, core00.callStorm('$lib.cell.trimNexsLog()', opts=opts))
+                with self.raises(s_exc.AuthDeny):
+                    await core00.callStorm('$lib.cell.trimNexsLog()', opts=opts)
 
                 async with self.getTestCore(dirn=path01, conf={'mirror': url00}) as core01:
 
@@ -5987,11 +6056,13 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                         # simulate a waiter timing out
                         with patch('synapse.cortex.CoreApi.waitNexsOffs', return_value=False):
-                            await self.asyncraises(s_exc.SynErr, core00.callStorm(strim, opts=opts))
+                            with self.raises(s_exc.SynErr):
+                                await core00.callStorm(strim, opts=opts)
 
                     # consumer offline
                     await asyncio.sleep(0)
-                    await self.asyncraises(s_exc.LinkErr, core00.callStorm(strim, opts=opts))
+                    with self.raises(s_exc.LinkErr):
+                        await core00.callStorm(strim, opts=opts)
 
                     # admin can still cull and break the mirror
                     await core00.nodes('[ inet:ipv4=127.0.0.1/28 ]')
@@ -6142,8 +6213,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(norm, (1234, '1234'))
             self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': (('test:int', 1234, {}),)})
 
-            await self.asyncraises(s_exc.BadTypeValu, core.getPropNorm('test:int', 'newp'))
-            await self.asyncraises(s_exc.NoSuchProp, core.getPropNorm('test:newp', 'newp'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.getPropNorm('test:int', 'newp')
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.getPropNorm('test:newp', 'newp')
 
             norm, info = await prox.getPropNorm('test:str', 1234)
             self.eq(norm, '1234')
@@ -6153,8 +6227,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(norm, (1234, '1234'))
             self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': (('test:int', 1234, {}),)})
 
-            await self.asyncraises(s_exc.BadTypeValu, prox.getPropNorm('test:int', 'newp'))
-            await self.asyncraises(s_exc.NoSuchProp, prox.getPropNorm('test:newp', 'newp'))
+            with self.raises(s_exc.BadTypeValu):
+                await prox.getPropNorm('test:int', 'newp')
+
+            with self.raises(s_exc.NoSuchProp):
+                await prox.getPropNorm('test:newp', 'newp')
 
             # getTypeNorm base tests
             norm, info = await core.getTypeNorm('test:str', 1234)
@@ -6165,8 +6242,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(norm, (1234, '1234'))
             self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': (('test:int', 1234, {}),)})
 
-            await self.asyncraises(s_exc.BadTypeValu, core.getTypeNorm('test:int', 'newp'))
-            await self.asyncraises(s_exc.NoSuchType, core.getTypeNorm('test:newp', 'newp'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.getTypeNorm('test:int', 'newp')
+
+            with self.raises(s_exc.NoSuchType):
+                await core.getTypeNorm('test:newp', 'newp')
 
             norm, info = await prox.getTypeNorm('test:str', 1234)
             self.eq(norm, '1234')
@@ -6176,15 +6256,19 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(norm, (1234, '1234'))
             self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': (('test:int', 1234, {}),)})
 
-            await self.asyncraises(s_exc.BadTypeValu, prox.getTypeNorm('test:int', 'newp'))
-            await self.asyncraises(s_exc.NoSuchType, prox.getTypeNorm('test:newp', 'newp'))
+            with self.raises(s_exc.BadTypeValu):
+                await prox.getTypeNorm('test:int', 'newp')
+
+            with self.raises(s_exc.NoSuchType):
+                await prox.getTypeNorm('test:newp', 'newp')
 
             # getPropNorm can norm sub props
             norm, info = await core.getPropNorm('test:str:tick', '3001')
             self.eq(norm, 32535216000000)
             self.eq(info, {})
             # but getTypeNorm won't handle that
-            await self.asyncraises(s_exc.NoSuchType, core.getTypeNorm('test:str:tick', '3001'))
+            with self.raises(s_exc.NoSuchType):
+                await core.getTypeNorm('test:str:tick', '3001')
 
             # specify typeopts to getTypeNorm/getPropNorm
             norm, info = await prox.getTypeNorm('array', ('  TIME   ', '   pass   ', '   the  '), {'uniq': True, 'sorted': True, 'type': 'str', 'typeopts': {'strip': True, 'lower': True}})
@@ -6197,7 +6281,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             norm, info = await core.getTypeNorm('test:lower', 'ASDF')
             self.eq(norm, 'asdf')
             # but getPropNorm won't handle that
-            await self.asyncraises(s_exc.NoSuchProp, core.getPropNorm('test:lower', 'ASDF'))
+            with self.raises(s_exc.NoSuchProp):
+                await core.getPropNorm('test:lower', 'ASDF')
 
     async def test_addview(self):
         async with self.getTestCore() as core:
@@ -6218,11 +6303,13 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # Missing layers
             vdef = {'name': 'mylayer'}
-            await self.asyncraises(s_exc.SchemaViolation, core.addView(vdef))
+            with self.raises(s_exc.SchemaViolation):
+                await core.addView(vdef)
 
             # Layer not a string
             vdef = {'layers': (123,)}
-            await self.asyncraises(s_exc.SchemaViolation, core.addView(vdef))
+            with self.raises(s_exc.SchemaViolation):
+                await core.addView(vdef)
 
     async def test_view_setlayers(self):
 
@@ -6589,7 +6676,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.stormIsInPrint('(wootdmon            ): error', msgs)
 
             # invalid storm query
-            await self.asyncraises(s_exc.BadSyntax, core.nodes('$lib.dmon.add(" | | | ")'))
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('$lib.dmon.add(" | | | ")')
 
     async def test_cortex_storm_dmon_exit(self):
 
@@ -7070,18 +7158,26 @@ class CortexBasicTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=dirn) as core:
 
                 # Can't delete the default view
-                await self.asyncraises(s_exc.SynErr, core.delView(core.view.iden))
-                await self.asyncraises(s_exc.SynErr, core._delViewWithLayer(core.view.iden, None, None))
+                with self.raises(s_exc.SynErr):
+                    await core.delView(core.view.iden)
+
+                with self.raises(s_exc.SynErr):
+                    await core._delViewWithLayer(core.view.iden, None, None)
 
                 # Can't delete a layer in a view
-                await self.asyncraises(s_exc.SynErr, core.delLayer(core.view.layers[0].iden))
+                with self.raises(s_exc.SynErr):
+                    await core.delLayer(core.view.layers[0].iden)
 
                 # Can't delete a nonexistent view
-                await self.asyncraises(s_exc.NoSuchView, core.delView('XXX'))
-                await self.asyncraises(s_exc.NoSuchView, core.delViewWithLayer('XXX'))
+                with self.raises(s_exc.NoSuchView):
+                    await core.delView('XXX')
+
+                with self.raises(s_exc.NoSuchView):
+                    await core.delViewWithLayer('XXX')
 
                 # Can't delete a nonexistent layer
-                await self.asyncraises(s_exc.NoSuchLayer, core.delLayer('XXX'))
+                with self.raises(s_exc.NoSuchLayer):
+                    await core.delLayer('XXX')
 
                 # Fork the main view
                 vdef2 = await core.view.fork()
@@ -7089,7 +7185,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 # Can't delete a view twice
                 await core.delView(view2_iden)
-                await self.asyncraises(s_exc.NoSuchView, core.delView(view2_iden))
+                with self.raises(s_exc.NoSuchView):
+                    await core.delView(view2_iden)
 
                 layr = await core.addLayer()
                 layriden = layr['iden']
@@ -7099,7 +7196,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 opts = {'view': view3_iden}
                 await core.callStorm('$lib.view.get().set(protected, $lib.true)', opts=opts)
 
-                await self.asyncraises(s_exc.CantDelView, core.delViewWithLayer(view3_iden))
+                with self.raises(s_exc.CantDelView):
+                    await core.delViewWithLayer(view3_iden)
 
                 await core.callStorm('$lib.view.get().set(protected, $lib.false)', opts=opts)
 
@@ -8161,7 +8259,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[test:str=$valu]', opts={'vars': {'valu': 'z' * 500}}))
 
             badiden = 'xxx'
-            await self.agenraises(s_exc.NoSuchLayer, prox.iterPropRows(badiden, 'inet:ipv4', 'asn'))
+            with self.raises(s_exc.NoSuchLayer):
+                await alist(prox.iterPropRows(badiden, 'inet:ipv4', 'asn'))
 
             # rows are (buid, valu) tuples
             layriden = core.view.layers[0].iden
@@ -8169,7 +8268,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             self.eq((10, 20, 30), tuple(sorted([row[1] for row in rows])))
 
-            await self.agenraises(s_exc.NoSuchLayer, prox.iterUnivRows(badiden, '.seen'))
+            with self.raises(s_exc.NoSuchLayer):
+                await alist(prox.iterUnivRows(badiden, '.seen'))
 
             # rows are (buid, valu) tuples
             rows = await alist(prox.iterUnivRows(layriden, '.seen'))
@@ -8179,7 +8279,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(ivals, tuple(sorted([row[1] for row in rows])))
 
             # iterFormRows
-            await self.agenraises(s_exc.NoSuchLayer, prox.iterFormRows(badiden, 'inet:ipv4'))
+            with self.raises(s_exc.NoSuchLayer):
+                await alist(prox.iterFormRows(badiden, 'inet:ipv4'))
 
             rows = await alist(prox.iterFormRows(layriden, 'inet:ipv4'))
             self.eq([(buid1, 1), (buid2, 2), (buid3, 3)], rows)
@@ -8192,8 +8293,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                     (buid3, (tm('2018', '2020'), 'inet:ipv4')),
                 ], key=lambda x: x[0])
 
-            await self.agenraises(s_exc.NoSuchLayer, prox.iterTagRows(badiden, 'foo', form='newpform',
-                                                                      starttupl=(expect[1][0], 'newpform')))
+            with self.raises(s_exc.NoSuchLayer):
+                await alist(prox.iterTagRows(badiden, 'foo', form='newpform', starttupl=(expect[1][0], 'newpform')))
+
             rows = await alist(prox.iterTagRows(layriden, 'foo', form='newpform', starttupl=(expect[1][0], 'newpform')))
             self.eq([], rows)
 
@@ -8210,9 +8312,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 (buid3, 99,),
             ]
 
-            await self.agenraises(s_exc.NoSuchLayer, prox.iterTagPropRows(badiden, 'foo', 'score', form='inet:ipv4',
-                                                                          stortype=s_layer.STOR_TYPE_I64,
-                                                                          startvalu=42))
+            with self.raises(s_exc.NoSuchLayer):
+                await alist(prox.iterTagPropRows(badiden, 'foo', 'score', form='inet:ipv4', stortype=s_layer.STOR_TYPE_I64, startvalu=42))
 
             rows = await alist(prox.iterTagPropRows(layriden, 'foo', 'score', form='inet:ipv4',
                                                     stortype=s_layer.STOR_TYPE_I64, startvalu=42))

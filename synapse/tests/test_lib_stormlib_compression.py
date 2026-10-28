@@ -23,8 +23,11 @@ class StormlibCompressionTest(s_test.SynTest):
             q = 'tel:mob:telem=(node2,) return($lib.base64.encode($lib.compression.bzip2.en((:data).encode())))'
             self.eq(tenc, await core.callStorm(q))
 
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes('$lib.compression.bzip2.en(foo)'))
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes('$lib.compression.bzip2.un(foo)'))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('$lib.compression.bzip2.en(foo)')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('$lib.compression.bzip2.un(foo)')
 
     async def test_storm_lib_bytes_gzip(self):
         async with self.getTestCore() as core:
@@ -40,8 +43,11 @@ class StormlibCompressionTest(s_test.SynTest):
             q = 'tel:mob:telem=(node2,) return($lib.compression.gzip.en((:data).encode()))'
             self.eq(text.encode(), gzip.decompress(await core.callStorm(q)))
 
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes('$lib.compression.gzip.en(foo)'))
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes('$lib.compression.gzip.un(foo)'))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('$lib.compression.gzip.en(foo)')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('$lib.compression.gzip.un(foo)')
 
     async def test_storm_lib_bytes_zlib(self):
         async with self.getTestCore() as core:
@@ -57,5 +63,8 @@ class StormlibCompressionTest(s_test.SynTest):
             q = 'tel:mob:telem=(node2,) return($lib.base64.encode($lib.compression.zlib.en((:data).encode())))'
             self.eq(tenc, await core.callStorm(q))
 
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes('$lib.compression.zlib.en(foo)'))
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes('$lib.compression.zlib.un(foo)'))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('$lib.compression.zlib.en(foo)')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('$lib.compression.zlib.un(foo)')

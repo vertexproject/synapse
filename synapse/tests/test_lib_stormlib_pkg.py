@@ -305,21 +305,32 @@ class StormLibPkgTest(s_test.SynTest):
 
                 # perms
 
-                await self.asyncraises(s_exc.AuthDeny, core.callStorm('$lib.print($lib.pkg.vars(pkg0))', opts=aslow))
-                await self.asyncraises(s_exc.AuthDeny, core.callStorm('return($lib.pkg.vars(pkg0).baz)', opts=aslow))
-                await self.asyncraises(s_exc.AuthDeny, core.callStorm('$lib.pkg.vars(pkg0).baz = cool', opts=aslow))
-                await self.asyncraises(s_exc.AuthDeny, core.callStorm('$lib.pkg.vars(pkg0).baz = $lib.undef', opts=aslow))
-                await self.asyncraises(s_exc.AuthDeny, core.callStorm('''
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm('$lib.print($lib.pkg.vars(pkg0))', opts=aslow)
+
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm('return($lib.pkg.vars(pkg0).baz)', opts=aslow)
+
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm('$lib.pkg.vars(pkg0).baz = cool', opts=aslow)
+
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm('$lib.pkg.vars(pkg0).baz = $lib.undef', opts=aslow)
+
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm('''
                     $kvs = ([])
                     for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
                     return($kvs)
-                ''', opts=aslow))
-                await self.asyncraises(s_exc.AuthDeny, core.callStorm('''
+                ''', opts=aslow)
+
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm('''
                     [ test:str=foo ]
                     $kvs = ([])
                     for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
                     fini { return($kvs) }
-                ''', opts=aslow))
+                ''', opts=aslow)
 
                 await core.callStorm('auth.user.addrule lowuser "power-ups.pkg0.admin"')
 
