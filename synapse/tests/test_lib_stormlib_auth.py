@@ -565,8 +565,10 @@ class StormLibAuthTest(s_test.SynTest):
             # lowuser does not have asroot perms and gets denied importing certain modules
             with self.raises(s_exc.AuthDeny):
                 await core.nodes('yield $lib.import(authtest.mod.deny).func()', opts=aslowuser)
+
             with self.raises(s_exc.AuthDeny):
                 await core.nodes('yield $lib.import(authtest.mod.default).func()', opts=aslowuser)
+
             # ...and for modules they can import perms are not elevated so they can only add test:guid nodes
             self.len(1, await core.nodes('yield $lib.import(authtest.mod.allow).func()', opts=aslowuser))
             msgs = await core.stormlist('yield $lib.import(authtest.mod.warn).func()', opts=aslowuser)
@@ -575,6 +577,7 @@ class StormLibAuthTest(s_test.SynTest):
             # ...and gets denied on adding test:str nodes
             with self.raises(s_exc.AuthDeny):
                 await core.nodes('yield $lib.import(authtest.mod.allow).func2()', opts=aslowuser)
+
             with self.raises(s_exc.AuthDeny):
                 await core.nodes('yield $lib.import(authtest.mod.warn).func2()', opts=aslowuser)
 
@@ -1664,6 +1667,7 @@ class StormLibAuthTest(s_test.SynTest):
             opts['user'] = ureader.iden
             with self.raises(s_exc.AuthDeny):
                 await core.nodes('[ test:str=baz ]', opts=opts)
+
             self.len(3, await core.nodes('test:str', opts=opts))
 
     async def test_stormlib_auth_gates(self):

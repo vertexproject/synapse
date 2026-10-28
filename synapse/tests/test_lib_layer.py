@@ -1706,6 +1706,7 @@ class LayerTest(s_t_utils.SynTest):
                 self.true(await core.callStorm('$layer=$lib.layer.get() $layer.set(readonly, $lib.true) return($layer.get(readonly))'))
                 with self.raises(s_exc.IsReadOnly):
                     await core.nodes('[inet:ipv4=7.7.7.7]')
+
                 with self.raises(s_exc.IsReadOnly):
                     await core.nodes('$lib.layer.get().set(logedits, $lib.false)')
 

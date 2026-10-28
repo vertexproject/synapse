@@ -307,18 +307,23 @@ class StormLibPkgTest(s_test.SynTest):
 
                 with self.raises(s_exc.AuthDeny):
                     await core.callStorm('$lib.print($lib.pkg.vars(pkg0))', opts=aslow)
+
                 with self.raises(s_exc.AuthDeny):
                     await core.callStorm('return($lib.pkg.vars(pkg0).baz)', opts=aslow)
+
                 with self.raises(s_exc.AuthDeny):
                     await core.callStorm('$lib.pkg.vars(pkg0).baz = cool', opts=aslow)
+
                 with self.raises(s_exc.AuthDeny):
                     await core.callStorm('$lib.pkg.vars(pkg0).baz = $lib.undef', opts=aslow)
+
                 with self.raises(s_exc.AuthDeny):
                     await core.callStorm('''
                     $kvs = ([])
                     for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
                     return($kvs)
                 ''', opts=aslow)
+
                 with self.raises(s_exc.AuthDeny):
                     await core.callStorm('''
                     [ test:str=foo ]

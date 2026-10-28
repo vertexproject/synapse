@@ -359,6 +359,7 @@ Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
             # make sure exceptions within sha256tolink get re-raised
             with self.raises(s_exc.NoSuchFile):
                 await s_t_utils.alist(axon.csvrows(pennhash))
+
             with self.raises(s_exc.NoSuchFile):
                 await s_t_utils.alist(axon.readlines(s_common.ehex(pennhash)))
 
@@ -1003,28 +1004,40 @@ bar baz",vv
                 # Ensure the user can't do things with bytes they don't have permissions too.
                 with self.raises(s_exc.AuthDeny):
                     await s_t_utils.alist(prox.get(asdfhash))
+
                 with self.raises(s_exc.AuthDeny):
                     await prox.has(asdfhash)
+
                 with self.raises(s_exc.AuthDeny):
                     await prox.hashset(asdfhash)
+
                 with self.raises(s_exc.AuthDeny):
                     await s_t_utils.alist(prox.hashes(0))
+
                 with self.raises(s_exc.AuthDeny):
                     await s_t_utils.alist(prox.history(0))
+
                 with self.raises(s_exc.AuthDeny):
                     await prox.del_(asdfhash)
+
                 with self.raises(s_exc.AuthDeny):
                     await prox.dels((asdfhash,))
+
                 with self.raises(s_exc.AuthDeny):
                     await prox.wants((asdfhash,))
+
                 with self.raises(s_exc.AuthDeny):
                     await prox.put(abuf)
+
                 with self.raises(s_exc.AuthDeny):
                     await prox.puts((abuf,))
+
                 with self.raises(s_exc.AuthDeny):
                     await prox.upload()
+
                 with self.raises(s_exc.AuthDeny):
                     await prox.metrics()
+
                 # now add rules and run the test suite
                 await user.addRule((True, ('health',)))
                 await user.addRule((True, ('axon', 'get',)))

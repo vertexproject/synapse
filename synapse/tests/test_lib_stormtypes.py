@@ -4983,14 +4983,19 @@ class StormTypesTest(s_test.SynTest):
             # Sad paths
             with self.raises(s_exc.NoSuchView):
                 await core.nodes('$lib.view.del(foo)')
+
             with self.raises(s_exc.NoSuchView):
                 await core.nodes('$lib.view.get(foo)')
+
             with self.raises(s_exc.CantMergeView):
                 await core.nodes('$lib.view.get().merge()')
+
             with self.raises(s_exc.NoSuchLayer):
                 await core.nodes(f'view.add --layers {s_common.guid()}')
+
             with self.raises(s_exc.SynErr):
                 await core.nodes('$lib.view.del($lib.view.get().iden)')
+
             with self.raises(s_exc.SchemaViolation):
                 await core.nodes('$lib.view.add(([]))')
 
@@ -7579,6 +7584,7 @@ words\tword\twrd'''
             opts['view'] = forkview
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm(scmd, opts=opts)
+
             opts.pop('view')
 
             await visi.delRule((True, ('storm', 'lib', 'axon', 'wget')))
@@ -8439,6 +8445,7 @@ words\tword\twrd'''
             opts = {'user': visi.iden, 'vars': {'sha256': sha256_s, 'emptyhash': emptyhash}}
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return($lib.axon.read($sha256, offs=3, size=3))', opts=opts)
+
             await visi.addRule((True, ('storm', 'lib', 'axon', 'get')))
 
             q = 'return($lib.axon.read($sha256, offs=3, size=3))'
@@ -8454,9 +8461,11 @@ words\tword\twrd'''
             q = 'return($lib.axon.read($sha256, size=0))'
             with self.raises(s_exc.BadArg):
                 await core.callStorm(q, opts=opts)
+
             q = 'return($lib.axon.read($sha256, offs=-1, size=1))'
             with self.raises(s_exc.BadArg):
                 await core.callStorm(q, opts=opts)
+
             q = 'return($lib.axon.read($sha256, size=2097152))'
             with self.raises(s_exc.BadArg):
                 await core.callStorm(q, opts=opts)
@@ -8470,6 +8479,7 @@ words\tword\twrd'''
             q = 'return($lib.axon.unpack($sha256, fmt=">Q"))'
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm(q, opts=opts)
+
             await visi.addRule((True, ('storm', 'lib', 'axon', 'get')))
 
             q = 'return($lib.axon.unpack($sha256, fmt=">Q"))'

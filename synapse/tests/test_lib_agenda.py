@@ -193,6 +193,7 @@ class AgendaTest(s_t_utils.SynTest):
                         'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
                 with self.raises(s_exc.BadArg):
                     await agenda.add(cdef)
+
                 with self.raises(s_exc.NoSuchIden):
                     await agenda.get('newp')
 
@@ -210,6 +211,7 @@ class AgendaTest(s_t_utils.SynTest):
                         'incvals': 1}
                 with self.raises(s_exc.BadArg):
                     await agenda.add(cdef)
+
                 with self.raises(s_exc.NoSuchIden):
                     await agenda.get('DOIT')
 
@@ -218,6 +220,7 @@ class AgendaTest(s_t_utils.SynTest):
                         'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
                 with self.raises(s_exc.BadSyntax):
                     await agenda.add(cdef)
+
                 with self.raises(s_exc.NoSuchIden):
                     await agenda.get('DOIT')
 
@@ -326,6 +329,7 @@ class AgendaTest(s_t_utils.SynTest):
                 # Modify the last appointment
                 with self.raises(s_exc.BadArg):
                     await agenda.mod(guid2, {'query': ''})
+
                 await agenda.mod(guid2, {'query': '#baz'})
                 self.eq(agenda.appts[guid2].query, '#baz')
 
@@ -482,6 +486,7 @@ class AgendaTest(s_t_utils.SynTest):
                         'iden': viewiden}
                 with self.raises(s_exc.DupIden):
                     await core.addCronJob(cdef)
+
                 await core.delCronJob(viewiden)
 
                 self.nn(await core.getAuthGate(viewiden))

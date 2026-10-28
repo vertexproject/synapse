@@ -149,8 +149,10 @@ class HiveTest(s_test.SynTest):
             await hive.loadHiveTree(tree0)
             with self.raises(s_exc.BadHivePath):
                 await hive.rename(('hehe',), ('hoho',))
+
             with self.raises(s_exc.BadHivePath):
                 await hive.rename(('newp',), ('newp2',))
+
             with self.raises(s_exc.BadHivePath):
                 await hive.rename(('hehe',), ('hehe', 'foo'))
 

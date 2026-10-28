@@ -697,6 +697,7 @@ class CortexTest(s_t_utils.SynTest):
             '''
             with self.raises(s_exc.BadArg):
                 await core.nodes(storm)
+
             self.len(2, await core.nodes('ou:org +#cat'))
 
             storm = '''
@@ -713,6 +714,7 @@ class CortexTest(s_t_utils.SynTest):
             '''
             with self.raises(s_exc.BadArg):
                 await core.nodes(storm)
+
             self.len(4, await core.nodes('ou:org +#dog'))
 
             # functions that return a generator
@@ -1929,22 +1931,31 @@ class CortexTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadTypeValu):
                 await wcore.nodes("$tag='' #$tag")
+
             with self.raises(s_exc.BadTypeValu):
                 await wcore.nodes("$tag='' #$tag=2020")
+
             with self.raises(s_exc.BadTypeValu):
                 await wcore.nodes("$tag=$lib.null #foo.$tag")
+
             with self.raises(s_exc.BadTypeValu):
                 await wcore.nodes("$tag=(foo, bar) #$tag")
+
             with self.raises(s_exc.BadTypeValu):
                 await wcore.nodes("$tag=(foo, bar) ##$tag")
+
             with self.raises(s_exc.BadTypeValu):
                 await wcore.nodes("$tag=(foo, bar) inet:fqdn#$tag")
+
             with self.raises(s_exc.BadTypeValu):
                 await wcore.nodes("test:int $tag=$lib.null +#foo.$tag")
+
             with self.raises(s_exc.BadTypeValu):
                 await wcore.nodes("test:int $tag=(foo, bar) $lib.print(#$tag)")
+
             with self.raises(s_exc.BadTypeValu):
                 await wcore.nodes("test:int $tag=(foo, bar) +#$tag")
+
             with self.raises(s_exc.BadTypeValu):
                 await wcore.nodes("test:int $tag=(foo, bar) +#$tag=2020")
 
@@ -3539,6 +3550,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.SchemaViolation):
                 await core.addStormPkg(badcmdpkg)
+
             with self.raises(s_exc.BadArg):
                 await s_common.aspin(core.storm(None))
 
@@ -3629,6 +3641,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.NoSuchProp):
                     await node.set('newpnewp', 10)
+
                 with self.raises(s_exc.BadTypeValu):
                     await node.set('tick', (20, 30))
 
@@ -4272,6 +4285,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.AuthDeny):
                 await core.nodes('$lib.graph.del($iden2)', opts=uopts)
+
             await core.nodes('$lib.graph.grant($iden2, users, $useriden, 3)', opts=opts)
 
             await core.nodes('$lib.graph.mod($iden2, ({"name": "newname"}))', opts=uopts)
@@ -4299,10 +4313,13 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchIden):
                 await core.nodes('$lib.graph.del(foo)')
+
             with self.raises(s_exc.NoSuchIden):
                 await core.nodes('$lib.graph.get(foo)')
+
             with self.raises(s_exc.NoSuchIden):
                 await core.nodes('$lib.graph.activate(foo)')
+
             with self.raises(s_exc.NoSuchIden):
                 await core.delStormGraph('foo')
 
@@ -4687,6 +4704,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Ensure that add/edit a read-only runt prop fails, whether or not it exists.
             with self.raises(s_exc.IsRuntForm):
                 await core.nodes('test:runt=beep [:tick=3001]')
+
             with self.raises(s_exc.IsRuntForm):
                 await core.nodes('test:runt=woah [:tick=3001]')
 
@@ -4711,6 +4729,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Ensure that delete a read-only runt prop fails, whether or not it exists.
             with self.raises(s_exc.IsRuntForm):
                 await core.nodes('test:runt=beep [-:tick]')
+
             with self.raises(s_exc.IsRuntForm):
                 await core.nodes('test:runt=woah [-:tick]')
 
@@ -4728,12 +4747,14 @@ class CortexBasicTest(s_t_utils.SynTest):
             # # Ensure that adding tags on runt nodes fails
             with self.raises(s_exc.IsRuntForm):
                 await core.nodes('test:runt=beep [+#hehe]')
+
             with self.raises(s_exc.IsRuntForm):
                 await core.nodes('test:runt=beep [-#hehe]')
 
             # Ensure that adding / deleting test runt nodes fails
             with self.raises(s_exc.IsRuntForm):
                 await core.nodes('[test:runt=" oh MY! "]')
+
             with self.raises(s_exc.IsRuntForm):
                 await core.nodes('test:runt=beep | delnode')
 
@@ -6194,6 +6215,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadTypeValu):
                 await core.getPropNorm('test:int', 'newp')
+
             with self.raises(s_exc.NoSuchProp):
                 await core.getPropNorm('test:newp', 'newp')
 
@@ -6207,6 +6229,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadTypeValu):
                 await prox.getPropNorm('test:int', 'newp')
+
             with self.raises(s_exc.NoSuchProp):
                 await prox.getPropNorm('test:newp', 'newp')
 
@@ -6221,6 +6244,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadTypeValu):
                 await core.getTypeNorm('test:int', 'newp')
+
             with self.raises(s_exc.NoSuchType):
                 await core.getTypeNorm('test:newp', 'newp')
 
@@ -6234,6 +6258,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadTypeValu):
                 await prox.getTypeNorm('test:int', 'newp')
+
             with self.raises(s_exc.NoSuchType):
                 await prox.getTypeNorm('test:newp', 'newp')
 
@@ -7135,6 +7160,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # Can't delete the default view
                 with self.raises(s_exc.SynErr):
                     await core.delView(core.view.iden)
+
                 with self.raises(s_exc.SynErr):
                     await core._delViewWithLayer(core.view.iden, None, None)
 
@@ -7145,6 +7171,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # Can't delete a nonexistent view
                 with self.raises(s_exc.NoSuchView):
                     await core.delView('XXX')
+
                 with self.raises(s_exc.NoSuchView):
                     await core.delViewWithLayer('XXX')
 
@@ -8268,6 +8295,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchLayer):
                 await alist(prox.iterTagRows(badiden, 'foo', form='newpform', starttupl=(expect[1][0], 'newpform')))
+
             rows = await alist(prox.iterTagRows(layriden, 'foo', form='newpform', starttupl=(expect[1][0], 'newpform')))
             self.eq([], rows)
 

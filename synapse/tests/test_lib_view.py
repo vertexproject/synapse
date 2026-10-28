@@ -230,8 +230,10 @@ class ViewTest(s_t_utils.SynTest):
             tmpiden = tmplayr['iden']
             with self.raises(s_exc.ReadOnlyLayer):
                 await core.view.addLayer(tmpiden)
+
             with self.raises(s_exc.ReadOnlyLayer):
                 await view2.addLayer(tmpiden)
+
             with self.raises(s_exc.BadArg):
                 await view2.setLayers([tmpiden])
 
@@ -243,6 +245,7 @@ class ViewTest(s_t_utils.SynTest):
             view2.parent.layers[0].readonly = True
             with self.raises(s_exc.ReadOnlyLayer):
                 await view2.merge()
+
             view2.parent.layers[0].readonly = False
 
             vdef3 = await view2.fork()
@@ -252,14 +255,18 @@ class ViewTest(s_t_utils.SynTest):
             # You can't delete a view or merge it if it has children
             with self.raises(s_exc.SynErr):
                 await view2.merge()
+
             with self.raises(s_exc.SynErr):
                 await view2.core.delView(view2.iden)
+
             with self.raises(s_exc.SynErr):
                 await view2.core.delView(view2.iden)
+
             layr = await core.addLayer()
             layriden = layr['iden']
             with self.raises(s_exc.SynErr):
                 await view2.addLayer(layriden)
+
             await view3.core.delView(view3.iden)
 
             async with core.getLocalProxy(user='visi') as prox:
@@ -415,6 +422,7 @@ class ViewTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str=maxval [ .seen=newp ]', opts=forkopts)
+
             await core.nodes('test:str=maxval [ .seen?=newp +#foo ]', opts=forkopts)
             self.len(1, await core.nodes('test:str#foo', opts=forkopts))
 

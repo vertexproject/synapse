@@ -366,6 +366,7 @@ class AuthTest(s_test.SynTest):
                 # But still can't write to layer
                 with self.raises(s_exc.AuthDeny):
                     await fredcore.count('[test:int=12]', opts=viewopts)
+
                 with self.raises(s_exc.AuthDeny):
                     await fredcore.count('test:int=11 [:loc=us]', opts=viewopts)
 

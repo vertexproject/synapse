@@ -329,6 +329,7 @@ class StormlibModelTest(s_test.SynTest):
 
             with self.raises(s_exc.BadArg):
                 await core.nodes('test:str=src $lib.model.migration.copyData($node, newp)')
+
             with self.raises(s_exc.BadArg):
                 await core.nodes('test:str=dst $lib.model.migration.copyData(newp, $node)')
 
@@ -368,6 +369,7 @@ class StormlibModelTest(s_test.SynTest):
 
             with self.raises(s_exc.BadArg):
                 await core.nodes('test:str=src $lib.model.migration.copyEdges($node, newp)')
+
             with self.raises(s_exc.BadArg):
                 await core.nodes('test:str=dst $lib.model.migration.copyEdges(newp, $node)')
 
@@ -391,6 +393,7 @@ class StormlibModelTest(s_test.SynTest):
 
             with self.raises(s_exc.BadArg):
                 await core.nodes('test:str=src $lib.model.migration.copyTags($node, newp)')
+
             with self.raises(s_exc.BadArg):
                 await core.nodes('test:str=dst $lib.model.migration.copyTags(newp, $node)')
 
@@ -431,6 +434,7 @@ class StormlibModelTest(s_test.SynTest):
             # copy extended properties
             with self.raises(s_exc.BadArg):
                 await core.nodes('test:str=src $lib.model.migration.copyExtProps($node, newp)')
+
             with self.raises(s_exc.BadArg):
                 await core.nodes('test:str=dst $lib.model.migration.copyExtProps(newp, $node)')
 

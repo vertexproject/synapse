@@ -178,12 +178,14 @@ class CryoTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.AuthDeny):
                     await prox.puts('tank1', ('bar',))
+
                 with self.raises(s_exc.AuthDeny):
                     await alist(prox.rows('tank1', 0, 10))
 
                 async with cryo.getLocalProxy(user='tank0', share='cryotank/tank1') as share:
                     with self.raises(s_exc.AuthDeny):
                         await share.puts(('bar',))
+
                     with self.raises(s_exc.AuthDeny):
                         await alist(share.slice(0, wait=False))
 
@@ -205,12 +207,16 @@ class CryoTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.AuthDeny):
                     await prox.init('tank2')
+
                 with self.raises(s_exc.AuthDeny):
                     await prox.puts('tank0', ('bar',))
+
                 with self.raises(s_exc.AuthDeny):
                     await alist(prox.slice('tank0', 0, wait=False))
+
                 with self.raises(s_exc.AuthDeny):
                     await alist(prox.rows('tank0', 0, 10))
+
                 with self.raises(s_exc.AuthDeny):
                     await alist(prox.metrics('tank0', 0))
 
@@ -222,8 +228,10 @@ class CryoTest(s_t_utils.SynTest):
                     self.eq(tankiden0b, await share.iden())
                     with self.raises(s_exc.AuthDeny):
                         await share.puts(('bar',))
+
                     with self.raises(s_exc.AuthDeny):
                         await alist(share.slice(0, wait=False))
+
                     with self.raises(s_exc.AuthDeny):
                         await alist(share.metrics(0))
 
@@ -236,6 +244,7 @@ class CryoTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.AuthDeny):
                     await prox.puts('tank0', ('bar',))
+
                 self.len(1, await alist(prox.slice('tank0', 0, wait=False)))
                 self.len(1, await alist(prox.rows('tank0', 0, 10)))
                 self.len(1, await alist(prox.metrics('tank0', 0)))
@@ -243,6 +252,7 @@ class CryoTest(s_t_utils.SynTest):
                 async with cryo.getLocalProxy(user='lower', share='cryotank/tank0b') as share:
                     with self.raises(s_exc.AuthDeny):
                         await share.puts(('bar',))
+
                     self.len(1, await alist(share.slice(0, wait=False)))
                     self.len(1, await alist(share.metrics(0)))
 

@@ -278,6 +278,7 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 self.true(await msqn.cull(4))
                 with self.raises(s_exc.BadIndxValu):
                     await msqn.get(4)
+
                 with self.raises(s_exc.BadIndxValu):
                     await msqn.add('foo12', indx=4)
 
@@ -288,6 +289,7 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 retn = await it.__anext__()
                 with self.raises(s_exc.SlabInUse):
                     await msqn.cull(6)
+
                 await it.aclose()
 
                 # culling on the tail just moves firstindx forward
@@ -302,6 +304,7 @@ class MultiSlabSeqn(s_t_utils.SynTest):
 
                 with self.raises(s_exc.BadIndxValu):
                     await msqn.get(11)
+
                 with self.raises(s_exc.BadIndxValu):
                     await msqn.add('foo', indx=11)
 

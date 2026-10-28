@@ -282,6 +282,7 @@ class CellTest(s_t_utils.SynTest):
                     # not an admin or do not have those roles.
                     with self.raises(s_exc.AuthDeny):
                         await proxy.getUserInfo('root')
+
                     with self.raises(s_exc.AuthDeny):
                         await proxy.getRoleInfo('privrole')
 
@@ -384,6 +385,7 @@ class CellTest(s_t_utils.SynTest):
 
                     with self.raises(s_exc.NoSuchUser):
                         await proxy.setUserArchived('newp', True)
+
                     await proxy.setUserArchived(visi.iden, True)
                     info = await proxy.getUserInfo('visi')
                     self.true(info.get('archived'))
@@ -837,10 +839,13 @@ class CellTest(s_t_utils.SynTest):
                     cell.backuprunning = True
                     with self.raises(s_exc.SlabInUse):
                         await prox.rotateNexsLog()
+
                     with self.raises(s_exc.SlabInUse):
                         await prox.cullNexsLog(0)
+
                     with self.raises(s_exc.SlabInUse):
                         await prox.trimNexsLog()
+
                     cell.backuprunning = False
                     self.eq(ind, await prox.getNexsIndx())
 
@@ -1801,6 +1806,7 @@ class CellTest(s_t_utils.SynTest):
                         fail = s_t_utils.alist(proxy.iterNewBackupArchive('alreadystreaming', remove=True))
                         with self.raises(s_exc.BackupAlreadyRunning):
                             await fail
+
                         task.cancel()
                         await asyncio.wait_for(evt1.wait(), timeout=2)
 
@@ -1870,6 +1876,7 @@ class CellTest(s_t_utils.SynTest):
                     fail = s_t_utils.alist(proxy.iterNewBackupArchive('alreadyrunning', remove=True))
                     with self.raises(s_exc.BackupAlreadyRunning):
                         await fail
+
                     await asyncio.wait_for(task, 5)
 
             with tarfile.open(bkuppath, 'r:gz') as tar:

@@ -25,6 +25,7 @@ class StormlibCompressionTest(s_test.SynTest):
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('$lib.compression.bzip2.en(foo)')
+
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('$lib.compression.bzip2.un(foo)')
 
@@ -44,6 +45,7 @@ class StormlibCompressionTest(s_test.SynTest):
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('$lib.compression.gzip.en(foo)')
+
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('$lib.compression.gzip.un(foo)')
 
@@ -63,5 +65,6 @@ class StormlibCompressionTest(s_test.SynTest):
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('$lib.compression.zlib.en(foo)')
+
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('$lib.compression.zlib.un(foo)')

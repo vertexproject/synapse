@@ -328,6 +328,7 @@ Connection information:
                     $todo = $lib.utils.todo('getTasks')
                     $lib.aha.callPeerGenr(noiden.cell..., $todo)
                 ''')
+
                 with self.raises(s_exc.NoSuchName):
                     await core00.callStorm('''
                     $todo = $lib.utils.todo('getCellInfo')

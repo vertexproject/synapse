@@ -152,6 +152,7 @@ class TrigTest(s_t_utils.SynTest):
                 # Sad cases
                 with self.raises(s_exc.BadSyntax):
                     await core.view.setTriggerInfo(iden, 'storm', ' | | badstorm ')
+
                 with self.raises(s_exc.NoSuchIden):
                     await core.view.setTriggerInfo('deadb33f', 'storm', 'inet:user')
 
@@ -390,8 +391,10 @@ class TrigTest(s_t_utils.SynTest):
             # additional NoSuchIden failures
             with self.raises(s_exc.NoSuchIden):
                 await view.getTrigger('newp')
+
             with self.raises(s_exc.NoSuchIden):
                 await view.delTrigger('newp')
+
             with self.raises(s_exc.NoSuchIden):
                 await view.setTriggerInfo('newp', 'enabled', True)
 

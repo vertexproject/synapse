@@ -1047,10 +1047,13 @@ class StormHttpTest(s_test.SynTest):
                     core.axoninfo['synapse']['version'] = (2, 161, 0)
                     with self.raises(s_exc.BadVersion):
                         await core.callStorm(axon_queries['postfile'], opts=opts)
+
                     with self.raises(s_exc.BadVersion):
                         await core.callStorm(axon_queries['wget'], opts=opts)
+
                     with self.raises(s_exc.BadVersion):
                         await core.callStorm(axon_queries['wput'], opts=opts)
+
                     with self.raises(s_exc.BadVersion):
                         await core.nodes(axon_queries['urlfile'], opts=opts)
                 finally:
@@ -1084,6 +1087,7 @@ class StormHttpTest(s_test.SynTest):
                 sslopts['newp'] = 'wut'
                 with self.raises(s_exc.SchemaViolation):
                     await core.callStorm(q, opts=opts)
+
                 sslopts.pop('newp')
 
                 ## missing key

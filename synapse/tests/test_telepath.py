@@ -748,6 +748,7 @@ class TeleTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.LinkShutDown):
                 await aitr.__anext__()
+
             start_event.set()
 
             # Test that a coroutine about to await on an async proxy method doesn't become "stuck" by awaiting on a
