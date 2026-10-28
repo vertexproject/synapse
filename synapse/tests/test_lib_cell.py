@@ -702,8 +702,9 @@ class CellTest(s_t_utils.SynTest):
                 self.eq([1, 2], await s_t_utils.alist(await prox.dyncall('self', s_common.todo('stream'))))
 
                 todo = s_common.todo('stream', doraise=True)
+                genr = await prox.dyncall('self', todo)
                 with self.raises(s_exc.BadTime):
-                    await s_t_utils.alist(await prox.dyncall('self', todo))
+                    await s_t_utils.alist(genr)
 
                 items = []
                 todo = s_common.todo('stream', doraise=False)
