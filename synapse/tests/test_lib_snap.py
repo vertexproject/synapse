@@ -8,6 +8,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
+import synapse.lib.snap as s_snap
 
 from synapse.tests.utils import alist
 import synapse.tests.utils as s_t_utils
@@ -650,6 +651,50 @@ class SnapTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:ro=foo [ :readable = haha ]'))
             with self.raises(s_exc.ReadOnlyProp):
                 await core.nodes('test:ro=foo [ :readable=newp ]')
+
+            # editors and their protonodes do not leave reference cycles behind
+            gc.collect()
+            gc.garbage.clear()
+
+            debug = gc.get_debug()
+            try:
+                gc.set_debug(gc.DEBUG_SAVEALL)
+
+                async with await core.view.snap(user=root) as snap:
+
+                    fnode = await snap.getNodeByNdef(('inet:fqdn', 'vertex.link'))
+
+                    async with snap.getNodeEditor(fnode) as protonode:
+                        await protonode.set('issuffix', False)
+
+                    with self.raises(s_exc.BadArg):
+                        async with snap.getNodeEditor(fnode) as protonode:
+                            await protonode.set('issuffix', True)
+                            raise s_exc.BadArg()
+
+                    async with snap.getEditor() as editor:
+                        await editor.addNode('inet:fqdn', 'gc.vertex.link')
+
+                    with self.raises(s_exc.BadArg):
+                        async with snap.getEditor() as editor:
+                            await editor.addNode('inet:fqdn', 'newp.vertex.link')
+                            raise s_exc.BadArg()
+
+                    nodedefs = [(('inet:fqdn', f'{x}.gc.vertex.link'), {}) for x in range(10)]
+                    self.len(10, await alist(snap.addNodes(nodedefs)))
+
+                gc.collect()
+                types = {type(o) for o in gc.garbage}
+                self.notin(s_snap.ProtoNode, types)
+                self.notin(s_snap.SnapEditor, types)
+
+            finally:
+                gc.garbage.clear()
+                gc.set_debug(debug)
+                gc.collect()
+
+            self.len(0, await core.nodes('inet:fqdn=newp.vertex.link'))
+            self.len(1, await core.nodes('inet:fqdn=vertex.link +:issuffix=0'))
 
     async def test_snap_subs_depth(self):
 

@@ -1265,24 +1265,32 @@ class Snap(s_base.Base):
         editor = SnapEditor(self)
         protonode = editor.loadNode(node)
 
-        yield protonode
+        try:
+            yield protonode
 
-        nodeedits = editor.getNodeEdits()
-        if nodeedits:
-            nodecache = {proto.buid: proto.node for proto in editor.protonodes.values()}
-            await self.applyNodeEdits(nodeedits, nodecache=nodecache)
+            nodeedits = editor.getNodeEdits()
+            if nodeedits:
+                nodecache = {proto.buid: proto.node for proto in editor.protonodes.values()}
+                await self.applyNodeEdits(nodeedits, nodecache=nodecache)
+
+        finally:
+            editor.protonodes.clear()
 
     @contextlib.asynccontextmanager
     async def getEditor(self):
 
         editor = SnapEditor(self)
 
-        yield editor
+        try:
+            yield editor
 
-        nodeedits = editor.getNodeEdits()
-        if nodeedits:
-            nodecache = {proto.buid: proto.node for proto in editor.protonodes.values()}
-            await self.applyNodeEdits(nodeedits, nodecache=nodecache)
+            nodeedits = editor.getNodeEdits()
+            if nodeedits:
+                nodecache = {proto.buid: proto.node for proto in editor.protonodes.values()}
+                await self.applyNodeEdits(nodeedits, nodecache=nodecache)
+
+        finally:
+            editor.protonodes.clear()
 
     async def applyNodeEdit(self, edit, nodecache=None):
         nodes = await self.applyNodeEdits((edit,), nodecache=nodecache)
