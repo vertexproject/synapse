@@ -15,6 +15,7 @@ import synapse.datamodel as s_datamodel
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.json as s_json
+import synapse.lib.snap as s_snap
 import synapse.lib.storm as s_storm
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
@@ -1879,6 +1880,31 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:deprprop')
             self.eq(['base'], [n.ndef[1] for n in nodes])
             self.eq([], nodes[0].getTags())
+
+            # a merge which fails part way through still clears its editor
+            await core.nodes('[ test:str=gcmerge +#gc ]', opts=asfork)
+
+            editors = []
+
+            class Editor(s_snap.SnapEditor):
+
+                def __init__(self, *args, **kwargs):
+                    super().__init__(*args, **kwargs)
+                    editors.append(self)
+
+            async def applyNodeEdits(*args, **kwargs):
+                raise s_exc.SynErr(mesg='newp')
+
+            with mock.patch.object(s_snap, 'SnapEditor', Editor):
+                with mock.patch.object(s_snap.Snap, 'applyNodeEdits', applyNodeEdits):
+                    msgs = await core.stormlist('test:str=gcmerge | merge --apply', opts=asfork)
+
+            self.stormIsInErr('newp', msgs)
+            self.len(1, editors)
+            self.len(0, editors[0].protonodes)
+
+            self.len(0, await core.nodes('test:str=gcmerge'))
+            self.len(1, await core.nodes('test:str=gcmerge +#gc', opts=asfork))
 
     async def test_storm_merge_opts(self):
 

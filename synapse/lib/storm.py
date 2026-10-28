@@ -3628,172 +3628,177 @@ class MergeCmd(Cmd):
             if doapply:
                 editor = s_snap.SnapEditor(snap, meta=meta)
 
-            async for node, path in genr:
+            try:
+                async for node, path in genr:
 
-                # the timestamp for the adds/subs of each node merge will match
-                nodeiden = node.iden()
+                    # the timestamp for the adds/subs of each node merge will match
+                    nodeiden = node.iden()
 
-                meta['time'] = s_common.now()
+                    meta['time'] = s_common.now()
 
-                sodes = await node.getStorNodes()
-                sode = sodes[0]
+                    sodes = await node.getStorNodes()
+                    sode = sodes[0]
 
-                subs = []
+                    subs = []
 
-                # check all node perms first
-                if doperms:
-                    await self._checkNodePerms(node, sode, runt, allows)
+                    # check all node perms first
+                    if doperms:
+                        await self._checkNodePerms(node, sode, runt, allows)
 
-                form = node.form.name
-                if form == 'syn:tag':
-                    if notags:
-                        await asyncio.sleep(0)
-                        continue
-                else:
-                    # avoid merging a tag if the node won't exist below us
-                    if onlytags:
-                        for undr in sodes[1:]:
-                            if undr.get('valu') is not None:
-                                break
-                        else:
+                    form = node.form.name
+                    if form == 'syn:tag':
+                        if notags:
                             await asyncio.sleep(0)
                             continue
-
-                protonode = None
-                delnode = False
-                if not onlytags or form == 'syn:tag':
-                    valu = sode.get('valu')
-                    if valu is not None:
-
-                        if tagfilter is not None and form == 'syn:tag' and tagfilter(valu[0]):
-                            await asyncio.sleep(0)
-                            continue
-
-                        if not doapply:
-                            valurepr = node.form.type.repr(valu[0])
-                            await runt.printf(f'{nodeiden} {form} = {valurepr}')
-                        else:
-                            delnode = True
-                            if (protonode := await editor.addNode(form, valu[0])) is None:
+                    else:
+                        # avoid merging a tag if the node won't exist below us
+                        if onlytags:
+                            for undr in sodes[1:]:
+                                if undr.get('valu') is not None:
+                                    break
+                            else:
                                 await asyncio.sleep(0)
                                 continue
 
-                    elif doapply:
+                    protonode = None
+                    delnode = False
+                    if not onlytags or form == 'syn:tag':
+                        valu = sode.get('valu')
+                        if valu is not None:
+
+                            if tagfilter is not None and form == 'syn:tag' and tagfilter(valu[0]):
+                                await asyncio.sleep(0)
+                                continue
+
+                            if not doapply:
+                                valurepr = node.form.type.repr(valu[0])
+                                await runt.printf(f'{nodeiden} {form} = {valurepr}')
+                            else:
+                                delnode = True
+                                if (protonode := await editor.addNode(form, valu[0])) is None:
+                                    await asyncio.sleep(0)
+                                    continue
+
+                        elif doapply:
+                            if (protonode := await editor.addNode(form, node.ndef[1], norminfo={})) is None:
+                                await asyncio.sleep(0)
+                                continue
+
+                        for name, (valu, stortype) in sode.get('props', {}).items():
+
+                            prop = node.form.prop(name)
+                            if propfilter is not None:
+                                if name[0] == '.':
+                                    if propfilter(name):
+                                        continue
+                                else:
+                                    if propfilter(prop.full):
+                                        continue
+
+                            if prop.info.get('ro'):
+                                if name == '.created':
+                                    if doapply:
+                                        protonode.props['.created'] = valu
+                                        if not self.opts.wipe:
+                                            subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
+                                    continue
+
+                                isset = False
+                                for undr in sodes[1:]:
+                                    props = undr.get('props')
+                                    if props is not None:
+                                        curv = props.get(name)
+                                        if curv is not None:
+                                            isset = curv[0] != valu
+                                            break
+
+                                if isset:
+                                    valurepr = prop.type.repr(curv[0])
+                                    mesg = f'Cannot merge read only property with conflicting ' \
+                                           f'value: {nodeiden} {form}:{name} = {valurepr}'
+                                    await runt.snap.warn(mesg)
+                                    continue
+
+                            if not doapply:
+                                valurepr = prop.type.repr(valu)
+                                await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
+                            else:
+                                await protonode.set(name, valu)
+                                if not self.opts.wipe:
+                                    subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
+
+                    if doapply and protonode is None:
                         if (protonode := await editor.addNode(form, node.ndef[1], norminfo={})) is None:
                             await asyncio.sleep(0)
                             continue
 
-                    for name, (valu, stortype) in sode.get('props', {}).items():
+                    if not notags:
+                        for tag, valu in sode.get('tags', {}).items():
 
-                        prop = node.form.prop(name)
-                        if propfilter is not None:
-                            if name[0] == '.':
-                                if propfilter(name):
-                                    continue
+                            if tagfilter is not None and tagfilter(tag):
+                                continue
+
+                            if not doapply:
+                                valurepr = ''
+                                if valu != (None, None):
+                                    tagrepr = runt.model.type('ival').repr(valu)
+                                    valurepr = f' = {tagrepr}'
+                                await runt.printf(f'{nodeiden} {form}#{tag}{valurepr}')
                             else:
-                                if propfilter(prop.full):
-                                    continue
+                                await protonode.addTag(tag, valu)
+                                if not self.opts.wipe:
+                                    subs.append((s_layer.EDIT_TAG_DEL, (tag, valu), ()))
 
-                        if prop.info.get('ro'):
-                            if name == '.created':
-                                if doapply:
-                                    protonode.props['.created'] = valu
+                        for tag, tagdict in sode.get('tagprops', {}).items():
+
+                            if tagfilter is not None and tagfilter(tag):
+                                continue
+
+                            for prop, (valu, stortype) in tagdict.items():
+                                if not doapply:
+                                    valurepr = repr(valu)
+                                    await runt.printf(f'{nodeiden} {form}#{tag}:{prop} = {valurepr}')
+                                else:
+                                    await protonode.setTagProp(tag, prop, valu)
                                     if not self.opts.wipe:
-                                        subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
-                                continue
+                                        subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, valu, stortype), ()))
 
-                            isset = False
-                            for undr in sodes[1:]:
-                                props = undr.get('props')
-                                if props is not None:
-                                    curv = props.get(name)
-                                    if curv is not None:
-                                        isset = curv[0] != valu
-                                        break
+                    if not onlytags or form == 'syn:tag':
 
-                            if isset:
-                                valurepr = prop.type.repr(curv[0])
-                                mesg = f'Cannot merge read only property with conflicting ' \
-                                       f'value: {nodeiden} {form}:{name} = {valurepr}'
-                                await runt.snap.warn(mesg)
-                                continue
-
-                        if not doapply:
-                            valurepr = prop.type.repr(valu)
-                            await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
-                        else:
-                            await protonode.set(name, valu)
-                            if not self.opts.wipe:
-                                subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
-
-                if doapply and protonode is None:
-                    if (protonode := await editor.addNode(form, node.ndef[1], norminfo={})) is None:
-                        await asyncio.sleep(0)
-                        continue
-
-                if not notags:
-                    for tag, valu in sode.get('tags', {}).items():
-
-                        if tagfilter is not None and tagfilter(tag):
-                            continue
-
-                        if not doapply:
-                            valurepr = ''
-                            if valu != (None, None):
-                                tagrepr = runt.model.type('ival').repr(valu)
-                                valurepr = f' = {tagrepr}'
-                            await runt.printf(f'{nodeiden} {form}#{tag}{valurepr}')
-                        else:
-                            await protonode.addTag(tag, valu)
-                            if not self.opts.wipe:
-                                subs.append((s_layer.EDIT_TAG_DEL, (tag, valu), ()))
-
-                    for tag, tagdict in sode.get('tagprops', {}).items():
-
-                        if tagfilter is not None and tagfilter(tag):
-                            continue
-
-                        for prop, (valu, stortype) in tagdict.items():
+                        async for name, valu in s_coro.pause(layr0.iterNodeData(node.buid)):
                             if not doapply:
                                 valurepr = repr(valu)
-                                await runt.printf(f'{nodeiden} {form}#{tag}:{prop} = {valurepr}')
+                                await runt.printf(f'{nodeiden} {form} DATA {name} = {valurepr}')
                             else:
-                                await protonode.setTagProp(tag, prop, valu)
+                                await protonode.setData(name, valu)
                                 if not self.opts.wipe:
-                                    subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, valu, stortype), ()))
+                                    subs.append((s_layer.EDIT_NODEDATA_DEL, (name, valu), ()))
 
-                if not onlytags or form == 'syn:tag':
+                        async for edge in s_coro.pause(layr0.iterNodeEdgesN1(node.buid)):
+                            name, dest = edge
+                            if not doapply:
+                                await runt.printf(f'{nodeiden} {form} +({name})> {dest}')
+                            else:
+                                await protonode.addEdge(name, dest)
+                                if not self.opts.wipe:
+                                    subs.append((s_layer.EDIT_EDGE_DEL, edge, ()))
 
-                    async for name, valu in s_coro.pause(layr0.iterNodeData(node.buid)):
-                        if not doapply:
-                            valurepr = repr(valu)
-                            await runt.printf(f'{nodeiden} {form} DATA {name} = {valurepr}')
-                        else:
-                            await protonode.setData(name, valu)
-                            if not self.opts.wipe:
-                                subs.append((s_layer.EDIT_NODEDATA_DEL, (name, valu), ()))
+                    if delnode and not self.opts.wipe:
+                        subs.append((s_layer.EDIT_NODE_DEL, valu, ()))
 
-                    async for edge in s_coro.pause(layr0.iterNodeEdgesN1(node.buid)):
-                        name, dest = edge
-                        if not doapply:
-                            await runt.printf(f'{nodeiden} {form} +({name})> {dest}')
-                        else:
-                            await protonode.addEdge(name, dest)
-                            if not self.opts.wipe:
-                                subs.append((s_layer.EDIT_EDGE_DEL, edge, ()))
+                    if doapply:
+                        await editor.flushEdits()
 
-                if delnode and not self.opts.wipe:
-                    subs.append((s_layer.EDIT_NODE_DEL, valu, ()))
+                        if subs:
+                            subedits = [(node.buid, node.form.name, subs)]
+                            await runt.snap.applyNodeEdits(subedits, nodecache={node.buid: node}, meta=meta)
 
+                    runt.snap.clearCachedNode(node.buid)
+                    yield await runt.snap.getNodeByBuid(node.buid), path
+
+            finally:
                 if doapply:
-                    await editor.flushEdits()
-
-                    if subs:
-                        subedits = [(node.buid, node.form.name, subs)]
-                        await runt.snap.applyNodeEdits(subedits, nodecache={node.buid: node}, meta=meta)
-
-                runt.snap.clearCachedNode(node.buid)
-                yield await runt.snap.getNodeByBuid(node.buid), path
+                    editor.clear()
 
             if doapply and self.opts.wipe:
                 await runt.snap.view.swapLayer()
@@ -4460,7 +4465,7 @@ class DelNodeCmd(Cmd):
                             if n2 is not None:
                                 if await n2.delEdge(verb, node.iden()) and len(editor.protonodes) >= 1000:
                                     await self.runt.snap.applyNodeEdits(editor.getNodeEdits())
-                                    editor.protonodes.clear()
+                                    editor.clear()
 
             if delbytes and node.form.name == 'file:bytes':
                 sha256 = node.props.get('sha256')

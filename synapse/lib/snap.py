@@ -530,6 +530,12 @@ class SnapEditor:
         if nodeedits:
             await self.snap.applyNodeEdits(nodeedits, nodecache=nodecache, meta=self.meta)
 
+        self.clear()
+
+    def clear(self):
+        '''
+        Discard any unsaved edits and the protonodes, which reference this editor.
+        '''
         self.protonodes.clear()
 
     async def _addNode(self, form, valu, props=None, norminfo=None):
@@ -1274,7 +1280,7 @@ class Snap(s_base.Base):
                 await self.applyNodeEdits(nodeedits, nodecache=nodecache)
 
         finally:
-            editor.protonodes.clear()
+            editor.clear()
 
     @contextlib.asynccontextmanager
     async def getEditor(self):
@@ -1290,7 +1296,7 @@ class Snap(s_base.Base):
                 await self.applyNodeEdits(nodeedits, nodecache=nodecache)
 
         finally:
-            editor.protonodes.clear()
+            editor.clear()
 
     async def applyNodeEdit(self, edit, nodecache=None):
         nodes = await self.applyNodeEdits((edit,), nodecache=nodecache)
