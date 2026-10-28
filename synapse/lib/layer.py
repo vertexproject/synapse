@@ -4577,29 +4577,19 @@ class Layer(s_nexus.Pusher):
 
                 # Iterate over each node and it's tags
                 async for buid, abrvs in s_coro.pause(tags.items()):
-                    seen = {}
+                    keys = [tuple(self.tagabrv.abrvToName(abrv).split('.')) for abrv in abrvs]
 
-                    if len(abrvs) == 1:
-                        # Easy optimization: If there's only one tag abrv, then it's a
-                        # leaf by default
-                        name = self.tagabrv.abrvToName(abrv)
-                        key = tuple(name.split('.'))
-                        perm = perm_tags + key
-                        user.confirm(perm, gateiden=gateiden)
+                    # A tag is a leaf unless another tag on the node in this layer
+                    # extends it. Parent tags in lower layers are not in this layer.
+                    parents = set()
+                    for key in keys:
+                        for idx in range(1, len(key)):
+                            parents.add(key[:idx])
 
-                    else:
-                        for abrv in abrvs:
-                            name = self.tagabrv.abrvToName(abrv)
-                            parts = tuple(name.split('.'))
-                            for idx in range(1, len(parts) + 1):
-                                key = tuple(parts[:idx])
-                                seen.setdefault(key, 0)
-                                seen[key] += 1
-
-                        for key, count in seen.items():
-                            if count == 1:
-                                perm = perm_tags + key
-                                user.confirm(perm, gateiden=gateiden)
+                    for key in keys:
+                        if key not in parents:
+                            perm = perm_tags + key
+                            user.confirm(perm, gateiden=gateiden)
 
     async def iterLayerNodeEdits(self):
         '''
