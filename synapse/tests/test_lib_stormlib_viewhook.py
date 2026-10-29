@@ -66,7 +66,7 @@ class ViewHookTest(s_test.SynTest):
             with self.raises(s_exc.IsReadOnly):
                 await core.callStorm('$lib.view.hook.get($iden).name = newp', opts=ropts)
 
-            # stors update the hook and the local value
+            # stors update the hook and later reads see the new values
             q = '''
                 $hook = $lib.view.hook.get($iden)
                 $hook.name = hehe
@@ -85,6 +85,38 @@ class ViewHookTest(s_test.SynTest):
             self.eq(' $lib.print(haha) ', hdef.get('storm'))
             self.false(hdef.get('enabled'))
             self.eq(updated, hdef.get('updated'))
+
+            # props and serialization resolve the current hook def, not the one at get() time
+            q = '''
+                $hook = $lib.view.hook.get($iden)
+                $other = $lib.view.hook.get($iden)
+                $other.name = woot
+                $other.type = deleted
+                $other.storm = ${ $lib.print(woot) }
+                $other.enabled = (true)
+                $lib.print($hook)
+                return(($hook, ($hook.iden, $hook.name, $hook.type, $hook.storm, $hook.enabled,
+                                $hook.creator, $hook.created, $hook.updated)))
+            '''
+            msgs = await core.stormlist(q, opts=opts)
+            self.stormIsInPrint(f'view:hook: woot ({iden})', msgs)
+
+            retn = await core.callStorm(q, opts=opts)
+            hdef = await core.getViewHook(iden)
+            self.eq('woot', hdef.get('name'))
+            self.eq(hdef, retn[0])
+            self.eq((iden, 'woot', 'deleted', ' $lib.print(woot) ', True, core.auth.rootuser.iden,
+                     hdef.get('created'), hdef.get('updated')), retn[1])
+
+            await core.modViewHook(iden, {'name': 'hehe', 'type': 'merging', 'storm': ' $lib.print(haha) ',
+                                          'enabled': False})
+            self.eq(await core.getViewHook(iden), await core.callStorm('return($lib.view.hook.get($iden))', opts=opts))
+
+            msgs = await core.stormlist('$lib.print($lib.view.hook.get($iden))', opts=opts)
+            self.stormIsInPrint(f'view:hook: hehe ({iden})', msgs)
+
+            with self.raises(s_exc.NoSuchName):
+                await core.callStorm('return($lib.view.hook.get($iden).newp)', opts=opts)
 
             # validation errors
             with self.raises(s_exc.SchemaViolation):
@@ -154,9 +186,28 @@ class ViewHookTest(s_test.SynTest):
             self.eq(visi.iden, creator)
             self.eq(visi.iden, (await core.getViewHook(iden3)).get('creator'))
 
-            await core.callStorm('$lib.view.hook.del($iden)', opts={'user': visi.iden, 'vars': {'iden': iden}})
-            await core.callStorm('$lib.view.hook.del($iden)', opts={'vars': {'iden': iden2}})
-            await core.callStorm('$lib.view.hook.del($iden)', opts={'vars': {'iden': iden3}})
+            # a hook deleted after it was fetched keeps its iden but has no def to resolve
+            q = '''
+                $hook = $lib.view.hook.get($iden)
+                $lib.view.hook.del($iden)
+                $lib.print($hook.iden)
+                $lib.print($hook.name)
+            '''
+            msgs = await core.stormlist(q, opts={'user': visi.iden, 'vars': {'iden': iden}})
+            self.stormIsInPrint(iden, msgs)
+            self.stormIsInErr(f'No view hook for iden={iden!r}', msgs)
+
+            with self.raises(s_exc.NoSuchIden):
+                await core.callStorm('$hook = $lib.view.hook.get($iden2) $lib.view.hook.del($iden2) $lib.print($hook)',
+                                     opts={'vars': {'iden2': iden2}})
+
+            with self.raises(s_exc.NoSuchIden):
+                await core.callStorm('$hook = $lib.view.hook.get($iden3) $lib.view.hook.del($iden3) return($hook)',
+                                     opts={'vars': {'iden3': iden3}})
+
+            with self.raises(s_exc.NoSuchIden):
+                await core.getViewHook(iden2)
+
             self.eq([], await core.callStorm('return($lib.view.hook.list())'))
 
             with self.raises(s_exc.NoSuchIden):
