@@ -2001,7 +2001,7 @@ class HttpApiTest(s_tests.SynTest):
                 self.true(s_common.isguid(glob.get('iden')))
                 self.eq('globvault', glob.get('name'))
                 self.eq({'apikey': 'foobar'}, glob.get('secrets'))
-                self.eq(glob, core.getVault(glob.get('iden')))
+                self.eq(glob, await core.getVault(glob.get('iden')))
                 giden = glob.get('iden')
 
                 retn = await call(rsess, 'POST', 'add', body=vdef, status=http.HTTPStatus.CONFLICT)
@@ -2094,7 +2094,7 @@ class HttpApiTest(s_tests.SynTest):
                 glob['configs']['url'] = 'https://newp.vertex.link'
                 retn = await call(rsess, 'POST', 'mod', body=glob)
                 self.eq(glob, retn['result'])
-                self.eq(glob, core.getVault(giden))
+                self.eq(glob, await core.getVault(giden))
 
                 retn = await call(rsess, 'POST', 'mod', body=dict(glob, type='newp'),
                                   status=http.HTTPStatus.BAD_REQUEST)
@@ -2219,7 +2219,7 @@ class HttpApiTest(s_tests.SynTest):
 
                 retn = await call(vsess, 'POST', 'del', body={'iden': giden})
                 self.eq({'status': 'ok', 'result': None}, retn)
-                self.none(core.getVault(giden))
+                self.none(await core.getVault(giden))
 
                 retn = await call(vsess, 'POST', 'del', body={'iden': viden})
                 self.eq({'status': 'ok', 'result': None}, retn)

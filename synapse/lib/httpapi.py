@@ -12,7 +12,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
-import synapse.lib.coro as s_coro
 import synapse.lib.json as s_json
 import synapse.lib.config as s_config
 import synapse.lib.logging as s_logging
@@ -1379,10 +1378,9 @@ class VaultGetV1(VaultHandler):
         core = self.getCore()
         useriden = await self.useriden()
 
-        # the local Cortex getters are sync while the CoreApi getters are async
         iden = body.get('iden')
         if iden is not None:
-            vault = await s_coro.ornot(core.getVault, iden, user=useriden)
+            vault = await core.getVault(iden, user=useriden)
             if vault is None:
                 raise s_exc.NoSuchIden(mesg=f'Vault not found for iden: {iden}.', iden=iden)
 
@@ -1390,14 +1388,14 @@ class VaultGetV1(VaultHandler):
 
         name = body.get('name')
         if name is not None:
-            vault = await s_coro.ornot(core.getVaultByName, name, user=useriden)
+            vault = await core.getVaultByName(name, user=useriden)
             if vault is None:
                 raise s_exc.NoSuchName(mesg=f'Vault not found for name: {name}.', name=name)
 
             return vault
 
         vtype = body.get('type')
-        vault = await s_coro.ornot(core.getVaultByType, vtype, scope=body.get('scope'), user=useriden)
+        vault = await core.getVaultByType(vtype, scope=body.get('scope'), user=useriden)
         if vault is None:
             raise s_exc.NoSuchName(mesg=f'Vault not found for type: {vtype}.', name=vtype)
 
@@ -1417,7 +1415,7 @@ class VaultAddV1(VaultHandler):
         useriden = await self.useriden()
 
         iden = await core.addVault(body, user=useriden)
-        return await s_coro.ornot(core.getVault, iden, user=useriden)
+        return await core.getVault(iden, user=useriden)
 
 class VaultModV1(VaultHandler):
     '''

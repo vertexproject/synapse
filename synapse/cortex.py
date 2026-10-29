@@ -861,7 +861,7 @@ class CoreApi(s_cell.CellApi):
             dict|None: The vault definition, or None if the vault does not exist.
         '''
         user = await self._reqVaultUser(user)
-        return self.cell.getVault(iden, user=user)
+        return await self.cell.getVault(iden, user=user)
 
     async def getVaultByName(self, name, *, user=None):
         '''
@@ -884,7 +884,7 @@ class CoreApi(s_cell.CellApi):
             dict|None: The vault definition, or None if the vault does not exist.
         '''
         user = await self._reqVaultUser(user)
-        return self.cell.getVaultByName(name, user=user)
+        return await self.cell.getVaultByName(name, user=user)
 
     async def getVaultByType(self, vtype, *, scope=None, user=None):
         '''
@@ -911,7 +911,7 @@ class CoreApi(s_cell.CellApi):
             dict|None: The vault definition, or None if no matching vault exists.
         '''
         user = await self._reqVaultUser(user)
-        return self.cell.getVaultByType(vtype, user.iden, scope=scope, user=user)
+        return await self.cell.getVaultByType(vtype, user.iden, scope=scope, user=user)
 
     async def addVault(self, vdef, *, user=None):
         '''
@@ -7758,7 +7758,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         vault.pop('secrets', None)
         return vault
 
-    def getVault(self, iden, user=None):
+    async def getVault(self, iden, user=None):
         '''
         Get a vault.
 
@@ -7785,7 +7785,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self._reqVaultPerm(user, vault, s_cell.PERM_READ)
         return self._vaultForUser(user, vault)
 
-    def getVaultByName(self, name, user=None):
+    async def getVaultByName(self, name, user=None):
         '''
         Get a vault by name.
 
@@ -7812,7 +7812,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self._reqVaultPerm(user, vault, s_cell.PERM_READ, ref=name)
         return self._vaultForUser(user, vault)
 
-    def getVaultByType(self, vtype, useriden=None, scope=None, user=None):
+    async def getVaultByType(self, vtype, useriden=None, scope=None, user=None):
         '''
         Get a vault of type `vtype` and scope `scope` for user with `iden`.
 
@@ -7895,7 +7895,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self._reqVaultPerm(user, vault, s_cell.PERM_READ)
         return self._vaultForUser(user, vault)
 
-    def reqVault(self, iden, user=None):
+    async def reqVault(self, iden, user=None):
         '''
         Get a vault by iden.
 
@@ -7912,13 +7912,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if not s_common.isguid(iden):
             raise s_exc.BadArg(mesg=f'Iden is not a valid iden: {iden}.')
 
-        vault = self.getVault(iden, user=user)
+        vault = await self.getVault(iden, user=user)
         if vault is None:
             raise s_exc.NoSuchIden(mesg=f'Vault not found for iden: {iden}.', iden=iden)
 
         return vault
 
-    def reqVaultByName(self, name, user=None):
+    async def reqVaultByName(self, name, user=None):
         '''
         Get a vault by name.
 
@@ -7932,13 +7932,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Returns: vault
         '''
-        vault = self.getVaultByName(name, user=user)
+        vault = await self.getVaultByName(name, user=user)
         if vault is None:
             raise s_exc.NoSuchName(mesg=f'Vault not found for name: {name}.')
 
         return vault
 
-    def reqVaultByType(self, vtype, iden, scope=None, user=None):
+    async def reqVaultByType(self, vtype, iden, scope=None, user=None):
         '''
         Get a vault by type.
 
@@ -7954,7 +7954,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Returns: vault
         '''
-        vault = self.getVaultByType(vtype, iden, scope, user=user)
+        vault = await self.getVaultByType(vtype, iden, scope, user=user)
         if vault is None:
             raise s_exc.NoSuchName(mesg=f'Vault not found for type: {vtype}.')
 
@@ -8023,7 +8023,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.DupName(mesg=f'Vault already exists for type {vtype}, scope {scope}, owner {owner}.')
 
         # Make sure the requested name is unique
-        if self.getVaultByName(name) is not None:
+        if await self.getVaultByName(name) is not None:
             if scope is None:
                 mesg = f'A config already exists with the name {name}.'
             else:
@@ -8111,7 +8111,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Returns: Updated vault.
         '''
-        vault = self.reqVault(iden)
+        vault = await self.reqVault(iden)
 
         secrets = vault.get('secrets')
 
@@ -8149,7 +8149,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Returns: Updated vault.
         '''
-        vault = self.reqVault(iden)
+        vault = await self.reqVault(iden)
 
         configs = vault.get('configs')
 
@@ -8172,7 +8172,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('vault:data:set')
     async def _setVaultData(self, iden, obj, key, valu, delete):
-        vault = self.reqVault(iden)
+        vault = await self.reqVault(iden)
         data = vault.get(obj)
 
         bidn = s_common.uhex(iden)
@@ -8201,7 +8201,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Returns: New configs.
         '''
-        vault = self.reqVault(iden)
+        vault = await self.reqVault(iden)
 
         if not isinstance(valu, dict):
             raise s_exc.BadArg(mesg='valu must be a dictionary.', name='valu', valu=valu)
@@ -8232,7 +8232,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Returns: New secrets.
         '''
-        vault = self.reqVault(iden)
+        vault = await self.reqVault(iden)
 
         if not isinstance(valu, dict):
             raise s_exc.BadArg(mesg='valu must be a dictionary.', name='valu', valu=valu)
@@ -8250,7 +8250,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('vault:data:replace')
     async def _replaceVaultData(self, iden, obj, valu):
-        vault = self.reqVault(iden)
+        vault = await self.reqVault(iden)
         bidn = s_common.uhex(iden)
 
         vault[obj] = valu
@@ -8305,7 +8305,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Returns: Updated vault.
         '''
-        vault = self.reqVault(viden)
+        vault = await self.reqVault(viden)
 
         if user is not None:
             self._reqVaultPerm(user, vault, s_cell.PERM_ADMIN)
@@ -8337,7 +8337,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Returns: Updated vault.
         '''
-        if self.getVaultByName(name) is not None:
+        if await self.getVaultByName(name) is not None:
             raise s_exc.DupName(mesg=f'Vault with name {name} already exists.', name=name)
 
         return await self._push(('vault:set'), iden, 'name', name)
@@ -8367,7 +8367,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         vdef = s_schemas.reqValidVault(vdef)
 
         iden = vdef['iden']
-        cur = self.reqVault(iden)
+        cur = await self.reqVault(iden)
 
         if user is not None:
 
@@ -8387,7 +8387,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.BadArg(mesg='Vault definition must be msgpack safe.') from None
 
         name = vdef['name']
-        if name != cur['name'] and self.getVaultByName(name) is not None:
+        if name != cur['name'] and await self.getVaultByName(name) is not None:
             raise s_exc.DupName(mesg=f'Vault with name {name} already exists.', name=name)
 
         vault = await self._push('vault:mod', vdef)
@@ -8416,7 +8416,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if key not in ('name', 'permissions'):  # pragma: no cover
             raise s_exc.BadArg(mesg='Only vault names and permissions can be changed.')
 
-        vault = self.reqVault(iden)
+        vault = await self.reqVault(iden)
         oldv = vault.get(key)
         vault[key] = valu
 
@@ -8449,7 +8449,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if user is not None:
 
-            vault = self.getVault(iden)
+            vault = await self.getVault(iden)
             if vault is None:
                 return
 
@@ -8459,7 +8459,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('vault:del')
     async def _delVault(self, iden):
-        vault = self.getVault(iden)
+        vault = await self.getVault(iden)
         if vault is None:
             return
 
