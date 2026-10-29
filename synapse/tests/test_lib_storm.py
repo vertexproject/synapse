@@ -1976,6 +1976,29 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('inet:ssl:cert | merge --apply', opts=altview)
             self.len(1, await core.nodes('inet:ipv4'))
 
+            # per-node args use the flags from the first node for the whole command
+            q = '''
+            inet:fqdn=a.com inet:fqdn=b.com
+            if ($node.repr() = "a.com") { $f = $fa } else { $f = $fb }
+            | merge $f
+            '''
+
+            viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            forkopts = {'view': viewiden, 'vars': {'fa': '--no-tags', 'fb': '--apply'}}
+            await core.nodes('[ inet:fqdn=a.com inet:fqdn=b.com +#merged ]', opts=forkopts)
+
+            msgs = await core.stormlist(q, opts=forkopts)
+            self.stormHasNoWarnErr(msgs)
+            self.stormIsInPrint('inet:fqdn = b.com', msgs)
+            self.len(0, await core.nodes('inet:fqdn=a.com inet:fqdn=b.com'))
+
+            forkopts['vars'] = {'fa': '--apply', 'fb': '--no-tags'}
+            msgs = await core.stormlist(q, opts=forkopts)
+            self.stormHasNoWarnErr(msgs)
+            nodes = await core.nodes('inet:fqdn=a.com inet:fqdn=b.com')
+            self.len(2, nodes)
+            self.eq([['merged'], ['merged']], [list(n.tags.keys()) for n in nodes])
+
     async def test_storm_merge_perms(self):
 
         async with self.getTestCore() as core:
@@ -2092,6 +2115,17 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('ou:name=allperms')
             self.len(1, nodes)
             self.eq(['allperms', 'allperms.foo'], [t[0] for t in nodes[0].getTags()])
+
+            # a deep deny ahead of the node grant still requires the per-node checks
+            await visi.addRule((False, ('node', 'tag', 'add', 'secret')), indx=0, gateiden=layr1)
+
+            await core.nodes('[ ou:name=secret +#secret.x ]', opts=view2opts)
+            with self.raises(s_exc.AuthDeny) as ecm:
+                await core.nodes('ou:name=secret | merge --apply', opts=view2opts)
+
+            self.eq('node.tag.add.secret.x', ecm.exception.errinfo['perm'])
+            self.len(0, await core.nodes('ou:name=secret'))
+            self.len(0, await core.nodes('#secret'))
 
     async def test_storm_movenodes(self):
 
