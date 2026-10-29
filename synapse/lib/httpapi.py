@@ -1415,7 +1415,15 @@ class VaultAddV1(VaultHandler):
         useriden = await self.useriden()
 
         iden = await core.addVault(body, user=useriden)
-        return await core.getVault(iden, user=useriden)
+
+        try:
+            return await core.getVault(iden, user=useriden)
+
+        except s_exc.AuthDeny:
+            # a non-admin may add an unscoped vault owned by another user which they cannot read
+            vault = await core.getVault(iden)
+            vault.pop('secrets', None)
+            return vault
 
 class VaultModV1(VaultHandler):
     '''

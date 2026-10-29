@@ -2168,6 +2168,19 @@ class HttpApiTest(s_tests.SynTest):
                 self.eq({'apikey': 'foobar'}, visivault.get('secrets'))
                 viden = visivault.get('iden')
 
+                # an unscoped vault owned by another user is returned without its secrets
+                body = dict(vdef, name='rootunscoped', scope=None, owner=root.iden)
+                unscoped = (await call(vsess, 'POST', 'add', body=body))['result']
+                self.eq('rootunscoped', unscoped.get('name'))
+                self.eq(root.iden, unscoped.get('owner'))
+                self.eq({'url': 'https://vertex.link'}, unscoped.get('configs'))
+                self.notin('secrets', unscoped)
+                self.eq({'apikey': 'foobar'}, (await core.getVault(unscoped['iden']))['secrets'])
+
+                retn = await call(vsess, 'POST', 'add', body=body, status=http.HTTPStatus.CONFLICT)
+                self.eq('DupName', retn.get('code'))
+                await core.delVault(unscoped['iden'])
+
                 retn = await call(vsess, 'GET', 'get', body={'type': 'testvault'})
                 self.eq(viden, retn['result']['iden'])
 

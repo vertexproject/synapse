@@ -862,8 +862,9 @@ required permission receives an ``AuthDeny`` error with a 403 status code, and a
             }
 
     *Returns*
-        The API returns the new vault definition using the REST API convention described earlier. A vault with the
-        same name, or the same type, scope, and owner, returns a ``DupName`` error with a 409 status code.
+        The API returns the new vault definition using the REST API convention described earlier. The ``secrets``
+        of the new vault are only included if the caller has ``edit`` permission on it. A vault with the same name,
+        or the same type, scope, and owner, returns a ``DupName`` error with a 409 status code.
 
 /api/v1/vault/mod
 ~~~~~~~~~~~~~~~~~
