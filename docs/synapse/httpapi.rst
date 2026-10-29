@@ -893,7 +893,9 @@ required permission receives an ``AuthDeny`` error with a 403 status code, and a
 
     *Returns*
         The API returns the updated vault definition using the REST API convention described earlier. A missing
-        vault returns a ``NoSuchIden`` error with a 404 status code.
+        vault returns a ``NoSuchIden`` error with a 404 status code. Permission levels must be between 0 and 3. A user
+        or role that is added to or changed in the ``permissions`` must exist, or the API returns a ``NoSuchUser`` or
+        ``NoSuchRole`` error with a 404 status code.
 
 /api/v1/vault/del
 ~~~~~~~~~~~~~~~~~

@@ -1,0 +1,8 @@
+---
+desc: Fixed easy permission validation for macros, graph projections, drive items,
+  and vaults to reject permission levels outside 0-3, non-numeric levels, and unknown
+  keys.
+desc:literal: false
+prs: []
+type: bug
+...

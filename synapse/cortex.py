@@ -8354,7 +8354,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Raises:
             synapse.exc.AuthDeny: `user` does not have the required permission on the vault.
-            synapse.exc.NoSuchUser: `user` is an iden which does not exist.
+            synapse.exc.NoSuchUser: `user`, or a new or changed user in `permissions`, does not exist.
+            synapse.exc.NoSuchRole: A new or changed role in `permissions` does not exist.
             synapse.exc.NoSuchIden: The vault does not exist.
             synapse.exc.SchemaViolation: `vdef` does not conform to the vault schema.
             synapse.exc.BadArg: `vdef` changes the type, scope, or owner, or is not msgpack safe.
@@ -8381,6 +8382,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if vdef.get(field) != cur.get(field):
                 raise s_exc.BadArg(mesg=f'Cannot change vault {field} on update.')
 
+        await self._reqVaultPermIdens(vdef, cur)
+
         try:
             s_msgpack.en(vdef)
         except s_exc.NotMsgpackSafe:
@@ -8392,6 +8395,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         vault = await self._push('vault:mod', vdef)
         return self._vaultForUser(user, vault)
+
+    async def _reqVaultPermIdens(self, vdef, cur):
+        # only new or changed entries are checked so deleted idens may remain
+        newperms = vdef['permissions']
+        curperms = cur['permissions']
+
+        for scope, reqfunc in (('users', self.auth.reqUser), ('roles', self.auth.reqRole)):
+            curlevels = curperms.get(scope, {})
+            for iden, level in newperms[scope].items():
+                if curlevels.get(iden) != level:
+                    await reqfunc(iden)
 
     @s_nexus.Pusher.onPush('vault:mod')
     async def _modVault(self, vdef):

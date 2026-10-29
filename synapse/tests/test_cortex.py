@@ -8811,7 +8811,58 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.nn(await core.getVault(await core.addVault(vdef, user=visi2), user=visi2))
 
             vdef = {'name': 'unscoped2', 'type': vtype2, 'scope': None, 'owner': visi2.iden, 'configs': {}, 'secrets': {}}
-            self.nn(await core.addVault(vdef, user=visi2))
+            xiden = await core.addVault(vdef, user=visi2)
+            self.nn(xiden)
+
+            # permission levels and extra keys are rejected by the schema
+            admin = {visi2.iden: s_cell.PERM_ADMIN}
+            for perms in (
+                {'users': {**admin, visi1.iden: 'x'}, 'roles': {}},
+                {'users': {**admin, visi1.iden: 9}, 'roles': {}},
+                {'users': {**admin, visi1.iden: -1}, 'roles': {}},
+                {'users': admin, 'roles': {contributor.iden: 'x'}},
+                {'users': admin, 'roles': {contributor.iden: 4}},
+                {'users': admin, 'roles': {}, 'default': 'x'},
+                {'users': admin, 'roles': {}, 'default': 9},
+                {'users': admin, 'roles': {}, 'junk': 1},
+            ):
+                xvdef = await core.reqVault(xiden)
+                xvdef['permissions'] = perms
+                with self.raises(s_exc.SchemaViolation):
+                    await core.modVault(xvdef, user=visi2)
+
+            # new or changed user and role idens must exist
+            xvdef = await core.reqVault(xiden)
+            xvdef['permissions']['users'][newp] = s_cell.PERM_READ
+            with self.raises(s_exc.NoSuchUser):
+                await core.modVault(xvdef, user=visi2)
+
+            xvdef = await core.reqVault(xiden)
+            xvdef['permissions']['roles'][newp] = s_cell.PERM_READ
+            with self.raises(s_exc.NoSuchRole):
+                await core.modVault(xvdef, user=visi2)
+
+            # an unchanged entry for a deleted user does not block an update
+            xuser = await core.auth.addUser('xuser')
+            await core.setVaultPerm(xiden, xuser.iden, s_cell.PERM_READ)
+            await core.auth.delUser(xuser.iden)
+
+            xvdef = await core.reqVault(xiden)
+            xvdef['configs'] = {'color': 'green'}
+            xvdef['permissions']['roles'][contributor.iden] = s_cell.PERM_READ
+            vault = await core.modVault(xvdef, user=visi2)
+            self.eq({'color': 'green'}, vault['configs'])
+            self.eq(s_cell.PERM_READ, vault['permissions']['users'][xuser.iden])
+            self.eq(s_cell.PERM_READ, vault['permissions']['roles'][contributor.iden])
+
+            xvdef['permissions']['users'][xuser.iden] = s_cell.PERM_EDIT
+            with self.raises(s_exc.NoSuchUser):
+                await core.modVault(xvdef, user=visi2)
+
+            vaults = {v['iden']: v for v in await core.getVaults(user=visi1)}
+            self.isin(xiden, vaults)
+            self.isin(uiden, vaults)
+            self.eq(s_cell.PERM_DENY, vaults[xiden]['permissions']['default'])
 
             vdef = {'name': 'global2', 'type': vtype2, 'scope': 'global', 'owner': None, 'configs': {}, 'secrets': {}}
             self.nn(await core.addVault(vdef, user=core.auth.rootuser))
