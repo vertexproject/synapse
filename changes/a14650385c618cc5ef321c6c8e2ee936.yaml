@@ -1,0 +1,9 @@
+---
+desc: Added a ``storm_lint`` tool to the Cortex MCP server which lints a Storm query
+  with the configurable Storm linting rules, checking form and property names against
+  the Cortex data model. Its ``v3_ready`` option adds the rules which report Storm
+  that must change for Synapse 3.x.
+desc:literal: false
+prs: []
+type: feat
+...
