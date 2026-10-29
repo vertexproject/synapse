@@ -2082,6 +2082,17 @@ class StormTest(s_t_utils.SynTest):
 
             await core.nodes('ps:contact merge --apply', opts=view2opts)
 
+            # with every node permission granted on both layers no per-node checks are needed
+            await visi.addRule((True, ('node',)), gateiden=layr1)
+            await visi.addRule((True, ('node',)), gateiden=layr2)
+
+            await core.nodes('[ ou:name=allperms +#allperms.foo ]', opts=view2opts)
+            self.len(1, await core.nodes('ou:name=allperms | merge --apply', opts=view2opts))
+
+            nodes = await core.nodes('ou:name=allperms')
+            self.len(1, nodes)
+            self.eq(['allperms', 'allperms.foo'], [t[0] for t in nodes[0].getTags()])
+
     async def test_storm_movenodes(self):
 
         async with self.getTestCore() as core:
