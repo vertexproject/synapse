@@ -3568,7 +3568,9 @@ class MergeCmd(Cmd):
             runt.reqAdmin(gateiden=runt.snap.view.iden, mesg=mesg)
             runt.confirm(('layer', 'del'), gateiden=runt.snap.view.layers[0].iden)
 
-        doapply = self.opts.apply
+        doapply = self.doapply = self.opts.apply
+        self.notags = self.opts.no_tags
+        self.onlytags = self.opts.only_tags
 
         self.tagfilter = self._getTagFilter()
         self.propfilter = self._getPropFilter()
@@ -3648,9 +3650,9 @@ class MergeCmd(Cmd):
 
         runt = self.runt
         meta = self.meta
-        doapply = self.opts.apply
-        notags = self.opts.no_tags
-        onlytags = self.opts.only_tags
+        doapply = self.doapply
+        notags = self.notags
+        onlytags = self.onlytags
         tagfilter = self.tagfilter
         propfilter = self.propfilter
         layr0 = runt.snap.view.layers[0]
