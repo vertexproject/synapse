@@ -5656,6 +5656,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = f'Cannot delete view ({iden}) that has protected set.'
             raise s_exc.CantDelView(mesg=mesg)
 
+        for cview in self.views.values():
+            if cview.parent is not None and cview.parent.iden == iden:
+                raise s_exc.SynErr(mesg='Cannot delete a view that has children')
+
         if hooks:
             await self._runViewHooks('deleted', view)
 

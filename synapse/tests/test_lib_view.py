@@ -431,6 +431,15 @@ class ViewTest(s_t_utils.SynTest):
             self.eq('Cannot delete the main view', cm.exception.get('mesg'))
             self.nn(core.getView(core.view.iden))
 
+            # a view with children is rejected before any deleted hooks run
+            childiden = (await forkview.fork()).get('iden')
+            self.eq([('created', 'root', childiden)], await core.callStorm(HOOKPOP))
+            with self.raises(s_exc.SynErr) as cm:
+                await core.callStorm('$lib.view.del($iden)', opts={'vars': {'iden': forkiden}})
+            self.eq('Cannot delete a view that has children', cm.exception.get('mesg'))
+            self.nn(core.getView(forkiden))
+            await core.delView(childiden, hooks=False)
+
             # hooks=False skips the raising deleted hook
             skipiden = (await core.view.fork()).get('iden')
             self.eq([('created', 'root', skipiden)], await core.callStorm(HOOKPOP))
