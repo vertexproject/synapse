@@ -97,7 +97,8 @@ class LinkTest(s_test.SynTest):
         # Why does this first TX post fini on the server link work,
         # but the second one fails?
         await link.tx(('me', {'k': 2}))
-        await self.asyncraises(ConnectionError, link.tx(('worry?', {'k': 3})))
+        with self.raises(ConnectionError):
+            await link.tx(('worry?', {'k': 3}))
 
     async def test_link_rx_sadpath(self):
 

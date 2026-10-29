@@ -228,16 +228,24 @@ class ViewTest(s_t_utils.SynTest):
             # Forker and forkee have their layer configuration frozen
             tmplayr = await core.addLayer()
             tmpiden = tmplayr['iden']
-            await self.asyncraises(s_exc.ReadOnlyLayer, core.view.addLayer(tmpiden))
-            await self.asyncraises(s_exc.ReadOnlyLayer, view2.addLayer(tmpiden))
-            await self.asyncraises(s_exc.BadArg, view2.setLayers([tmpiden]))
+            with self.raises(s_exc.ReadOnlyLayer):
+                await core.view.addLayer(tmpiden)
+
+            with self.raises(s_exc.ReadOnlyLayer):
+                await view2.addLayer(tmpiden)
+
+            with self.raises(s_exc.BadArg):
+                await view2.setLayers([tmpiden])
 
             # You can't merge a non-forked view
-            await self.asyncraises(s_exc.SynErr, view2.core.view.merge())
+            with self.raises(s_exc.SynErr):
+                await view2.core.view.merge()
 
             # You can't merge if the parent's write layer is readonly
             view2.parent.layers[0].readonly = True
-            await self.asyncraises(s_exc.ReadOnlyLayer, view2.merge())
+            with self.raises(s_exc.ReadOnlyLayer):
+                await view2.merge()
+
             view2.parent.layers[0].readonly = False
 
             vdef3 = await view2.fork()
@@ -245,12 +253,20 @@ class ViewTest(s_t_utils.SynTest):
             view3 = core.getView(view3_iden)
 
             # You can't delete a view or merge it if it has children
-            await self.asyncraises(s_exc.SynErr, view2.merge())
-            await self.asyncraises(s_exc.SynErr, view2.core.delView(view2.iden))
-            await self.asyncraises(s_exc.SynErr, view2.core.delView(view2.iden))
+            with self.raises(s_exc.SynErr):
+                await view2.merge()
+
+            with self.raises(s_exc.SynErr):
+                await view2.core.delView(view2.iden)
+
+            with self.raises(s_exc.SynErr):
+                await view2.core.delView(view2.iden)
+
             layr = await core.addLayer()
             layriden = layr['iden']
-            await self.asyncraises(s_exc.SynErr, view2.addLayer(layriden))
+            with self.raises(s_exc.SynErr):
+                await view2.addLayer(layriden)
+
             await view3.core.delView(view3.iden)
 
             async with core.getLocalProxy(user='visi') as prox:
@@ -309,7 +325,8 @@ class ViewTest(s_t_utils.SynTest):
             await core.view.addLayer(layriden)
 
             # But not the same layer twice
-            await self.asyncraises(s_exc.DupIden, core.view.addLayer(layriden))
+            with self.raises(s_exc.DupIden):
+                await core.view.addLayer(layriden)
 
             # Nodes with a large number of edge edits may be chunked by iterLayerNodeEdits
             await core.nodes('[ test:str=foo ] for $i in $lib.range(102) {[ test:int=$i ]}')
@@ -403,7 +420,9 @@ class ViewTest(s_t_utils.SynTest):
 
             # bad type
 
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('test:str=maxval [ .seen=newp ]', opts=forkopts))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:str=maxval [ .seen=newp ]', opts=forkopts)
+
             await core.nodes('test:str=maxval [ .seen?=newp +#foo ]', opts=forkopts)
             self.len(1, await core.nodes('test:str#foo', opts=forkopts))
 
@@ -596,7 +615,8 @@ class ViewTest(s_t_utils.SynTest):
 
             async with core.getLocalProxy(share=f'*/view/{view}', user='user') as prox:
                 self.eq(0, await prox.getEditSize())
-                await self.asyncraises(s_exc.AuthDeny, prox.storNodeEdits(edits, None))
+                with self.raises(s_exc.AuthDeny):
+                    await prox.storNodeEdits(edits, None)
 
             await user.addRule((True, ('node',)))
 
@@ -700,7 +720,8 @@ class ViewTest(s_t_utils.SynTest):
             useriden = user['iden']
             opts = {'user': useriden}
 
-            await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.view.get().wipeLayer()', opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.view.get().wipeLayer()', opts=opts)
 
             await core.addUserRule(useriden, (True, ('node', 'del')), gateiden=layr.iden)
             await core.addUserRule(useriden, (True, ('node', 'prop', 'del')), gateiden=layr.iden)

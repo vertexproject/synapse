@@ -1988,8 +1988,8 @@ Downselect a set of DNS request nodes to those that occurred prior to June 1, 20
   
   - ``:time<2021/05/13`` / ``:time<=2021/05/13`` mean any date / time less than (or less than or equal to)
     ``2021/05/13 00:00:00.000``.
-  - ``:time<2021/05/13*`` / ``:time<=2021/05/13*`` both mean any date / time less than (or less than or equal
-    to) ``2021/05/13 23:59:59.999``.
+  - ``:time<2021/05/13*`` / ``:time<=2021/05/13*`` both mean any date / time less than or equal to
+    ``2021/05/13 23:59:59.999``.
   
   The behavior differs because in this case Synapse interprets the wildcard syntax as "less than or equal to the
   **highest** possible wildcard match", which in this case is ``2021/05/13 23:59:59.999``.
