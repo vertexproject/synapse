@@ -169,7 +169,8 @@ class StormlibVaultTest(s_test.SynTest):
             vault = await core.getVault(giden)
             self.eq(vault.get('name'), 'foobar')
             self.nn(await core.callStorm('return($lib.vault.byname(foobar))'))
-            await self.asyncraises(s_exc.NoSuchName, core.callStorm('return($lib.vault.byname(gvault))'))
+            with self.raises(s_exc.NoSuchName):
+                await core.callStorm('return($lib.vault.byname(gvault))')
 
             # Get secrets without EDIT perms
             opts = {'vars': {'giden': giden}, 'user': visi1.iden}

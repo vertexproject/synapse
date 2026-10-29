@@ -925,8 +925,8 @@ required permission receives an ``AuthDeny`` error with a 403 status code, and a
 
 This endpoint implements a `Model Context Protocol <https://modelcontextprotocol.io/>`_ (MCP) server
 over the MCP Streamable HTTP transport. It exposes the Cortex to MCP capable clients (such as LLM
-agents) as a set of tools and resources for running and validating Storm queries, browsing the
-Synapse data model, and managing views. Messages use JSON-RPC 2.0.
+agents) as a set of tools and resources for running, validating and linting Storm queries, browsing
+the Synapse data model, and managing views. Messages use JSON-RPC 2.0.
 
 *Method*
     POST

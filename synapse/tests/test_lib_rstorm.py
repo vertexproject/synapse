@@ -370,6 +370,26 @@ svc_onload_timeout = '''
 .. storm-svc:: synapse.tests.files.rstorm.testsvc.Testsvc test {"secret": "jupiter"}
 '''
 
+initpkg_yaml = '''
+name: initpkg
+version: 0.0.1
+inits:
+  versions:
+    - name: first
+      version: 0
+      inaugural: true
+      query: |
+        $lib.time.sleep($lib.globals.get(init_sleep, 0))
+        $lib.globals.set(initpkg, initpkg-done)
+'''
+
+svc_inits_wait = '''
+.. storm-cortex:: default
+.. storm-pre:: $lib.globals.set(init_sleep, 1)
+.. storm-svc:: synapse.tests.files.rstorm.testsvc.Testsvc test {"secret": "jupiter"}
+.. storm:: --hide-query $lib.print($lib.globals.get(testsvcinits))
+'''
+
 async def get_rst_text(rstfile):
     async with await s_rstorm.StormRst.anit(rstfile) as rstorm:
         lines = await rstorm.run()
@@ -643,6 +663,30 @@ class RStormLibTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchCtor):
                 await get_rst_text(path)
 
+            # packages with inits but no onload are waited on
+
+            initpkg = s_common.genpath(dirn, 'initpkg.yaml')
+            with s_common.genfile(initpkg) as fd:
+                fd.write(initpkg_yaml.encode())
+
+            pkg_inits_wait = f'''
+.. storm-cortex:: default
+.. storm-pre:: $lib.globals.set(init_sleep, 1)
+.. storm-pkg:: {initpkg}
+.. storm:: --hide-query $lib.print($lib.globals.get(initpkg))
+'''
+            path = s_common.genpath(dirn, 'pkg_inits_wait.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(pkg_inits_wait.encode())
+            text = await get_rst_text(path)
+            self.isin('initpkg-done', text)
+
+            path = s_common.genpath(dirn, 'svc_inits_wait.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(svc_inits_wait.encode())
+            text = await get_rst_text(path)
+            self.isin('testsvcinits-done', text)
+
             # onload failures
 
             try:
@@ -659,6 +703,17 @@ class RStormLibTest(s_test.SynTest):
                 path = s_common.genpath(dirn, 'svc_onload_timeout.rst')
                 with s_common.genfile(path) as fd:
                     fd.write(svc_onload_timeout.encode())
+                with self.raises(s_exc.SynErr) as ectx:
+                    await get_rst_text(path)
+                self.eq('Package onload failed to run for service test', ectx.exception.errinfo['mesg'])
+
+                # inits without an onload time out the same way
+                path = s_common.genpath(dirn, 'pkg_inits_wait.rst')
+                with self.raises(s_exc.SynErr) as ectx:
+                    await get_rst_text(path)
+                self.eq('Package onload failed to run for initpkg', ectx.exception.errinfo['mesg'])
+
+                path = s_common.genpath(dirn, 'svc_inits_wait.rst')
                 with self.raises(s_exc.SynErr) as ectx:
                     await get_rst_text(path)
                 self.eq('Package onload failed to run for service test', ectx.exception.errinfo['mesg'])

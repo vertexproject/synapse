@@ -210,7 +210,19 @@ class TestUtils(s_t_utils.SynTest):
         async def araiser():
             return 1 / 0
 
-        await self.asyncraises(ZeroDivisionError, araiser())
+        s_common.deprdate.cache_clear()
+        with self.getLoggerStream('synapse.common') as stream:
+            await self.asyncraises(ZeroDivisionError, araiser())
+            await stream.expect('SynTest.asyncraises() is deprecated and will be removed on 2026-12-31.')
+
+        async def agenraiser():
+            yield 1
+            raise ZeroDivisionError()
+
+        s_common.deprdate.cache_clear()
+        with self.getLoggerStream('synapse.common') as stream:
+            await self.agenraises(ZeroDivisionError, agenraiser())
+            await stream.expect('SynTest.agenraises() is deprecated and will be removed on 2026-12-31.')
 
     async def test_storm_msgs(self):
 
