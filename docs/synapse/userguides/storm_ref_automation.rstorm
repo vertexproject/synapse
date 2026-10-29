@@ -1144,7 +1144,9 @@ Each view hook has a **type** which determines when it runs:
   edits a ``merging`` hook makes to the view are included in the merge. For a view that requires a merge vote,
   ``merging`` hooks run once when the merge request is made, and an error rejects the merge request. The view
   remains writable until the merge is approved, so ``merging`` hooks are not a check on edits made after the
-  request.
+  request. ``merging`` hooks run only when a whole view is merged (``$view.merge()``, the ``view.merge`` command,
+  or a merge request). The ``merge`` command applies selected edits to the parent view and does not run them;
+  permissions on the parent view's layer control who may use it.
 - ``deleted``: Runs in a view that is about to be deleted. An error raised by a ``deleted`` hook **aborts** the
   delete. The delete that occurs after a view is merged by a merge vote does not run ``deleted`` hooks.
 
