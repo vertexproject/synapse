@@ -1,0 +1,7 @@
+---
+desc: Fixed node editors leaving their proto nodes and themselves as reference cycles
+  for the cyclic garbage collector after each edit.
+desc:literal: false
+prs: []
+type: bug
+...
