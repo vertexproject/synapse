@@ -3568,12 +3568,10 @@ class MergeCmd(Cmd):
             runt.reqAdmin(gateiden=runt.snap.view.iden, mesg=mesg)
             runt.confirm(('layer', 'del'), gateiden=runt.snap.view.layers[0].iden)
 
-        notags = self.opts.no_tags
-        onlytags = self.opts.only_tags
         doapply = self.opts.apply
 
-        tagfilter = self._getTagFilter()
-        propfilter = self._getPropFilter()
+        self.tagfilter = self._getTagFilter()
+        self.propfilter = self._getPropFilter()
 
         layr0 = runt.snap.view.layers[0]
         layr1 = runt.snap.view.layers[1]
@@ -3604,7 +3602,10 @@ class MergeCmd(Cmd):
                     'edges': runt.user.allowed(('node', 'edge', 'add'), gateiden=layr1.iden, deepdeny=True),
                 }
 
-            doperms = not all(allows.values())
+            if all(allows.values()):
+                allows = None
+
+        self.allows = allows
 
         if self.opts.diff:
 
@@ -3624,7 +3625,7 @@ class MergeCmd(Cmd):
 
             snap.on('warn', runt.snap.dist)
 
-            meta = {'user': runt.user.iden}
+            meta = self.meta = {'user': runt.user.iden}
 
             editor = None
 
@@ -3633,8 +3634,7 @@ class MergeCmd(Cmd):
 
             try:
                 async for node, path in genr:
-                    async for item in self._mergeNode(runt, node, path, editor, meta, allows, doperms, doapply,
-                                                      notags, onlytags, tagfilter, propfilter, layr0):
+                    async for item in self._mergeNode(node, path, editor):
                         yield item
 
             finally:
@@ -3644,8 +3644,16 @@ class MergeCmd(Cmd):
             if doapply and self.opts.wipe:
                 await runt.snap.view.swapLayer()
 
-    async def _mergeNode(self, runt, node, path, editor, meta, allows, doperms, doapply, notags, onlytags,
-                         tagfilter, propfilter, layr0):
+    async def _mergeNode(self, node, path, editor):
+
+        runt = self.runt
+        meta = self.meta
+        doapply = self.opts.apply
+        notags = self.opts.no_tags
+        onlytags = self.opts.only_tags
+        tagfilter = self.tagfilter
+        propfilter = self.propfilter
+        layr0 = runt.snap.view.layers[0]
 
         # the timestamp for the adds/subs of each node merge will match
         nodeiden = node.iden()
@@ -3658,8 +3666,8 @@ class MergeCmd(Cmd):
         subs = []
 
         # check all node perms first
-        if doperms:
-            await self._checkNodePerms(node, sode, runt, allows)
+        if self.allows is not None:
+            await self._checkNodePerms(node, sode, runt, self.allows)
 
         form = node.form.name
         if form == 'syn:tag':

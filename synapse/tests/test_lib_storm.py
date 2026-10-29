@@ -1,5 +1,7 @@
+import gc
 import copy
 import asyncio
+import weakref
 import textwrap
 import functools
 import itertools
@@ -1906,6 +1908,33 @@ class StormTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('test:str=gcmerge'))
             self.len(1, await core.nodes('test:str=gcmerge +#gc', opts=asfork))
 
+            # the merge command is freed by refcounting rather than left as cyclic garbage
+            await core.nodes('[ test:str=gcfree +#gc.foo +#bar :hehe=haha ]', opts=asfork)
+
+            cmdrefs = []
+            mergeinit = s_storm.MergeCmd.__init__
+
+            def __init__(self, *args, **kwargs):
+                mergeinit(self, *args, **kwargs)
+                cmdrefs.append(weakref.ref(self))
+
+            gc.collect()
+            gc.disable()
+            try:
+                with mock.patch.object(s_storm.MergeCmd, '__init__', __init__):
+                    q = 'test:str=gcfree | merge --apply --include-tags gc.* --exclude-props test:str:hehe'
+                    self.len(1, await core.nodes(q, opts=asfork))
+
+                self.len(1, cmdrefs)
+                self.none(cmdrefs[0]())
+
+            finally:
+                gc.enable()
+
+            nodes = await core.nodes('test:str=gcfree')
+            self.eq(['gc', 'gc.foo'], [t[0] for t in nodes[0].getTags()])
+            self.none(nodes[0].get('hehe'))
+
     async def test_storm_merge_opts(self):
 
         async with self.getTestCore() as core:
@@ -2107,6 +2136,17 @@ class StormTest(s_t_utils.SynTest):
             await visi.addRule((True, ('node', 'edge', 'add')), gateiden=layr1)
 
             await core.nodes('ps:contact merge --apply', opts=view2opts)
+
+            # with every node permission granted on both layers no per-node checks are needed
+            await visi.addRule((True, ('node',)), gateiden=layr1)
+            await visi.addRule((True, ('node',)), gateiden=layr2)
+
+            await core.nodes('[ ou:name=allperms +#allperms.foo ]', opts=view2opts)
+            self.len(1, await core.nodes('ou:name=allperms | merge --apply', opts=view2opts))
+
+            nodes = await core.nodes('ou:name=allperms')
+            self.len(1, nodes)
+            self.eq(['allperms', 'allperms.foo'], [t[0] for t in nodes[0].getTags()])
 
     async def test_storm_movenodes(self):
 
