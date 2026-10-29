@@ -31,6 +31,8 @@ class StormlibVaultTest(s_test.SynTest):
                 opts = {'vars': {'vtype': vtype, 'iden': visi1.iden}, 'user': visi1.iden}
                 await core.callStorm('return($lib.vault.add(uvault, $vtype, global, $iden, ({"name": "uvault"}), ({"server": "uvault"})))', opts=opts)
             self.eq('User visi1 cannot create global vaults.', exc.exception.get('mesg'))
+            self.eq(visi1.iden, exc.exception.get('user'))
+            self.eq('visi1', exc.exception.get('username'))
 
             with self.raises(s_exc.AuthDeny) as exc:
                 opts = {'vars': {'vtype': vtype, 'iden': visi2.iden}, 'user': visi1.iden}
@@ -238,6 +240,18 @@ class StormlibVaultTest(s_test.SynTest):
             opts = {'user': visi1.iden}
             self.eq(1, await core.callStorm('return($lib.len($lib.vault.list()))', opts=opts))
 
+            # Set permissions and delete without ADMIN perms
+            opts = {'vars': {'iden': visi1.iden, 'giden': giden}, 'user': visi1.iden}
+            q = '$lib.vault.get($giden).setPerm($iden, $lib.auth.easyperm.level.admin)'
+            with self.raises(s_exc.AuthDeny) as exc:
+                await core.callStorm(q, opts=opts)
+            self.eq(f'User requires admin permission on vault: {giden}.', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.AuthDeny) as exc:
+                await core.callStorm('$lib.vault.get($giden).delete()', opts=opts)
+            self.eq(f'User requires admin permission on vault: {giden}.', exc.exception.get('mesg'))
+            self.nn(await core.getVault(giden))
+
             # Runtime asroot
 
             await core.addStormPkg({
@@ -271,6 +285,18 @@ class StormlibVaultTest(s_test.SynTest):
                                 $vault.configs = $dict
                                 return($vault.configs)
                             }
+
+                            function addVault(name, vtype) {
+                                return($lib.vault.add($name, $vtype, global, $lib.null, ({}), ({})))
+                            }
+
+                            function setPerm(vault, iden, level) {
+                                return($vault.setPerm($iden, $level))
+                            }
+
+                            function delVault(vault) {
+                                return($vault.delete())
+                            }
                         '''
                     },
                 ],
@@ -297,6 +323,22 @@ class StormlibVaultTest(s_test.SynTest):
             q = 'return($lib.import(vmod).smashConfigs($giden, ({"server": "new"})))'
             ret = await core.callStorm(q, opts=opts)
             self.eq(ret, {'server': 'new'})
+
+            # the asroot module adds and administers vaults for a non-admin caller
+            opts = {'vars': {'vtype': 'synapse-asroot'}, 'user': visi1.iden}
+            q = 'return($lib.import(vmod).addVault(avault, $vtype))'
+            aiden = await core.callStorm(q, opts=opts)
+            self.eq('global', (await core.getVault(aiden)).get('scope'))
+
+            opts = {'vars': {'aiden': aiden, 'iden': visi1.iden}, 'user': visi1.iden}
+            q = 'return($lib.import(vmod).setPerm($lib.vault.get($aiden), $iden, $lib.auth.easyperm.level.edit))'
+            self.true(await core.callStorm(q, opts=opts))
+            vault = await core.getVault(aiden)
+            self.eq(s_cell.PERM_EDIT, vault['permissions']['users'][visi1.iden])
+
+            q = '$lib.import(vmod).delVault($lib.vault.get($aiden))'
+            await core.callStorm(q, opts=opts)
+            self.none(await core.getVault(aiden))
 
     async def test_stormlib_vault_cmds(self):
         async with self.getTestCore() as core:

@@ -2,6 +2,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.cell as s_cell
+import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
 
 import synapse.lib.stormtypes as s_stormtypes
@@ -309,6 +310,14 @@ stormcmds = (
     },
 )
 
+def getPermUser(runt):
+    # the user vault permissions are checked against, or None for an asroot runtime
+    runt = s_scope.get('runt', runt)
+    if runt.asroot:
+        return None
+
+    return runt.user
+
 @s_stormtypes.registry.registerLib
 class LibVault(s_stormtypes.Lib):
     '''
@@ -453,17 +462,6 @@ class LibVault(s_stormtypes.Lib):
         secrets = await s_stormtypes.toprim(secrets)
         configs = await s_stormtypes.toprim(configs)
 
-        if not self.runt.isAdmin():
-            user = self.runt.user
-
-            if scope in ('global', 'role'):
-                mesg = f'User {user.name} cannot create {scope} vaults.'
-                raise s_exc.AuthDeny(mesg=mesg, user=user.name)
-
-            if scope == 'user' and user.iden != owner:
-                mesg = f'User {user.name} cannot create vaults for user {owner}.'
-                raise s_exc.AuthDeny(mesg=mesg)
-
         vault = {
             'name': name,
             'type': vtype,
@@ -473,7 +471,7 @@ class LibVault(s_stormtypes.Lib):
             'configs': configs,
         }
 
-        return await self.runt.snap.core.addVault(vault)
+        return await self.runt.snap.core.addVault(vault, user=getPermUser(self.runt))
 
     async def _getByName(self, name):
         name = await s_stormtypes.tostr(name)
@@ -743,21 +741,14 @@ class Vault(s_stormtypes.Prim):
         return vault.get('permissions')
 
     async def _methSetPerm(self, iden, level):
-        vault = await self.runt.snap.core.reqVault(self.valu)
-        mesg = f'User requires admin permission on vault: {self.valu}.'
-        s_stormtypes.confirmEasyPerm(vault, s_cell.PERM_ADMIN, mesg=mesg)
-
         iden = await s_stormtypes.tostr(iden)
         level = await s_stormtypes.toint(level, noneok=True)
 
-        return await self.runt.snap.core.setVaultPerm(self.valu, iden, level)
+        return await self.runt.snap.core.setVaultPerm(self.valu, iden, level, user=getPermUser(self.runt))
 
     async def _methDelete(self):
-        vault = await self.runt.snap.core.reqVault(self.valu)
-        mesg = f'User requires admin permission on vault: {self.valu}.'
-        s_stormtypes.confirmEasyPerm(vault, s_cell.PERM_ADMIN, mesg=mesg)
-
-        return await self.runt.snap.core.delVault(self.valu)
+        await self.runt.snap.core.reqVault(self.valu)
+        return await self.runt.snap.core.delVault(self.valu, user=getPermUser(self.runt))
 
     async def stormrepr(self):
         return f'vault: {self.valu}'
