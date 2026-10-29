@@ -4935,9 +4935,34 @@ class BackgroundCmd(Cmd):
 
         await core.boss.promote('storm', user=user, info=info)
 
-        async with core.getStormRuntime(query, opts=opts) as runt:
-            async for item in runt.execute():
-                await asyncio.sleep(0)
+        # the parent query has its own stats and may complete before this does
+        stats = core._getStormQueryStats()
+        s_layer.querystats.set(stats)
+
+        status = 'ok'
+        count = 0
+        abstick = s_common.mononow()
+
+        try:
+            async with core.getStormRuntime(query, opts=opts) as runt:
+                async for item in runt.execute():
+                    count += 1
+                    await asyncio.sleep(0)
+
+        except asyncio.CancelledError:
+            status = 'cancelled'
+            raise
+
+        except Exception:
+            status = 'error'
+            raise
+
+        finally:
+            if stats is not None:
+                stats.done = True
+                info.update({'status': status, 'took': s_common.mononow() - abstick, 'count': count,
+                             'stats': stats.pack()})
+                core._logStormFini(query.text, user, info)
 
     async def execStormCmd(self, runt, genr):
 
