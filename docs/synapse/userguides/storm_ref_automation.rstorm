@@ -1155,10 +1155,32 @@ View hooks have the following properties:
   The hook's ``creator`` records the user who added it, and does not affect how the hook runs. Enabled hooks of a
   given type run in the order they were created. Hooks do not run when the Cortex is in safe mode.
 - **Permissions.** Only a global **admin** can add, view, modify, or delete view hooks.
-- **Recursion.** Views created, merged, or deleted by the Storm query of a running view hook do not run view hooks.
+- **Recursion.** Views created, merged, or deleted by the Storm query of a running view hook, including its
+  background and parallel subqueries, do not run view hooks. Triggers fired and dmons added by that Storm query still
+  run view hooks.
 
 View hooks are managed using the :ref:`stormlibs-lib-view-hook` libraries and the :ref:`stormprims-view-hook-f527`
 primitive.
+
+.. _auto-view-hook-vars:
+
+Variables
++++++++++
+
+Every view hook has an associated Storm variable ``$auto`` that is automatically populated when the hook runs.
+The ``$auto`` variable is a dictionary which contains the following keys:
+
+  ``$auto.iden``
+    The identifier of the view hook.
+
+  ``$auto.type``
+    The type of automation. For a view hook this value will be ``view:hook``.
+
+  ``$auto.opts``
+    Dictionary containing view hook specific runtime information. This includes the following keys:
+
+        ``$auto.opts.type``
+            The type of the view hook (``created``, ``merging``, or ``deleted``).
 
 Examples
 ++++++++

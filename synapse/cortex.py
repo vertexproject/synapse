@@ -7,7 +7,6 @@ import logging
 import textwrap
 import contextlib
 import collections
-import contextvars
 
 from collections.abc import Mapping
 
@@ -43,6 +42,7 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.modules as s_modules
 import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
+import synapse.lib.trigger as s_trigger
 import synapse.lib.version as s_version
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.hashitem as s_hashitem
@@ -115,9 +115,6 @@ import synapse.lib.stormlib.notifications as s_stormlib_notifications  # noqa: F
 
 logger = logging.getLogger(__name__)
 stormlogger = logging.getLogger('synapse.storm')
-
-# set while view hooks run so lifecycle events from hook storm do not run hooks
-ViewHookRunning = contextvars.ContextVar('ViewHookRunning', default=False)
 
 '''
 A Cortex implements the synapse hypergraph object.
@@ -5261,7 +5258,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.safemode:
             return False
 
-        if ViewHookRunning.get():
+        if s_trigger.ViewHookRunning.get():
             return False
 
         hdefs = [hdef for hdef in self.viewhooks.values() if hdef.get('type') == htype and hdef.get('enabled')]
@@ -5271,14 +5268,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         hdefs.sort(key=lambda hdef: hdef.get('created'))
 
         root = self.auth.rootuser.iden
-        token = ViewHookRunning.set(True)
+        token = s_trigger.ViewHookRunning.set(True)
         try:
             for hdef in hdefs:
 
                 iden = hdef.get('iden')
 
                 # hooks run locally rather than on a storm pool mirror
-                opts = {'user': root, 'view': view.iden, 'mirror': False}
+                opts = {
+                    'user': root,
+                    'view': view.iden,
+                    'mirror': False,
+                    'vars': {'auto': {'iden': iden, 'type': 'view:hook', 'opts': {'type': htype}}},
+                }
 
                 try:
                     await self.callStorm(hdef.get('storm'), opts=opts)
@@ -5291,7 +5293,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                                      extra=self.getLogExtra(iden=iden, view=view.iden, creator=hdef.get('creator')))
 
         finally:
-            ViewHookRunning.reset(token)
+            s_trigger.ViewHookRunning.reset(token)
 
         return True
 

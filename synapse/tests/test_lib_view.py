@@ -476,6 +476,91 @@ class ViewTest(s_t_utils.SynTest):
             self.none(vdef.get('desc'))
             self.none(core.getView(vdef.get('iden')))
 
+            # hooks populate $auto
+            autoput = '$lib.queue.gen(autos).put(($auto.iden, $auto.type, $auto.opts.type))'
+            await core.modViewHook(created, {'storm': autoput})
+            await core.modViewHook(merging, {'storm': autoput, 'enabled': True})
+            await core.modViewHook(deleted, {'storm': autoput, 'enabled': True})
+
+            autopop = 'return($lib.queue.gen(autos).pop(wait=(true)).1)'
+
+            forkiden = (await core.view.fork()).get('iden')
+            self.eq((created, 'view:hook', 'created'), await core.callStorm(autopop))
+
+            await core.callStorm('$lib.view.get().merge()', opts={'view': forkiden})
+            self.eq((merging, 'view:hook', 'merging'), await core.callStorm(autopop))
+
+            await core.delView(forkiden)
+            self.eq((deleted, 'view:hook', 'deleted'), await core.callStorm(autopop))
+            self.eq(0, await core.callStorm('return($lib.queue.gen(autos).size())'))
+
+            await core.modViewHook(merging, {'enabled': False})
+
+            # triggers run by hook storm run view hooks, and the hook storm still does not
+            await core.modViewHook(created, {'storm': f'$name=created {HOOKPUT}'})
+
+            trigview = (await core.view.fork()).get('iden')
+            self.eq([('created', 'root', trigview)], await core.callStorm(HOOKPOP))
+
+            trigq = f'''
+                $view = $lib.view.get({core.view.iden}).fork()
+                $lib.queue.gen(trigviews).put($view.iden)
+                $lib.view.del($view.iden)
+            '''
+            tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': trigq}
+            await core.callStorm('$lib.trigger.add($tdef)', opts={'view': trigview, 'vars': {'tdef': tdef}})
+
+            await core.modViewHook(deleted, {'storm': f'''
+                $name=deleted {HOOKPUT}
+                if ($lib.view.get().iden = "{trigview}") {{
+                    [ test:str=hooktrig ]
+                    $lib.queue.gen(hookviews).put($lib.view.get({core.view.iden}).fork().iden)
+                }}
+            '''})
+
+            await core.delView(trigview)
+            self.none(core.getView(trigview))
+
+            trigfork = await core.callStorm('return($lib.queue.gen(trigviews).pop().1)')
+            hookfork = await core.callStorm('return($lib.queue.gen(hookviews).pop().1)')
+            self.none(core.getView(trigfork))
+            self.nn(core.getView(hookfork))
+
+            self.eq([
+                ('deleted', 'root', trigview),
+                ('created', 'root', trigfork),
+                ('deleted', 'root', trigfork),
+            ], await core.callStorm(HOOKPOP))
+
+            # dmons added by hook storm run view hooks
+            await core.modViewHook(deleted, {'enabled': False})
+            await core.modViewHook(created, {'storm': f'''
+                $name=created {HOOKPUT}
+                $text = $lib.globals.get(hookdmon)
+                if $text {{
+                    $lib.globals.pop(hookdmon)
+                    $lib.dmon.add($text, name=hookdmon)
+                }}
+            '''})
+
+            dmonq = f'''
+                $lib.queue.gen(dmonviews).put($lib.view.get({core.view.iden}).fork().iden)
+                $lib.time.sleep(3600)
+            '''
+            await core.callStorm('$lib.globals.set(hookdmon, $text)', opts={'vars': {'text': dmonq}})
+
+            dmonview = (await core.view.fork()).get('iden')
+            dmonfork = await core.callStorm('return($lib.queue.gen(dmonviews).pop(wait=(true)).1)')
+            self.nn(core.getView(dmonfork))
+
+            self.eq([
+                ('created', 'root', dmonview),
+                ('created', 'root', dmonfork),
+            ], await core.callStorm(HOOKPOP))
+
+            for dmon in await core.getStormDmons():
+                await core.delStormDmon(dmon.get('iden'))
+
     async def test_view_merge_ival(self):
 
         async with self.getTestCore() as core:

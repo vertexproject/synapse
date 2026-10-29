@@ -27,6 +27,7 @@ import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.trigger as s_trigger
 import synapse.lib.version as s_version
 import synapse.lib.stormsvc as s_stormsvc
 
@@ -9321,7 +9322,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core._runViewHooks('created', fork)
 
                 self.len(2, await core.callStorm(popq))
-                self.false(s_cortex.ViewHookRunning.get())
+                self.false(s_trigger.ViewHookRunning.get())
 
                 # errok logs the exception and runs the remaining hooks
                 await core.modViewHook(iden02, {'storm': f'$lib.raise(HookFail, nope) $name=hook02 {storm}'})
@@ -9337,11 +9338,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core.modViewHook(iden02, {'enabled': False})
 
                 # hooks do not run from within a running hook
-                token = s_cortex.ViewHookRunning.set(True)
+                token = s_trigger.ViewHookRunning.set(True)
                 try:
                     await core._runViewHooks('created', fork)
                 finally:
-                    s_cortex.ViewHookRunning.reset(token)
+                    s_trigger.ViewHookRunning.reset(token)
 
                 self.eq([], await core.callStorm(popq))
 

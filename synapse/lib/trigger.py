@@ -26,6 +26,9 @@ Conditions = set((
 
 RecursionDepth = contextvars.ContextVar('RecursionDepth', default=0)
 
+# set while view hook storm runs so lifecycle events from it do not run hooks
+ViewHookRunning = contextvars.ContextVar('ViewHookRunning', default=False)
+
 # TODO: standardize locations for form/prop/tags regex
 
 tagrestr = r'((\w+|\*|\*\*)\.)*(\w+|\*|\*\*)'  # tag with optional single or double * as segment
@@ -543,6 +546,9 @@ class Trigger:
 
         self.startcount += 1
 
+        # a trigger fired by view hook storm still runs view hooks
+        token = ViewHookRunning.set(False)
+
         try:
             async with self.view.core.getStormRuntime(query, opts=opts) as runt:
 
@@ -556,6 +562,9 @@ class Trigger:
             self.errcount += 1
             self.lasterrs.append(str(e))
             logger.exception('Trigger encountered exception running storm query %s', storm)
+
+        finally:
+            ViewHookRunning.reset(token)
 
     def pack(self):
         tdef = self.tdef.copy()
