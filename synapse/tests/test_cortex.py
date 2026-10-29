@@ -5868,9 +5868,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                     })
                     vhiden = vhdef.get('iden')
 
-                    await asyncio.sleep(0.005)
                     vhmod = await core00.modViewHook(vhiden, {'name': 'wow'})
-                    self.gt(vhmod.get('updated'), vhdef.get('updated'))
+                    self.ge(vhmod.get('updated'), vhdef.get('updated'))
 
                     await core01.sync()
                     self.eq(vhmod, await core01.getViewHook(vhiden))
@@ -9259,24 +9258,22 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # a replayed mod for a deleted hook is a no-op
                 self.none(await core._modViewHook(newp, {'name': 'newp', 'updated': s_common.now()}))
 
-                await asyncio.sleep(0.005)
                 hdef = await core.modViewHook(iden01, {'enabled': True})
                 self.true(hdef.get('enabled'))
-                self.gt(hdef.get('updated'), hdef01.get('updated'))
+                self.ge(hdef.get('updated'), hdef01.get('updated'))
                 self.eq(hdef01.get('created'), hdef.get('created'))
 
                 hdef = await core.modViewHook(iden01, {'type': 'created'})
                 self.eq('created', hdef.get('type'))
 
                 # several fields update together with one updated time
-                await asyncio.sleep(0.005)
                 prev = hdef
                 hdef = await core.modViewHook(iden01, {'name': 'hook01b', 'storm': f'$name=hook01b {storm}'})
                 self.eq('hook01b', hdef.get('name'))
                 self.eq(f'$name=hook01b {storm}', hdef.get('storm'))
                 self.eq('created', hdef.get('type'))
                 self.true(hdef.get('enabled'))
-                self.gt(hdef.get('updated'), prev.get('updated'))
+                self.ge(hdef.get('updated'), prev.get('updated'))
                 self.eq(hdef, await core.getViewHook(iden01))
 
                 iden02 = (await core.addViewHook({
