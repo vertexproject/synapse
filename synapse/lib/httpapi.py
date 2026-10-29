@@ -1308,19 +1308,19 @@ reqValidVaultDel = s_config.getJsValidator({
     'additionalProperties': False,
 })
 
-_vaultErrCodes = (
-    (s_exc.AuthDeny, HTTPStatus.FORBIDDEN),
-    (s_exc.NoSuchIden, HTTPStatus.NOT_FOUND),
-    (s_exc.NoSuchName, HTTPStatus.NOT_FOUND),
-    (s_exc.NoSuchRole, HTTPStatus.NOT_FOUND),
-    (s_exc.NoSuchUser, HTTPStatus.NOT_FOUND),
-    (s_exc.DupName, HTTPStatus.CONFLICT),
-    (s_exc.BadArg, HTTPStatus.BAD_REQUEST),
-    (s_exc.NotMsgpackSafe, HTTPStatus.BAD_REQUEST),
-    (s_exc.SchemaViolation, HTTPStatus.BAD_REQUEST),
-)
+_vaultErrCodes = {
+    s_exc.AuthDeny: HTTPStatus.FORBIDDEN,
+    s_exc.NoSuchIden: HTTPStatus.NOT_FOUND,
+    s_exc.NoSuchName: HTTPStatus.NOT_FOUND,
+    s_exc.NoSuchRole: HTTPStatus.NOT_FOUND,
+    s_exc.NoSuchUser: HTTPStatus.NOT_FOUND,
+    s_exc.DupName: HTTPStatus.CONFLICT,
+    s_exc.BadArg: HTTPStatus.BAD_REQUEST,
+    s_exc.NotMsgpackSafe: HTTPStatus.BAD_REQUEST,
+    s_exc.SchemaViolation: HTTPStatus.BAD_REQUEST,
+}
 
-_vaultErrs = tuple(errcls for errcls, _ in _vaultErrCodes)
+_vaultErrs = tuple(_vaultErrCodes)
 
 class VaultHandler(StormHandler):
     '''
@@ -1345,7 +1345,7 @@ class VaultHandler(StormHandler):
             retn = await self._runVault(body)
 
         except _vaultErrs as e:
-            code = next(code for errcls, code in _vaultErrCodes if isinstance(e, errcls))
+            code = next(code for errcls, code in _vaultErrCodes.items() if isinstance(e, errcls))
             return self.sendRestExc(e, status_code=code)
 
         return self.sendRestRetn(retn)
