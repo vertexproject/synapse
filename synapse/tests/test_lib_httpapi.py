@@ -11,6 +11,7 @@ import synapse.common as s_common
 import synapse.tools.service.backup as s_backup
 
 import synapse.exc as s_exc
+import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.json as s_json
 import synapse.lib.link as s_link
@@ -1950,6 +1951,304 @@ class HttpApiTest(s_tests.SynTest):
                 resp = await sess.post(f'https://localhost:{port}/api/v1/storm/vars/pop', json=body)
                 self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
                 self.eq('AuthDeny', (await resp.json())['code'])
+
+    async def test_http_vaults(self):
+
+        async with self.getTestCore() as core:
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            root = core.auth.rootuser
+            visi = await core.auth.addUser('visi')
+            newp = await core.auth.addRole('newp')
+
+            await root.setPasswd('secret')
+            await visi.setPasswd('secret')
+
+            visikey, _ = await core.addUserApiKey(visi.iden, 'vaults')
+
+            base = f'https://localhost:{port}/api/v1/vault'
+
+            headers = None
+
+            async def call(sess, meth, path, body=None, status=http.HTTPStatus.OK):
+                async with sess.request(meth, f'{base}/{path}', json=body, headers=headers) as resp:
+                    retn = await resp.json()
+                    self.eq(resp.status, status, msg=retn)
+                    return retn
+
+            # every route requires an authenticated user
+            async with self.getHttpSess(port=port) as sess:
+                for meth, path in (('GET', 'list'), ('GET', 'get'), ('POST', 'get'), ('POST', 'add'),
+                                   ('POST', 'mod'), ('POST', 'del')):
+                    retn = await call(sess, meth, path, body={}, status=http.HTTPStatus.UNAUTHORIZED)
+                    self.eq('NotAuthenticated', retn.get('code'))
+
+            async with self.getHttpSess(auth=('root', 'secret'), port=port) as rsess:
+
+                retn = await call(rsess, 'GET', 'list')
+                self.eq({'status': 'ok', 'result': []}, retn)
+
+                vdef = {
+                    'name': 'globvault',
+                    'type': 'testvault',
+                    'scope': 'global',
+                    'owner': None,
+                    'secrets': {'apikey': 'foobar'},
+                    'configs': {'url': 'https://vertex.link'},
+                }
+                glob = (await call(rsess, 'POST', 'add', body=vdef))['result']
+                self.true(s_common.isguid(glob.get('iden')))
+                self.eq('globvault', glob.get('name'))
+                self.eq({'apikey': 'foobar'}, glob.get('secrets'))
+                self.eq(glob, await core.getVault(glob.get('iden')))
+                giden = glob.get('iden')
+
+                retn = await call(rsess, 'POST', 'add', body=vdef, status=http.HTTPStatus.CONFLICT)
+                self.eq('DupName', retn.get('code'))
+
+                rdef = dict(vdef, name='newpvault', scope='role', owner=s_common.guid())
+                retn = await call(rsess, 'POST', 'add', body=rdef, status=http.HTTPStatus.NOT_FOUND)
+                self.eq('NoSuchRole', retn.get('code'))
+
+                rdef = dict(vdef, name='newpvault', scope='role', owner=newp.iden)
+                roleiden = (await call(rsess, 'POST', 'add', body=rdef))['result']['iden']
+
+                rdef = dict(vdef, name='rootvault', scope='user', owner=root.iden)
+                rootiden = (await call(rsess, 'POST', 'add', body=rdef))['result']['iden']
+
+                # owner is required for non-global vaults
+                rdef = dict(vdef, name='noowner', scope=None, owner=None)
+                retn = await call(rsess, 'POST', 'add', body=rdef, status=http.HTTPStatus.BAD_REQUEST)
+                self.eq('BadArg', retn.get('code'))
+
+                # add schema violations
+                for body in (
+                        {k: v for k, v in vdef.items() if k != 'owner'},
+                        dict(vdef, newp='newp'),
+                        dict(vdef, name=10),
+                        dict(vdef, scope='newp'),
+                        dict(vdef, secrets='newp'),
+                        dict(vdef, permissions={}),
+                        ['newp'],
+                ):
+                    retn = await call(rsess, 'POST', 'add', body=body, status=http.HTTPStatus.BAD_REQUEST)
+                    self.eq('SchemaViolation', retn.get('code'))
+
+                async with rsess.post(f'{base}/add', data=b'newp') as resp:
+                    self.eq(resp.status, http.HTTPStatus.BAD_REQUEST)
+                    self.eq('SchemaViolation', (await resp.json()).get('code'))
+
+                retn = await call(rsess, 'GET', 'list')
+                self.eq(['globvault', 'newpvault', 'rootvault'], sorted(v['name'] for v in retn['result']))
+
+                # get by iden, name, and type
+                retn = await call(rsess, 'GET', 'get', body={'iden': giden})
+                self.eq(glob, retn['result'])
+
+                retn = await call(rsess, 'POST', 'get', body={'name': 'globvault'})
+                self.eq(glob, retn['result'])
+
+                retn = await call(rsess, 'GET', 'get', body={'type': 'testvault'})
+                self.eq(rootiden, retn['result']['iden'])
+
+                retn = await call(rsess, 'GET', 'get', body={'type': 'testvault', 'scope': 'global'})
+                self.eq(glob, retn['result'])
+
+                retn = await call(rsess, 'GET', 'get', body={'type': 'testvault', 'scope': None})
+                self.eq(rootiden, retn['result']['iden'])
+
+                retn = await call(rsess, 'GET', 'get', body={'iden': s_common.guid()}, status=http.HTTPStatus.NOT_FOUND)
+                self.eq('NoSuchIden', retn.get('code'))
+
+                retn = await call(rsess, 'GET', 'get', body={'name': 'newp'}, status=http.HTTPStatus.NOT_FOUND)
+                self.eq('NoSuchName', retn.get('code'))
+
+                retn = await call(rsess, 'GET', 'get', body={'type': 'newp'}, status=http.HTTPStatus.NOT_FOUND)
+                self.eq('NoSuchName', retn.get('code'))
+
+                retn = await call(rsess, 'GET', 'get', body={'type': 'testvault', 'scope': 'role'},
+                                  status=http.HTTPStatus.NOT_FOUND)
+                self.eq('NoSuchName', retn.get('code'))
+
+                # get schema violations
+                for body in (
+                        {},
+                        {'iden': giden, 'name': 'globvault'},
+                        {'name': 'globvault', 'type': 'testvault'},
+                        {'scope': 'global'},
+                        {'name': 'globvault', 'scope': 'global'},
+                        {'type': 'testvault', 'scope': 'newp'},
+                        {'iden': 'newp'},
+                        {'name': 10},
+                        {'name': 'globvault', 'newp': 'newp'},
+                ):
+                    retn = await call(rsess, 'GET', 'get', body=body, status=http.HTTPStatus.BAD_REQUEST)
+                    self.eq('SchemaViolation', retn.get('code'))
+
+                async with rsess.get(f'{base}/get') as resp:
+                    self.eq(resp.status, http.HTTPStatus.BAD_REQUEST)
+                    self.eq('SchemaViolation', (await resp.json()).get('code'))
+
+                # mod takes the full vault definition
+                glob['configs']['url'] = 'https://newp.vertex.link'
+                retn = await call(rsess, 'POST', 'mod', body=glob)
+                self.eq(glob, retn['result'])
+                self.eq(glob, await core.getVault(giden))
+
+                retn = await call(rsess, 'POST', 'mod', body=dict(glob, type='newp'),
+                                  status=http.HTTPStatus.BAD_REQUEST)
+                self.eq('BadArg', retn.get('code'))
+
+                retn = await call(rsess, 'POST', 'mod', body=dict(glob, name='rootvault'),
+                                  status=http.HTTPStatus.CONFLICT)
+                self.eq('DupName', retn.get('code'))
+
+                retn = await call(rsess, 'POST', 'mod', body=dict(glob, iden=s_common.guid()),
+                                  status=http.HTTPStatus.NOT_FOUND)
+                self.eq('NoSuchIden', retn.get('code'))
+
+                for body in (
+                        {k: v for k, v in glob.items() if k != 'secrets'},
+                        dict(glob, newp='newp'),
+                        dict(glob, configs='newp'),
+                        {},
+                ):
+                    retn = await call(rsess, 'POST', 'mod', body=body, status=http.HTTPStatus.BAD_REQUEST)
+                    self.eq('SchemaViolation', retn.get('code'))
+
+                # del schema violations
+                for body in ({}, {'iden': 'newp'}, {'iden': giden, 'name': 'newp'}):
+                    retn = await call(rsess, 'POST', 'del', body=body, status=http.HTTPStatus.BAD_REQUEST)
+                    self.eq('SchemaViolation', retn.get('code'))
+
+                # deleting a missing vault is a no-op
+                retn = await call(rsess, 'POST', 'del', body={'iden': s_common.guid()})
+                self.eq({'status': 'ok', 'result': None}, retn)
+
+                # GET only routes
+                async with rsess.post(f'{base}/list') as resp:
+                    self.eq(resp.status, http.HTTPStatus.METHOD_NOT_ALLOWED)
+
+                async with rsess.get(f'{base}/add') as resp:
+                    self.eq(resp.status, http.HTTPStatus.METHOD_NOT_ALLOWED)
+
+            headers = {'X-API-KEY': visikey}
+            async with self.getHttpSess(port=port) as vsess:
+
+                # visi can read the global vault, but not its secrets
+                retn = await call(vsess, 'GET', 'list')
+                self.eq(['globvault'], [v['name'] for v in retn['result']])
+                self.notin('secrets', retn['result'][0])
+
+                retn = await call(vsess, 'GET', 'get', body={'iden': giden})
+                self.eq('globvault', retn['result']['name'])
+                self.notin('secrets', retn['result'])
+
+                retn = await call(vsess, 'GET', 'get', body={'type': 'testvault'})
+                self.eq(giden, retn['result']['iden'])
+                self.notin('secrets', retn['result'])
+
+                for body in ({'iden': rootiden}, {'name': 'rootvault'}, {'name': 'newpvault'}):
+                    retn = await call(vsess, 'GET', 'get', body=body, status=http.HTTPStatus.FORBIDDEN)
+                    self.eq('AuthDeny', retn.get('code'))
+
+                retn = await call(vsess, 'GET', 'get', body={'type': 'testvault', 'scope': 'user'},
+                                  status=http.HTTPStatus.NOT_FOUND)
+                self.eq('NoSuchName', retn.get('code'))
+
+                # non-admins cannot add global or role vaults, or user vaults for others
+                for scope, owner in (('global', None), ('role', newp.iden), ('user', root.iden)):
+                    body = dict(vdef, name='visivault', scope=scope, owner=owner)
+                    retn = await call(vsess, 'POST', 'add', body=body, status=http.HTTPStatus.FORBIDDEN)
+                    self.eq('AuthDeny', retn.get('code'))
+
+                body = dict(vdef, name='visivault', scope='user', owner=visi.iden)
+                visivault = (await call(vsess, 'POST', 'add', body=body))['result']
+                self.eq({'apikey': 'foobar'}, visivault.get('secrets'))
+                viden = visivault.get('iden')
+
+                # an unscoped vault owned by another user is returned without its secrets
+                body = dict(vdef, name='rootunscoped', scope=None, owner=root.iden)
+                unscoped = (await call(vsess, 'POST', 'add', body=body))['result']
+                self.eq('rootunscoped', unscoped.get('name'))
+                self.eq(root.iden, unscoped.get('owner'))
+                self.eq({'url': 'https://vertex.link'}, unscoped.get('configs'))
+                self.notin('secrets', unscoped)
+                self.eq({'apikey': 'foobar'}, (await core.getVault(unscoped['iden']))['secrets'])
+
+                retn = await call(vsess, 'POST', 'add', body=body, status=http.HTTPStatus.CONFLICT)
+                self.eq('DupName', retn.get('code'))
+                await core.delVault(unscoped['iden'])
+
+                retn = await call(vsess, 'GET', 'get', body={'type': 'testvault'})
+                self.eq(viden, retn['result']['iden'])
+
+                visivault['secrets']['apikey'] = 'hehe'
+                retn = await call(vsess, 'POST', 'mod', body=visivault)
+                self.eq({'apikey': 'hehe'}, retn['result']['secrets'])
+
+                # READ cannot mod or del
+                glob = (await call(vsess, 'GET', 'get', body={'iden': giden}))['result']
+                glob['secrets'] = {}
+                retn = await call(vsess, 'POST', 'mod', body=glob, status=http.HTTPStatus.FORBIDDEN)
+                self.eq('AuthDeny', retn.get('code'))
+
+                retn = await call(vsess, 'POST', 'del', body={'iden': giden}, status=http.HTTPStatus.FORBIDDEN)
+                self.eq('AuthDeny', retn.get('code'))
+
+                # EDIT can see secrets and mod, but not change permissions or del
+                await core.setVaultPerm(giden, visi.iden, s_cell.PERM_EDIT)
+
+                glob = (await call(vsess, 'GET', 'get', body={'iden': giden}))['result']
+                self.eq({'apikey': 'foobar'}, glob.get('secrets'))
+
+                retn = await call(vsess, 'GET', 'list')
+                self.eq({'globvault': True, 'visivault': True},
+                        {v['name']: 'secrets' in v for v in retn['result']})
+
+                glob['secrets']['apikey'] = 'haha'
+                retn = await call(vsess, 'POST', 'mod', body=glob)
+                self.eq({'apikey': 'haha'}, retn['result']['secrets'])
+                glob = retn['result']
+
+                perms = s_json.loads(s_json.dumps(glob['permissions']))
+                perms['users'][visi.iden] = s_cell.PERM_ADMIN
+                retn = await call(vsess, 'POST', 'mod', body=dict(glob, permissions=perms),
+                                  status=http.HTTPStatus.FORBIDDEN)
+                self.eq('AuthDeny', retn.get('code'))
+
+                retn = await call(vsess, 'POST', 'del', body={'iden': giden}, status=http.HTTPStatus.FORBIDDEN)
+                self.eq('AuthDeny', retn.get('code'))
+
+                # ADMIN can change permissions and del
+                await core.setVaultPerm(giden, visi.iden, s_cell.PERM_ADMIN)
+
+                perms['users'][visi.iden] = s_cell.PERM_EDIT
+                retn = await call(vsess, 'POST', 'mod', body=dict(glob, permissions=perms))
+                self.eq(s_cell.PERM_EDIT, retn['result']['permissions']['users'][visi.iden])
+
+                await core.setVaultPerm(giden, visi.iden, s_cell.PERM_ADMIN)
+
+                retn = await call(vsess, 'POST', 'del', body={'iden': giden})
+                self.eq({'status': 'ok', 'result': None}, retn)
+                self.none(await core.getVault(giden))
+
+                retn = await call(vsess, 'POST', 'del', body={'iden': viden})
+                self.eq({'status': 'ok', 'result': None}, retn)
+
+                retn = await call(vsess, 'GET', 'list')
+                self.eq({'status': 'ok', 'result': []}, retn)
+
+            # basic auth is checked against the same vault permissions
+            async with self.getHttpSess(port=port) as sess:
+                async with sess.get(f'{base}/list', auth=aiohttp.BasicAuth('root', 'secret')) as resp:
+                    self.eq(resp.status, http.HTTPStatus.OK)
+                    self.eq(['newpvault', 'rootvault'], sorted(v['name'] for v in (await resp.json())['result']))
+
+                async with sess.get(f'{base}/get', json={'iden': rootiden}, auth=aiohttp.BasicAuth('visi', 'secret')) as resp:
+                    self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
+                    self.eq('AuthDeny', (await resp.json()).get('code'))
 
     async def test_http_feed(self):
 
