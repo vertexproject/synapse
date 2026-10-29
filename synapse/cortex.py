@@ -5536,6 +5536,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if view is None:
             raise s_exc.NoSuchView(mesg=f'No such view {iden=}', iden=iden)
 
+        if iden == self.view.iden:
+            raise s_exc.SynErr(mesg='Cannot delete the main view')
+
         if view.info.get('protected'):
             mesg = f'Cannot delete view ({iden}) that has protected set.'
             raise s_exc.CantDelView(mesg=mesg)
@@ -5618,6 +5621,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         view = self.views.get(iden)
         if view is None:
             raise s_exc.NoSuchView(mesg=f'No such view {iden=}', iden=iden)
+
+        if iden == self.view.iden:
+            raise s_exc.SynErr(mesg='Cannot delete the main view')
 
         if view.info.get('protected'):
             mesg = f'Cannot delete view ({iden}) that has protected set.'

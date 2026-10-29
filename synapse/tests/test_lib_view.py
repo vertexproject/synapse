@@ -417,6 +417,16 @@ class ViewTest(s_t_utils.SynTest):
             self.nn(core.getView(forkiden))
             self.nn(core.getLayer(forkview.layers[0].iden))
 
+            # the main view is rejected before any deleted hooks run
+            with self.raises(s_exc.SynErr) as cm:
+                await core.callStorm('$lib.view.del($lib.view.get().iden)')
+            self.eq('Cannot delete the main view', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.SynErr) as cm:
+                await core.delViewWithLayer(core.view.iden)
+            self.eq('Cannot delete the main view', cm.exception.get('mesg'))
+            self.nn(core.getView(core.view.iden))
+
             # hooks=False skips the raising deleted hook
             skipiden = (await core.view.fork()).get('iden')
             self.eq([('created', 'root', skipiden)], await core.callStorm(HOOKPOP))
