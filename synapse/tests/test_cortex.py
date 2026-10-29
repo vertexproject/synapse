@@ -8763,6 +8763,29 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq({'apikey': 'rolesecret'}, vault['secrets'])
             self.eq({'apikey': 'rolesecret'}, (await core.getVault(riden, user=visi1))['secrets'])
 
+            # an edit-level modVault keeps a permission change applied after its check
+            rvdef = await core.reqVault(riden)
+            rvdef['configs'] = {'color': 'green'}
+
+            reqidens = core._reqVaultPermIdens
+            async def revoke(vdef, cur):
+                await core.setVaultPerm(riden, visi1.iden, s_cell.PERM_READ)
+                return await reqidens(vdef, cur)
+
+            with patch.object(core, '_reqVaultPermIdens', revoke):
+                vault = await core.modVault(rvdef, user=visi1)
+
+            self.eq({'color': 'green'}, vault['configs'])
+            self.notin('secrets', vault)
+            self.eq(s_cell.PERM_READ, vault['permissions']['users'][visi1.iden])
+
+            vault = await core.getVault(riden)
+            self.eq({'color': 'green'}, vault['configs'])
+            self.eq({'apikey': 'rolesecret'}, vault['secrets'])
+            self.eq(s_cell.PERM_READ, vault['permissions']['users'][visi1.iden])
+
+            await core.setVaultPerm(riden, visi1.iden, s_cell.PERM_EDIT)
+
             rvdef = await core.reqVault(riden)
             rvdef['permissions']['users'][visi2.iden] = s_cell.PERM_READ
             with self.raises(s_exc.AuthDeny) as cm:
@@ -8774,6 +8797,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             uvdef['permissions']['users'][visi2.iden] = s_cell.PERM_READ
             vault = await core.modVault(uvdef, user=visi1)
             self.eq(s_cell.PERM_READ, vault['permissions']['users'][visi2.iden])
+            self.eq(uvdef['permissions'], (await core.getVault(uiden))['permissions'])
 
             vault = await core.getVault(uiden, user=visi2)
             self.eq(uiden, vault['iden'])

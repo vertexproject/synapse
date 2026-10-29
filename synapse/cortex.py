@@ -8345,7 +8345,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def modVault(self, vdef, user=None):
         '''
         Atomically replace a vault with the given vdef (configs, secrets, name,
-        permissions). The vault type, scope, and owner are immutable.
+        permissions). The vault type, scope, and owner are immutable. If the
+        permissions are unchanged, the stored permissions are kept.
 
         Args:
             vdef (dict): The full vault definition.
@@ -8393,6 +8394,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if name != cur['name'] and await self.getVaultByName(name) is not None:
             raise s_exc.DupName(mesg=f'Vault with name {name} already exists.', name=name)
 
+        # omit unchanged permissions so a concurrent permission change is kept
+        if vdef['permissions'] == cur['permissions']:
+            vdef = {k: v for k, v in vdef.items() if k != 'permissions'}
+
         vault = await self._push('vault:mod', vdef)
         return self._vaultForUser(user, vault)
 
@@ -8415,6 +8420,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         cur = self._getVaultByBidn(bidn)
         if cur is None:
             return None
+
+        if 'permissions' not in vdef:
+            vdef = s_schemas.reqValidVault(dict(vdef, permissions=cur['permissions']))
 
         oldname = cur['name']
         newname = vdef['name']
