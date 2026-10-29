@@ -5254,16 +5254,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             htype (str): The hook type (created, merging, or deleted).
             view (View): The view the hook storm runs in.
             errok (bool): Log hook exceptions rather than raising them.
+
+        Returns:
+            bool: True if any hooks ran.
         '''
         if self.safemode:
-            return
+            return False
 
         if ViewHookRunning.get():
-            return
+            return False
 
         hdefs = [hdef for hdef in self.viewhooks.values() if hdef.get('type') == htype and hdef.get('enabled')]
         if not hdefs:
-            return
+            return False
 
         hdefs.sort(key=lambda hdef: hdef.get('created'))
 
@@ -5289,6 +5292,29 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         finally:
             ViewHookRunning.reset(token)
+
+        return True
+
+    async def _runCreatedHooks(self, iden, pack):
+        '''
+        Run the created view hooks for a new view and return its view definition.
+
+        Args:
+            iden (str): The iden of the new view.
+            pack (dict): The view definition of the new view.
+
+        Returns:
+            dict: The view definition repacked after the hooks, or the given one if no hooks ran or a hook
+            deleted the view.
+        '''
+        if not await self._runViewHooks('created', self.reqView(iden), errok=True):
+            return pack
+
+        view = self.getView(iden)
+        if view is None:
+            return pack
+
+        return await view.pack()
 
     async def getCellApi(self, link, user, path):
 
@@ -5481,8 +5507,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return await self._addView(vdef)
 
         pack = await self._push('view:add', vdef)
-        await self._runViewHooks('created', self.reqView(vdef['iden']), errok=True)
-        return pack
+        return await self._runCreatedHooks(vdef['iden'], pack)
 
     @s_nexus.Pusher.onPush('view:add')
     async def _addView(self, vdef):

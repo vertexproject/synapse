@@ -1423,8 +1423,7 @@ class View(s_nexus.Pusher):  # type: ignore
         s_schemas.reqValidView(vdef)
 
         pack = await self._push('view:forkparent', ldef, vdef)
-        await self.core._runViewHooks('created', self.core.reqView(vdef['iden']), errok=True)
-        return pack
+        return await self.core._runCreatedHooks(vdef['iden'], pack)
 
     @s_nexus.Pusher.onPush('view:forkparent', passitem=True)
     async def _insertParentFork(self, ldef, vdef, nexsitem):
@@ -1506,8 +1505,7 @@ class View(s_nexus.Pusher):  # type: ignore
         s_schemas.reqValidView(vdef)
 
         pack = await self._push('view:forkchild', ldef, vdef)
-        await self.core._runViewHooks('created', self.core.reqView(vdef['iden']), errok=True)
-        return pack
+        return await self.core._runCreatedHooks(vdef['iden'], pack)
 
     @s_nexus.Pusher.onPush('view:forkchild', passitem=True)
     async def _insertChildFork(self, ldef, vdef, nexsitem):

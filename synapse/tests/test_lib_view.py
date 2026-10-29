@@ -364,14 +364,16 @@ class ViewTest(s_t_utils.SynTest):
                 hdef = {'name': name, 'type': htype, 'storm': storm, 'enabled': enabled, 'creator': hookuser.iden}
                 return (await core.addViewHook(hdef)).get('iden')
 
-            created = await addhook('created', 'created', f'$name=created {HOOKPUT}')
+            created = await addhook('created', 'created', f'$name=created {HOOKPUT} $lib.view.get().set(desc, hooked)')
             merging = await addhook('merging', 'merging', f'$name=merging {HOOKPUT}')
             deleted = await addhook('deleted', 'deleted', f'$name=deleted {HOOKPUT}')
             await addhook('disabled', 'created', f'$name=disabled {HOOKPUT}', enabled=False)
 
             self.eq([], await core.callStorm(HOOKPOP))
 
-            forkiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            # the returned view definition includes changes made by created hooks
+            forkiden, desc = await core.callStorm('$f = $lib.view.get().fork() return(($f.iden, $f.get(desc)))')
+            self.eq('hooked', desc)
             self.eq([('created', 'root', forkiden)], await core.callStorm(HOOKPOP))
 
             await core.nodes('[ test:str=hookmerge ]', opts={'view': forkiden})
@@ -383,7 +385,9 @@ class ViewTest(s_t_utils.SynTest):
             self.none(core.getView(forkiden))
             self.eq([('deleted', 'root', forkiden)], await core.callStorm(HOOKPOP))
 
-            forkiden = (await core.view.fork()).get('iden')
+            vdef = await core.view.fork()
+            self.eq('hooked', vdef.get('desc'))
+            forkiden = vdef.get('iden')
             self.eq([('created', 'root', forkiden)], await core.callStorm(HOOKPOP))
 
             await core.delViewWithLayer(forkiden)
@@ -464,6 +468,13 @@ class ViewTest(s_t_utils.SynTest):
             forkiden = (await core.view.fork()).get('iden')
             self.eq([('created', 'root', forkiden)], await core.callStorm(HOOKPOP))
             self.len(1, [v async for v in core.getView(forkiden).children()])
+
+            # a view deleted by a created hook returns its original view definition
+            hookdel = '$lib.view.get().set(desc, hooked) $lib.view.del($lib.view.get().iden)'
+            await core.modViewHook(created, {'storm': hookdel})
+            vdef = await core.view.fork()
+            self.none(vdef.get('desc'))
+            self.none(core.getView(vdef.get('iden')))
 
     async def test_view_merge_ival(self):
 
@@ -1143,10 +1154,12 @@ class ViewTest(s_t_utils.SynTest):
 
             # created hooks run in an inserted parent fork
             root = core.auth.rootuser.iden
-            await core.addViewHook({'name': 'created', 'type': 'created', 'storm': f'$name=created {HOOKPUT}',
-                                    'creator': root})
+            await core.addViewHook({'name': 'created', 'type': 'created', 'creator': root,
+                                    'storm': f'$name=created {HOOKPUT} $lib.view.get().set(desc, hooked)'})
 
             vdef = await view03.insertParentFork(visi.iden)
+            self.eq(vdef.get('iden'), view03.parent.iden)
+            self.eq('hooked', vdef.get('desc'))
             self.eq([('created', 'root', vdef.get('iden'))], await core.callStorm(HOOKPOP))
 
             # a merging hook exception rejects a quorum merge request
@@ -1385,10 +1398,11 @@ class ViewTest(s_t_utils.SynTest):
                 self.len(0, await core.nodes('test:str=raz', opts={'view': viewa2.iden}))
 
                 # created hooks run in an inserted child fork
-                await core.addViewHook({'name': 'created', 'type': 'created', 'storm': f'$name=created {HOOKPUT}',
-                                        'creator': core.auth.rootuser.iden})
+                await core.addViewHook({'name': 'created', 'type': 'created', 'creator': core.auth.rootuser.iden,
+                                        'storm': f'$name=created {HOOKPUT} $lib.view.get().set(desc, hooked)'})
 
                 vdef = await viewb.insertChildFork(visi.iden)
+                self.eq('hooked', vdef.get('desc'))
                 self.eq([('created', 'root', vdef.get('iden'))], await core.callStorm(HOOKPOP))
 
                 layridens = [lyr.iden for lyr in viewa2.layers]
