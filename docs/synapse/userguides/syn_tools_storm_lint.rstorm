@@ -440,5 +440,8 @@ check names against that model instead, including its extended model forms and p
 
     linter = s_stormlint.StormLinter(model=await core.getModelDict())
 
+The Cortex MCP server's ``storm_lint`` tool lints a query this way against the Cortex's own data model. Its
+``v3_ready`` option matches ``--v3-ready``.
+
 ``StormLinter`` raises ``BadArg`` for an unknown rule ID or prefix. ``lint()`` honors ``noqa`` comments; the
 ``[tool.stormlint]`` table is only read by the ``storm.lint`` tool.
