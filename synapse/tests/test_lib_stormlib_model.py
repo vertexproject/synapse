@@ -327,8 +327,11 @@ class StormlibModelTest(s_test.SynTest):
 
             # copy node data
 
-            await self.asyncraises(s_exc.BadArg, core.nodes('test:str=src $lib.model.migration.copyData($node, newp)'))
-            await self.asyncraises(s_exc.BadArg, core.nodes('test:str=dst $lib.model.migration.copyData(newp, $node)'))
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:str=src $lib.model.migration.copyData($node, newp)')
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:str=dst $lib.model.migration.copyData(newp, $node)')
 
             nodes = await core.nodes('''
                 test:str=src
@@ -359,12 +362,16 @@ class StormlibModelTest(s_test.SynTest):
             )
 
             q = 'test:str=src $n=$node -> { test:str=deny $lib.model.migration.copyData($n, $node) }'
-            await self.asyncraises(s_exc.AuthDeny, core.nodes(q, opts=aslow))
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes(q, opts=aslow)
 
             # copy edges
 
-            await self.asyncraises(s_exc.BadArg, core.nodes('test:str=src $lib.model.migration.copyEdges($node, newp)'))
-            await self.asyncraises(s_exc.BadArg, core.nodes('test:str=dst $lib.model.migration.copyEdges(newp, $node)'))
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:str=src $lib.model.migration.copyEdges($node, newp)')
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:str=dst $lib.model.migration.copyEdges(newp, $node)')
 
             nodes = await core.nodes('''
                 test:str=src
@@ -379,12 +386,16 @@ class StormlibModelTest(s_test.SynTest):
             self.eq([('foo', otheriden)], [edge async for edge in nodes[0].iterEdgesN2()])
 
             q = 'test:str=src $n=$node -> { test:str=deny $lib.model.migration.copyEdges($n, $node) }'
-            await self.asyncraises(s_exc.AuthDeny, core.nodes(q, opts=aslow))
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes(q, opts=aslow)
 
             # copy tags
 
-            await self.asyncraises(s_exc.BadArg, core.nodes('test:str=src $lib.model.migration.copyTags($node, newp)'))
-            await self.asyncraises(s_exc.BadArg, core.nodes('test:str=dst $lib.model.migration.copyTags(newp, $node)'))
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:str=src $lib.model.migration.copyTags($node, newp)')
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:str=dst $lib.model.migration.copyTags(newp, $node)')
 
             await core.nodes('$lib.model.ext.addTagProp(test, (str, ({})), ({}))')
 
@@ -417,11 +428,15 @@ class StormlibModelTest(s_test.SynTest):
             self.eq([('test', 'src')], [(k, nodes[0].getTagProp('baz', k)) for k in nodes[0].getTagProps('baz')])
 
             q = 'test:str=src $n=$node -> { test:str=deny $lib.model.migration.copyTags($n, $node) }'
-            await self.asyncraises(s_exc.AuthDeny, core.nodes(q, opts=aslow))
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes(q, opts=aslow)
 
             # copy extended properties
-            await self.asyncraises(s_exc.BadArg, core.nodes('test:str=src $lib.model.migration.copyExtProps($node, newp)'))
-            await self.asyncraises(s_exc.BadArg, core.nodes('test:str=dst $lib.model.migration.copyExtProps(newp, $node)'))
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:str=src $lib.model.migration.copyExtProps($node, newp)')
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:str=dst $lib.model.migration.copyExtProps(newp, $node)')
 
             await core.addFormProp('test:str', '_foo', ('str', {}), {})
 
@@ -1317,24 +1332,23 @@ class StormlibModelTest(s_test.SynTest):
             await core.nodes('[ test:str=fuse-src00 test:str=fuse-dst00 ]')
 
             # src must be a node
-            await self.asyncraises(s_exc.BadArg,
-                core.nodes('test:str=fuse-src00 $lib.model.migration.fuse($node, newp)'))
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:str=fuse-src00 $lib.model.migration.fuse($node, newp)')
 
             # dst must be a node
-            await self.asyncraises(s_exc.BadArg,
-                core.nodes('test:str=fuse-src00 $lib.model.migration.fuse(newp, $node)'))
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:str=fuse-src00 $lib.model.migration.fuse(newp, $node)')
 
             # src and dst must be the same form
             guidval = s_common.guid()
             opts = {'vars': {'guidval': guidval}}
             await core.nodes('[ test:guid=$guidval ]', opts=opts)
-            await self.asyncraises(s_exc.BadArg,
-                core.nodes('test:str=fuse-src00 $n=$node -> { test:guid=$guidval $lib.model.migration.fuse($n, $node) }',
-                           opts=opts))
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:str=fuse-src00 $n=$node -> { test:guid=$guidval $lib.model.migration.fuse($n, $node) }', opts=opts)
 
             # src runt form raises IsRuntForm
-            await self.asyncraises(s_exc.IsRuntForm,
-                core.nodes('test:runt=beep $n=$node -> { test:runt=boop $lib.model.migration.fuse($n, $node) }'))
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('test:runt=beep $n=$node -> { test:runt=boop $lib.model.migration.fuse($n, $node) }')
 
             # self-fuse warns and no-ops
             mesgs = await core.stormlist(

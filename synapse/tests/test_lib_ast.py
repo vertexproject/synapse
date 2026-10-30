@@ -379,31 +379,40 @@ class AstTest(s_test.SynTest):
 
             # Sad paths
             q = '[test:str=newp -.newp]'
-            await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes(q)
 
             q = '$newp=newp [test:str=newp -.$newp]'
-            await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes(q)
 
             q = '$newp=(foo, bar) [test:str=newp] $lib.print(:$newp)'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
             q = '$newp=(foo, bar) [test:str=newp :$newp=foo]'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
             q = '$newp=(foo, bar) [test:str=newp -:$newp]'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
             q = '$newp=(foo, bar) [test:str=newp .$newp=foo]'
-            await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes(q)
 
             q = '$newp=(foo, bar) [test:str=newp -.$newp]'
-            await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes(q)
 
             q = '$newp=(foo, bar) [*$newp=foo]'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
             q = 'test:str=foo $newp=($node.repr(), bar) [*$newp=foo]'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
     async def test_ast_condsetoper(self):
         async with self.getTestCore() as core:
@@ -3359,19 +3368,24 @@ class AstTest(s_test.SynTest):
             self.eq(nextoffs + 2, await core.getView().layers[0].getEditIndx())
 
             nodes = await core.nodes('syn:prop limit 1')
-            await self.asyncraises(s_exc.IsRuntForm, nodes[0].delEdge('foo', 'bar'))
+            with self.raises(s_exc.IsRuntForm):
+                await nodes[0].delEdge('foo', 'bar')
 
             q = 'inet:ipv4=1.2.3.4 [ <(newp)+ { syn:prop } ]'
-            await self.asyncraises(s_exc.IsRuntForm, core.nodes(q))
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes(q)
 
             q = 'syn:prop [ -(newp)> { inet:ipv4=1.2.3.4 } ]'
-            await self.asyncraises(s_exc.IsRuntForm, core.nodes(q))
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes(q)
 
             q = 'inet:ipv4=1.2.3.4 [ <(newp)- { syn:prop } ]'
-            await self.asyncraises(s_exc.IsRuntForm, core.nodes(q))
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes(q)
 
             q = 'inet:ipv4=1.2.3.4 [ -(newp)> { syn:prop } ]'
-            await self.asyncraises(s_exc.IsRuntForm, core.nodes(q))
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes(q)
 
     async def test_ast_subgraph_2pass(self):
 

@@ -695,7 +695,9 @@ class CortexTest(s_t_utils.SynTest):
 
             divert $lib.true $x()
             '''
-            await self.asyncraises(s_exc.BadArg, core.nodes(storm))
+            with self.raises(s_exc.BadArg):
+                await core.nodes(storm)
+
             self.len(2, await core.nodes('ou:org +#cat'))
 
             storm = '''
@@ -710,7 +712,9 @@ class CortexTest(s_t_utils.SynTest):
 
             divert $lib.true $x()
             '''
-            await self.asyncraises(s_exc.BadArg, core.nodes(storm))
+            with self.raises(s_exc.BadArg):
+                await core.nodes(storm)
+
             self.len(4, await core.nodes('ou:org +#dog'))
 
             # functions that return a generator
@@ -1925,16 +1929,35 @@ class CortexTest(s_t_utils.SynTest):
             for name, valu in tags:
                 self.eq(valu, (946684800000, 946684800001))
 
-            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag='' #$tag"))
-            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag='' #$tag=2020"))
-            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag=$lib.null #foo.$tag"))
-            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag=(foo, bar) #$tag"))
-            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag=(foo, bar) ##$tag"))
-            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag=(foo, bar) inet:fqdn#$tag"))
-            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("test:int $tag=$lib.null +#foo.$tag"))
-            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("test:int $tag=(foo, bar) $lib.print(#$tag)"))
-            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("test:int $tag=(foo, bar) +#$tag"))
-            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("test:int $tag=(foo, bar) +#$tag=2020"))
+            with self.raises(s_exc.BadTypeValu):
+                await wcore.nodes("$tag='' #$tag")
+
+            with self.raises(s_exc.BadTypeValu):
+                await wcore.nodes("$tag='' #$tag=2020")
+
+            with self.raises(s_exc.BadTypeValu):
+                await wcore.nodes("$tag=$lib.null #foo.$tag")
+
+            with self.raises(s_exc.BadTypeValu):
+                await wcore.nodes("$tag=(foo, bar) #$tag")
+
+            with self.raises(s_exc.BadTypeValu):
+                await wcore.nodes("$tag=(foo, bar) ##$tag")
+
+            with self.raises(s_exc.BadTypeValu):
+                await wcore.nodes("$tag=(foo, bar) inet:fqdn#$tag")
+
+            with self.raises(s_exc.BadTypeValu):
+                await wcore.nodes("test:int $tag=$lib.null +#foo.$tag")
+
+            with self.raises(s_exc.BadTypeValu):
+                await wcore.nodes("test:int $tag=(foo, bar) $lib.print(#$tag)")
+
+            with self.raises(s_exc.BadTypeValu):
+                await wcore.nodes("test:int $tag=(foo, bar) +#$tag")
+
+            with self.raises(s_exc.BadTypeValu):
+                await wcore.nodes("test:int $tag=(foo, bar) +#$tag=2020")
 
     async def test_base_types1(self):
 
@@ -3001,7 +3024,8 @@ class CortexTest(s_t_utils.SynTest):
 
             self.len(0, core.boss.ps())
 
-            await self.asyncraises(asyncio.CancelledError, task)
+            with self.raises(asyncio.CancelledError):
+                await task
 
     async def test_cortex_formcounts(self):
 
@@ -3404,7 +3428,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.none(await proxy.delStormPkg('foosball'))
             pkgs = await proxy.getStormPkgs()
             self.len(0, pkgs)
-            await self.asyncraises(s_exc.NoSuchPkg, proxy.delStormPkg('foosball'))
+            with self.raises(s_exc.NoSuchPkg):
+                await proxy.delStormPkg('foosball')
 
             self.none(await core._delStormPkg('foosball'))
 
@@ -3523,8 +3548,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                 },)
             }
 
-            await self.asyncraises(s_exc.SchemaViolation, core.addStormPkg(badcmdpkg))
-            await self.asyncraises(s_exc.BadArg, s_common.aspin(core.storm(None)))
+            with self.raises(s_exc.SchemaViolation):
+                await core.addStormPkg(badcmdpkg)
+
+            with self.raises(s_exc.BadArg):
+                await s_common.aspin(core.storm(None))
 
     async def test_onsetdel(self):
 
@@ -3611,8 +3639,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 node = await snap.addNode('test:str', 'foo')
 
-                await self.asyncraises(s_exc.NoSuchProp, node.set('newpnewp', 10))
-                await self.asyncraises(s_exc.BadTypeValu, node.set('tick', (20, 30)))
+                with self.raises(s_exc.NoSuchProp):
+                    await node.set('newpnewp', 10)
+
+                with self.raises(s_exc.BadTypeValu):
+                    await node.set('tick', (20, 30))
 
                 # FIXME Snap.strict manipulation, remove in 3.0.0
                 snap.strict = False
@@ -3941,7 +3972,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             $y = ([(1.23)])
             $x.$y = "foo"
             '''
-            await self.asyncraises(s_exc.BadArg, core.nodes(text))
+            with self.raises(s_exc.BadArg):
+                await core.nodes(text)
 
             text = '''
             $y = ([(1.23)])
@@ -3949,7 +3981,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 $y: "foo"
             })
             '''
-            await self.asyncraises(s_exc.BadArg, core.nodes(text))
+            with self.raises(s_exc.BadArg):
+                await core.nodes(text)
 
     async def test_storm_varlist_compute(self):
 
@@ -4072,11 +4105,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.callStorm('$lib.graph.mod($iden, $info)', opts={'vars': {'iden': iden2, 'info': mods}})
 
             q = '$lib.graph.mod($iden, ({"iden": "foo"}))'
-            await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts={'vars': {'iden': iden2}}))
+            with self.raises(s_exc.BadArg):
+                await core.callStorm(q, opts={'vars': {'iden': iden2}})
 
             gdef['scope'] = 'power-up'
             gdef['power-up'] = 'newp'
-            await self.asyncraises(s_exc.SynErr, core._addStormGraph(gdef))
+            with self.raises(s_exc.SynErr):
+                await core._addStormGraph(gdef)
 
             gdef = await core.callStorm('return($lib.graph.get($iden))', opts={'vars': {'iden': iden}})
             self.eq(gdef['name'], 'foo')
@@ -4222,7 +4257,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # Runtsafety test
             q = '[ test:int=1 ]  | graph --degrees $node.value()'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
             opts = {'vars': {'iden': iden, 'iden2': iden2}}
             q = '''
@@ -4247,7 +4283,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             uopts['user'] = visi.iden
             opts['vars']['useriden'] = visi.iden
 
-            await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.del($iden2)', opts=uopts))
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.graph.del($iden2)', opts=uopts)
+
             await core.nodes('$lib.graph.grant($iden2, users, $useriden, 3)', opts=opts)
 
             await core.nodes('$lib.graph.mod($iden2, ({"name": "newname"}))', opts=uopts)
@@ -4255,7 +4293,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(gdef['name'], 'newname')
 
             await core.nodes('$lib.graph.revoke($iden2, users, $useriden)', opts=opts)
-            await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.mod($iden2, ({"name": "newp"}))', opts=uopts))
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.graph.mod($iden2, ({"name": "newp"}))', opts=uopts)
 
             await core.nodes('$lib.graph.grant($iden2, users, $useriden, 3)', opts=opts)
             await core.nodes('$lib.graph.del($iden2)', opts=uopts)
@@ -4263,7 +4302,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(2, await core.callStorm('return($lib.graph.list())', opts=opts))
 
             q = '$lib.graph.del($lib.guid(graph.powerup, testgraph))'
-            await self.asyncraises(s_exc.AuthDeny, core.nodes(q))
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes(q)
 
             await core.callStorm('pkg.del graph.powerup')
             await core.callStorm('return($lib.graph.del($iden))', opts={'vars': {'iden': iden}})
@@ -4271,13 +4311,21 @@ class CortexBasicTest(s_t_utils.SynTest):
             gdefs = await core.callStorm('return($lib.graph.list())')
             self.len(0, gdefs)
 
-            await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.del(foo)'))
-            await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.get(foo)'))
-            await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.activate(foo)'))
-            await self.asyncraises(s_exc.NoSuchIden, core.delStormGraph('foo'))
+            with self.raises(s_exc.NoSuchIden):
+                await core.nodes('$lib.graph.del(foo)')
+
+            with self.raises(s_exc.NoSuchIden):
+                await core.nodes('$lib.graph.get(foo)')
+
+            with self.raises(s_exc.NoSuchIden):
+                await core.nodes('$lib.graph.activate(foo)')
+
+            with self.raises(s_exc.NoSuchIden):
+                await core.delStormGraph('foo')
 
             q = '$lib.graph.add(({"name": "foo", "forms": {"newp": {}}}))'
-            await self.asyncraises(s_exc.NoSuchForm, core.nodes(q))
+            with self.raises(s_exc.NoSuchForm):
+                await core.nodes(q)
 
             iden = await core.callStorm('''
                 $rules = ({
@@ -4376,7 +4424,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 }
             }
 
-            await self.asyncraises(s_exc.BadSyntax, core.addStormGraph(bad_form_pivot))
+            with self.raises(s_exc.BadSyntax):
+                await core.addStormGraph(bad_form_pivot)
 
             bad_form_filter = {
                 'name': 'bad form filter',
@@ -4388,21 +4437,24 @@ class CortexBasicTest(s_t_utils.SynTest):
                 }
             }
 
-            await self.asyncraises(s_exc.BadSyntax, core.addStormGraph(bad_form_filter))
+            with self.raises(s_exc.BadSyntax):
+                await core.addStormGraph(bad_form_filter)
 
             bad_global_filter = {
                 'name': 'bad global filter',
                 'filters': ['+++:wat']
             }
 
-            await self.asyncraises(s_exc.BadSyntax, core.addStormGraph(bad_global_filter))
+            with self.raises(s_exc.BadSyntax):
+                await core.addStormGraph(bad_global_filter)
 
             bad_global_pivot = {
                 'name': 'bad global pivot',
                 'pivots': ['-> * |||']
             }
 
-            await self.asyncraises(s_exc.BadSyntax, core.addStormGraph(bad_global_pivot))
+            with self.raises(s_exc.BadSyntax):
+                await core.addStormGraph(bad_global_pivot)
 
     async def test_storm_two_level_assignment(self):
         async with self.getTestCore() as core:
@@ -4650,10 +4702,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(0, nodes)
 
             # Ensure that add/edit a read-only runt prop fails, whether or not it exists.
-            await self.asyncraises(s_exc.IsRuntForm,
-                                   core.nodes('test:runt=beep [:tick=3001]'))
-            await self.asyncraises(s_exc.IsRuntForm,
-                                   core.nodes('test:runt=woah [:tick=3001]'))
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('test:runt=beep [:tick=3001]')
+
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('test:runt=woah [:tick=3001]')
 
             # Ensure that we can add/edit secondary props which has a callback.
             nodes = await core.nodes('test:runt=beep [:lulz=beepbeep.sys]')
@@ -4666,16 +4719,19 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('lulz'), 'woah.sys')
 
             # A edit may throw an exception due to some prop-specific normalization reason.
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('test:runt=woah [:lulz=no.way]'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:runt=woah [:lulz=no.way]')
 
             # Setting a property which has no callback or ro fails.
-            await self.asyncraises(s_exc.IsRuntForm, core.nodes('test:runt=woah [:newp=pennywise]'))
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('test:runt=woah [:newp=pennywise]')
 
             # Ensure that delete a read-only runt prop fails, whether or not it exists.
-            await self.asyncraises(s_exc.IsRuntForm,
-                                   core.nodes('test:runt=beep [-:tick]'))
-            await self.asyncraises(s_exc.IsRuntForm,
-                                   core.nodes('test:runt=woah [-:tick]'))
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('test:runt=beep [-:tick]')
+
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('test:runt=woah [-:tick]')
 
             # Ensure that we can delete a secondary prop which has a callback.
             nodes = await core.nodes('test:runt=beep [-:lulz]')
@@ -4685,15 +4741,22 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.none(nodes[0].get('lulz'))
 
             # Deleting a property which has no callback or ro fails.
-            await self.asyncraises(s_exc.IsRuntForm, core.nodes('test:runt=woah [-:newp]'))
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('test:runt=woah [-:newp]')
 
             # # Ensure that adding tags on runt nodes fails
-            await self.asyncraises(s_exc.IsRuntForm, core.nodes('test:runt=beep [+#hehe]'))
-            await self.asyncraises(s_exc.IsRuntForm, core.nodes('test:runt=beep [-#hehe]'))
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('test:runt=beep [+#hehe]')
+
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('test:runt=beep [-#hehe]')
 
             # Ensure that adding / deleting test runt nodes fails
-            await self.asyncraises(s_exc.IsRuntForm, core.nodes('[test:runt=" oh MY! "]'))
-            await self.asyncraises(s_exc.IsRuntForm, core.nodes('test:runt=beep | delnode'))
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('[test:runt=" oh MY! "]')
+
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('test:runt=beep | delnode')
 
             # Sad path for underlying Cortex.runRuntLift
             nodes = await alist(core.runRuntLift('test:newp', 'newp'))
@@ -5022,7 +5085,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(0, await core1.nodes('test:int=8 -#newtag.1234'))
 
             core1.view.layers[0].readonly = True
-            await self.asyncraises(s_exc.IsReadOnly, core1.addFeedData('syn.nodes', data))
+            with self.raises(s_exc.IsReadOnly):
+                await core1.addFeedData('syn.nodes', data)
 
             await core1.nodes('model.deprecated.lock ou:org:sic')
 
@@ -5592,10 +5656,12 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # Test invalid comparisons
             q = '$val=(1,2,3) [test:str=$("foo" >= $val)]'
-            await self.asyncraises(s_exc.BadCast, core.nodes(q))
+            with self.raises(s_exc.BadCast):
+                await core.nodes(q)
 
             q = '$val=(1,2,3) [test:str=$($val >= "foo")]'
-            await self.asyncraises(s_exc.BadCast, core.nodes(q))
+            with self.raises(s_exc.BadCast):
+                await core.nodes(q)
 
             q = '$val=42 [test:str=$(42<$val)]'
             nodes = await core.nodes(q)
@@ -5857,7 +5923,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core01.nodes('[ inet:fqdn=www.vertex.link ]')
                     self.len(1, await core01.nodes('inet:fqdn=www.vertex.link'))
 
-                    await self.asyncraises(s_exc.SynErr, core01.delView(core01.view.iden))
+                    with self.raises(s_exc.SynErr):
+                        await core01.delView(core01.view.iden)
 
                     # view hooks replicate to the mirror with the leader's timestamps
                     vhdef = await core00.addViewHook({
@@ -5935,7 +6002,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 # Try a write with the leader down
                 with patch('synapse.lib.nexus.FOLLOWER_WRITE_WAIT_S', 2):
-                    await self.asyncraises(s_exc.LinkErr, core01.nodes('[inet:ipv4=7.7.7.8]'))
+                    with self.raises(s_exc.LinkErr):
+                        await core01.nodes('[inet:ipv4=7.7.7.8]')
 
                 # Bring the leader back up and try again
                 async with self.getTestCore(dirn=path00) as core00:
@@ -5976,7 +6044,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 lowuser = await core00.auth.addUser('low')
                 opts = {'user': lowuser.iden}
-                await self.asyncraises(s_exc.AuthDeny, core00.callStorm('$lib.cell.trimNexsLog()', opts=opts))
+                with self.raises(s_exc.AuthDeny):
+                    await core00.callStorm('$lib.cell.trimNexsLog()', opts=opts)
 
                 async with self.getTestCore(dirn=path01, conf={'mirror': url00}) as core01:
 
@@ -6013,11 +6082,13 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                         # simulate a waiter timing out
                         with patch('synapse.cortex.CoreApi.waitNexsOffs', return_value=False):
-                            await self.asyncraises(s_exc.SynErr, core00.callStorm(strim, opts=opts))
+                            with self.raises(s_exc.SynErr):
+                                await core00.callStorm(strim, opts=opts)
 
                     # consumer offline
                     await asyncio.sleep(0)
-                    await self.asyncraises(s_exc.LinkErr, core00.callStorm(strim, opts=opts))
+                    with self.raises(s_exc.LinkErr):
+                        await core00.callStorm(strim, opts=opts)
 
                     # admin can still cull and break the mirror
                     await core00.nodes('[ inet:ipv4=127.0.0.1/28 ]')
@@ -6168,8 +6239,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(norm, (1234, '1234'))
             self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': (('test:int', 1234, {}),)})
 
-            await self.asyncraises(s_exc.BadTypeValu, core.getPropNorm('test:int', 'newp'))
-            await self.asyncraises(s_exc.NoSuchProp, core.getPropNorm('test:newp', 'newp'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.getPropNorm('test:int', 'newp')
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.getPropNorm('test:newp', 'newp')
 
             norm, info = await prox.getPropNorm('test:str', 1234)
             self.eq(norm, '1234')
@@ -6179,8 +6253,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(norm, (1234, '1234'))
             self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': (('test:int', 1234, {}),)})
 
-            await self.asyncraises(s_exc.BadTypeValu, prox.getPropNorm('test:int', 'newp'))
-            await self.asyncraises(s_exc.NoSuchProp, prox.getPropNorm('test:newp', 'newp'))
+            with self.raises(s_exc.BadTypeValu):
+                await prox.getPropNorm('test:int', 'newp')
+
+            with self.raises(s_exc.NoSuchProp):
+                await prox.getPropNorm('test:newp', 'newp')
 
             # getTypeNorm base tests
             norm, info = await core.getTypeNorm('test:str', 1234)
@@ -6191,8 +6268,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(norm, (1234, '1234'))
             self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': (('test:int', 1234, {}),)})
 
-            await self.asyncraises(s_exc.BadTypeValu, core.getTypeNorm('test:int', 'newp'))
-            await self.asyncraises(s_exc.NoSuchType, core.getTypeNorm('test:newp', 'newp'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.getTypeNorm('test:int', 'newp')
+
+            with self.raises(s_exc.NoSuchType):
+                await core.getTypeNorm('test:newp', 'newp')
 
             norm, info = await prox.getTypeNorm('test:str', 1234)
             self.eq(norm, '1234')
@@ -6202,15 +6282,19 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(norm, (1234, '1234'))
             self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': (('test:int', 1234, {}),)})
 
-            await self.asyncraises(s_exc.BadTypeValu, prox.getTypeNorm('test:int', 'newp'))
-            await self.asyncraises(s_exc.NoSuchType, prox.getTypeNorm('test:newp', 'newp'))
+            with self.raises(s_exc.BadTypeValu):
+                await prox.getTypeNorm('test:int', 'newp')
+
+            with self.raises(s_exc.NoSuchType):
+                await prox.getTypeNorm('test:newp', 'newp')
 
             # getPropNorm can norm sub props
             norm, info = await core.getPropNorm('test:str:tick', '3001')
             self.eq(norm, 32535216000000)
             self.eq(info, {})
             # but getTypeNorm won't handle that
-            await self.asyncraises(s_exc.NoSuchType, core.getTypeNorm('test:str:tick', '3001'))
+            with self.raises(s_exc.NoSuchType):
+                await core.getTypeNorm('test:str:tick', '3001')
 
             # specify typeopts to getTypeNorm/getPropNorm
             norm, info = await prox.getTypeNorm('array', ('  TIME   ', '   pass   ', '   the  '), {'uniq': True, 'sorted': True, 'type': 'str', 'typeopts': {'strip': True, 'lower': True}})
@@ -6223,7 +6307,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             norm, info = await core.getTypeNorm('test:lower', 'ASDF')
             self.eq(norm, 'asdf')
             # but getPropNorm won't handle that
-            await self.asyncraises(s_exc.NoSuchProp, core.getPropNorm('test:lower', 'ASDF'))
+            with self.raises(s_exc.NoSuchProp):
+                await core.getPropNorm('test:lower', 'ASDF')
 
     async def test_addview(self):
         async with self.getTestCore() as core:
@@ -6244,11 +6329,13 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # Missing layers
             vdef = {'name': 'mylayer'}
-            await self.asyncraises(s_exc.SchemaViolation, core.addView(vdef))
+            with self.raises(s_exc.SchemaViolation):
+                await core.addView(vdef)
 
             # Layer not a string
             vdef = {'layers': (123,)}
-            await self.asyncraises(s_exc.SchemaViolation, core.addView(vdef))
+            with self.raises(s_exc.SchemaViolation):
+                await core.addView(vdef)
 
     async def test_view_setlayers(self):
 
@@ -6615,7 +6702,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.stormIsInPrint('(wootdmon            ): error', msgs)
 
             # invalid storm query
-            await self.asyncraises(s_exc.BadSyntax, core.nodes('$lib.dmon.add(" | | | ")'))
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('$lib.dmon.add(" | | | ")')
 
     async def test_cortex_storm_dmon_exit(self):
 
@@ -7096,18 +7184,26 @@ class CortexBasicTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=dirn) as core:
 
                 # Can't delete the default view
-                await self.asyncraises(s_exc.SynErr, core.delView(core.view.iden))
-                await self.asyncraises(s_exc.SynErr, core._delViewWithLayer(core.view.iden, None, None))
+                with self.raises(s_exc.SynErr):
+                    await core.delView(core.view.iden)
+
+                with self.raises(s_exc.SynErr):
+                    await core._delViewWithLayer(core.view.iden, None, None)
 
                 # Can't delete a layer in a view
-                await self.asyncraises(s_exc.SynErr, core.delLayer(core.view.layers[0].iden))
+                with self.raises(s_exc.SynErr):
+                    await core.delLayer(core.view.layers[0].iden)
 
                 # Can't delete a nonexistent view
-                await self.asyncraises(s_exc.NoSuchView, core.delView('XXX'))
-                await self.asyncraises(s_exc.NoSuchView, core.delViewWithLayer('XXX'))
+                with self.raises(s_exc.NoSuchView):
+                    await core.delView('XXX')
+
+                with self.raises(s_exc.NoSuchView):
+                    await core.delViewWithLayer('XXX')
 
                 # Can't delete a nonexistent layer
-                await self.asyncraises(s_exc.NoSuchLayer, core.delLayer('XXX'))
+                with self.raises(s_exc.NoSuchLayer):
+                    await core.delLayer('XXX')
 
                 # Fork the main view
                 vdef2 = await core.view.fork()
@@ -7115,7 +7211,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 # Can't delete a view twice
                 await core.delView(view2_iden)
-                await self.asyncraises(s_exc.NoSuchView, core.delView(view2_iden))
+                with self.raises(s_exc.NoSuchView):
+                    await core.delView(view2_iden)
 
                 layr = await core.addLayer()
                 layriden = layr['iden']
@@ -7125,7 +7222,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 opts = {'view': view3_iden}
                 await core.callStorm('$lib.view.get().set(protected, $lib.true)', opts=opts)
 
-                await self.asyncraises(s_exc.CantDelView, core.delViewWithLayer(view3_iden))
+                with self.raises(s_exc.CantDelView):
+                    await core.delViewWithLayer(view3_iden)
 
                 await core.callStorm('$lib.view.get().set(protected, $lib.false)', opts=opts)
 
@@ -8187,7 +8285,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[test:str=$valu]', opts={'vars': {'valu': 'z' * 500}}))
 
             badiden = 'xxx'
-            await self.agenraises(s_exc.NoSuchLayer, prox.iterPropRows(badiden, 'inet:ipv4', 'asn'))
+            with self.raises(s_exc.NoSuchLayer):
+                await alist(prox.iterPropRows(badiden, 'inet:ipv4', 'asn'))
 
             # rows are (buid, valu) tuples
             layriden = core.view.layers[0].iden
@@ -8195,7 +8294,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             self.eq((10, 20, 30), tuple(sorted([row[1] for row in rows])))
 
-            await self.agenraises(s_exc.NoSuchLayer, prox.iterUnivRows(badiden, '.seen'))
+            with self.raises(s_exc.NoSuchLayer):
+                await alist(prox.iterUnivRows(badiden, '.seen'))
 
             # rows are (buid, valu) tuples
             rows = await alist(prox.iterUnivRows(layriden, '.seen'))
@@ -8205,7 +8305,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(ivals, tuple(sorted([row[1] for row in rows])))
 
             # iterFormRows
-            await self.agenraises(s_exc.NoSuchLayer, prox.iterFormRows(badiden, 'inet:ipv4'))
+            with self.raises(s_exc.NoSuchLayer):
+                await alist(prox.iterFormRows(badiden, 'inet:ipv4'))
 
             rows = await alist(prox.iterFormRows(layriden, 'inet:ipv4'))
             self.eq([(buid1, 1), (buid2, 2), (buid3, 3)], rows)
@@ -8218,8 +8319,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                     (buid3, (tm('2018', '2020'), 'inet:ipv4')),
                 ], key=lambda x: x[0])
 
-            await self.agenraises(s_exc.NoSuchLayer, prox.iterTagRows(badiden, 'foo', form='newpform',
-                                                                      starttupl=(expect[1][0], 'newpform')))
+            with self.raises(s_exc.NoSuchLayer):
+                await alist(prox.iterTagRows(badiden, 'foo', form='newpform', starttupl=(expect[1][0], 'newpform')))
+
             rows = await alist(prox.iterTagRows(layriden, 'foo', form='newpform', starttupl=(expect[1][0], 'newpform')))
             self.eq([], rows)
 
@@ -8236,9 +8338,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 (buid3, 99,),
             ]
 
-            await self.agenraises(s_exc.NoSuchLayer, prox.iterTagPropRows(badiden, 'foo', 'score', form='inet:ipv4',
-                                                                          stortype=s_layer.STOR_TYPE_I64,
-                                                                          startvalu=42))
+            with self.raises(s_exc.NoSuchLayer):
+                await alist(prox.iterTagPropRows(badiden, 'foo', 'score', form='inet:ipv4', stortype=s_layer.STOR_TYPE_I64, startvalu=42))
 
             rows = await alist(prox.iterTagPropRows(layriden, 'foo', 'score', form='inet:ipv4',
                                                     stortype=s_layer.STOR_TYPE_I64, startvalu=42))
@@ -8621,49 +8722,49 @@ class CortexBasicTest(s_t_utils.SynTest):
             }
             siden = await core.addVault(svault)
 
-            vault = core.getVault(giden)
+            vault = await core.getVault(giden)
             self.eq(vault.get('iden'), giden)
 
-            vault = core.getVaultByName('global1')
+            vault = await core.getVaultByName('global1')
             self.eq(vault.get('iden'), giden)
 
-            vault = core.getVaultByType(vtype1, visi1.iden, scope='global')
+            vault = await core.getVaultByType(vtype1, visi1.iden, scope='global')
             self.eq(vault.get('iden'), giden)
 
-            vault = core.getVaultByType(vtype1, visi1.iden, scope='role')
+            vault = await core.getVaultByType(vtype1, visi1.iden, scope='role')
             self.eq(vault.get('iden'), riden)
 
-            vault = core.getVaultByType(vtype1, visi1.iden, scope='user')
+            vault = await core.getVaultByType(vtype1, visi1.iden, scope='user')
             self.eq(vault.get('iden'), uiden)
 
-            vault = core.reqVault(giden)
+            vault = await core.reqVault(giden)
             self.eq(vault.get('iden'), giden)
 
-            vault = core.reqVaultByName('global1')
+            vault = await core.reqVaultByName('global1')
             self.eq(vault.get('iden'), giden)
             self.eq(vault.get('name'), 'global1')
 
-            vault = core.reqVaultByType(vtype1, visi1.iden, scope='global')
+            vault = await core.reqVaultByType(vtype1, visi1.iden, scope='global')
             self.eq(vault.get('iden'), giden)
 
             self.true(await core.setVaultConfigs(giden, 'color', 'orange'))
             self.true(await core.setVaultSecrets(giden, 'apikey', 'foobar'))
 
             await core.replaceVaultConfigs(giden, {'rubiks': 'cube'})
-            vault = core.reqVault(giden)
+            vault = await core.reqVault(giden)
             self.eq({'rubiks': 'cube'}, vault['configs'])
 
             await core.replaceVaultSecrets(giden, {'secret': 'squirrel'})
-            vault = core.reqVault(giden)
+            vault = await core.reqVault(giden)
             self.eq({'secret': 'squirrel'}, vault['secrets'])
 
-            vaults = list(core.listVaults())
+            vaults = await core.getVaults()
             self.len(4, vaults)
 
             self.true(await core.setVaultPerm(giden, visi1.iden, s_cell.PERM_EDIT))
 
             self.true(await core.renameVault(giden, 'global2'))
-            vault = core.reqVaultByName('global2')
+            vault = await core.reqVaultByName('global2')
             self.eq(vault.get('iden'), giden)
             self.eq(vault.get('name'), 'global2')
 
@@ -8673,8 +8774,371 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.none(await core.delVault('asdf'))
 
             await core.delVault(giden)
-            vaults = list(core.listVaults())
+            vaults = await core.getVaults()
             self.len(3, vaults)
+
+            # permission checks when a user is given
+            await core.setVaultSecrets(riden, 'apikey', 'rolesecret')
+            await core.setVaultSecrets(uiden, 'apikey', 'usersecret')
+
+            newp = s_common.guid()
+            self.none(await core.getVault(newp, user=visi2))
+            self.none(await core.getVaultByName('newp', user=visi2))
+            self.none(await core.getVaultByType(vtype1, visi2.iden, scope='user', user=visi2))
+
+            with self.raises(s_exc.NoSuchIden):
+                await core.reqVault(newp, user=visi2)
+
+            with self.raises(s_exc.NoSuchName):
+                await core.reqVaultByName('newp', user=visi2)
+
+            with self.raises(s_exc.NoSuchName):
+                await core.reqVaultByType(vtype1, visi2.iden, scope='global', user=visi2)
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.getVault(uiden, user=visi2)
+            self.eq(f'User requires read permission on vault: {uiden}.', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.reqVault(uiden, user=visi2)
+            self.eq(f'User requires read permission on vault: {uiden}.', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.getVaultByName('user1', user=visi2)
+            self.eq('User requires read permission on vault: user1.', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.reqVaultByName('user1', user=visi2)
+            self.eq('User requires read permission on vault: user1.', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.getVaultByType(vtype1, visi1.iden, scope='user', user=visi2)
+            self.eq(f'User requires read permission on vault: {uiden}.', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.AuthDeny):
+                await core.reqVaultByType(vtype1, visi1.iden, scope='user', user=visi2)
+
+            self.eq([], await core.getVaults(user=visi2))
+
+            # read permission hides secrets without mutating the stored vault
+            vault = await core.getVault(riden, user=visi1)
+            self.eq(riden, vault['iden'])
+            self.notin('secrets', vault)
+            self.notin('secrets', await core.getVaultByName('role1', user=visi1))
+            self.notin('secrets', await core.getVaultByType(vtype1, visi1.iden, scope='role', user=visi1))
+            self.notin('secrets', await core.reqVaultByType(vtype1, visi1.iden, scope='role', user=visi1))
+            self.eq({'apikey': 'rolesecret'}, (await core.getVault(riden))['secrets'])
+
+            vault = await core.getVault(uiden, user=visi1)
+            self.eq({'apikey': 'usersecret'}, vault['secrets'])
+            self.eq(uiden, (await core.getVaultByType(vtype1, visi1.iden, user=visi1))['iden'])
+
+            vaults = {v['iden']: v for v in await core.getVaults(user=visi1)}
+            self.sorteq((riden, uiden, siden), vaults.keys())
+            self.notin('secrets', vaults[riden])
+            self.eq({'apikey': 'usersecret'}, vaults[uiden]['secrets'])
+
+            # a user iden may be used in place of a user
+            self.eq(vault, await core.getVault(uiden, user=visi1.iden))
+            self.notin('secrets', await core.getVaultByName('role1', user=visi1.iden))
+            self.eq(uiden, (await core.getVaultByType(vtype1, user=visi1.iden))['iden'])
+            self.eq(riden, (await core.getVaultByType(vtype1, scope='role', user=visi1))['iden'])
+            self.eq(vaults, {v['iden']: v for v in await core.getVaults(user=visi1.iden)})
+
+            with self.raises(s_exc.AuthDeny):
+                await core.getVault(uiden, user=visi2.iden)
+
+            with self.raises(s_exc.NoSuchUser) as cm:
+                await core.getVault(uiden, user=newp)
+            self.eq(f'No user with iden {newp}.', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.NoSuchUser):
+                await core.getVaults(user=newp)
+
+            with self.raises(s_exc.BadArg) as cm:
+                await core.getVaultByType(vtype1)
+            self.eq('A useriden or user is required to get a vault by type.', cm.exception.get('mesg'))
+
+            # read permission is not enough to edit, set perms, or delete
+            rvdef = await core.reqVault(riden)
+            rvdef['configs'] = {'color': 'blue'}
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.modVault(rvdef, user=visi1)
+            self.eq(f'User requires edit permission on vault: {riden}.', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.setVaultPerm(riden, visi2.iden, s_cell.PERM_READ, user=visi1)
+            self.eq(f'User requires admin permission on vault: {riden}.', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.delVault(riden, user=visi1)
+            self.eq(f'User requires admin permission on vault: {riden}.', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.NoSuchIden):
+                await core.modVault(dict(rvdef, iden=newp), user=visi1)
+
+            with self.raises(s_exc.SchemaViolation):
+                await core.modVault('newp', user=visi1)
+
+            # edit permission allows data changes but not permission changes
+            await core.setVaultPerm(riden, visi1.iden, s_cell.PERM_EDIT)
+
+            rvdef = await core.reqVault(riden)
+            rvdef['configs'] = {'color': 'blue'}
+            vault = await core.modVault(rvdef, user=visi1)
+            self.eq({'color': 'blue'}, vault['configs'])
+            self.eq({'apikey': 'rolesecret'}, vault['secrets'])
+            self.eq({'apikey': 'rolesecret'}, (await core.getVault(riden, user=visi1))['secrets'])
+
+            # an edit-level modVault keeps a permission change applied after its check
+            rvdef = await core.reqVault(riden)
+            rvdef['configs'] = {'color': 'green'}
+
+            reqidens = core._reqVaultPermIdens
+            async def revoke(vdef, cur):
+                await core.setVaultPerm(riden, visi1.iden, s_cell.PERM_READ)
+                return await reqidens(vdef, cur)
+
+            with patch.object(core, '_reqVaultPermIdens', revoke):
+                vault = await core.modVault(rvdef, user=visi1)
+
+            self.eq({'color': 'green'}, vault['configs'])
+            self.notin('secrets', vault)
+            self.eq(s_cell.PERM_READ, vault['permissions']['users'][visi1.iden])
+
+            vault = await core.getVault(riden)
+            self.eq({'color': 'green'}, vault['configs'])
+            self.eq({'apikey': 'rolesecret'}, vault['secrets'])
+            self.eq(s_cell.PERM_READ, vault['permissions']['users'][visi1.iden])
+
+            await core.setVaultPerm(riden, visi1.iden, s_cell.PERM_EDIT)
+
+            rvdef = await core.reqVault(riden)
+            rvdef['permissions']['users'][visi2.iden] = s_cell.PERM_READ
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.modVault(rvdef, user=visi1)
+            self.eq(f'User requires admin permission on vault: {riden}.', cm.exception.get('mesg'))
+
+            # admin permission allows permission changes and deletion
+            uvdef = await core.reqVault(uiden)
+            uvdef['permissions']['users'][visi2.iden] = s_cell.PERM_READ
+            vault = await core.modVault(uvdef, user=visi1)
+            self.eq(s_cell.PERM_READ, vault['permissions']['users'][visi2.iden])
+            self.eq(uvdef['permissions'], (await core.getVault(uiden))['permissions'])
+
+            vault = await core.getVault(uiden, user=visi2)
+            self.eq(uiden, vault['iden'])
+            self.notin('secrets', vault)
+
+            vault = await core.setVaultPerm(uiden, visi2.iden, s_cell.PERM_EDIT, user=visi1)
+            self.eq(s_cell.PERM_EDIT, vault['permissions']['users'][visi2.iden])
+            self.eq({'apikey': 'usersecret'}, (await core.getVault(uiden, user=visi2))['secrets'])
+
+            self.none(await core.delVault(newp, user=visi1))
+
+            with self.raises(s_exc.AuthDeny):
+                await core.delVault(siden, user=visi2)
+
+            await core.delVault(siden, user=visi1)
+            self.none(await core.getVault(siden))
+
+            # non-admins may only add unscoped vaults and user vaults they own
+            vdef = {'name': 'global2', 'type': vtype2, 'scope': 'global', 'owner': None, 'configs': {}, 'secrets': {}}
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.addVault(dict(vdef), user=visi2)
+            self.eq('User visi2 cannot create global vaults.', cm.exception.get('mesg'))
+
+            vdef = {'name': 'role2', 'type': vtype2, 'scope': 'role', 'owner': contributor.iden, 'configs': {}, 'secrets': {}}
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.addVault(dict(vdef), user=visi2)
+            self.eq('User visi2 cannot create role vaults.', cm.exception.get('mesg'))
+
+            vdef = {'name': 'user2', 'type': vtype2, 'scope': 'user', 'owner': visi1.iden, 'configs': {}, 'secrets': {}}
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.addVault(dict(vdef), user=visi2)
+            self.eq(f'User visi2 cannot create vaults for user {visi1.iden}.', cm.exception.get('mesg'))
+
+            vdef['owner'] = visi2.iden
+            self.nn(await core.getVault(await core.addVault(vdef, user=visi2), user=visi2))
+
+            vdef = {'name': 'unscoped2', 'type': vtype2, 'scope': None, 'owner': visi2.iden, 'configs': {}, 'secrets': {}}
+            xiden = await core.addVault(vdef, user=visi2)
+            self.nn(xiden)
+
+            # permission levels and extra keys are rejected by the schema
+            admin = {visi2.iden: s_cell.PERM_ADMIN}
+            for perms in (
+                {'users': {**admin, visi1.iden: 'x'}, 'roles': {}},
+                {'users': {**admin, visi1.iden: 9}, 'roles': {}},
+                {'users': {**admin, visi1.iden: -1}, 'roles': {}},
+                {'users': admin, 'roles': {contributor.iden: 'x'}},
+                {'users': admin, 'roles': {contributor.iden: 4}},
+                {'users': admin, 'roles': {}, 'default': 'x'},
+                {'users': admin, 'roles': {}, 'default': 9},
+                {'users': admin, 'roles': {}, 'junk': 1},
+            ):
+                xvdef = await core.reqVault(xiden)
+                xvdef['permissions'] = perms
+                with self.raises(s_exc.SchemaViolation):
+                    await core.modVault(xvdef, user=visi2)
+
+            # new or changed user and role idens must exist
+            xvdef = await core.reqVault(xiden)
+            xvdef['permissions']['users'][newp] = s_cell.PERM_READ
+            with self.raises(s_exc.NoSuchUser):
+                await core.modVault(xvdef, user=visi2)
+
+            xvdef = await core.reqVault(xiden)
+            xvdef['permissions']['roles'][newp] = s_cell.PERM_READ
+            with self.raises(s_exc.NoSuchRole):
+                await core.modVault(xvdef, user=visi2)
+
+            # an unchanged entry for a deleted user does not block an update
+            xuser = await core.auth.addUser('xuser')
+            await core.setVaultPerm(xiden, xuser.iden, s_cell.PERM_READ)
+            await core.auth.delUser(xuser.iden)
+
+            xvdef = await core.reqVault(xiden)
+            xvdef['configs'] = {'color': 'green'}
+            xvdef['permissions']['roles'][contributor.iden] = s_cell.PERM_READ
+            vault = await core.modVault(xvdef, user=visi2)
+            self.eq({'color': 'green'}, vault['configs'])
+            self.eq(s_cell.PERM_READ, vault['permissions']['users'][xuser.iden])
+            self.eq(s_cell.PERM_READ, vault['permissions']['roles'][contributor.iden])
+
+            xvdef['permissions']['users'][xuser.iden] = s_cell.PERM_EDIT
+            with self.raises(s_exc.NoSuchUser):
+                await core.modVault(xvdef, user=visi2)
+
+            vaults = {v['iden']: v for v in await core.getVaults(user=visi1)}
+            self.isin(xiden, vaults)
+            self.isin(uiden, vaults)
+            self.eq(s_cell.PERM_DENY, vaults[xiden]['permissions']['default'])
+
+            vdef = {'name': 'global2', 'type': vtype2, 'scope': 'global', 'owner': None, 'configs': {}, 'secrets': {}}
+            self.nn(await core.addVault(vdef, user=core.auth.rootuser))
+
+            # CoreApi methods check permissions for the caller
+            async with core.getLocalProxy(user='visi1') as prox:
+
+                vaults = {v['iden']: v for v in await prox.getVaults()}
+                self.isin(riden, vaults)
+                self.isin(uiden, vaults)
+
+                self.none(await prox.getVault(newp))
+                self.eq(uiden, (await prox.getVault(uiden))['iden'])
+                self.eq(uiden, (await prox.getVault(uiden, user=visi1.iden))['iden'])
+                self.eq(uiden, (await prox.getVaultByName('user1'))['iden'])
+                self.eq(uiden, (await prox.getVaultByType(vtype1))['iden'])
+                self.eq(riden, (await prox.getVaultByType(vtype1, scope='role'))['iden'])
+
+                with self.raises(s_exc.AuthDeny):
+                    await prox.getVaultByName('user2')
+
+                vdef = {'name': 'user3', 'type': vtype2, 'scope': 'user', 'owner': visi1.iden, 'configs': {}, 'secrets': {}}
+                iden = await prox.addVault(vdef)
+
+                vdef = await prox.getVault(iden)
+                vdef['configs'] = {'color': 'red'}
+                vault = await prox.modVault(vdef)
+                self.eq({'color': 'red'}, vault['configs'])
+
+                vault = await prox.setVaultPerm(iden, visi2.iden, s_cell.PERM_READ)
+                self.eq(s_cell.PERM_READ, vault['permissions']['users'][visi2.iden])
+
+                u2iden = (await core.getVaultByName('user2'))['iden']
+                with self.raises(s_exc.AuthDeny):
+                    await prox.delVault(u2iden)
+                self.nn(await core.getVault(u2iden))
+
+                self.none(await prox.delVault(iden))
+                self.none(await core.getVault(iden))
+
+                # a non-admin may not act as another user
+                with self.raises(s_exc.AuthDeny):
+                    await prox.getVaults(user=visi2.iden)
+
+                with self.raises(s_exc.AuthDeny):
+                    await prox.getVault(uiden, user=visi2.iden)
+
+            # an admin may act as another user, whose permissions are checked
+            async with core.getLocalProxy() as prox:
+
+                vaults = {v['iden']: v for v in await prox.getVaults(user=visi2.iden)}
+                self.isin(uiden, vaults)
+                self.notin(riden, vaults)
+
+                with self.raises(s_exc.AuthDeny):
+                    await prox.getVault(riden, user=visi2.iden)
+
+                with self.raises(s_exc.AuthDeny):
+                    await prox.getVaultByName('role1', user=visi2.iden)
+
+                self.none(await prox.getVaultByType(vtype1, scope='role', user=visi2.iden))
+
+                await core.setVaultPerm((await core.getVaultByName('global2'))['iden'], visi2.iden, s_cell.PERM_DENY)
+                with self.raises(s_exc.AuthDeny):
+                    await prox.getVaultByType(vtype2, scope='global', user=visi2.iden)
+
+                self.eq(riden, (await prox.getVaultByType(vtype1, scope='role', user=visi1.iden))['iden'])
+
+                vdef = {'name': 'global3', 'type': vtype1, 'scope': 'global', 'owner': None, 'configs': {}, 'secrets': {}}
+                with self.raises(s_exc.AuthDeny):
+                    await prox.addVault(vdef, user=visi2.iden)
+
+                vdef = await core.reqVault(riden)
+                vdef['configs'] = {'color': 'green'}
+                with self.raises(s_exc.AuthDeny):
+                    await prox.modVault(vdef, user=visi2.iden)
+
+                with self.raises(s_exc.AuthDeny):
+                    await prox.setVaultPerm(riden, visi2.iden, s_cell.PERM_READ, user=visi2.iden)
+
+                with self.raises(s_exc.AuthDeny):
+                    await prox.delVault(riden, user=visi2.iden)
+
+                self.nn(await core.getVault(riden))
+
+                with self.raises(s_exc.NoSuchUser):
+                    await prox.getVaults(user=newp)
+
+            # modVault is a validated full replace with an immutable type, scope, and owner
+            vdef = await core.reqVault(riden)
+            vdef['name'] = 'role1renamed'
+            vdef['configs'] = {'color': 'purple'}
+            vault = await core.modVault(vdef)
+            self.eq({'color': 'purple'}, vault['configs'])
+            self.eq(riden, (await core.reqVaultByName('role1renamed'))['iden'])
+            self.none(await core.getVaultByName('role1'))
+
+            for field, valu in (('type', vtype2), ('scope', 'global'), ('owner', visi1.iden)):
+                vdef = await core.reqVault(riden)
+                vdef[field] = valu
+                with self.raises(s_exc.BadArg) as cm:
+                    await core.modVault(vdef)
+                self.eq(f'Cannot change vault {field} on update.', cm.exception.get('mesg'))
+
+            vdef = await core.reqVault(riden)
+            vdef['name'] = 'user1'
+            with self.raises(s_exc.DupName):
+                await core.modVault(vdef)
+
+            vdef = await core.reqVault(riden)
+            vdef['secrets'] = {'newp': self}
+            with self.raises(s_exc.BadArg) as cm:
+                await core.modVault(vdef)
+            self.eq('Vault definition must be msgpack safe.', cm.exception.get('mesg'))
+
+            vdef = await core.reqVault(riden)
+            vdef.pop('secrets')
+            with self.raises(s_exc.SchemaViolation):
+                await core.modVault(vdef)
+
+            with self.raises(s_exc.SchemaViolation):
+                await core.modVault({'name': 'newp'}, user=visi1)
+
+            # the vault:mod handler is a no-op when the vault is missing
+            self.none(await core._modVault({'iden': s_common.guid()}))
 
     async def test_cortex_vaults_errors(self):
         '''
@@ -8711,7 +9175,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             }
             riden = await core.addVault(rvault)
 
-            self.none(core.getVault('asdf'))
+            self.none(await core.getVault('asdf'))
 
             with self.raises(s_exc.DupName) as exc:
                 # type/scope/iden collision
@@ -8742,7 +9206,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchName) as exc:
                 # Non-existent vault name
-                core.reqVaultByName('newp')
+                await core.reqVaultByName('newp')
             self.eq('Vault not found for name: newp.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.SchemaViolation):
@@ -8897,28 +9361,28 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadArg) as exc:
                 # Invalid scope
-                core.getVaultByType(vtype1, 'iden', 'newp')
+                await core.getVaultByType(vtype1, 'iden', 'newp')
             self.eq('Invalid scope: newp.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.NoSuchUser) as exc:
                 # Invalid user iden
-                core.getVaultByType(vtype1, contributor.iden, 'role')
+                await core.getVaultByType(vtype1, contributor.iden, 'role')
             self.eq(f'No user with iden {contributor.iden}.', exc.exception.get('mesg'))
 
             # User in role but no perm to vault
             await core.setVaultPerm(riden, visi2.iden, s_cell.PERM_DENY)
             await visi2.grant(contributor.iden)
-            self.none(core.getVaultByType(vtype1, visi2.iden, 'role'))
+            self.none(await core.getVaultByType(vtype1, visi2.iden, 'role'))
 
             # Requested type/scope doesn't exist
-            self.none(core.getVaultByType(vtype1, visi1.iden, 'user'))
+            self.none(await core.getVaultByType(vtype1, visi1.iden, 'user'))
 
             # Requested type doesn't exist
-            self.none(core.getVaultByType(vtype2, visi1.iden))
+            self.none(await core.getVaultByType(vtype2, visi1.iden))
 
             with self.raises(s_exc.NoSuchName) as exc:
                 # Requested type/scope doesn't exist
-                core.reqVaultByType(vtype1, visi1.iden, 'user')
+                await core.reqVaultByType(vtype1, visi1.iden, 'user')
             self.eq(f'Vault not found for type: {vtype1}.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.BadArg) as exc:
