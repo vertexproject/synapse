@@ -2,8 +2,6 @@ import synapse.common as s_common
 
 import synapse.lib.stormtypes as s_stormtypes
 
-hooktypedesc = 'The hook type (`created`, `merging`, or `deleted`).'
-
 @s_stormtypes.registry.registerType
 class ViewHook(s_stormtypes.Prim):
     '''
@@ -14,7 +12,7 @@ class ViewHook(s_stormtypes.Prim):
         {'name': 'iden', 'desc': 'The iden of the view hook.', 'type': 'str'},
         {'name': 'name', 'desc': 'The name of the view hook.',
          'type': {'type': 'stor', '_storfunc': '_storName', 'returns': {'type': 'str'}}},
-        {'name': 'type', 'desc': hooktypedesc,
+        {'name': 'type', 'desc': 'The hook type (`created`, `merging`, or `deleted`).',
          'type': {'type': 'stor', '_storfunc': '_storType', 'returns': {'type': 'str'}}},
         {'name': 'storm', 'desc': 'The Storm query the view hook runs.',
          'type': {'type': 'stor', '_storfunc': '_storStorm', 'returns': {'type': 'str'}}},
@@ -88,7 +86,7 @@ class LibViewHook(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_methHookAdd',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the view hook.'},
-                      {'name': 'type', 'type': 'str', 'desc': hooktypedesc},
+                      {'name': 'type', 'type': 'str', 'desc': 'The hook type (`created`, `merging`, or `deleted`).'},
                       {'name': 'storm', 'type': 'str', 'desc': 'The Storm query to run.'},
                       {'name': 'enabled', 'type': 'boolean', 'default': True,
                        'desc': 'Set to false to add the view hook disabled.'},
