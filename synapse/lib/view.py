@@ -1422,6 +1422,8 @@ class View(s_nexus.Pusher):  # type: ignore
         s_layer.reqValidLdef(ldef)
         s_schemas.reqValidView(vdef)
 
+        self.core._reqCreatedHookDepth()
+
         pack = await self._push('view:forkparent', ldef, vdef)
         return await self.core._runCreatedHooks(vdef['iden'], pack)
 
@@ -1503,6 +1505,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
         s_layer.reqValidLdef(ldef)
         s_schemas.reqValidView(vdef)
+
+        self.core._reqCreatedHookDepth()
 
         pack = await self._push('view:forkchild', ldef, vdef)
         return await self.core._runCreatedHooks(vdef['iden'], pack)
@@ -1592,6 +1596,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
         if vdef is None:
             vdef = {}
+
+        self.core._reqCreatedHookDepth()
 
         ldef = await self.core.addLayer(ldef)
         layriden = ldef.get('iden')

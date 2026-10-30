@@ -470,6 +470,37 @@ class ViewTest(s_t_utils.SynTest):
             self.eq([], [t for t in s_coro.bgtasks if t.get_coro().__name__ == '_execViewHooks'])
             self.len(0, await core.nodes('test:str=hookfail'))
 
+            # killing the task of a slow merging hook aborts the merge
+            async def killhook(storm):
+                synts = [t for t in core.boss.ps() if t.info.get('query') == storm]
+                self.len(1, synts)
+                await synts[0].kill()
+
+            slowmerge = f'$name=merging {HOOKPUT} $lib.time.sleep(30)'
+            task = core.schedCoro(core.callStorm('$lib.view.get().merge()', opts={'view': forkiden}))
+            self.eq(('merging', 'root', forkiden), (await core.callStorm(popq))[1])
+
+            await killhook(slowmerge)
+            with self.raises(s_exc.SynErr) as cm:
+                await task
+            self.eq(f'A merging view hook in view {forkiden} was cancelled.', cm.exception.get('mesg'))
+
+            self.len(0, await core.nodes('test:str=hookfail'))
+            self.len(1, await core.nodes('test:str=hookfail', opts={'view': forkiden}))
+
+            # killing the task of a slow deleted hook aborts the delete
+            slowdel = f'$name=deleted {HOOKPUT} $lib.time.sleep(30)'
+            await core.modViewHook(deleted, {'storm': slowdel})
+
+            task = core.schedCoro(core.delView(forkiden))
+            self.eq(('deleted', 'root', forkiden), (await core.callStorm(popq))[1])
+
+            await killhook(slowdel)
+            with self.raises(s_exc.SynErr) as cm:
+                await task
+            self.eq(f'A deleted view hook in view {forkiden} was cancelled.', cm.exception.get('mesg'))
+            self.nn(core.getView(forkiden))
+
             # disabled hooks do not run
             await core.modViewHook(merging, {'enabled': False})
             await core.modViewHook(deleted, {'enabled': False})
@@ -479,6 +510,24 @@ class ViewTest(s_t_utils.SynTest):
 
             await core.delView(forkiden)
             self.none(core.getView(forkiden))
+
+            # killing the task of a slow created hook is logged and a streaming caller completes
+            slowcreate = f'$name=created {HOOKPUT} $lib.time.sleep(30)'
+            await core.modViewHook(created, {'storm': slowcreate})
+
+            forkq = '$lib.view.get().fork() $lib.print(after)'
+            with self.getLoggerStream('synapse.cortex') as stream:
+                task = core.schedCoro(core.stormlist(forkq))
+                _, _, forkiden = (await core.callStorm(popq))[1]
+                await killhook(slowcreate)
+                msgs = await task
+
+            self.stormIsInPrint('after', msgs)
+            self.eq('fini', msgs[-1][0])
+            self.nn(core.getView(forkiden))
+            self.isin(f'A created view hook in view {forkiden} was cancelled.', stream.getvalue())
+
+            await core.delView(forkiden)
 
             # a created hook exception is logged and the view is kept
             await core.modViewHook(created, {'storm': '$lib.raise(HookFail, nocreate)'})
@@ -497,7 +546,7 @@ class ViewTest(s_t_utils.SynTest):
             self.eq([], [v async for v in core.getView(childiden[0]).children()])
             self.eq([('created', 'root', forkiden), ('created', 'root', childiden[0])], await core.callStorm(HOOKPOP))
 
-            # a runaway hook chain stops at the nesting limit and the outermost view is kept, and
+            # a runaway hook chain stops at the nesting limit without creating the view over it, and
             # each level runs in a new task so it nests deeper than one python stack allows
             await core.modViewHook(created, {'storm': f'$name=created {HOOKPUT} $lib.view.get().fork()'})
             with mock.patch.object(s_const, 'VIEW_HOOK_MAX_DEPTH', 80):
@@ -511,7 +560,7 @@ class ViewTest(s_t_utils.SynTest):
             while (kids := [v async for v in chain[-1].children()]):
                 chain.extend(kids)
 
-            self.len(81, chain)
+            self.len(80, chain)
             for view in reversed(chain):
                 await core.delView(view.iden)
 

@@ -26,9 +26,6 @@ Conditions = set((
 
 RecursionDepth = contextvars.ContextVar('RecursionDepth', default=0)
 
-# the nesting depth of running view hooks, which is inherited by tasks they start
-ViewHookDepth = contextvars.ContextVar('ViewHookDepth', default=0)
-
 # TODO: standardize locations for form/prop/tags regex
 
 tagrestr = r'((\w+|\*|\*\*)\.)*(\w+|\*|\*\*)'  # tag with optional single or double * as segment

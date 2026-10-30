@@ -7,6 +7,7 @@ import logging
 import textwrap
 import contextlib
 import collections
+import contextvars
 
 from collections.abc import Mapping
 
@@ -42,7 +43,6 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.modules as s_modules
 import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
-import synapse.lib.trigger as s_trigger
 import synapse.lib.version as s_version
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.hashitem as s_hashitem
@@ -114,6 +114,10 @@ import synapse.lib.stormlib.compression as s_stormlib_compression  # noqa: F401
 import synapse.lib.stormlib.notifications as s_stormlib_notifications  # noqa: F401
 
 logger = logging.getLogger(__name__)
+
+# the nesting depth of running view hooks, which is inherited by tasks they start
+ViewHookDepth = contextvars.ContextVar('ViewHookDepth', default=0)
+
 stormlogger = logging.getLogger('synapse.storm')
 
 '''
@@ -5239,6 +5243,29 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return copy.deepcopy(list(hdefs))
 
+    def _getRunViewHooks(self, htype):
+        if self.safemode:
+            return []
+
+        return [hdef for hdef in self.viewhooks.values() if hdef.get('type') == htype and hdef.get('enabled')]
+
+    def _reqViewHookDepth(self, htype, **info):
+        depth = ViewHookDepth.get()
+        if depth >= s_const.VIEW_HOOK_MAX_DEPTH:
+            mesg = f'View hooks exceeded the maximum nesting depth of {s_const.VIEW_HOOK_MAX_DEPTH}.'
+            raise s_exc.RecursionLimitHit(mesg=mesg, limit=s_const.VIEW_HOOK_MAX_DEPTH, type=htype, **info)
+
+        return depth
+
+    def _reqCreatedHookDepth(self):
+        '''
+        Raise RecursionLimitHit if a new view's created hooks would exceed VIEW_HOOK_MAX_DEPTH.
+
+        Called before a view is created so a view over the limit is never made.
+        '''
+        if self._getRunViewHooks('created'):
+            self._reqViewHookDepth('created')
+
     async def _runViewHooks(self, htype, view, errok=False):
         '''
         Run the enabled view hooks of the given type in the view, ordered by creation time.
@@ -5246,7 +5273,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Hooks run as the root user, in a new task, and do not run in safemode. Hooks run for
         lifecycle events caused by hook storm, and the tasks it starts, up to a nesting depth
         of VIEW_HOOK_MAX_DEPTH. Exceptions propagate to the caller unless errok is set, in which
-        case they are logged and the remaining hooks run.
+        case they are logged and the remaining hooks run. If the hook task is cancelled while the
+        caller is not, a SynErr is raised, or logged if errok is set, and the remaining hooks do not run.
 
         Args:
             htype (str): The hook type (created, merging, or deleted).
@@ -5258,31 +5286,39 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Raises:
             s_exc.RecursionLimitHit: If running the hooks would exceed VIEW_HOOK_MAX_DEPTH.
+            s_exc.SynErr: If the hook task is cancelled while the caller is not, and errok is not set.
         '''
-        if self.safemode:
-            return False
-
-        hdefs = [hdef for hdef in self.viewhooks.values() if hdef.get('type') == htype and hdef.get('enabled')]
+        hdefs = self._getRunViewHooks(htype)
         if not hdefs:
             return False
 
-        depth = s_trigger.ViewHookDepth.get()
-        if depth >= s_const.VIEW_HOOK_MAX_DEPTH:
-            mesg = f'View hooks exceeded the maximum nesting depth of {s_const.VIEW_HOOK_MAX_DEPTH}.'
-            raise s_exc.RecursionLimitHit(mesg=mesg, limit=s_const.VIEW_HOOK_MAX_DEPTH, type=htype, view=view.iden)
+        depth = self._reqViewHookDepth(htype, view=view.iden)
 
         hdefs.sort(key=lambda hdef: hdef.get('created'))
 
         # a new task keeps the python stack from growing with each nesting level
         task = s_coro.create_task(self._execViewHooks(htype, view, hdefs, depth + 1, errok))
         s_scope.clone(task)
-        await task
+
+        try:
+            await task
+
+        except asyncio.CancelledError:
+            # a hook task killed on its own is a hook failure, not a cancel of the caller
+            if asyncio.current_task().cancelling():
+                raise
+
+            mesg = f'A {htype} view hook in view {view.iden} was cancelled.'
+            if not errok:
+                raise s_exc.SynErr(mesg=mesg, type=htype, view=view.iden) from None
+
+            logger.error(mesg, extra=self.getLogExtra(type=htype, view=view.iden))
 
         return True
 
     async def _execViewHooks(self, htype, view, hdefs, depth, errok):
 
-        s_trigger.ViewHookDepth.set(depth)
+        ViewHookDepth.set(depth)
 
         root = self.auth.rootuser.iden
         for hdef in hdefs:
@@ -5517,6 +5553,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if not nexs:
             return await self._addView(vdef)
+
+        self._reqCreatedHookDepth()
 
         pack = await self._push('view:add', vdef)
         return await self._runCreatedHooks(vdef['iden'], pack)

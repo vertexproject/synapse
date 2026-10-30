@@ -27,7 +27,6 @@ import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.trigger as s_trigger
 import synapse.lib.version as s_version
 import synapse.lib.stormsvc as s_stormsvc
 
@@ -9322,7 +9321,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core._runViewHooks('created', fork)
 
                 self.len(2, await core.callStorm(popq))
-                self.eq(0, s_trigger.ViewHookDepth.get())
+                self.eq(0, s_cortex.ViewHookDepth.get())
 
                 # errok logs the exception and runs the remaining hooks
                 await core.modViewHook(iden02, {'storm': f'$lib.raise(HookFail, nope) $name=hook02 {storm}'})
@@ -9338,25 +9337,46 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core.modViewHook(iden02, {'enabled': False})
 
                 # hooks run from within running hooks up to the nesting limit
-                token = s_trigger.ViewHookDepth.set(s_const.VIEW_HOOK_MAX_DEPTH - 1)
+                token = s_cortex.ViewHookDepth.set(s_const.VIEW_HOOK_MAX_DEPTH - 1)
                 try:
                     await core._runViewHooks('created', fork)
                     self.len(2, await core.callStorm(popq))
 
-                    s_trigger.ViewHookDepth.set(s_const.VIEW_HOOK_MAX_DEPTH)
+                    s_cortex.ViewHookDepth.set(s_const.VIEW_HOOK_MAX_DEPTH)
                     with self.raises(s_exc.RecursionLimitHit) as cm:
                         await core._runViewHooks('created', fork)
 
                     mesg = f'View hooks exceeded the maximum nesting depth of {s_const.VIEW_HOOK_MAX_DEPTH}.'
                     self.eq(mesg, cm.exception.get('mesg'))
                     self.eq(s_const.VIEW_HOOK_MAX_DEPTH, cm.exception.get('limit'))
-                    self.eq(s_const.VIEW_HOOK_MAX_DEPTH, s_trigger.ViewHookDepth.get())
+                    self.eq(s_const.VIEW_HOOK_MAX_DEPTH, s_cortex.ViewHookDepth.get())
+
+                    # a view whose created hooks would exceed the limit is not created
+                    videns = set(core.views.keys())
+                    lidens = set(core.layers.keys())
+
+                    with self.raises(s_exc.RecursionLimitHit) as cm:
+                        await view.fork()
+
+                    self.eq('created', cm.exception.get('type'))
+
+                    with self.raises(s_exc.RecursionLimitHit):
+                        await core.addView({'layers': [view.layers[0].iden]})
+
+                    with self.raises(s_exc.RecursionLimitHit):
+                        await fork.insertParentFork(root)
+
+                    with self.raises(s_exc.RecursionLimitHit):
+                        await fork.insertChildFork(root)
+
+                    self.eq(videns, set(core.views.keys()))
+                    self.eq(lidens, set(core.layers.keys()))
 
                     # hook types with no enabled hooks do not check the limit
                     self.false(await core._runViewHooks('merging', fork))
 
                 finally:
-                    s_trigger.ViewHookDepth.reset(token)
+                    s_cortex.ViewHookDepth.reset(token)
 
                 self.eq([], await core.callStorm(popq))
 
@@ -9392,6 +9412,14 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # hooks do not run in safemode
                 await core._runViewHooks('created', core.getView(forkiden))
                 self.eq([], await core.callStorm(popq))
+
+                # views are created at the nesting limit when no created hooks run
+                token = s_cortex.ViewHookDepth.set(s_const.VIEW_HOOK_MAX_DEPTH)
+                try:
+                    self.nn(core.getView((await core.getView().fork()).get('iden')))
+
+                finally:
+                    s_cortex.ViewHookDepth.reset(token)
 
     async def test_cortex_query_offload(self):
 
