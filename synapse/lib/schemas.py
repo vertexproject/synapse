@@ -4,18 +4,24 @@ import synapse.lib.grammar as s_grammar
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 
+_easyPermLevelSchema = {'type': 'number', 'minimum': 0, 'maximum': 3}
+
 easyPermSchema = {
     'type': 'object',
     'properties': {
+        # users and roles are keyed by iden, so their key space stays open while
+        # every value is constrained to a permission level.
         'users': {
             'type': 'object',
-            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
+            'additionalProperties': _easyPermLevelSchema,
         },
         'roles': {
             'type': 'object',
-            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
+            'additionalProperties': _easyPermLevelSchema,
         },
+        'default': _easyPermLevelSchema,
     },
+    'additionalProperties': False,
     'required': ['users', 'roles'],
 }
 
@@ -145,7 +151,7 @@ _CronJobSchema = {
 }
 
 reqValidCronDef = s_config.getJsValidator(_CronJobSchema)
-reqValidVault = s_config.getJsValidator({
+vaultSchema = {
     'type': 'object',
     'properties': {
         'name': {'type': 'string', 'pattern': '^.{1,128}$'},
@@ -168,7 +174,9 @@ reqValidVault = s_config.getJsValidator({
         'secrets',
         'configs',
     ],
-})
+}
+
+reqValidVault = s_config.getJsValidator(vaultSchema)
 
 reqValidView = s_config.getJsValidator({
     'type': 'object',

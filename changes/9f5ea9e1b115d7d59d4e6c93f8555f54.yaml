@@ -1,0 +1,8 @@
+---
+desc: Fixed LMDB slabs reopening with a smaller map than their tracked size, which
+  caused a stall on the first write after a restart and false ``DbOutOfSpace`` errors
+  for slabs at their ``maxsize``.
+desc:literal: false
+prs: []
+type: bug
+...
