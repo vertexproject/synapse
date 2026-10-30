@@ -21,13 +21,16 @@ import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.snap as s_snap
 import synapse.lib.cache as s_cache
+import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.scope as s_scope
 import synapse.lib.autodoc as s_autodoc
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
+import synapse.lib.version as s_version
 import synapse.lib.hashitem as s_hashitem
+import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -6032,3 +6035,144 @@ class ColorizeCmd(Cmd):
                 path.display = {'color': color}
 
             yield (node, path)
+
+class V3CheckReadyCmd(Cmd):
+    '''
+    Check the Cortex for readiness to upgrade to Synapse 3.x.
+
+    Warns about deprecated forms, properties, and types which are still in use
+    in any layer, about installed Power-Ups which are below the minimum version
+    that supports Synapse 3.x, about installed Vertex Power-Ups which are not
+    yet available for Synapse 3.x, and about layer model migrations or Power-Up
+    inits which have not completed yet.
+
+    NOTE: This command requires admin privileges.
+
+    Examples:
+
+        // Check the Cortex for Synapse 3.x readiness.
+        v3.checkready
+    '''
+
+    name = 'v3.checkready'
+    readonly = True
+
+    async def execStormCmd(self, runt, genr):
+
+        runt.reqAdmin(mesg='The v3.checkready command requires admin privileges.')
+
+        ready = await self._checkModel(runt)
+        ready = await self._checkPkgs(runt) and ready
+        ready = await self._checkMigrations(runt) and ready
+
+        if ready:
+            await runt.printf('Your Cortex is ready for Synapse 3.x.')
+        else:
+            await runt.printf('Your Cortex is not ready for Synapse 3.x.')
+
+        async for item in genr:
+            yield item
+
+    async def _checkModel(self, runt):
+
+        await runt.printf('Checking for deprecated model elements in use...')
+
+        core = runt.snap.core
+
+        ready = True
+        for prop in list(core.model.props.values()):
+
+            if not (prop.deprecated or prop.type.deprecated):
+                continue
+
+            # Skip universal properties on other forms
+            if not prop.isform and prop.univ is not None:
+                continue
+
+            for layr in core.layers.values():
+
+                if prop.isform:
+                    count = await layr.getPropCount(prop.name, maxsize=1)
+                elif prop.isuniv:
+                    count = await layr.getUnivPropCount(prop.name, maxsize=1)
+                else:
+                    count = await layr.getPropCount(prop.form.name, prop.name, maxsize=1)
+
+                if count:
+                    ready = False
+                    await runt.warn(f'Layer {layr.iden} contains deprecated model element {prop.full}')
+
+        return ready
+
+    async def _checkPkgs(self, runt):
+
+        await runt.printf('Checking Power-Up versions...')
+
+        core = runt.snap.core
+
+        pkgdefs = await core.getStormPkgs()
+
+        ready = True
+        for pkgdef in sorted(pkgdefs, key=lambda p: p['name']):
+
+            name = pkgdef['name']
+
+            minv = s_const.V3_READY_PKG_VERSIONS.get(name)
+            if minv is None:
+
+                author = pkgdef.get('author')
+                if author is not None and author.get('url') == s_const.VERTEX_PKG_AUTHOR_URL:
+                    ready = False
+                    await runt.warn(f'Power-Up {name} is not yet available for Synapse 3.x.')
+
+                continue
+
+            vers = pkgdef.get('version')
+            if self._semvTuple(vers) < self._semvTuple(minv):
+                ready = False
+                mesg = f'Power-Up {name} version {vers} is not 3.x ready; upgrade to {minv} or later.'
+                await runt.warn(mesg)
+
+        return ready
+
+    async def _checkMigrations(self, runt):
+
+        await runt.printf('Checking for incomplete migrations...')
+
+        core = runt.snap.core
+
+        ready = True
+        if core.migration:
+            ready = False
+            await runt.warn('The layer model migration is still running.')
+
+        maxvers = '.'.join(str(v) for v in s_modelrev.maxvers)
+        for layr in core.layers.values():
+
+            vers = await layr.getModelVers()
+            if vers < s_modelrev.maxvers:
+                ready = False
+                curv = '.'.join(str(v) for v in vers)
+                mesg = f'Layer {layr.iden} has not completed model migrations yet (version {curv}, expected {maxvers}).'
+                await runt.warn(mesg)
+
+        pkgdefs = await core.getStormPkgs()
+        for pkgdef in sorted(pkgdefs, key=lambda p: p['name']):
+
+            inits = pkgdef.get('inits')
+            if inits is None:
+                continue
+
+            name = pkgdef['name']
+            maxv = max(i['version'] for i in inits['versions'])
+            curv = await core.getStormPkgVar(name, 'storage:version', default=-1)
+            if curv < maxv:
+                ready = False
+                mesg = f'Power-Up {name} has not completed its inits yet (version {curv}, expected {maxv}).'
+                await runt.warn(mesg)
+
+        return ready
+
+    def _semvTuple(self, text):
+        info = s_version.parseSemver(text)
+        return (info['major'], info['minor'], info['patch'])
