@@ -420,7 +420,6 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
     _storm_lib_path = ('infosec', 'mitre', 'attack', 'flow')
     _storm_locals = (
         {'name': 'norm', 'desc': 'Normalize a MITRE ATT&CK Flow diagram in JSON format.',
-         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': '_norm',
                   'args': (
                       {'name': 'flow', 'type': 'dict',
@@ -429,7 +428,6 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
                   'returns': {'type': 'dict', 'desc': 'The normalized MITRE ATT&CK Flow diagram.', }
         }},
         {'name': 'ingest', 'desc': 'Ingest a MITRE ATT&CK Flow diagram in JSON format.',
-         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'flow', 'type': 'any', 'desc': 'The JSON data to ingest.'},
@@ -439,8 +437,6 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
     )
     _storm_query = '''
         function ingest(flow) {
-            $lib.warn('$lib.infosec.mitre.attack.flow.ingest() is deprecated.')
-
             // norm (validate, flatten, and sort)
             $flow = $lib.infosec.mitre.attack.flow.norm($flow)
 
@@ -500,9 +496,6 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _norm(self, flow):
-        s_common.deprecated('$lib.infosec.mitre.attack.flow.norm()', '2.255.0', '3.0.0')
-        await self.runt.snap.warnonce('$lib.infosec.mitre.attack.flow.norm() is deprecated.')
-
         flow = await s_stormtypes.toprim(flow)
 
         if self.__class__._validator is None:

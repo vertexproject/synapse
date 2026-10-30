@@ -1,7 +1,7 @@
 ---
 desc: Deprecated the `it:mitre:attack:datasource`, `it:mitre:attack:data:component`,
-  and `it:mitre:attack:flow` forms, the `it:mitre:attack:technique:data:components`
-  property, and the `$lib.infosec.mitre.attack.flow` library.
+  and `it:mitre:attack:flow` forms and the `it:mitre:attack:technique:data:components`
+  property.
 desc:literal: false
 prs: []
 type: deprecation
