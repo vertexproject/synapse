@@ -508,10 +508,14 @@ class InfoSecTest(s_test.SynTest):
         async with self.getTestCore() as core:
             opts = {'vars': {'flow': flow}}
             msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.ingest($flow)', opts=opts)
-            self.stormHasNoWarnErr(msgs)
+            self.stormHasNoErr(msgs)
+            self.stormIsInWarn('The form it:mitre:attack:flow is deprecated', msgs)
 
             opts = {'vars': {'flow': flow}}
             msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.ingest($flow)', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+            msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.norm($flow)', opts=opts)
             self.stormHasNoWarnErr(msgs)
 
             norm = await core.callStorm('return($lib.infosec.mitre.attack.flow.norm($flow))', opts=opts)
