@@ -5,7 +5,9 @@ import unittest.mock as mock
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.coro as s_coro
 import synapse.lib.time as s_time
+import synapse.lib.const as s_const
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -454,6 +456,20 @@ class ViewTest(s_t_utils.SynTest):
             self.none(core.getLayer(skiplayr))
             self.eq([], await core.callStorm(HOOKPOP))
 
+            # cancelling a merge during a slow merging hook cancels the task running the hooks
+            await core.modViewHook(merging, {'storm': f'$name=merging {HOOKPUT} $lib.time.sleep(30)'})
+
+            task = core.schedCoro(core.callStorm('$lib.view.get().merge()', opts={'view': forkiden}))
+            popq = 'return($lib.queue.gen(hooks).pop(wait=(true)))'
+            self.eq(('merging', 'root', forkiden), (await core.callStorm(popq))[1])
+
+            task.cancel()
+            with self.raises(asyncio.CancelledError):
+                await task
+
+            self.eq([], [t for t in s_coro.bgtasks if t.get_coro().__name__ == '_execViewHooks'])
+            self.len(0, await core.nodes('test:str=hookfail'))
+
             # disabled hooks do not run
             await core.modViewHook(merging, {'enabled': False})
             await core.modViewHook(deleted, {'enabled': False})
@@ -472,11 +488,32 @@ class ViewTest(s_t_utils.SynTest):
             self.nn(core.getView(forkiden))
             self.isin(f'Error running created view hook {created} in view {forkiden}', stream.getvalue())
 
-            # lifecycle events from hook storm do not run hooks
-            await core.modViewHook(created, {'storm': f'$name=created {HOOKPUT} $lib.view.get().fork()'})
+            # lifecycle events from hook storm run hooks
+            hookfork = f'$name=created {HOOKPUT} if ($lib.view.get().parent = "{core.view.iden}") {{ $lib.view.get().fork() }}'
+            await core.modViewHook(created, {'storm': hookfork})
             forkiden = (await core.view.fork()).get('iden')
-            self.eq([('created', 'root', forkiden)], await core.callStorm(HOOKPOP))
-            self.len(1, [v async for v in core.getView(forkiden).children()])
+            childiden = [v.iden async for v in core.getView(forkiden).children()]
+            self.len(1, childiden)
+            self.eq([], [v async for v in core.getView(childiden[0]).children()])
+            self.eq([('created', 'root', forkiden), ('created', 'root', childiden[0])], await core.callStorm(HOOKPOP))
+
+            # a runaway hook chain stops at the nesting limit and the outermost view is kept, and
+            # each level runs in a new task so it nests deeper than one python stack allows
+            await core.modViewHook(created, {'storm': f'$name=created {HOOKPUT} $lib.view.get().fork()'})
+            with mock.patch.object(s_const, 'VIEW_HOOK_MAX_DEPTH', 80):
+                with self.getLoggerStream('synapse.cortex') as stream:
+                    forkiden = (await core.view.fork()).get('iden')
+
+            self.isin('View hooks exceeded the maximum nesting depth of 80.', stream.getvalue())
+            self.len(80, await core.callStorm(HOOKPOP))
+
+            chain = [core.getView(forkiden)]
+            while (kids := [v async for v in chain[-1].children()]):
+                chain.extend(kids)
+
+            self.len(81, chain)
+            for view in reversed(chain):
+                await core.delView(view.iden)
 
             # a view deleted by a created hook returns its original view definition
             hookdel = '$lib.view.get().set(desc, hooked) $lib.view.del($lib.view.get().iden)'
@@ -505,7 +542,7 @@ class ViewTest(s_t_utils.SynTest):
 
             await core.modViewHook(merging, {'enabled': False})
 
-            # triggers run by hook storm run view hooks, and the hook storm still does not
+            # triggers run by hook storm run view hooks
             await core.modViewHook(created, {'storm': f'$name=created {HOOKPUT}'})
 
             trigview = (await core.view.fork()).get('iden')
@@ -539,6 +576,7 @@ class ViewTest(s_t_utils.SynTest):
                 ('deleted', 'root', trigview),
                 ('created', 'root', trigfork),
                 ('deleted', 'root', trigfork),
+                ('created', 'root', hookfork),
             ], await core.callStorm(HOOKPOP))
 
             # dmons added by hook storm run view hooks
@@ -569,6 +607,32 @@ class ViewTest(s_t_utils.SynTest):
 
             for dmon in await core.getStormDmons():
                 await core.delStormDmon(dmon.get('iden'))
+
+            # package onloads started by hook storm run view hooks
+            await core.modViewHook(created, {'storm': f'''
+                $name=created {HOOKPUT}
+                $pkgdef = $lib.globals.get(hookpkg)
+                if $pkgdef {{
+                    $lib.globals.pop(hookpkg)
+                    $lib.pkg.add($pkgdef)
+                }}
+            '''})
+
+            pkgdef = {
+                'name': 'hookpkg',
+                'version': '0.0.1',
+                'onload': f'$lib.queue.gen(pkgviews).put($lib.view.get({core.view.iden}).fork().iden)',
+            }
+            await core.callStorm('$lib.globals.set(hookpkg, $pkgdef)', opts={'vars': {'pkgdef': pkgdef}})
+
+            pkgview = (await core.view.fork()).get('iden')
+            pkgfork = await core.callStorm('return($lib.queue.gen(pkgviews).pop(wait=(true)).1)')
+            self.nn(core.getView(pkgfork))
+
+            self.eq([
+                ('created', 'root', pkgview),
+                ('created', 'root', pkgfork),
+            ], await core.callStorm(HOOKPOP))
 
     async def test_view_merge_ival(self):
 

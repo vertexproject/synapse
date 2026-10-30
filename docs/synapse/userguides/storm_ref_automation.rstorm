@@ -1157,9 +1157,12 @@ View hooks have the following properties:
   The hook's ``creator`` records the user who added it, and does not affect how the hook runs. Enabled hooks of a
   given type run in the order they were created. Hooks do not run when the Cortex is in safe mode.
 - **Permissions.** Only a global **admin** can add, view, modify, or delete view hooks.
-- **Recursion.** Views created, merged, or deleted by the Storm query of a running view hook, including its
-  background and parallel subqueries, do not run view hooks. Triggers fired and dmons added by that Storm query still
-  run view hooks.
+- **Recursion.** Views created, merged, or deleted by the Storm query of a running view hook run view hooks,
+  including views changed by its background and parallel subqueries and by the triggers, dmons, and package
+  ``onload`` queries it starts. View hooks may nest up to 256 levels deep. A lifecycle event which would exceed that
+  depth raises a ``RecursionLimitHit`` error instead of running its hooks. A ``created`` hook should therefore check
+  a condition (such as the view's name or description) before creating views, so it does not run once for each new
+  view in an unbounded chain.
 
 View hooks are managed using the :ref:`stormlibs-lib-view-hook` libraries and the :ref:`stormprims-view-hook-f527`
 primitive.

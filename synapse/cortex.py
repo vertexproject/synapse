@@ -5243,8 +5243,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         Run the enabled view hooks of the given type in the view, ordered by creation time.
 
-        Hooks run as the root user. They do not run in safemode or from within the storm
-        of a running hook. Exceptions propagate to the caller unless errok is set, in which
+        Hooks run as the root user, in a new task, and do not run in safemode. Hooks run for
+        lifecycle events caused by hook storm, and the tasks it starts, up to a nesting depth
+        of VIEW_HOOK_MAX_DEPTH. Exceptions propagate to the caller unless errok is set, in which
         case they are logged and the remaining hooks run.
 
         Args:
@@ -5254,48 +5255,57 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Returns:
             bool: True if any hooks ran.
+
+        Raises:
+            s_exc.RecursionLimitHit: If running the hooks would exceed VIEW_HOOK_MAX_DEPTH.
         '''
         if self.safemode:
-            return False
-
-        if s_trigger.ViewHookRunning.get():
             return False
 
         hdefs = [hdef for hdef in self.viewhooks.values() if hdef.get('type') == htype and hdef.get('enabled')]
         if not hdefs:
             return False
 
+        depth = s_trigger.ViewHookDepth.get()
+        if depth >= s_const.VIEW_HOOK_MAX_DEPTH:
+            mesg = f'View hooks exceeded the maximum nesting depth of {s_const.VIEW_HOOK_MAX_DEPTH}.'
+            raise s_exc.RecursionLimitHit(mesg=mesg, limit=s_const.VIEW_HOOK_MAX_DEPTH, type=htype, view=view.iden)
+
         hdefs.sort(key=lambda hdef: hdef.get('created'))
 
-        root = self.auth.rootuser.iden
-        token = s_trigger.ViewHookRunning.set(True)
-        try:
-            for hdef in hdefs:
-
-                iden = hdef.get('iden')
-
-                # hooks run locally rather than on a storm pool mirror
-                opts = {
-                    'user': root,
-                    'view': view.iden,
-                    'mirror': False,
-                    'vars': {'auto': {'iden': iden, 'type': 'view:hook', 'opts': {'type': htype}}},
-                }
-
-                try:
-                    await self.callStorm(hdef.get('storm'), opts=opts)
-
-                except Exception:
-                    if not errok:
-                        raise
-
-                    logger.exception(f'Error running {htype} view hook {iden} in view {view.iden}',
-                                     extra=self.getLogExtra(iden=iden, view=view.iden, creator=hdef.get('creator')))
-
-        finally:
-            s_trigger.ViewHookRunning.reset(token)
+        # a new task keeps the python stack from growing with each nesting level
+        task = s_coro.create_task(self._execViewHooks(htype, view, hdefs, depth + 1, errok))
+        s_scope.clone(task)
+        await task
 
         return True
+
+    async def _execViewHooks(self, htype, view, hdefs, depth, errok):
+
+        s_trigger.ViewHookDepth.set(depth)
+
+        root = self.auth.rootuser.iden
+        for hdef in hdefs:
+
+            iden = hdef.get('iden')
+
+            # hooks run locally rather than on a storm pool mirror
+            opts = {
+                'user': root,
+                'view': view.iden,
+                'mirror': False,
+                'vars': {'auto': {'iden': iden, 'type': 'view:hook', 'opts': {'type': htype}}},
+            }
+
+            try:
+                await self.callStorm(hdef.get('storm'), opts=opts)
+
+            except Exception:
+                if not errok:
+                    raise
+
+                logger.exception(f'Error running {htype} view hook {iden} in view {view.iden}',
+                                 extra=self.getLogExtra(iden=iden, view=view.iden, creator=hdef.get('creator')))
 
     async def _runCreatedHooks(self, iden, pack):
         '''

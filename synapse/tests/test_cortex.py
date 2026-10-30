@@ -9322,7 +9322,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core._runViewHooks('created', fork)
 
                 self.len(2, await core.callStorm(popq))
-                self.false(s_trigger.ViewHookRunning.get())
+                self.eq(0, s_trigger.ViewHookDepth.get())
 
                 # errok logs the exception and runs the remaining hooks
                 await core.modViewHook(iden02, {'storm': f'$lib.raise(HookFail, nope) $name=hook02 {storm}'})
@@ -9337,12 +9337,26 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core.modViewHook(iden00, {'storm': f'$name=hook00 {storm}'})
                 await core.modViewHook(iden02, {'enabled': False})
 
-                # hooks do not run from within a running hook
-                token = s_trigger.ViewHookRunning.set(True)
+                # hooks run from within running hooks up to the nesting limit
+                token = s_trigger.ViewHookDepth.set(s_const.VIEW_HOOK_MAX_DEPTH - 1)
                 try:
                     await core._runViewHooks('created', fork)
+                    self.len(2, await core.callStorm(popq))
+
+                    s_trigger.ViewHookDepth.set(s_const.VIEW_HOOK_MAX_DEPTH)
+                    with self.raises(s_exc.RecursionLimitHit) as cm:
+                        await core._runViewHooks('created', fork)
+
+                    mesg = f'View hooks exceeded the maximum nesting depth of {s_const.VIEW_HOOK_MAX_DEPTH}.'
+                    self.eq(mesg, cm.exception.get('mesg'))
+                    self.eq(s_const.VIEW_HOOK_MAX_DEPTH, cm.exception.get('limit'))
+                    self.eq(s_const.VIEW_HOOK_MAX_DEPTH, s_trigger.ViewHookDepth.get())
+
+                    # hook types with no enabled hooks do not check the limit
+                    self.false(await core._runViewHooks('merging', fork))
+
                 finally:
-                    s_trigger.ViewHookRunning.reset(token)
+                    s_trigger.ViewHookDepth.reset(token)
 
                 self.eq([], await core.callStorm(popq))
 

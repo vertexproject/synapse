@@ -27,7 +27,6 @@ import synapse.lib.autodoc as s_autodoc
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
-import synapse.lib.trigger as s_trigger
 import synapse.lib.hashitem as s_hashitem
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
@@ -1343,9 +1342,6 @@ class StormDmon(s_base.Base):
 
         s_scope.set('user', self.user)
         s_scope.set('storm:dmon', self.iden)
-
-        # a dmon added by view hook storm still runs view hooks
-        s_trigger.ViewHookRunning.set(False)
 
         text = self.ddef.get('storm')
         opts = self.ddef.get('stormopts', {})
