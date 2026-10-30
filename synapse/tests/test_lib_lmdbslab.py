@@ -440,6 +440,23 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     for i in range(400):
                         slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
 
+            # reopened writable, the map is opened at maxsize so writes which fit succeed
+            async with await s_lmdbslab.Slab.anit(path, map_size=100000) as slab:
+
+                self.eq(my_maxsize, slab.mapsize)
+                self.eq(my_maxsize, slab.lenv.info()['map_size'])
+
+                foo = slab.initdb('foo', dupsort=True)
+                count = sum(1 for _ in slab.scanByFull(db=foo))
+
+                for i in range(10):
+                    slab.put(b'\xff\xff\xff\xff' + s_common.guid(i + 1000).encode('utf8'), byts, db=foo)
+
+                await slab.sync()
+
+                self.eq(count + 10, sum(1 for _ in slab.scanByFull(db=foo)))
+                self.eq(my_maxsize, slab.mapsize)
+
             # lets ensure our maxsize persisted and it caps the mapsize
             async with await s_lmdbslab.Slab.anit(path, map_size=100000, readonly=True) as newdb:
                 self.eq(my_maxsize, newdb.mapsize)
@@ -872,6 +889,31 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq(count - 1, sum(1 for _ in iterback))
                 self.eq(99, sum(1 for _ in iterback2))
 
+                grownsize = slab.mapsize
+
+            # reopening with the original map_size keeps the grown map, and its headroom
+            async with await s_lmdbslab.Slab.anit(path, map_size=100000) as slab:
+
+                mapsize = slab.mapsize
+                self.ge(mapsize, grownsize)
+                self.eq(mapsize, slab.lenv.info()['map_size'])
+
+                fulls = []
+                realfull = slab._handle_mapfull
+
+                def countfull():
+                    fulls.append(True)
+                    return realfull()
+
+                slab._handle_mapfull = countfull
+
+                foo = slab.initdb('foo', dupsort=True)
+                slab.put(b'\xff\xff\xff\xfd', byts, db=foo)
+                await slab.sync()
+
+                self.len(0, fulls)
+                self.eq(mapsize, slab.mapsize)
+
             # lets ensure our mapsize / growsize persisted, and make sure readonly works
             async with await s_lmdbslab.Slab.anit(path, map_size=100000, readonly=True) as newdb:
 
@@ -1092,10 +1134,23 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 slab.initdb('foo')
                 kvpairs = [(x, x) for x in data]
                 await slab.putmulti(kvpairs)
-                slab.forcecommit()
+
+                # the commit grows the map just enough to fit, leaving it at its edge
+                await slab.sync()
                 before_mapsize = slab.mapsize
+
+                fulls = []
+                realfull = slab._handle_mapfull
+
+                def countfull():
+                    fulls.append(True)
+                    return realfull()
+
+                slab._handle_mapfull = countfull
+
                 slab.dropdb('foo')
                 self.false(slab.dbexists('foo'))
+                self.gt(len(fulls), 0)
                 self.gt(slab.mapsize, before_mapsize)
 
     @staticmethod
