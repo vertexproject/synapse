@@ -1,13 +1,16 @@
 import gc
 import random
 import asyncio
+import weakref
 import contextlib
 import collections
+import unittest.mock as mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
+import synapse.lib.snap as s_snap
 
 from synapse.tests.utils import alist
 import synapse.tests.utils as s_t_utils
@@ -650,6 +653,67 @@ class SnapTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:ro=foo [ :readable = haha ]'))
             with self.raises(s_exc.ReadOnlyProp):
                 await core.nodes('test:ro=foo [ :readable=newp ]')
+
+            # with gc disabled, editors and their protonodes are freed by reference counting alone
+            editors = []
+
+            class Editor(s_snap.SnapEditor):
+
+                def __init__(self, *args, **kwargs):
+                    super().__init__(*args, **kwargs)
+                    editors.append(weakref.ref(self))
+
+            gc.collect()
+            gc.disable()
+            try:
+                with mock.patch.object(s_snap, 'SnapEditor', Editor):
+
+                    async with await core.view.snap(user=root) as snap:
+
+                        fnode = await snap.getNodeByNdef(('inet:fqdn', 'vertex.link'))
+
+                        async with snap.getNodeEditor(fnode) as protonode:
+                            await protonode.set('issuffix', False)
+
+                        self.len(0, protonode.ctx.protonodes)
+
+                        with self.raises(s_exc.BadArg):
+                            async with snap.getNodeEditor(fnode) as protonode:
+                                await protonode.set('issuffix', True)
+                                await protonode.addTag('gc')
+                                raise s_exc.BadArg()
+
+                        self.len(0, protonode.ctx.protonodes)
+
+                        async with snap.getEditor() as editor:
+                            await editor.addNode('inet:fqdn', 'gc.vertex.link')
+
+                        self.len(0, editor.protonodes)
+
+                        with self.raises(s_exc.BadArg):
+                            async with snap.getEditor() as editor:
+                                await editor.addNode('inet:fqdn', 'newp.vertex.link')
+                                raise s_exc.BadArg()
+
+                        self.len(0, editor.protonodes)
+
+                        nodedefs = [(('inet:fqdn', f'{x}.gc.vertex.link'), {}) for x in range(10)]
+                        self.len(10, await alist(snap.addNodes(nodedefs)))
+
+                del editor
+                del protonode
+
+                self.gt(len(editors), 0)
+                self.eq([], [ref for ref in editors if ref() is not None])
+
+            finally:
+                gc.enable()
+
+            # edits are only applied when the editor exits normally
+            self.len(1, await core.nodes('inet:fqdn=vertex.link +:issuffix=0'))
+            self.len(0, await core.nodes('inet:fqdn=vertex.link +#gc'))
+            self.len(1, await core.nodes('inet:fqdn=gc.vertex.link'))
+            self.len(0, await core.nodes('inet:fqdn=newp.vertex.link'))
 
     async def test_snap_subs_depth(self):
 

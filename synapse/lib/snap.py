@@ -56,6 +56,8 @@ class ProtoNode:
     '''
     A prototype node used for staging node adds using a SnapEditor.
 
+    A ProtoNode references its editor, see SnapEditor for releasing it.
+
     TODO: This could eventually fully mirror the synapse.lib.node.Node API and be used
           to slipstream into sections of the pipeline to facilitate a bulk edit / transaction
     '''
@@ -499,6 +501,11 @@ class ProtoNode:
 class SnapEditor:
     '''
     A SnapEditor allows tracking node edits with subs/deps as a transaction.
+
+    The editor and its protonodes reference each other, so only the cyclic GC can
+    reclaim them until clear() empties protonodes. Editors from Snap.getNodeEditor()
+    or Snap.getEditor() are cleared on exit. Code constructing a SnapEditor directly
+    must call clear() (e.g. in a finally block) once done; flushEdits() also clears it.
     '''
     def __init__(self, snap, meta=None):
         self.meta = meta
@@ -530,6 +537,12 @@ class SnapEditor:
         if nodeedits:
             await self.snap.applyNodeEdits(nodeedits, nodecache=nodecache, meta=self.meta)
 
+        self.clear()
+
+    def clear(self):
+        '''
+        Discard any unsaved edits and the protonodes, which reference this editor.
+        '''
         self.protonodes.clear()
 
     async def _addNode(self, form, valu, props=None, norminfo=None):
@@ -1265,24 +1278,32 @@ class Snap(s_base.Base):
         editor = SnapEditor(self)
         protonode = editor.loadNode(node)
 
-        yield protonode
+        try:
+            yield protonode
 
-        nodeedits = editor.getNodeEdits()
-        if nodeedits:
-            nodecache = {proto.buid: proto.node for proto in editor.protonodes.values()}
-            await self.applyNodeEdits(nodeedits, nodecache=nodecache)
+            nodeedits = editor.getNodeEdits()
+            if nodeedits:
+                nodecache = {proto.buid: proto.node for proto in editor.protonodes.values()}
+                await self.applyNodeEdits(nodeedits, nodecache=nodecache)
+
+        finally:
+            editor.clear()
 
     @contextlib.asynccontextmanager
     async def getEditor(self):
 
         editor = SnapEditor(self)
 
-        yield editor
+        try:
+            yield editor
 
-        nodeedits = editor.getNodeEdits()
-        if nodeedits:
-            nodecache = {proto.buid: proto.node for proto in editor.protonodes.values()}
-            await self.applyNodeEdits(nodeedits, nodecache=nodecache)
+            nodeedits = editor.getNodeEdits()
+            if nodeedits:
+                nodecache = {proto.buid: proto.node for proto in editor.protonodes.values()}
+                await self.applyNodeEdits(nodeedits, nodecache=nodecache)
+
+        finally:
+            editor.clear()
 
     async def applyNodeEdit(self, edit, nodecache=None):
         nodes = await self.applyNodeEdits((edit,), nodecache=nodecache)
