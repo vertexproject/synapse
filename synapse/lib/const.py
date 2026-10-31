@@ -57,3 +57,6 @@ AXON_READY_TIMEOUT = 300  # seconds
 
 # Socket constants
 UNIX_SOCKET_PATH_MAX = 103
+
+# The maximum nesting depth of view hooks.
+VIEW_HOOK_MAX_DEPTH = 256

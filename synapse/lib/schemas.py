@@ -74,6 +74,24 @@ _HttpExtAPIConfSchema = {
 
 reqValidHttpExtAPIConf = s_config.getJsValidator(_HttpExtAPIConfSchema)
 
+_viewHookSchema = {
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'name': {'type': 'string', 'minLength': 1},
+        'type': {'type': 'string', 'enum': ['created', 'merging', 'deleted']},
+        'storm': {'type': 'string'},
+        'enabled': {'type': 'boolean'},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'created': {'type': 'integer', 'minimum': 0},
+        'updated': {'type': 'integer', 'minimum': 0},
+    },
+    'additionalProperties': False,
+    'required': ['iden', 'name', 'type', 'storm', 'enabled', 'creator', 'created', 'updated'],
+}
+
+reqValidViewHook = s_config.getJsValidator(_viewHookSchema)
+
 _LayerPushPullSchema = {
     'type': 'object',
     'properties': {

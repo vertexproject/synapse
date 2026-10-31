@@ -1,0 +1,7 @@
+---
+desc: Added `$lib.view.hook` APIs to manage Storm hooks that run when views are created,
+  merged, or deleted.
+desc:literal: false
+prs: []
+type: feat
+...
