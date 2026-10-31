@@ -1,6 +1,6 @@
 ---
-desc: Fixed node editors leaving their proto nodes and themselves as reference cycles
-  for the cyclic garbage collector after each edit.
+desc: Fixed an issue which caused garbage collection cycles to delay cleanup during
+  node editing.
 desc:literal: false
 prs: []
 type: bug
