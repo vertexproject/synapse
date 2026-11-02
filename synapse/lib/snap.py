@@ -1528,8 +1528,8 @@ class Snap(s_base.Base):
 
                 valu = proplist
 
-                # the deconf guid may belong to a node which has an unsets prop
-                if unsets and await self.getNodeByNdef((form.full, s_common.guid(proplist))) is not None:
+                # the deconf guid may belong to a node which no longer matches
+                if await self.getNodeByNdef((form.full, s_common.guid(proplist))) is not None:
                     valu = s_common.guid()
 
                 proto = await editor.addNode(form.name, valu)

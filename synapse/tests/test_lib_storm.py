@@ -302,9 +302,26 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('inet:flow:from=({"name": "vertex", "type": "newp"})')
 
-            await core.nodes('[ ou:org=({"name": "origname"}) ]')
+            nodes = await core.nodes('[ ou:org=({"name": "origname"}) ]')
+            self.len(1, nodes)
+            orignode = nodes[0].ndef
             self.len(1, await core.nodes('ou:org=({"name": "origname"}) [ :name=newname ]'))
             self.len(0, await core.nodes('ou:org=({"name": "origname"})'))
+
+            # the deconf guid node no longer matches so a new node is created
+            nodes = await core.nodes('[ ou:org=({"name": "origname"}) ]')
+            self.len(1, nodes)
+            self.ne(orignode, nodes[0].ndef)
+            self.eq('origname', nodes[0].get('name'))
+
+            nodes = await core.nodes('ou:org:name=newname')
+            self.len(1, nodes)
+            self.eq(orignode, nodes[0].ndef)
+
+            nodes = await core.nodes('[ ou:org=({"name": "origname"}) ]')
+            self.len(1, nodes)
+            self.ne(orignode, nodes[0].ndef)
+            self.len(1, await core.nodes('ou:org:name=origname'))
 
             nodes = await core.nodes('[ it:exec:proc=(notime,) ]')
             self.len(1, nodes)
