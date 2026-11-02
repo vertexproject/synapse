@@ -828,13 +828,16 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(retn, [-99999.9, -42.1])
 
             # <= NaN
-            await self.agenraises(s_exc.NotANumberCompared, stor.indxBy(indxby, '<=', math.nan))
+            with self.raises(s_exc.NotANumberCompared):
+                await alist(stor.indxBy(indxby, '<=', math.nan))
 
             # >= NaN
-            await self.agenraises(s_exc.NotANumberCompared, stor.indxBy(indxby, '>=', math.nan))
+            with self.raises(s_exc.NotANumberCompared):
+                await alist(stor.indxBy(indxby, '>=', math.nan))
 
             # 1.0 to NaN
-            await self.agenraises(s_exc.NotANumberCompared, stor.indxBy(indxby, 'range=', (1.0, math.nan)))
+            with self.raises(s_exc.NotANumberCompared):
+                await alist(stor.indxBy(indxby, 'range=', (1.0, math.nan)))
 
     async def test_layer_stortype_guid(self):
         stor = s_layer.StorTypeGuid(None)
@@ -1312,7 +1315,8 @@ class LayerTest(s_t_utils.SynTest):
             cdir = s_common.gendir(copylayr.dirn, 'adir')
             self.true(os.path.exists(cdir))
 
-            await self.asyncraises(s_exc.NoSuchLayer, prox.cloneLayer('newp'))
+            with self.raises(s_exc.NoSuchLayer):
+                await prox.cloneLayer('newp')
 
             self.false(layr.readonly)
 
@@ -1700,8 +1704,11 @@ class LayerTest(s_t_utils.SynTest):
                 self.gt(len(edits2), len(edits1))
 
                 self.true(await core.callStorm('$layer=$lib.layer.get() $layer.set(readonly, $lib.true) return($layer.get(readonly))'))
-                await self.asyncraises(s_exc.IsReadOnly, core.nodes('[inet:ipv4=7.7.7.7]'))
-                await self.asyncraises(s_exc.IsReadOnly, core.nodes('$lib.layer.get().set(logedits, $lib.false)'))
+                with self.raises(s_exc.IsReadOnly):
+                    await core.nodes('[inet:ipv4=7.7.7.7]')
+
+                with self.raises(s_exc.IsReadOnly):
+                    await core.nodes('$lib.layer.get().set(logedits, $lib.false)')
 
                 self.false(await core.callStorm('$layer=$lib.layer.get() $layer.set(readonly, $lib.false) return($layer.get(readonly))'))
                 self.len(1, await core.nodes('[inet:ipv4=7.7.7.7]'))
@@ -2400,6 +2407,10 @@ class LayerTest(s_t_utils.SynTest):
                             $oldv = $sode.props."_custom:risk:level"
                             $layer.setStorNodeProp($buid, "test:guid:_custom:risk:severity", $oldv.0)
                             $layer.delStorNodeProp($buid, $fullprop)
+
+                            if (not $layer.setNodeDataValu($buid, oldlevel, $oldv.0)) {
+                                $lib.raise(BadArg, "setNodeDataValu() made no edits")
+                            }
                         }
 
                         $layer.delNodeData($buid, foo)
@@ -2438,12 +2449,14 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.none(nodes[0].get('_custom:risk:level'))
             self.eq(nodes[0].get('_custom:risk:severity'), 10)
+            self.eq(await nodes[0].getData('oldlevel'), 10)
 
             nodes = await core.nodes('test:guid:name=test0', opts=inview)
             self.len(1, nodes)
             self.none(nodes[0].get('_custom:risk:level'))
             self.eq(nodes[0].get('_custom:risk:severity'), 20)
-            self.eq(await s_t_utils.alist(nodes[0].iterData()), [('baz', 'baz')])
+            self.eq(await nodes[0].getData('oldlevel'), 20)
+            self.eq(sorted(await s_t_utils.alist(nodes[0].iterData())), [('baz', 'baz'), ('oldlevel', 20)])
             self.eq(await s_t_utils.alist(nodes[0].iterEdgesN1()), [('refs', refs.iden())])
             self.len(0, await s_t_utils.alist(nodes[0].iterEdgesN2()))
 

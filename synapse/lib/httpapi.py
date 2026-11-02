@@ -13,6 +13,7 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.json as s_json
+import synapse.lib.config as s_config
 import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
@@ -1264,6 +1265,191 @@ class StormVarsSetV1(Handler):
 
         await self.cell.setStormVar(varname, varvalu)
         return self.sendRestRetn(True)
+
+_vaultProps = s_schemas.vaultSchema['properties']
+
+reqValidVaultGet = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'iden': _vaultProps['iden'],
+        'name': _vaultProps['name'],
+        'type': _vaultProps['type'],
+        'scope': {'type': ['string', 'null'], 'enum': [None, 'user', 'role', 'global']},
+    },
+    'oneOf': [
+        {'required': ['iden']},
+        {'required': ['name']},
+        {'required': ['type']},
+    ],
+    'dependencies': {'scope': ['type']},
+    'additionalProperties': False,
+})
+
+reqValidVaultAdd = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'name': _vaultProps['name'],
+        'type': _vaultProps['type'],
+        'scope': _vaultProps['scope'],
+        'owner': _vaultProps['owner'],
+        'secrets': _vaultProps['secrets'],
+        'configs': _vaultProps['configs'],
+    },
+    'required': ['name', 'type', 'scope', 'owner', 'secrets', 'configs'],
+    'additionalProperties': False,
+})
+
+reqValidVaultDel = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'iden': _vaultProps['iden'],
+    },
+    'required': ['iden'],
+    'additionalProperties': False,
+})
+
+_vaultErrCodes = {
+    s_exc.AuthDeny: HTTPStatus.FORBIDDEN,
+    s_exc.NoSuchIden: HTTPStatus.NOT_FOUND,
+    s_exc.NoSuchName: HTTPStatus.NOT_FOUND,
+    s_exc.NoSuchRole: HTTPStatus.NOT_FOUND,
+    s_exc.NoSuchUser: HTTPStatus.NOT_FOUND,
+    s_exc.DupName: HTTPStatus.CONFLICT,
+    s_exc.BadArg: HTTPStatus.BAD_REQUEST,
+    s_exc.NotMsgpackSafe: HTTPStatus.BAD_REQUEST,
+    s_exc.SchemaViolation: HTTPStatus.BAD_REQUEST,
+}
+
+_vaultErrs = tuple(_vaultErrCodes)
+
+class VaultHandler(StormHandler):
+    '''
+    Base class for the vault HTTP APIs.
+
+    Subclasses implement _runVault(body).
+    '''
+    _vaultValidator = None
+
+    async def _handleVault(self):
+
+        if not await self.reqAuthUser():
+            return
+
+        body = None
+        if self._vaultValidator is not None:
+            body = self.getJsonBody(validator=self._vaultValidator)
+            if body is None:
+                return
+
+        try:
+            retn = await self._runVault(body)
+
+        except _vaultErrs as e:
+            code = next(code for errcls, code in _vaultErrCodes.items() if isinstance(e, errcls))
+            return self.sendRestExc(e, status_code=code)
+
+        return self.sendRestRetn(retn)
+
+class VaultListV1(VaultHandler):
+    '''
+    /api/v1/vault/list
+    '''
+    async def get(self):
+        return await self._handleVault()
+
+    async def _runVault(self, body):
+        core = self.getCore()
+        return await core.getVaults(user=await self.useriden())
+
+class VaultGetV1(VaultHandler):
+    '''
+    /api/v1/vault/get
+    '''
+    _vaultValidator = staticmethod(reqValidVaultGet)
+
+    async def get(self):
+        return await self._handleVault()
+
+    async def post(self):
+        return await self._handleVault()
+
+    async def _runVault(self, body):
+
+        core = self.getCore()
+        useriden = await self.useriden()
+
+        iden = body.get('iden')
+        if iden is not None:
+            vault = await core.getVault(iden, user=useriden)
+            if vault is None:
+                raise s_exc.NoSuchIden(mesg=f'Vault not found for iden: {iden}.', iden=iden)
+
+            return vault
+
+        name = body.get('name')
+        if name is not None:
+            vault = await core.getVaultByName(name, user=useriden)
+            if vault is None:
+                raise s_exc.NoSuchName(mesg=f'Vault not found for name: {name}.', name=name)
+
+            return vault
+
+        vtype = body.get('type')
+        vault = await core.getVaultByType(vtype, scope=body.get('scope'), user=useriden)
+        if vault is None:
+            raise s_exc.NoSuchName(mesg=f'Vault not found for type: {vtype}.', name=vtype)
+
+        return vault
+
+class VaultAddV1(VaultHandler):
+    '''
+    /api/v1/vault/add
+    '''
+    _vaultValidator = staticmethod(reqValidVaultAdd)
+
+    async def post(self):
+        return await self._handleVault()
+
+    async def _runVault(self, body):
+        core = self.getCore()
+        useriden = await self.useriden()
+
+        iden = await core.addVault(body, user=useriden)
+
+        try:
+            return await core.getVault(iden, user=useriden)
+
+        except s_exc.AuthDeny:
+            # a non-admin may add an unscoped vault owned by another user which they cannot read
+            vault = await core.getVault(iden)
+            vault.pop('secrets', None)
+            return vault
+
+class VaultModV1(VaultHandler):
+    '''
+    /api/v1/vault/mod
+    '''
+    _vaultValidator = staticmethod(s_schemas.reqValidVault)
+
+    async def post(self):
+        return await self._handleVault()
+
+    async def _runVault(self, body):
+        core = self.getCore()
+        return await core.modVault(body, user=await self.useriden())
+
+class VaultDelV1(VaultHandler):
+    '''
+    /api/v1/vault/del
+    '''
+    _vaultValidator = staticmethod(reqValidVaultDel)
+
+    async def post(self):
+        return await self._handleVault()
+
+    async def _runVault(self, body):
+        core = self.getCore()
+        await core.delVault(body.get('iden'), user=await self.useriden())
 
 class OnePassIssueV1(Handler):
     '''

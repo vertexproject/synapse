@@ -2378,8 +2378,9 @@ class Time(IntBase):
             strip = text.strip()
             if strip.endswith('*'):
                 tick, tock = s_time.wildrange(strip[:-1])
+                last = tock - 1
                 def cmpr(valu):
-                    return valu <= tock
+                    return valu <= last
                 return cmpr
 
         return IntBase._ctorCmprLe(self, text)
@@ -2409,7 +2410,7 @@ class Time(IntBase):
                 if cmpr == '=':
                     tick, tock = s_time.wildrange(text[:-1])
                     return (
-                        ('range=', (tick, tock), self.stortype),
+                        ('range=', (tick, tock - 1), self.stortype),
                     )
 
                 if cmpr == '<':
@@ -2421,7 +2422,7 @@ class Time(IntBase):
                 if cmpr == '<=':
                     tick, tock = s_time.wildrange(text[:-1])
                     return (
-                        ('<=', tock, self.stortype),
+                        ('<=', tock - 1, self.stortype),
                     )
 
         return IntBase._storLiftNorm(self, cmpr, valu)

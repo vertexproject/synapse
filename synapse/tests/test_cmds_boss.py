@@ -102,7 +102,9 @@ class CmdBossTest(s_t_utils.SynTest):
                 self.true(toutp.expect('0 tasks found.'))
 
                 # Try killing from the unprivileged user
-                await self.asyncraises(s_exc.AuthDeny, tcore.kill(iden))
+                with self.raises(s_exc.AuthDeny):
+                    await tcore.kill(iden)
+
                 toutp.clear()
                 await tcmdr.runCmdLine('kill %s' % (iden,))
                 self.true(toutp.expect('no matching process found.'))
