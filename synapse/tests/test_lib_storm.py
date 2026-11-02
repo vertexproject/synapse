@@ -135,6 +135,134 @@ class StormTest(s_t_utils.SynTest):
             self.eq(props.get('name'), 'burrito corp')
             self.eq(props.get('desc'), 'burritos man')
 
+            # $unsets: new node, prop is absent
+            nodes = await core.nodes('[ ou:org=({"name": "unsetorg", "$unsets": ["desc"]}) ]')
+            self.len(1, nodes)
+            self.eq('unsetorg', nodes[0].get('name'))
+            self.none(nodes[0].get('desc'))
+            unsetorg = nodes[0].ndef
+
+            nodes = await core.nodes('$p = "desc" [ ou:org=({"name": "unsetorg-var", "$unsets": [$p]}) ]')
+            self.len(1, nodes)
+            self.none(nodes[0].get('desc'))
+
+            # $unsets: existing node with the prop absent matches
+            nodes = await core.nodes('[ ou:org=({"name": "unsetorg", "$unsets": ["phone"]}) ]')
+            self.len(1, nodes)
+            self.eq(unsetorg, nodes[0].ndef)
+
+            nodes = await core.nodes('[ ou:org=({"name": "unsetorg", "$unsets": []}) ]')
+            self.len(1, nodes)
+            self.eq(unsetorg, nodes[0].ndef)
+
+            # $unsets: exact guid match with the prop set creates a new node
+            nodes = await core.nodes('[ ou:org=({"name": "unsetorg2", "$props": {"desc": "present"}}) ]')
+            self.len(1, nodes)
+            hasdesc = nodes[0].ndef
+
+            nodes = await core.nodes('[ ou:org=({"name": "unsetorg2", "$unsets": ["desc"]}) ]')
+            self.len(1, nodes)
+            self.ne(hasdesc, nodes[0].ndef)
+            self.none(nodes[0].get('desc'))
+            nodesc = nodes[0].ndef
+
+            self.len(2, await core.nodes('ou:org:name=unsetorg2'))
+
+            nodes = await core.nodes('[ ou:org=({"name": "unsetorg2", "$unsets": ["desc"]}) ]')
+            self.len(1, nodes)
+            self.eq(nodesc, nodes[0].ndef)
+
+            nodes = await core.nodes('ou:org=({"name": "unsetorg2", "$unsets": ["desc"]})')
+            self.len(1, nodes)
+            self.eq(nodesc, nodes[0].ndef)
+
+            nodes = await core.nodes('[ ou:org=({"name": "unsetorg2"}) ]')
+            self.len(1, nodes)
+            self.eq(hasdesc, nodes[0].ndef)
+
+            # $unsets: lifted (non-exact guid) match with the prop set is skipped
+            await core.nodes('[ ou:org=* :name=unsetorg4 :desc=present ]')
+            self.len(0, await core.nodes('ou:org=({"name": "unsetorg4", "$unsets": ["desc"]})'))
+
+            nodes = await core.nodes('[ ou:org=({"name": "unsetorg4", "$unsets": ["desc"]}) ]')
+            self.len(1, nodes)
+            self.none(nodes[0].get('desc'))
+            self.len(2, await core.nodes('ou:org:name=unsetorg4'))
+
+            await core.nodes('[ ou:org=* :name=unsetorg5 ]')
+            nodes = await core.nodes('[ ou:org=({"name": "unsetorg5", "$unsets": ["desc"]}) ]')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('ou:org:name=unsetorg5'))
+
+            # $unsets: $props sets a different prop
+            await core.nodes('[ ou:org=({"name": "unsetorg3", "$props": {"desc": "ok"}}) ]')
+            nodes = await core.nodes('[ ou:org=({"name": "unsetorg3", "$props": {"desc": "ok"}, "$unsets": ["phone"]}) ]')
+            self.len(1, nodes)
+            self.eq('ok', nodes[0].get('desc'))
+            self.len(1, await core.nodes('ou:org:name=unsetorg3'))
+
+            msgs = await core.stormlist('[ ou:org=({"name": "unsetorg", "$unsets": "desc"}) ]')
+            self.stormIsInErr('$unsets must be a list of property name strings for form ou:org', msgs)
+
+            msgs = await core.stormlist('[ ou:org=({"name": "unsetorg", "$unsets": [42]}) ]')
+            self.stormIsInErr('$unsets must be a list of property name strings for form ou:org', msgs)
+
+            msgs = await core.stormlist('[ ou:org=({"name": "unsetorg", "$unsets": ["newp"]}) ]')
+            self.stormIsInErr('No property named', msgs)
+
+            msgs = await core.stormlist('[ ou:org=({"name": "unsetorg", "$try": true, "$unsets": ["newp"]}) ]')
+            self.stormIsInErr('No property named', msgs)
+
+            msgs = await core.stormlist('[ ou:org=({"name": "unsetorg", "$unsets": ["name"]}) ]')
+            self.stormIsInErr("Cannot specify 'name' in $unsets - it is also used for guid deconfliction on form ou:org", msgs)
+
+            msgs = await core.stormlist('[ ou:org=({"name": "unsetorg", "$props": {"desc": "x"}, "$unsets": ["desc"]}) ]')
+            self.stormIsInErr("Cannot specify 'desc' in $unsets - it is also being set via $props on form ou:org", msgs)
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.addNode(core.auth.rootuser, 'ou:org', {'name': 'unsetorg', '$unsets': ('desc',)}, props={'desc': 'x'})
+
+            node = await core.addNode(core.auth.rootuser, 'ou:org', {'name': 'unsetorg2', '$unsets': ('desc',)}, props={'phone': '15551234567'})
+            self.eq(nodesc[1], node[0][1])
+            self.eq('15551234567', node[1]['props'].get('phone'))
+
+            # $unsets: nested gutors
+            await core.nodes('[ inet:service:platform=({"name": "unsetplat"}) ]')
+            await core.nodes('[ inet:service:platform=* :name=unsetplat2 :url=http://unsetplat2.com ]')
+
+            q = '''[
+                inet:service:message=({
+                    "id": $id,
+                    "$props": {
+                        "platform": {"name": $name, "$unsets": ["url"]}
+                    }
+                })
+            ]'''
+            nodes = await core.nodes(q, opts={'vars': {'id': 'unsetmesg', 'name': 'unsetplat'}})
+            self.len(1, nodes)
+            self.len(1, await core.nodes('inet:service:platform:name=unsetplat'))
+
+            nodes = await core.nodes(q, opts={'vars': {'id': 'unsetmesg2', 'name': 'unsetplat2'}})
+            self.len(1, nodes)
+            plats = await core.nodes('inet:service:message:id=unsetmesg2 :platform -> inet:service:platform')
+            self.len(1, plats)
+            self.none(plats[0].get('url'))
+            self.len(2, await core.nodes('inet:service:platform:name=unsetplat2'))
+
+            q = 'inet:service:channel:platform=({"name": "unsetplat2", "$unsets": ["url"]})'
+            self.len(0, await core.nodes(q))
+            await core.nodes('[ inet:service:channel=* :platform=({"name": "unsetplat2", "$unsets": ["url"]}) ]')
+            self.len(1, await core.nodes(q))
+
+            await core.nodes('[ inet:service:platform=* :name=unsetplat3 :url=http://unsetplat3.com ]')
+            await core.nodes('[ inet:service:message=* :id=unsetmesg3 :platform={ inet:service:platform:name=unsetplat3 } ]')
+
+            q = 'inet:service:message=({"id": $id, "platform": {"name": $name, "$unsets": ["url"]}})'
+            nodes = await core.nodes(q, opts={'vars': {'id': 'unsetmesg2', 'name': 'unsetplat2'}})
+            self.len(1, nodes)
+            self.eq('unsetmesg2', nodes[0].get('id'))
+            self.len(0, await core.nodes(q, opts={'vars': {'id': 'unsetmesg3', 'name': 'unsetplat3'}}))
+
             with self.raises(s_exc.BadTypeValu):
                 await core.addNode(core.auth.rootuser, 'ou:org', {'name': 'org name 77', 'phone': 'lolnope'}, props={'desc': 'an org desc'})
 

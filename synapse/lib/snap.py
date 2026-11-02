@@ -388,8 +388,8 @@ class ProtoNode:
                 if (isinstance(valu, dict) and isinstance(prop.type, s_types.Guid)
                     and (form := self.ctx.snap.core.model.form(prop.type.name)) is not None):
 
-                    norms, props = await self.ctx.snap._normGuidNodeDict(form, valu)
-                    valu = await self.ctx.snap._addGuidNodeByDict(form, norms, props)
+                    norms, props, unsets = await self.ctx.snap._normGuidNodeDict(form, valu)
+                    valu = await self.ctx.snap._addGuidNodeByDict(form, norms, props, unsets=unsets)
                     norminfo = {}
                 else:
                     valu, norminfo = prop.type.norm(valu)
@@ -1492,8 +1492,8 @@ class Snap(s_base.Base):
         if isinstance(valu, dict):
             form = self.core.model.reqForm(name)
             if isinstance(form.type, s_types.Guid):
-                norms, props = await self._normGuidNodeDict(form, valu, props=props)
-                valu = await self._addGuidNodeByDict(form, norms, props)
+                norms, props, unsets = await self._normGuidNodeDict(form, valu, props=props)
+                valu = await self._addGuidNodeByDict(form, norms, props, unsets=unsets)
                 return await self.getNodeByNdef((name, valu))
 
         async with self.getEditor() as editor:
@@ -1504,7 +1504,7 @@ class Snap(s_base.Base):
         # the newly constructed node is cached
         return await self.getNodeByBuid(protonode.buid)
 
-    async def _addGuidNodeByDict(self, form, norms, props):
+    async def _addGuidNodeByDict(self, form, norms, props, unsets=()):
 
         for name, info in norms.items():
             if info[0].isform:
@@ -1516,7 +1516,7 @@ class Snap(s_base.Base):
                 valu = await self._addGuidNodeByDict(*info)
                 props[name] = (form.prop(name), valu, {})
 
-        node = await self._getGuidNodeByNorms(form, norms)
+        node = await self._getGuidNodeByNorms(form, norms, unsets=unsets)
 
         async with self.getEditor() as editor:
 
@@ -1526,7 +1526,13 @@ class Snap(s_base.Base):
                 proplist = [(name, info[1]) for name, info in norms.items()]
                 proplist.sort()
 
-                proto = await editor.addNode(form.name, proplist)
+                valu = proplist
+
+                # the deconf guid may belong to a node which has an unsets prop
+                if unsets and await self.getNodeByNdef((form.full, s_common.guid(proplist))) is not None:
+                    valu = s_common.guid()
+
+                proto = await editor.addNode(form.name, valu)
                 for name, (prop, valu, info) in norms.items():
                     await proto.set(name, valu, norminfo=info)
 
@@ -1543,10 +1549,27 @@ class Snap(s_base.Base):
 
         trycast = vals.pop('$try', False)
         addprops = vals.pop('$props', None)
+        unsets = vals.pop('$unsets', ())
 
         if not vals:
             mesg = f'No values provided for form {form.full}'
             raise s_exc.BadTypeValu(mesg=mesg)
+
+        if unsets:
+            if not isinstance(unsets, (list, tuple)) or not all(isinstance(n, str) for n in unsets):
+                mesg = f'$unsets must be a list of property name strings for form {form.full}'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
+            for name in unsets:
+                form.reqProp(name)
+
+                if name in vals:
+                    mesg = f'Cannot specify {name!r} in $unsets - it is also used for guid deconfliction on form {form.full}'
+                    raise s_exc.BadTypeValu(mesg=mesg)
+
+                if name in props or (addprops and name in addprops):
+                    mesg = f'Cannot specify {name!r} in $unsets - it is also being set via $props on form {form.full}'
+                    raise s_exc.BadTypeValu(mesg=mesg)
 
         props |= await self._normGuidNodeProps(form, props)
 
@@ -1555,7 +1578,7 @@ class Snap(s_base.Base):
 
         norms = await self._normGuidNodeProps(form, vals)
 
-        return norms, props
+        return norms, props, unsets
 
     async def _normGuidNodeProps(self, form, props, trycast=False):
 
@@ -1566,8 +1589,8 @@ class Snap(s_base.Base):
 
             if isinstance(valu, dict) and isinstance(prop.type, s_types.Guid):
                 pform = self.core.model.reqForm(prop.type.name)
-                gnorm, gprop = await self._normGuidNodeDict(pform, valu)
-                norms[name] = (pform, gnorm, gprop)
+                gnorm, gprop, gunset = await self._normGuidNodeDict(pform, valu)
+                norms[name] = (pform, gnorm, gprop, gunset)
                 continue
 
             try:
@@ -1587,15 +1610,15 @@ class Snap(s_base.Base):
         return norms
 
     async def _getGuidNodeByDict(self, form, props):
-        norms, _ = await self._normGuidNodeDict(form, props)
-        return await self._getGuidNodeByNorms(form, norms)
+        norms, _, unsets = await self._normGuidNodeDict(form, props)
+        return await self._getGuidNodeByNorms(form, norms, unsets=unsets)
 
-    async def _getGuidNodeByNorms(self, form, norms):
+    async def _getGuidNodeByNorms(self, form, norms, unsets=()):
 
         proplist = []
         for name, info in norms.items():
             if info[0].isform:
-                if (node := await self._getGuidNodeByNorms(*info[:2])) is None:
+                if (node := await self._getGuidNodeByNorms(info[0], info[1], unsets=info[3])) is None:
                     return
                 valu = node.ndef[1]
                 norms[name] = (form.prop(name), valu, {})
@@ -1614,7 +1637,11 @@ class Snap(s_base.Base):
                 if not self._filtByPropAlts(node, prop, norm):
                     break
             else:
-                return node
+                for name in unsets:
+                    if node.get(name) is not None:
+                        break
+                else:
+                    return node
 
         # TODO there is an opportunity here to populate
         # a look-aside for the alternative iden to speed
@@ -1641,7 +1668,11 @@ class Snap(s_base.Base):
                 if not self._filtByPropAlts(node, prop, norm):
                     break
             else:
-                return node
+                for name in unsets:
+                    if node.get(name) is not None:
+                        break
+                else:
+                    return node
 
         return None
 

@@ -1,0 +1,7 @@
+---
+desc: Added support for the ``$unsets`` key to Storm guid dictionary syntax to only
+  match nodes which do not have the specified properties set.
+desc:literal: false
+prs: []
+type: feat
+...
