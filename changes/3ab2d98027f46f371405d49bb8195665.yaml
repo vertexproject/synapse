@@ -1,6 +1,6 @@
 ---
-desc: Added the `v3.checkready` Storm command to check a Cortex, its Axon and JsonStor, and its Storm services
-  for Synapse 3.x readiness, and the `checkV3Ready()` Cell API which each of them runs.
+desc: Added the `v3.checkready` Storm command to check a Cortex and its Storm services for Synapse 3.x
+  readiness, and the `checkV3Ready()` Cell API which it runs on each service.
 desc:literal: false
 prs: []
 type: feat

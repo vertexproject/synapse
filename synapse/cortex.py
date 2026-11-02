@@ -3533,7 +3533,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     def getStormSvcs(self):
         return list(self.svcsbyiden.values())
 
-    async def _checkV3Ready(self):
+    async def checkV3Ready(self):
         async for mesg in self._checkV3Model():
             yield mesg
 

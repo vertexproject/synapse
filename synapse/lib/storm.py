@@ -6016,14 +6016,14 @@ class ColorizeCmd(Cmd):
 
 class V3CheckReadyCmd(Cmd):
     '''
-    Check the Cortex, its Axon and JsonStor, and its Storm services for readiness to upgrade to Synapse 3.x.
+    Check the Cortex and its Storm services for readiness to upgrade to Synapse 3.x.
 
     Warns about deprecated forms, properties, and types which are still in use
     in any layer, about installed Power-Ups which are below the minimum version
     that supports Synapse 3.x, about installed Vertex Power-Ups which are not
     yet available for Synapse 3.x, and about layer model migrations or Power-Up
     inits which have not completed yet. Then runs the 3.x readiness check of
-    the Axon, the JsonStor, and each Storm service, each in a section of its own.
+    each Storm service in a section of its own, and names those which are not ready.
 
     NOTE: This command requires admin privileges.
 
@@ -6036,8 +6036,8 @@ class V3CheckReadyCmd(Cmd):
     name = 'v3.checkready'
     readonly = True
 
-    # seconds the 3.x readiness check of another cell may take
-    celltimeout = 60
+    # seconds the 3.x readiness check of a Storm service may take
+    svctimeout = 60
 
     async def execStormCmd(self, runt, genr):
 
@@ -6047,51 +6047,48 @@ class V3CheckReadyCmd(Cmd):
 
         ready = await self._printCheck(runt, core.checkV3Ready())
 
-        cells = [('the Axon', core.axon, core.axready.is_set()), ('the JsonStor', core.jsonstor, True)]
+        notready = []
         for ssvc in sorted(core.getStormSvcs(), key=lambda s: s.name):
-            cells.append((f'service {ssvc.name}', ssvc.proxy, ssvc.ready.is_set()))
-
-        for label, cell, connected in cells:
-            ready = await self._checkCell(runt, label, cell, connected) and ready
+            if not await self._checkSvc(runt, ssvc):
+                notready.append(ssvc.name)
 
         if ready:
             await runt.printf('Your Cortex is ready for Synapse 3.x.')
         else:
             await runt.printf('Your Cortex is not ready for Synapse 3.x.')
 
+        if notready:
+            await runt.printf(f'These services are not ready for Synapse 3.x: {", ".join(notready)}.')
+
         async for item in genr:
             yield item
 
-    async def _checkCell(self, runt, label, cell, connected):
+    async def _checkSvc(self, runt, ssvc):
         '''
-        Run the 3.x readiness check of a cell, or of the one a telepath Client connects to, which may predate the
-        check. A cell which is not connected is warned about, but does not change the result.
+        Run the 3.x readiness check of a Storm service, returning whether it passed. A service which predates the
+        check passes, and one which is not connected is warned about, but passes.
         '''
-        if isinstance(cell, s_telepath.Client):
+        proxy = None
+        if ssvc.ready.is_set():
+            try:
+                proxy = await ssvc.proxy.proxy()
+            except (TimeoutError, s_exc.IsFini):
+                pass
 
-            proxy = None
-            if connected:
-                try:
-                    proxy = await cell.proxy()
-                except (TimeoutError, s_exc.IsFini):
-                    pass
+        if proxy is None:
+            await runt.warn(f'Could not check service {ssvc.name}, which is not connected.')
+            return True
 
-            if proxy is None:
-                await runt.warn(f'Could not check {label}, which is not connected.')
-                return True
+        if not proxy._hasTeleMeth('checkV3Ready'):
+            return True
 
-            if not proxy._hasTeleMeth('checkV3Ready'):
-                return True
-
-            cell = proxy
-
-        await runt.printf(f'Checking {label}...')
+        await runt.printf(f'Checking service {ssvc.name}...')
         try:
-            return await s_common.wait_for(self._printCheck(runt, cell.checkV3Ready()), timeout=self.celltimeout)
+            return await s_common.wait_for(self._printCheck(runt, proxy.checkV3Ready()), timeout=self.svctimeout)
 
         except Exception as e:
             mesg = e.get('mesg') if isinstance(e, s_exc.SynErr) else str(e)
-            await runt.warn(f'Could not check {label}: {mesg or e.__class__.__name__}')
+            await runt.warn(f'Could not check service {ssvc.name}: {mesg or e.__class__.__name__}')
             return False
 
     async def _printCheck(self, runt, genr):

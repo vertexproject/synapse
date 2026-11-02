@@ -3395,30 +3395,18 @@ class CellTest(s_t_utils.SynTest):
                     self.eq(0, await prox.getV3DbSize('vals'))
                     self.eq(['empty'], await prox.getV3DbNames())
 
-                    # the 3.x readiness check stamps its result into the preflight DB
-                    mesgs = await s_t_utils.alist(prox.checkV3Ready())
-                    self.len(1, mesgs)
-                    self.eq('fini', mesgs[0][0])
-                    self.true(mesgs[0][1]['ok'])
-                    self.eq(cell.VERSION, mesgs[0][1]['cell:version'])
-                    self.eq(s_version.version, mesgs[0][1]['synapse:version'])
-                    self.eq(mesgs[0][1], await prox.getV3Value('preflight', 'result'))
+                    # the 3.x readiness check has nothing to check on a base cell, and relays what a subclass checks
+                    self.eq([], await s_t_utils.alist(prox.checkV3Ready()))
 
-                    # which a subclass extends with its own errors and warnings
                     async def checks():
                         yield ('print', 'Checking...')
                         yield ('error', 'Not ready.')
                         yield ('warning', 'Something to know.')
 
-                    with mock.patch.object(cell, '_checkV3Ready', checks):
+                    with mock.patch.object(cell, 'checkV3Ready', checks):
                         mesgs = await s_t_utils.alist(prox.checkV3Ready())
 
-                    self.eq([('print', 'Checking...'), ('error', 'Not ready.'), ('warning', 'Something to know.')], mesgs[:-1])
-                    result = mesgs[-1][1]
-                    self.false(result['ok'])
-                    self.eq(['Not ready.'], result['errors'])
-                    self.eq(['Something to know.'], result['warnings'])
-                    self.eq(result, await prox.getV3Value('preflight', 'result'))
+                    self.eq([('print', 'Checking...'), ('error', 'Not ready.'), ('warning', 'Something to know.')], mesgs)
 
                     await prox.dropV3Slab()
                     self.none(cell.v3slab)
