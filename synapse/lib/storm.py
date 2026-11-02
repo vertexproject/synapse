@@ -6025,7 +6025,8 @@ class V3CheckReadyCmd(Cmd):
     in any layer, about installed Power-Ups which are below the minimum version
     that supports Synapse 3.x, about installed Vertex Power-Ups which are not
     yet available for Synapse 3.x, and about layer model migrations or Power-Up
-    inits which have not completed yet.
+    inits which have not completed yet. Then runs the 3.x readiness check of
+    each Storm service which has one.
 
     NOTE: This command requires admin privileges.
 
@@ -6045,6 +6046,7 @@ class V3CheckReadyCmd(Cmd):
         ready = await self._checkModel(runt)
         ready = await self._checkPkgs(runt) and ready
         ready = await self._checkMigrations(runt) and ready
+        ready = await self._checkSvcs(runt) and ready
 
         if ready:
             await runt.printf('Your Cortex is ready for Synapse 3.x.')
@@ -6151,6 +6153,44 @@ class V3CheckReadyCmd(Cmd):
                 ready = False
                 mesg = f'Power-Up {name} has not completed its inits yet (version {curv}, expected {maxv}).'
                 await runt.warn(mesg)
+
+        return ready
+
+    async def _checkSvcs(self, runt):
+        '''
+        Run the checkV3Ready() API of each Storm service which has one. It is given the iden of the user running
+        the check, and returns a dict whose ok is false if the service is not ready, with errors and warnings.
+        '''
+        ready = True
+        for ssvc in sorted(runt.snap.core.getStormSvcs(), key=lambda s: s.name):
+
+            if not ssvc.ready.is_set():
+                ready = False
+                await runt.warn(f'Service {ssvc.name} is not connected, so it could not be checked.')
+                continue
+
+            try:
+                proxy = await ssvc.proxy.proxy()
+                if not proxy._hasTeleMeth('checkV3Ready'):
+                    continue
+
+                await runt.printf(f'Checking service {ssvc.name}...')
+                result = await proxy.checkV3Ready(useriden=runt.user.iden)
+
+            except Exception as e:
+                ready = False
+                mesg = e.get('mesg') if isinstance(e, s_exc.SynErr) else str(e)
+                await runt.warn(f'Service {ssvc.name} could not be checked: {mesg}')
+                continue
+
+            for mesg in result.get('errors', ()):
+                await runt.warn(mesg)
+
+            for mesg in result.get('warnings', ()):
+                await runt.printf(f'Warning: {mesg}')
+
+            if not result.get('ok'):
+                ready = False
 
         return ready
 

@@ -2788,7 +2788,9 @@ The ``v3.checkready`` command checks the Cortex for readiness to upgrade to Syna
 produced for each layer which contains deprecated model elements, for each installed Power-Up which
 is below the minimum version that supports Synapse 3.x, for each installed Vertex Power-Up which is
 not yet available for Synapse 3.x, and for each layer model migration or Power-Up init which has not
-completed yet. The command then prints whether the Cortex is ready for Synapse 3.x. This command does not check the lock status of deprecated model elements (see
+completed yet. Each Storm service with a 3.x readiness check, such as Optic, is then checked in its own section,
+and a service which is not connected is warned about. The command then prints whether the Cortex is ready for
+Synapse 3.x. This command does not check the lock status of deprecated model elements (see
 :ref:`storm-model-deprecated-check`).
 
 .. NOTE::

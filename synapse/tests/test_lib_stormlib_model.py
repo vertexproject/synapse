@@ -8,6 +8,7 @@ import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.spooled as s_spooled
 import synapse.lib.modelrev as s_modelrev
+import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.nodefuse as s_nodefuse
 
 import synapse.tools.backup as s_tools_backup
@@ -15,6 +16,23 @@ import synapse.tools.backup as s_tools_backup
 import synapse.tests.utils as s_test
 
 from unittest import mock
+
+class V3ReadyService(s_stormsvc.StormSvc):
+    _storm_svc_name = 'v3ready'
+
+    def __init__(self, result):
+        self.result = result
+        self.useridens = []
+
+    async def checkV3Ready(self, useriden=None):
+        self.useridens.append(useriden)
+        if isinstance(self.result, Exception):
+            raise self.result
+
+        return self.result
+
+class NoV3ReadyService(s_stormsvc.StormSvc):
+    _storm_svc_name = 'nov3ready'
 
 class StormlibModelTest(s_test.SynTest):
 
@@ -390,6 +408,52 @@ class StormlibModelTest(s_test.SynTest):
                     msgs = await core.stormlist('v3.checkready')
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('Your Cortex is ready for Synapse 3.x.', msgs)
+
+                    # each Storm service with a checkV3Ready() API is checked, as the user running the command
+                    ready = V3ReadyService({'ok': True, 'errors': (), 'warnings': ('Something to know.',)})
+                    async with self.getTestDmon() as dmon:
+                        dmon.share('v3ready', ready)
+                        dmon.share('nov3ready', NoV3ReadyService())
+                        port = dmon.addr[1]
+
+                        await core.nodes(f'service.add v3ready tcp://127.0.0.1:{port}/v3ready')
+                        await core.nodes(f'service.add nov3ready tcp://127.0.0.1:{port}/nov3ready')
+                        await core.nodes('$lib.service.wait(v3ready) $lib.service.wait(nov3ready)')
+
+                        msgs = await core.stormlist('v3.checkready')
+                        self.stormHasNoWarnErr(msgs)
+                        self.stormIsInPrint('Checking service v3ready...', msgs)
+                        self.stormIsInPrint('Warning: Something to know.', msgs)
+                        self.stormNotInPrint('nov3ready', msgs)
+                        self.stormIsInPrint('Your Cortex is ready for Synapse 3.x.', msgs)
+                        self.eq([core.auth.rootuser.iden], ready.useridens)
+
+                        ready.result = {'ok': False, 'errors': ('Not ready at all.',), 'warnings': ()}
+                        msgs = await core.stormlist('v3.checkready')
+                        self.stormIsInWarn('Not ready at all.', msgs)
+                        self.len(1, [m for m in msgs if m[0] == 'warn'])
+                        self.stormIsInPrint('Your Cortex is not ready for Synapse 3.x.', msgs)
+
+                        ready.result = s_exc.AuthDeny(mesg='Nope.')
+                        msgs = await core.stormlist('v3.checkready')
+                        self.stormIsInWarn('Service v3ready could not be checked: Nope.', msgs)
+                        self.stormIsInPrint('Your Cortex is not ready for Synapse 3.x.', msgs)
+
+                        ready.result = ValueError('boom')
+                        msgs = await core.stormlist('v3.checkready')
+                        self.stormIsInWarn('Service v3ready could not be checked: boom', msgs)
+
+                        ready.result = {'ok': True}
+                        msgs = await core.stormlist('v3.checkready')
+                        self.stormHasNoWarnErr(msgs)
+
+                    # a service which is not connected cannot be checked
+                    await core.delStormSvc(core.svcsbyname['nov3ready'].iden)
+                    await core.nodes('service.add v3gone tcp://127.0.0.1:1/newp')
+                    msgs = await core.stormlist('v3.checkready')
+                    self.stormIsInWarn('Service v3gone is not connected, so it could not be checked.', msgs)
+                    self.stormIsInWarn('Service v3ready is not connected, so it could not be checked.', msgs)
+                    self.stormIsInPrint('Your Cortex is not ready for Synapse 3.x.', msgs)
 
     async def test_stormlib_model_depr_check(self):
 
