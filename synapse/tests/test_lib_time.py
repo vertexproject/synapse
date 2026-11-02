@@ -263,6 +263,11 @@ class TimeTest(s_t_utils.SynTest):
         with self.raises(s_exc.BadTypeValu):
             s_time.wildrange('2024-1')
 
+        # a wildcard prefix ending in a separator ( a lift of 2024/01/* or 2024-01-02 03:* )
+        self.eq(s_time.wildrange('2024/01/'), s_time.wildrange('2024/01'))
+        self.eq(s_time.wildrange('2024-01-02 03:'), s_time.wildrange('2024010203'))
+        self.eq(s_time.wildrange('2024-01-02t03:'), s_time.wildrange('2024010203'))
+
         with self.raises(s_exc.BadTypeValu) as cm:
             s_time.parse('newp')
         self.isin('Unknown time format for newp', cm.exception.get('mesg'))

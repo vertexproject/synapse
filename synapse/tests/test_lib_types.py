@@ -1361,6 +1361,10 @@ class TypesTest(s_t_utils.SynTest):
 
             await self.asyncraises(s_exc.BadTypeValu, core.nodes('test:str:tick=2024-1*'))
 
+            # wildcard lifts whose prefix ends in a separator
+            self.eq(['a'], [n.ndef[1] for n in await core.nodes('test:str:tick=2014/*')])
+            self.eq(['a'], [n.ndef[1] for n in await core.nodes('test:str:tick="2014/01/01 00:*"')])
+
             # zone offsets which were previously dropped are now applied
             ztick = t.norm('2024-01-02T03:04:05Z')[0]
             self.eq(t.norm('2024-01-02 03:04:05-07')[0], ztick + s_time.onehour * 7)

@@ -79,11 +79,13 @@ def _getTimeDigits(text, otext):
     '''
     Validate the structure of a timezone stripped time string and return its digits.
     '''
-    # a trailing precision marker, which reprmax() emits after a separator ( 2021-06-07T02:* )
+    # a trailing precision marker ( 2021-06-07? )
     if text.endswith(('?', '*')):
         text = text[:-1]
-        if text.endswith(('-', '/', '.', '_', ':', 't', '@')):
-            text = text[:-1]
+
+    # a trailing separator, which reprmax() emits and a wildcard lift leaves behind ( 2021-06-07T02:* )
+    if text.endswith(('-', '/', '.', '_', ':', 't', '@')):
+        text = text[:-1]
 
     # text without any digits falls through to the unknown time format error
     if not any(c.isdigit() for c in text):
