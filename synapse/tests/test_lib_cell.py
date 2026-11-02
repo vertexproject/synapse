@@ -3413,8 +3413,8 @@ class CellTest(s_t_utils.SynTest):
                     with mock.patch.object(cell, '_checkV3Ready', checks):
                         mesgs = await s_t_utils.alist(prox.checkV3Ready())
 
-                    self.eq([('print', 'Checking...'), ('error', 'Not ready.'), ('warning', 'Something to know.')], mesgs[:3])
-                    result = mesgs[3][1]
+                    self.eq([('print', 'Checking...'), ('error', 'Not ready.'), ('warning', 'Something to know.')], mesgs[:-1])
+                    result = mesgs[-1][1]
                     self.false(result['ok'])
                     self.eq(['Not ready.'], result['errors'])
                     self.eq(['Something to know.'], result['warnings'])

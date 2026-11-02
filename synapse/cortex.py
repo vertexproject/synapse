@@ -3537,10 +3537,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         async for mesg in self._checkV3Model():
             yield mesg
 
-        async for mesg in self._checkV3Pkgs():
+        pkgdefs = sorted(await self.getStormPkgs(), key=lambda p: p['name'])
+
+        async for mesg in self._checkV3Pkgs(pkgdefs):
             yield mesg
 
-        async for mesg in self._checkV3Migrations():
+        async for mesg in self._checkV3Migrations(pkgdefs):
             yield mesg
 
     async def _checkV3Model(self):
@@ -3568,13 +3570,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 if count:
                     yield ('error', f'Layer {layr.iden} contains deprecated model element {prop.full}')
 
-    async def _checkV3Pkgs(self):
+    async def _checkV3Pkgs(self, pkgdefs):
 
         yield ('print', 'Checking Power-Up versions...')
 
-        pkgdefs = await self.getStormPkgs()
-
-        for pkgdef in sorted(pkgdefs, key=lambda p: p['name']):
+        for pkgdef in pkgdefs:
 
             name = pkgdef['name']
 
@@ -3592,24 +3592,23 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 mesg = f'Power-Up {name} version {vers} is not 3.x ready; upgrade to {minv} or later.'
                 yield ('error', mesg)
 
-    async def _checkV3Migrations(self):
+    async def _checkV3Migrations(self, pkgdefs):
 
         yield ('print', 'Checking for incomplete migrations...')
 
         if self.migration:
             yield ('error', 'The layer model migration is still running.')
 
-        maxvers = '.'.join(str(v) for v in s_modelrev.maxvers)
+        maxvers = s_common.verstr(s_modelrev.maxvers)
         for layr in self.layers.values():
 
             vers = await layr.getModelVers()
             if vers < s_modelrev.maxvers:
-                curv = '.'.join(str(v) for v in vers)
+                curv = s_common.verstr(vers)
                 mesg = f'Layer {layr.iden} has not completed model migrations yet (version {curv}, expected {maxvers}).'
                 yield ('error', mesg)
 
-        pkgdefs = await self.getStormPkgs()
-        for pkgdef in sorted(pkgdefs, key=lambda p: p['name']):
+        for pkgdef in pkgdefs:
 
             inits = pkgdef.get('inits')
             if inits is None:

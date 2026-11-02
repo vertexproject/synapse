@@ -6045,7 +6045,7 @@ class V3CheckReadyCmd(Cmd):
 
         core = runt.snap.core
 
-        ready = await self._printCheck(runt, [mesg async for mesg in core.checkV3Ready()])
+        ready = await self._printCheck(runt, core.checkV3Ready())
 
         cells = [('the Axon', core.axon, core.axready.is_set()), ('the JsonStor', core.jsonstor, True)]
         for ssvc in sorted(core.getStormSvcs(), key=lambda s: s.name):
@@ -6086,34 +6086,28 @@ class V3CheckReadyCmd(Cmd):
             cell = proxy
 
         await runt.printf(f'Checking {label}...')
-
-        async def collect():
-            return [mesg async for mesg in cell.checkV3Ready()]
-
         try:
-            return await self._printCheck(runt, await s_common.wait_for(collect(), timeout=self.celltimeout))
+            return await s_common.wait_for(self._printCheck(runt, cell.checkV3Ready()), timeout=self.celltimeout)
 
         except Exception as e:
             mesg = e.get('mesg') if isinstance(e, s_exc.SynErr) else str(e)
             await runt.warn(f'Could not check {label}: {mesg or e.__class__.__name__}')
             return False
 
-    async def _printCheck(self, runt, mesgs):
+    async def _printCheck(self, runt, genr):
         '''
-        Print the messages of a 3.x readiness check, returning whether it passed.
+        Print the messages of a 3.x readiness check as they arrive, returning whether it had no errors.
         '''
-        ok = False
-        for name, info in mesgs:
+        ok = True
+        async for name, info in genr:
             if name == 'print':
                 await runt.printf(info)
 
             elif name == 'error':
+                ok = False
                 await runt.warn(info)
 
             elif name == 'warning':
                 await runt.printf(f'Warning: {info}')
-
-            elif name == 'fini':
-                ok = bool(info.get('ok'))
 
         return ok
