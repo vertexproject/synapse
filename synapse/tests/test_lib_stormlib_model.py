@@ -22,18 +22,17 @@ from unittest import mock
 class V3ReadyService(s_stormsvc.StormSvc):
     _storm_svc_name = 'v3ready'
 
-    def __init__(self, result):
-        self.result = result
+    def __init__(self, mesgs):
+        self.mesgs = mesgs
         self.delay = 0
-        self.useridens = []
 
-    async def checkV3Ready(self, useriden=None):
-        self.useridens.append(useriden)
+    async def checkV3Ready(self):
         await asyncio.sleep(self.delay)
-        if isinstance(self.result, Exception):
-            raise self.result
+        for mesg in self.mesgs:
+            if isinstance(mesg, Exception):
+                raise mesg
 
-        return self.result
+            yield mesg
 
 class NoV3ReadyService(s_stormsvc.StormSvc):
     _storm_svc_name = 'nov3ready'
@@ -413,8 +412,26 @@ class StormlibModelTest(s_test.SynTest):
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('Your Cortex is ready for Synapse 3.x.', msgs)
 
-                    # each Storm service with a checkV3Ready() API is checked, as the user running the command
-                    ready = V3ReadyService({'ok': True, 'errors': (), 'warnings': ('Something to know.',)})
+                    # the Cortex stamps its result into its v3migration slab, as every cell does
+                    result = await core.getV3Value('preflight', 'result')
+                    self.true(result['ok'])
+                    self.eq([], result['errors'])
+                    self.stormIsInPrint('Checking the Axon...', msgs)
+                    self.stormIsInPrint('Checking the JsonStor...', msgs)
+
+                    # the Axon is a cell, checked in a section of its own
+                    async def axonchecks():
+                        yield ('error', 'The Axon is not ready.')
+
+                    with mock.patch.object(core.axon, '_checkV3Ready', axonchecks):
+                        msgs = await core.stormlist('v3.checkready')
+                    self.stormIsInWarn('The Axon is not ready.', msgs)
+                    self.stormIsInPrint('Your Cortex is not ready for Synapse 3.x.', msgs)
+                    self.false((await core.axon.getV3Value('preflight', 'result'))['ok'])
+
+                    # as is each Storm service with the check
+                    ready = V3ReadyService([('print', 'Checking the widgets...'), ('warning', 'Something to know.'),
+                                            ('fini', {'ok': True})])
                     async with self.getTestDmon() as dmon:
                         dmon.share('v3ready', ready)
                         dmon.share('nov3ready', NoV3ReadyService())
@@ -427,52 +444,51 @@ class StormlibModelTest(s_test.SynTest):
                         msgs = await core.stormlist('v3.checkready')
                         self.stormHasNoWarnErr(msgs)
                         self.stormIsInPrint('Checking service v3ready...', msgs)
+                        self.stormIsInPrint('Checking the widgets...', msgs)
                         self.stormIsInPrint('Warning: Something to know.', msgs)
                         self.stormNotInPrint('nov3ready', msgs)
                         self.stormIsInPrint('Your Cortex is ready for Synapse 3.x.', msgs)
-                        self.eq([core.auth.rootuser.iden], ready.useridens)
 
-                        ready.result = {'ok': False, 'errors': ('Not ready at all.',), 'warnings': ()}
+                        ready.mesgs = [('error', 'Not ready at all.'), ('fini', {'ok': False})]
                         msgs = await core.stormlist('v3.checkready')
                         self.stormIsInWarn('Not ready at all.', msgs)
                         self.len(1, [m for m in msgs if m[0] == 'warn'])
                         self.stormIsInPrint('Your Cortex is not ready for Synapse 3.x.', msgs)
 
-                        ready.result = s_exc.AuthDeny(mesg='Nope.')
+                        # a check which ends without a result fails
+                        ready.mesgs = []
                         msgs = await core.stormlist('v3.checkready')
-                        self.stormIsInWarn('Service v3ready could not be checked: Nope.', msgs)
+                        self.stormHasNoWarnErr(msgs)
                         self.stormIsInPrint('Your Cortex is not ready for Synapse 3.x.', msgs)
 
-                        ready.result = ValueError('boom')
+                        # as does one which raises, sends something other than a message, or takes too long
+                        ready.mesgs = [s_exc.AuthDeny(mesg='Nope.')]
                         msgs = await core.stormlist('v3.checkready')
-                        self.stormIsInWarn('Service v3ready could not be checked: boom', msgs)
-
-                        # as does one which returns something other than a result, or takes too long
-                        ready.result = None
-                        msgs = await core.stormlist('v3.checkready')
-                        self.stormIsInWarn("Service v3ready could not be checked: 'NoneType' object has no attribute 'get'", msgs)
+                        self.stormIsInWarn('Could not check service v3ready: Nope.', msgs)
                         self.stormIsInPrint('Your Cortex is not ready for Synapse 3.x.', msgs)
 
-                        ready.result = {'ok': True}
+                        ready.mesgs = [ValueError('boom')]
+                        msgs = await core.stormlist('v3.checkready')
+                        self.stormIsInWarn('Could not check service v3ready: boom', msgs)
+
+                        ready.mesgs = [None]
+                        msgs = await core.stormlist('v3.checkready')
+                        self.stormIsInWarn('Could not check service v3ready: cannot unpack', msgs)
+
+                        ready.mesgs = [('fini', {'ok': True})]
                         ready.delay = 1
-                        with mock.patch.object(s_storm.V3CheckReadyCmd, 'svctimeout', 0.01):
+                        with mock.patch.object(s_storm.V3CheckReadyCmd, 'celltimeout', 0.01):
                             msgs = await core.stormlist('v3.checkready')
-                        self.stormIsInWarn('Service v3ready could not be checked: TimeoutError', msgs)
+                        self.stormIsInWarn('Could not check service v3ready: TimeoutError', msgs)
                         ready.delay = 0
 
-                        ready.result = {'ok': False, 'errors': None}
-                        msgs = await core.stormlist('v3.checkready')
-                        self.stormHasNoWarnErr(msgs)
-                        self.stormIsInPrint('Your Cortex is not ready for Synapse 3.x.', msgs)
-
-                        ready.result = {'ok': True}
                         msgs = await core.stormlist('v3.checkready')
                         self.stormHasNoWarnErr(msgs)
 
-                        # a service which is not connected is warned about, but does not change the result
+                        # a cell which is not connected is warned about, but does not change the result
                         with mock.patch.object(core.svcsbyname['v3ready'].proxy, 'proxy', side_effect=TimeoutError()):
                             msgs = await core.stormlist('v3.checkready')
-                        self.stormIsInWarn('Service v3ready is not connected, so it could not be checked.', msgs)
+                        self.stormIsInWarn('Could not check service v3ready, which is not connected.', msgs)
                         self.stormIsInPrint('Your Cortex is ready for Synapse 3.x.', msgs)
 
                         waiter = core.waiter(2, 'stormsvc:client:unready')
@@ -482,8 +498,8 @@ class StormlibModelTest(s_test.SynTest):
                     await core.delStormSvc(core.svcsbyname['nov3ready'].iden)
                     await core.nodes('service.add v3gone tcp://127.0.0.1:1/newp')
                     msgs = await core.stormlist('v3.checkready')
-                    self.stormIsInWarn('Service v3gone is not connected, so it could not be checked.', msgs)
-                    self.stormIsInWarn('Service v3ready is not connected, so it could not be checked.', msgs)
+                    self.stormIsInWarn('Could not check service v3gone, which is not connected.', msgs)
+                    self.stormIsInWarn('Could not check service v3ready, which is not connected.', msgs)
                     self.stormNotInPrint('Checking service', msgs)
                     self.stormIsInPrint('Your Cortex is ready for Synapse 3.x.', msgs)
 

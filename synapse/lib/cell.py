@@ -1008,6 +1008,14 @@ class CellApi(s_base.Base):
         async for item in self.cell.getV3Values(dbname, prefix=prefix):
             yield item
 
+    @adminapi(log=True)
+    async def checkV3Ready(self):
+        '''
+        Check the cell for readiness to upgrade to Synapse 3.x. See Cell.checkV3Ready().
+        '''
+        async for mesg in self.cell.checkV3Ready():
+            yield mesg
+
 class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
     A Cell() implements a synapse micro-service.
@@ -5168,6 +5176,45 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         for lkey, byts in genr:
             yield lkey.decode(), s_msgpack.un(byts)
             await asyncio.sleep(0)
+
+    async def checkV3Ready(self):
+        '''
+        Check the cell for readiness to upgrade to Synapse 3.x, and stamp the result into the preflight DB of the
+        local v3migration slab.
+
+        Yields:
+            (str, object): ('print', mesg) with progress, ('error', mesg) for each problem which fails the check,
+            ('warning', mesg) for each which does not, then ('fini', result) with the stamped result.
+        '''
+        errors = []
+        warnings = []
+        async for name, mesg in self._checkV3Ready():
+            if name == 'error':
+                errors.append(mesg)
+
+            elif name == 'warning':
+                warnings.append(mesg)
+
+            yield (name, mesg)
+
+        result = {
+            'ok': not errors,
+            'time': s_common.now(),
+            'cell:version': self.VERSION,
+            'synapse:version': s_version.version,
+            'errors': errors,
+            'warnings': warnings,
+        }
+        await self.setV3Value('preflight', 'result', result)
+        yield ('fini', result)
+
+    async def _checkV3Ready(self):
+        '''
+        Yield the ('print', mesg), ('error', mesg), and ('warning', mesg) messages of the cell's 3.x readiness
+        check. Subclasses extend it with their own checks.
+        '''
+        if False:  # pragma: no cover
+            yield
 
     @s_nexus.Pusher.onPushAuto('sync')
     async def sync(self):

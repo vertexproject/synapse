@@ -21,16 +21,13 @@ import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.snap as s_snap
 import synapse.lib.cache as s_cache
-import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.scope as s_scope
 import synapse.lib.autodoc as s_autodoc
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
-import synapse.lib.version as s_version
 import synapse.lib.hashitem as s_hashitem
-import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -6019,14 +6016,14 @@ class ColorizeCmd(Cmd):
 
 class V3CheckReadyCmd(Cmd):
     '''
-    Check the Cortex for readiness to upgrade to Synapse 3.x.
+    Check the Cortex, its Axon and JsonStor, and its Storm services for readiness to upgrade to Synapse 3.x.
 
     Warns about deprecated forms, properties, and types which are still in use
     in any layer, about installed Power-Ups which are below the minimum version
     that supports Synapse 3.x, about installed Vertex Power-Ups which are not
     yet available for Synapse 3.x, and about layer model migrations or Power-Up
     inits which have not completed yet. Then runs the 3.x readiness check of
-    each Storm service which has one.
+    the Axon, the JsonStor, and each Storm service, each in a section of its own.
 
     NOTE: This command requires admin privileges.
 
@@ -6039,17 +6036,23 @@ class V3CheckReadyCmd(Cmd):
     name = 'v3.checkready'
     readonly = True
 
-    # seconds a Storm service's 3.x readiness check may take
-    svctimeout = 60
+    # seconds the 3.x readiness check of another cell may take
+    celltimeout = 60
 
     async def execStormCmd(self, runt, genr):
 
         runt.reqAdmin(mesg='The v3.checkready command requires admin privileges.')
 
-        ready = await self._checkModel(runt)
-        ready = await self._checkPkgs(runt) and ready
-        ready = await self._checkMigrations(runt) and ready
-        ready = await self._checkSvcs(runt) and ready
+        core = runt.snap.core
+
+        ready = await self._printCheck(runt, [mesg async for mesg in core.checkV3Ready()])
+
+        cells = [('the Axon', core.axon, core.axready.is_set()), ('the JsonStor', core.jsonstor, True)]
+        for ssvc in sorted(core.getStormSvcs(), key=lambda s: s.name):
+            cells.append((f'service {ssvc.name}', ssvc.proxy, ssvc.ready.is_set()))
+
+        for label, cell, connected in cells:
+            ready = await self._checkCell(runt, label, cell, connected) and ready
 
         if ready:
             await runt.printf('Your Cortex is ready for Synapse 3.x.')
@@ -6059,156 +6062,58 @@ class V3CheckReadyCmd(Cmd):
         async for item in genr:
             yield item
 
-    async def _checkModel(self, runt):
-
-        await runt.printf('Checking for deprecated model elements in use...')
-
-        core = runt.snap.core
-
-        ready = True
-        for prop in list(core.model.props.values()):
-
-            if not (prop.deprecated or prop.type.deprecated):
-                continue
-
-            # Skip universal properties on other forms
-            if not prop.isform and prop.univ is not None:
-                continue
-
-            for layr in core.layers.values():
-
-                if prop.isform:
-                    count = await layr.getPropCount(prop.name, maxsize=1)
-                elif prop.isuniv:
-                    count = await layr.getUnivPropCount(prop.name, maxsize=1)
-                else:
-                    count = await layr.getPropCount(prop.form.name, prop.name, maxsize=1)
-
-                if count:
-                    ready = False
-                    await runt.warn(f'Layer {layr.iden} contains deprecated model element {prop.full}')
-
-        return ready
-
-    async def _checkPkgs(self, runt):
-
-        await runt.printf('Checking Power-Up versions...')
-
-        core = runt.snap.core
-
-        pkgdefs = await core.getStormPkgs()
-
-        ready = True
-        for pkgdef in sorted(pkgdefs, key=lambda p: p['name']):
-
-            name = pkgdef['name']
-
-            minv = s_const.V3_READY_PKG_VERSIONS.get(name)
-            if minv is None:
-
-                author = pkgdef.get('author')
-                if author is not None and author.get('url') == s_const.VERTEX_PKG_AUTHOR_URL:
-                    ready = False
-                    await runt.warn(f'Power-Up {name} is not yet available for Synapse 3.x.')
-
-                continue
-
-            vers = pkgdef.get('version')
-            if self._semvTuple(vers) < self._semvTuple(minv):
-                ready = False
-                mesg = f'Power-Up {name} version {vers} is not 3.x ready; upgrade to {minv} or later.'
-                await runt.warn(mesg)
-
-        return ready
-
-    async def _checkMigrations(self, runt):
-
-        await runt.printf('Checking for incomplete migrations...')
-
-        core = runt.snap.core
-
-        ready = True
-        if core.migration:
-            ready = False
-            await runt.warn('The layer model migration is still running.')
-
-        maxvers = '.'.join(str(v) for v in s_modelrev.maxvers)
-        for layr in core.layers.values():
-
-            vers = await layr.getModelVers()
-            if vers < s_modelrev.maxvers:
-                ready = False
-                curv = '.'.join(str(v) for v in vers)
-                mesg = f'Layer {layr.iden} has not completed model migrations yet (version {curv}, expected {maxvers}).'
-                await runt.warn(mesg)
-
-        pkgdefs = await core.getStormPkgs()
-        for pkgdef in sorted(pkgdefs, key=lambda p: p['name']):
-
-            inits = pkgdef.get('inits')
-            if inits is None:
-                continue
-
-            name = pkgdef['name']
-            maxv = max(i['version'] for i in inits['versions'])
-            curv = await core.getStormPkgVar(name, 'storage:version', default=-1)
-            if curv < maxv:
-                ready = False
-                mesg = f'Power-Up {name} has not completed its inits yet (version {curv}, expected {maxv}).'
-                await runt.warn(mesg)
-
-        return ready
-
-    async def _checkSvcs(self, runt):
+    async def _checkCell(self, runt, label, cell, connected):
         '''
-        Run the checkV3Ready() API of each Storm service which has one. It is given the iden of the user running
-        the check, and returns a dict whose ok is false if the service is not ready, with errors and warnings.
-        A service which is not connected is warned about, but does not change the result.
+        Run the 3.x readiness check of a cell, or of the one a telepath Client connects to, which may predate the
+        check. A cell which is not connected is warned about, but does not change the result.
         '''
-        ready = True
-        for ssvc in sorted(runt.snap.core.getStormSvcs(), key=lambda s: s.name):
+        if isinstance(cell, s_telepath.Client):
 
             proxy = None
-            if ssvc.ready.is_set():
+            if connected:
                 try:
-                    proxy = await ssvc.proxy.proxy()
+                    proxy = await cell.proxy()
                 except (TimeoutError, s_exc.IsFini):
                     pass
 
             if proxy is None:
-                await runt.warn(f'Service {ssvc.name} is not connected, so it could not be checked.')
-                continue
+                await runt.warn(f'Could not check {label}, which is not connected.')
+                return True
 
             if not proxy._hasTeleMeth('checkV3Ready'):
-                continue
+                return True
 
-            await runt.printf(f'Checking service {ssvc.name}...')
-            try:
-                result = await s_common.wait_for(proxy.checkV3Ready(useriden=runt.user.iden), timeout=self.svctimeout)
-                errors = list(result.get('errors') or ())
-                warnings = list(result.get('warnings') or ())
-                ok = bool(result.get('ok'))
+            cell = proxy
 
-            except Exception as e:
-                ready = False
-                mesg = e.get('mesg') if isinstance(e, s_exc.SynErr) else str(e)
-                if not mesg:
-                    mesg = e.__class__.__name__
+        await runt.printf(f'Checking {label}...')
 
-                await runt.warn(f'Service {ssvc.name} could not be checked: {mesg}')
-                continue
+        async def collect():
+            return [mesg async for mesg in cell.checkV3Ready()]
 
-            for mesg in errors:
-                await runt.warn(mesg)
+        try:
+            return await self._printCheck(runt, await s_common.wait_for(collect(), timeout=self.celltimeout))
 
-            for mesg in warnings:
-                await runt.printf(f'Warning: {mesg}')
+        except Exception as e:
+            mesg = e.get('mesg') if isinstance(e, s_exc.SynErr) else str(e)
+            await runt.warn(f'Could not check {label}: {mesg or e.__class__.__name__}')
+            return False
 
-            if not ok:
-                ready = False
+    async def _printCheck(self, runt, mesgs):
+        '''
+        Print the messages of a 3.x readiness check, returning whether it passed.
+        '''
+        ok = False
+        for name, info in mesgs:
+            if name == 'print':
+                await runt.printf(info)
 
-        return ready
+            elif name == 'error':
+                await runt.warn(info)
 
-    def _semvTuple(self, text):
-        info = s_version.parseSemver(text)
-        return (info['major'], info['minor'], info['patch'])
+            elif name == 'warning':
+                await runt.printf(f'Warning: {info}')
+
+            elif name == 'fini':
+                ok = bool(info.get('ok'))
+
+        return ok
