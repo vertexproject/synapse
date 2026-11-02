@@ -6039,6 +6039,9 @@ class V3CheckReadyCmd(Cmd):
     name = 'v3.checkready'
     readonly = True
 
+    # seconds a Storm service's 3.x readiness check may take
+    svctimeout = 60
+
     async def execStormCmd(self, runt, genr):
 
         runt.reqAdmin(mesg='The v3.checkready command requires admin privileges.')
@@ -6160,36 +6163,48 @@ class V3CheckReadyCmd(Cmd):
         '''
         Run the checkV3Ready() API of each Storm service which has one. It is given the iden of the user running
         the check, and returns a dict whose ok is false if the service is not ready, with errors and warnings.
+        A service which is not connected is warned about, but does not change the result.
         '''
         ready = True
         for ssvc in sorted(runt.snap.core.getStormSvcs(), key=lambda s: s.name):
 
-            if not ssvc.ready.is_set():
-                ready = False
+            proxy = None
+            if ssvc.ready.is_set():
+                try:
+                    proxy = await ssvc.proxy.proxy()
+                except (TimeoutError, s_exc.IsFini):
+                    pass
+
+            if proxy is None:
                 await runt.warn(f'Service {ssvc.name} is not connected, so it could not be checked.')
                 continue
 
-            try:
-                proxy = await ssvc.proxy.proxy()
-                if not proxy._hasTeleMeth('checkV3Ready'):
-                    continue
+            if not proxy._hasTeleMeth('checkV3Ready'):
+                continue
 
-                await runt.printf(f'Checking service {ssvc.name}...')
-                result = await proxy.checkV3Ready(useriden=runt.user.iden)
+            await runt.printf(f'Checking service {ssvc.name}...')
+            try:
+                result = await s_common.wait_for(proxy.checkV3Ready(useriden=runt.user.iden), timeout=self.svctimeout)
+                errors = list(result.get('errors') or ())
+                warnings = list(result.get('warnings') or ())
+                ok = bool(result.get('ok'))
 
             except Exception as e:
                 ready = False
                 mesg = e.get('mesg') if isinstance(e, s_exc.SynErr) else str(e)
+                if not mesg:
+                    mesg = e.__class__.__name__
+
                 await runt.warn(f'Service {ssvc.name} could not be checked: {mesg}')
                 continue
 
-            for mesg in result.get('errors', ()):
+            for mesg in errors:
                 await runt.warn(mesg)
 
-            for mesg in result.get('warnings', ()):
+            for mesg in warnings:
                 await runt.printf(f'Warning: {mesg}')
 
-            if not result.get('ok'):
+            if not ok:
                 ready = False
 
         return ready
