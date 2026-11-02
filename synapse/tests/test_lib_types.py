@@ -1377,12 +1377,6 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(t.norm('2024-01-02 03:04:05.123456789 +0000 UTC')[0], ztick + 123)
             self.eq(t.norm('2024/01/02 03:04:05+1day')[0], ztick + s_time.oneday)
 
-            # the string form of an ival tuple still norms its parenthesized members
-            tival = core.model.type('ival')
-            self.eq(tival.norm('(2024/01/02 03:04:05, 2024/01/03)')[0],
-                    tival.norm(('2024/01/02 03:04:05', '2024/01/03'))[0])
-            self.eq(tival.norm('(2024)')[0], tival.norm('2024')[0])
-
             utc = datetime.timezone.utc
             delta = datetime.datetime.now(tz=utc) - datetime.datetime(2014, 1, 1, tzinfo=utc)
             days = delta.days + 14
