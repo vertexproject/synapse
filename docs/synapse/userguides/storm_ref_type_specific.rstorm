@@ -1811,6 +1811,26 @@ Parsing
       format on input, Synapse will automatically convert the value to UTC for storage. If no time zone is specified,
       Synapse will assume the value is in UTC.
 
+  - Human-readable with other time zone formats. Synapse also accepts a time zone abbreviation (such as ``EST`` or
+    ``UTC``), optionally in parentheses, a ``UTC`` or ``GMT`` prefixed offset, an hour-only offset following a time
+    with seconds, and an offset followed by an abbreviation:
+
+    ``"2018-12-16 09:37:52 EST"``
+
+    ``"2018-12-16 09:37:52 (EST)"``
+
+    ``"2018-12-16 09:37:52 GMT-4"``
+
+    ``"2018-12-16 09:37:52-04"``
+
+    ``"2018-12-16 09:37:52.324 -0400 EDT"``
+
+    .. NOTE::
+
+      Each date and time field after the year must be two digits (for example, ``2018-01-02`` rather than
+      ``2018-1-2``). Text that is not part of a supported format, such as ``AM`` / ``PM`` or a time zone name like
+      ``America/New_York``, causes a ``BadTypeValu`` error instead of being ignored.
+
   - No formatting (YYYYMMDDhhmmssmmm):
     
     ``20181216093752324``

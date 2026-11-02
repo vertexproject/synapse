@@ -36,8 +36,10 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parse('20501217030432101567'), 2554859072101)
         self.raises(s_exc.BadTypeValu, s_time.parse, '2050121703043210156789')
 
-        # malformed times that can still be parsed
-        self.eq(s_time.parse('2020 jun 10 12:14:34'), s_time.parse('2020-10-12 14:34'))
+        # malformed times with leftover text are not silently misparsed
+        with self.raises(s_exc.BadTypeValu) as cm:
+            s_time.parse('2020 jun 10 12:14:34')
+        self.isin('unexpected text in time value', cm.exception.get('mesg'))
 
         # rfc822
         self.eq(s_time.parse('Sat, 17 Dec 2050 03:04:32'), 2554859072000)
@@ -56,7 +58,7 @@ class TimeTest(s_t_utils.SynTest):
             # rfc822 does support 2-digit years,
             # but strptime doesn't so it is excluded
             s_time.parse('Sat, 17 Dec 50 03:04:32')
-        self.isin('unconverted data remains: 2', cm.exception.get('mesg'))
+        self.isin('Error parsing time "Sat, 17 Dec 50 03:04:32"', cm.exception.get('mesg'))
 
         with self.raises(s_exc.BadTypeValu) as cm:
             # malformed times that don't match the regex will pass
@@ -126,11 +128,10 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parse('2020-07-07T16:29:53 Y'), utc - s_time.onehour * 12)
         self.eq(s_time.parse('2020-07-07T16:29:53 Z'), utc)
 
-        # unsupported timezone names are not recognized and get stripped as before
-        self.eq(s_time.parse('2020-07-07T16:29:53 ET'), utc)
-        self.eq(s_time.parse('2020-07-07T16:29:53 NEWP'), utc)
-        self.eq(s_time.parse('2020-07-07T16:29:53 Etc/GMT-4'), utc + 400)
-        self.eq(s_time.parse('2020-07-07T16:29:53 America/New_York'), utc)
+        # unsupported timezone names are not recognized and are invalid
+        for tv in ('ET', 'NEWP', 'Etc/GMT-4', 'America/New_York'):
+            with self.raises(s_exc.BadTypeValu):
+                s_time.parse(f'2020-07-07T16:29:53 {tv}')
 
         # coverage for bad args
         self.raises(s_exc.BadArg, s_l_timezones.getTzOffset, 42)
@@ -142,11 +143,12 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parse('Tue, 7 Jul 2020 16:29:53 EDT'), utc + s_time.onehour * 4)
         self.eq(s_time.parse('Tue, 7 Jul 2020 16:29:53 -0400'), utc + s_time.onehour * 4)
 
-        # This partial value is ignored and treated like a millisecond value
-        self.eq(s_time.parse('20200707162953+04'), 1594139393040)
+        # A bare ISO 8601 hour offset following a full time is a timezone offset
+        self.eq(s_time.parse('20200707162953+04'), 1594139393000 - s_time.onehour * 4)
 
-        # A partial time (without mm) is ignored as a timestamp.
-        self.eq(s_time.parse('202007+04'), s_time.parse('20200704'))
+        # A bare hour offset without a full time is invalid
+        with self.raises(s_exc.BadTypeValu):
+            s_time.parse('202007+04')
 
         # invalid range
         with self.raises(s_exc.BadTypeValu):
@@ -180,6 +182,90 @@ class TimeTest(s_t_utils.SynTest):
         self.nn(tick1)
 
         self.eq(tick0, tick1)
+
+    def test_time_parse_strict(self):
+
+        tick = s_time.parse('2024-01-02T03:04:05Z')
+
+        # leftover text after the zone is parsed must not be silently dropped or glued on
+        tvs = (
+            '2024-01-02 03:04:05.678+1 fortnight',
+            '2024-01-02 03:04:05+1 week',
+            '2024-01-05 03:04:05+1y',
+            '2024-01-02 03:04:05 PM',
+            '2024-01-02 03:04:05 AM',
+            '2024-01-02 03:04:05 America/New_York',
+            '2024-01-02 03:04:05 Etc/GMT-4',
+            '2024-01-02 03:04:05 ET',
+            '2024-01-02 03:04:05 NEWP',
+            'Tue Jan 02 03:04:05 2024',
+            '2024-1-2',
+            '2024-01-2',
+            '2024-01-02-03-04-05-07',
+            '202007+04',
+            '2024-01-02,03:04:05',
+            '2024-01-02 03:04:05.123.456',
+            '-2024-01-02',
+        )
+        for tv in tvs:
+            with self.raises(s_exc.BadTypeValu):
+                s_time.parse(tv, chop=True)
+
+        # a bare ISO 8601 +/-hh offset after a full time is honored
+        self.eq(s_time.parse('2024-01-02 03:04:05-07'), tick + s_time.onehour * 7)
+        self.eq(s_time.parse('2024-01-02 03:04:05+07'), tick - s_time.onehour * 7)
+        self.eq(s_time.parse('2024-01-02 03:04:05.678-07'), tick + s_time.onehour * 7 + 678)
+        self.eq(s_time.parse('20240102030405-07'), tick + s_time.onehour * 7)
+
+        # UTC/GMT prefixed offsets, parenthesized zone names, and Go style offset + abbreviation
+        self.eq(s_time.parse('2024-01-02 03:04:05 GMT+5'), tick - s_time.onehour * 5)
+        self.eq(s_time.parse('2024-01-02 03:04:05 GMT-5'), tick + s_time.onehour * 5)
+        self.eq(s_time.parse('2024-01-02 03:04:05 UTC+05:00'), tick - s_time.onehour * 5)
+        self.eq(s_time.parse('2024-01-02 03:04:05 UTC-0530'), tick + s_time.onehour * 5 + s_time.onemin * 30)
+        self.eq(s_time.parse('2024-01-02 03:04:05 (EST)'), tick + s_time.onehour * 5)
+        self.eq(s_time.parse('2024-01-02 03:04:05.123 +0700 UTC'), tick - s_time.onehour * 7 + 123)
+        self.eq(s_time.parse('2024-01-02 03:04:05.123 -0500 EST'), tick + s_time.onehour * 5 + 123)
+
+        # inputs which are correct today must keep working
+        tvs = (
+            '2024-01-02 03:04:05',
+            '2024/01/02 03:04:05',
+            '2024.01.02 03:04:05',
+            '2024_01_02 03:04:05',
+            '2024-01-02-03-04-05',
+            '2024-01-02@03:04:05',
+            '2024-01-02T03:04:05',
+            '2024-01-02T03:04:05Z',
+            '20240102030405',
+            '2024-01-02 03:04:05 (UTC)',
+            '2024-01-02 03:04:05 GMT+0',
+            '2024-01-02 03:04:05 UTC+00:00',
+            '2024-01-02 03:04:05 UTC',
+            '2024-01-02 03:04:05 +00:00',
+            'Tue, 2 Jan 2024 03:04:05 GMT',
+        )
+        for tv in tvs:
+            self.eq(s_time.parse(tv), tick, msg=tv)
+
+        self.eq(s_time.parse('2024-01-02 03:04:05.123456789 +0000 UTC', chop=True), tick + 123)
+        self.eq(s_time.parse('2024-01-02 03:04:05.123'), tick + 123)
+        self.eq(s_time.parse('2024-01-02 03:04:05,123'), tick + 123)
+        self.eq(s_time.parse('20240102030405123'), tick + 123)
+        self.eq(s_time.parse('2024_01_02'), s_time.parse('2024-01-02'))
+        self.eq(s_time.parse('2024'), s_time.parse('2024-01-01'))
+        self.eq(s_time.parse('2024-01'), s_time.parse('2024-01-01'))
+        self.eq(s_time.parse('2024-01-02?'), s_time.parse('2024-01-02'))
+
+        tick, tock = s_time.wildrange('2024-01')
+        self.eq(tick, s_time.parse('2024-01-01'))
+        self.eq(tock, s_time.parse('2024-02-01'))
+
+        with self.raises(s_exc.BadTypeValu):
+            s_time.wildrange('2024-1')
+
+        with self.raises(s_exc.BadTypeValu) as cm:
+            s_time.parse('newp')
+        self.isin('Unknown time format for newp', cm.exception.get('mesg'))
 
     def test_time_toutc(self):
         tick = s_time.parse('2020-02-11 14:08:00.123')

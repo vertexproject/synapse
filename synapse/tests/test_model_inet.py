@@ -2543,7 +2543,7 @@ class InetModelTest(s_t_utils.SynTest):
 
     async def test_whois_contact(self):
         async with self.getTestCore() as core:
-            valu = (('vertex.link', '@2015'), 'regiStrar')
+            valu = (('vertex.link', '2015'), 'regiStrar')
             props = {
                 'id': 'ID',
                 'name': 'NAME',
@@ -2595,7 +2595,7 @@ class InetModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('inet:whois:reg', 'cool registrant '))
 
-            nodes = await core.nodes('[inet:whois:recns=(ns1.woot.com, (woot.com, "@20501217"))]')
+            nodes = await core.nodes('[inet:whois:recns=(ns1.woot.com, (woot.com, "20501217"))]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:whois:recns', ('ns1.woot.com', ('woot.com', 2554848000000))))
@@ -2688,7 +2688,7 @@ class InetModelTest(s_t_utils.SynTest):
     async def test_whois_rec(self):
 
         async with self.getTestCore() as core:
-            valu = ('woot.com', '@20501217')
+            valu = ('woot.com', '20501217')
             props = {
                 'text': 'YELLING AT pennywise@vertex.link LOUDLY',
                 'registrar': ' cool REGISTRAR ',

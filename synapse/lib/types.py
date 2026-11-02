@@ -1349,6 +1349,10 @@ class Ival(Type):
     def _normPyStr(self, valu):
         valu = valu.strip().lower()
 
+        # a string form of the ( <min>, <max> ) tuple syntax
+        if valu.startswith('(') and valu.endswith(')'):
+            valu = valu[1:-1].strip()
+
         if valu == '?':
             raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='interval requires begin time')
 

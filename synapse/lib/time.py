@@ -44,16 +44,56 @@ tzcat = '|'.join(sorted(s_l_timezones.getTzNames(), key=lambda x: len(x), revers
 unitcat = '|'.join(sorted(timeunits.keys(), key=lambda x: len(x), reverse=True))
 tz_re = regex.compile(
     r'\d(?P<tzstr>\s?(?:'
+    # go style numeric offset followed by a redundant abbreviation ( -0500 EST ); the offset wins
+    r'(?:(?P<tzrel>\-|\+)(?P<tzhr>\d{2})(?P<tzmin>\d{2})\s?(?:%s))|'
+    # utc / gmt prefixed offsets ( GMT+5, UTC-05:30 )
+    r'(?:(?:utc|gmt|ut)(?P<tzrel>\-|\+)(?P<tzhr>\d{1,2})(?::?(?P<tzmin>\d{2}))?)|'
+    # parenthesized timezone names ( (EST) )
+    r'(?:\((?P<tzname>%s)\))|'
     r'(?P<tzname>%s)|'
     r'(?:(?P<tzrel>\-|\+)(?P<tzhr>\d{1,2}):?(?P<tzmin>\d{2})))'
-    r')(?:[\-|\+]\d+(?:%s))?$' % (tzcat, unitcat),
+    r')(?:[\-|\+]\d+(?:%s))?$' % (tzcat, tzcat, tzcat, unitcat),
     flags=regex.IGNORECASE
+)
+
+# a bare ISO 8601 +/-hh offset is only unambiguous following a full seconds precision time
+tzhour_re = regex.compile(
+    r'(?:\d{2}:\d{2}:\d{2}(?:[\.,]\d+)?|^\d{14,})'
+    r'(?P<tzstr>\s?(?P<tzrel>\-|\+)(?P<tzhr>\d{2}))'
+    r'(?:[\-|\+]\d+(?:%s))?$' % (unitcat,),
+)
+
+# after timezone removal, only digits and separators may remain, and every separator must fall on a
+# year, month, day, hour, minute or second boundary. only a trailing fraction may follow the seconds.
+timefields_re = regex.compile(
+    r'\d{15,}|\d{4}(?:%(s)s?\d{2}(?:%(s)s?\d{2}(?:%(s)s?\d{2}(?:%(s)s?\d{2}(?:%(s)s?\d{2}(?:[\.,]\d+)?)?)?)?)?)?'
+    % {'s': r'[\-/\._:t@]'}
 )
 
 daycat = '|'.join(calendar.day_abbr[i].lower() for i in range(7))
 monthcat = '|'.join(calendar.month_abbr[i].lower() for i in range(1, 13))
 rfc822_re = regex.compile(r'((?:%s),)?\d{1,2}(?:%s)\d{4}\d{2}:\d{2}:\d{2}' % (daycat, monthcat))
 rfc822_fmt = '%d%b%Y%H:%M:%S'
+
+def _getTimeDigits(text, otext):
+    '''
+    Validate the structure of a timezone stripped time string and return its digits.
+    '''
+    # a trailing precision marker, which reprmax() emits after a separator ( 2021-06-07T02:* )
+    if text.endswith(('?', '*')):
+        text = text[:-1]
+        if text.endswith(('-', '/', '.', '_', ':', 't', '@')):
+            text = text[:-1]
+
+    # text without any digits falls through to the unknown time format error
+    if not any(c.isdigit() for c in text):
+        return ''
+
+    if timefields_re.fullmatch(text) is None:
+        mesg = f'Error parsing time "{otext}"; unexpected text in time value'
+        raise s_exc.BadTypeValu(mesg=mesg, valu=otext, name='time')
+
+    return ''.join([c for c in text if c.isdigit()])
 
 def _rawparse(text, base=None, chop=False):
     otext = text
@@ -80,7 +120,7 @@ def _rawparse(text, base=None, chop=False):
         except ValueError as e:
             raise s_exc.BadTypeValu(mesg=f'Error parsing time as RFC822 "{otext}"; {str(e)}', valu=otext)
 
-    text = (''.join([c for c in text if c.isdigit()]))
+    text = _getTimeDigits(text, otext)
 
     if chop:
         text = text[:17]
@@ -183,12 +223,17 @@ def parsetz(text):
 
     match = tz_re.search(text)
     if match is None:
+        match = tzhour_re.search(text)
+
+    if match is None:
         return text, 0
 
     tzrel = match['tzrel']
     if tzrel is not None:
 
-        base = onehour * int(match['tzhr']) + onemin * int(match['tzmin'])
+        base = onehour * int(match['tzhr'])
+        if (tzmin := match.groupdict().get('tzmin')) is not None:
+            base += onemin * int(tzmin)
         if tzrel == '+':
             base *= -1
 
