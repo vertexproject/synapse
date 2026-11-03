@@ -5926,6 +5926,32 @@ class CortexBasicTest(s_t_utils.SynTest):
                     with self.raises(s_exc.SynErr):
                         await core01.delView(core01.view.iden)
 
+                    # view hooks replicate to the mirror with the leader's timestamps
+                    vhdef = await core00.addViewHook({
+                        'name': 'hook',
+                        'type': 'created',
+                        'storm': '$lib.print(hook)',
+                        'creator': core00.auth.rootuser.iden,
+                    })
+                    vhiden = vhdef.get('iden')
+
+                    vhmod = await core00.modViewHook(vhiden, {'name': 'wow'})
+                    self.ge(vhmod.get('updated'), vhdef.get('updated'))
+
+                    await core01.sync()
+                    self.eq(vhmod, await core01.getViewHook(vhiden))
+
+                    vhdef2 = await core00.addViewHook({
+                        'name': 'hook2',
+                        'type': 'deleted',
+                        'storm': '$lib.print(hook2)',
+                        'creator': core00.auth.rootuser.iden,
+                    })
+                    await core00.delViewHook(vhiden)
+
+                    await core01.sync()
+                    self.eq([vhdef2], await core01.getViewHooks())
+
                     # get the nexus index
                     nexusind = core01.nexsroot.nexslog.index()
 
@@ -9572,6 +9598,292 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadArg):
                 await core.delHttpExtApi('notAGuid')
+
+    async def test_cortex_viewhooks(self):
+
+        storm = '$lib.queue.gen(hooks).put(($name, $lib.auth.users.get().name, $lib.view.get().iden))'
+        popq = '''
+            $retn = ()
+            $queue = $lib.queue.gen(hooks)
+            for ($offs, $item) in $queue.gets(wait=(false)) { $retn.append($item) }
+            if $retn { $queue.cull($offs) }
+            return($retn)
+        '''
+
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                root = core.auth.rootuser.iden
+                visi = await core.auth.addUser('visi')
+                await visi.setAdmin(True)
+
+                self.eq([], await core.getViewHooks())
+
+                hdef00 = await core.addViewHook({
+                    'name': 'hook00',
+                    'type': 'created',
+                    'storm': f'$name=hook00 {storm}',
+                    'creator': visi.iden,
+                })
+                iden00 = hdef00.get('iden')
+                self.true(s_common.isguid(iden00))
+                self.true(hdef00.get('enabled'))
+                self.eq(hdef00.get('created'), hdef00.get('updated'))
+                self.eq(visi.iden, hdef00.get('creator'))
+                self.eq(hdef00, await core.getViewHook(iden00))
+
+                iden01 = s_common.guid()
+                hdef01 = await core.addViewHook({
+                    'iden': iden01,
+                    'name': 'hook01',
+                    'type': 'merging',
+                    'storm': f'$name=hook01 {storm}',
+                    'enabled': False,
+                    'creator': root,
+                })
+                self.eq(iden01, hdef01.get('iden'))
+                self.false(hdef01.get('enabled'))
+
+                self.eq([iden00, iden01], [h.get('iden') for h in await core.getViewHooks()])
+                self.eq([iden01], [h.get('iden') for h in await core.getViewHooks(type='merging')])
+                self.eq([], await core.getViewHooks(type='deleted'))
+
+                # readers return copies
+                (await core.getViewHook(iden00))['name'] = 'newp'
+                (await core.getViewHooks())[0]['name'] = 'newp'
+                self.eq('hook00', (await core.getViewHook(iden00)).get('name'))
+
+                # validation
+                with self.raises(s_exc.DupIden):
+                    await core.addViewHook({'iden': iden00, 'name': 'dup', 'type': 'created', 'storm': '', 'creator': root})
+
+                with self.raises(s_exc.SchemaViolation):
+                    await core.addViewHook({'name': 'newp', 'type': 'newp', 'storm': '', 'creator': root})
+
+                with self.raises(s_exc.SchemaViolation):
+                    await core.addViewHook({'name': '', 'type': 'created', 'storm': '', 'creator': root})
+
+                with self.raises(s_exc.SchemaViolation):
+                    await core.addViewHook({'name': 'newp', 'type': 'created', 'storm': ''})
+
+                with self.raises(s_exc.SchemaViolation):
+                    await core.addViewHook({'name': 'newp', 'type': 'created', 'storm': '', 'creator': root, 'newp': 1})
+
+                with self.raises(s_exc.NoSuchUser):
+                    await core.addViewHook({'name': 'newp', 'type': 'created', 'storm': '', 'creator': s_common.guid()})
+
+                with self.raises(s_exc.BadSyntax):
+                    await core.addViewHook({'name': 'newp', 'type': 'created', 'storm': '| | |', 'creator': root})
+
+                self.len(2, await core.getViewHooks())
+
+                newp = s_common.guid()
+                with self.raises(s_exc.NoSuchIden):
+                    await core.getViewHook(newp)
+
+                with self.raises(s_exc.NoSuchIden):
+                    await core.delViewHook(newp)
+
+                with self.raises(s_exc.NoSuchIden):
+                    await core.modViewHook(newp, {'name': 'newp'})
+
+                for name in ('iden', 'creator', 'created', 'updated', 'newp'):
+                    with self.raises(s_exc.BadArg):
+                        await core.modViewHook(iden00, {name: 'newp'})
+
+                    with self.raises(s_exc.BadArg):
+                        await core.modViewHook(iden00, {'name': 'hook00b', name: 'newp'})
+
+                with self.raises(s_exc.BadArg):
+                    await core.modViewHook(iden00, {})
+
+                with self.raises(s_exc.SchemaViolation):
+                    await core.modViewHook(iden00, {'type': 'newp'})
+
+                with self.raises(s_exc.SchemaViolation):
+                    await core.modViewHook(iden00, {'enabled': 'newp'})
+
+                with self.raises(s_exc.SchemaViolation):
+                    await core.modViewHook(iden00, {'name': ''})
+
+                with self.raises(s_exc.BadSyntax):
+                    await core.modViewHook(iden00, {'storm': '| | |'})
+
+                # a bad value in any field changes nothing
+                with self.raises(s_exc.SchemaViolation):
+                    await core.modViewHook(iden00, {'name': 'hook00b', 'enabled': False, 'type': 'newp'})
+
+                with self.raises(s_exc.BadSyntax):
+                    await core.modViewHook(iden00, {'name': 'hook00b', 'storm': '| | |'})
+
+                self.eq(hdef00, await core.getViewHook(iden00))
+
+                # a replayed mod for a deleted hook is a no-op
+                self.none(await core._modViewHook(newp, {'name': 'newp', 'updated': s_common.now()}))
+
+                hdef = await core.modViewHook(iden01, {'enabled': True})
+                self.true(hdef.get('enabled'))
+                self.ge(hdef.get('updated'), hdef01.get('updated'))
+                self.eq(hdef01.get('created'), hdef.get('created'))
+
+                hdef = await core.modViewHook(iden01, {'type': 'created'})
+                self.eq('created', hdef.get('type'))
+
+                # several fields update together with one updated time
+                prev = hdef
+                hdef = await core.modViewHook(iden01, {'name': 'hook01b', 'storm': f'$name=hook01b {storm}'})
+                self.eq('hook01b', hdef.get('name'))
+                self.eq(f'$name=hook01b {storm}', hdef.get('storm'))
+                self.eq('created', hdef.get('type'))
+                self.true(hdef.get('enabled'))
+                self.ge(hdef.get('updated'), prev.get('updated'))
+                self.eq(hdef, await core.getViewHook(iden01))
+
+                iden02 = (await core.addViewHook({
+                    'name': 'hook02',
+                    'type': 'created',
+                    'storm': '$lib.raise(HookFail, nope)',
+                    'enabled': False,
+                    'creator': root,
+                })).get('iden')
+
+                iden03 = (await core.addViewHook({
+                    'name': 'hook03',
+                    'type': 'deleted',
+                    'storm': f'$name=hook03 {storm}',
+                    'creator': root,
+                })).get('iden')
+
+                # the runner runs enabled hooks of the type, by created, as root in the view
+                view = core.getView()
+                fork = await view.fork()
+                forkiden = fork.get('iden')
+                fork = core.getView(forkiden)
+
+                # the fork already ran the created hooks
+                self.eq([
+                    ('hook00', 'root', forkiden),
+                    ('hook01b', 'root', forkiden),
+                ], await core.callStorm(popq))
+
+                await core._runViewHooks('created', fork)
+                self.eq([
+                    ('hook00', 'root', forkiden),
+                    ('hook01b', 'root', forkiden),
+                ], await core.callStorm(popq))
+
+                await core._runViewHooks('deleted', view)
+                self.eq([('hook03', 'root', view.iden)], await core.callStorm(popq))
+
+                await core._runViewHooks('merging', fork)
+                self.eq([], await core.callStorm(popq))
+
+                # exceptions propagate to the caller after earlier hooks run
+                await core.modViewHook(iden02, {'enabled': True})
+                with self.raises(s_exc.StormRaise):
+                    await core._runViewHooks('created', fork)
+
+                self.len(2, await core.callStorm(popq))
+                self.eq(0, s_cortex.ViewHookDepth.get())
+
+                # errok logs the exception and runs the remaining hooks
+                await core.modViewHook(iden02, {'storm': f'$lib.raise(HookFail, nope) $name=hook02 {storm}'})
+                await core.modViewHook(iden00, {'storm': f'$lib.raise(HookFail, nope) $name=hook00 {storm}'})
+                with self.getLoggerStream('synapse.cortex') as stream:
+                    await core._runViewHooks('created', fork, errok=True)
+
+                self.eq([('hook01b', 'root', forkiden)], await core.callStorm(popq))
+                self.isin(f'Error running created view hook {iden00} in view {forkiden}', stream.getvalue())
+                self.isin(f'Error running created view hook {iden02} in view {forkiden}', stream.getvalue())
+
+                await core.modViewHook(iden00, {'storm': f'$name=hook00 {storm}'})
+                await core.modViewHook(iden02, {'enabled': False})
+
+                # hooks run from within running hooks up to the nesting limit
+                token = s_cortex.ViewHookDepth.set(s_const.VIEW_HOOK_MAX_DEPTH - 1)
+                try:
+                    await core._runViewHooks('created', fork)
+                    self.len(2, await core.callStorm(popq))
+
+                    s_cortex.ViewHookDepth.set(s_const.VIEW_HOOK_MAX_DEPTH)
+                    with self.raises(s_exc.RecursionLimitHit) as cm:
+                        await core._runViewHooks('created', fork)
+
+                    mesg = f'View hooks exceeded the maximum nesting depth of {s_const.VIEW_HOOK_MAX_DEPTH}.'
+                    self.eq(mesg, cm.exception.get('mesg'))
+                    self.eq(s_const.VIEW_HOOK_MAX_DEPTH, cm.exception.get('limit'))
+                    self.eq(s_const.VIEW_HOOK_MAX_DEPTH, s_cortex.ViewHookDepth.get())
+
+                    # a view whose created hooks would exceed the limit is not created
+                    videns = set(core.views.keys())
+                    lidens = set(core.layers.keys())
+
+                    with self.raises(s_exc.RecursionLimitHit) as cm:
+                        await view.fork()
+
+                    self.eq('created', cm.exception.get('type'))
+
+                    with self.raises(s_exc.RecursionLimitHit):
+                        await core.addView({'layers': [view.layers[0].iden]})
+
+                    with self.raises(s_exc.RecursionLimitHit):
+                        await fork.insertParentFork(root)
+
+                    with self.raises(s_exc.RecursionLimitHit):
+                        await fork.insertChildFork(root)
+
+                    self.eq(videns, set(core.views.keys()))
+                    self.eq(lidens, set(core.layers.keys()))
+
+                    # hook types with no enabled hooks do not check the limit
+                    self.false(await core._runViewHooks('merging', fork))
+
+                finally:
+                    s_cortex.ViewHookDepth.reset(token)
+
+                self.eq([], await core.callStorm(popq))
+
+                # hooks whose creator is locked or deleted still run as root
+                hooks = [('hook00', 'root', forkiden), ('hook01b', 'root', forkiden)]
+
+                await visi.setLocked(True)
+                await core._runViewHooks('created', fork)
+                self.eq(hooks, await core.callStorm(popq))
+
+                await core.auth.delUser(visi.iden)
+                await core._runViewHooks('created', fork)
+                self.eq(hooks, await core.callStorm(popq))
+                self.eq(visi.iden, (await core.getViewHook(iden00)).get('creator'))
+
+                await core.delViewHook(iden02)
+                with self.raises(s_exc.NoSuchIden):
+                    await core.getViewHook(iden02)
+
+                hdefs = await core.getViewHooks()
+                self.eq([iden00, iden01, iden03], [h.get('iden') for h in hdefs])
+
+            # hooks persist across restart, ordered by created
+            async with self.getTestCore(dirn=dirn) as core:
+                self.eq(hdefs, await core.getViewHooks())
+
+                await core.delViewHook(iden00)
+                self.eq([iden01, iden03], [h.get('iden') for h in await core.getViewHooks()])
+
+            async with self.getTestCore(dirn=dirn, conf={'safemode': True}) as core:
+                self.eq([iden01, iden03], [h.get('iden') for h in await core.getViewHooks()])
+
+                # hooks do not run in safemode
+                await core._runViewHooks('created', core.getView(forkiden))
+                self.eq([], await core.callStorm(popq))
+
+                # views are created at the nesting limit when no created hooks run
+                token = s_cortex.ViewHookDepth.set(s_const.VIEW_HOOK_MAX_DEPTH)
+                try:
+                    self.nn(core.getView((await core.getView().fork()).get('iden')))
+
+                finally:
+                    s_cortex.ViewHookDepth.reset(token)
 
     async def test_cortex_query_offload(self):
 

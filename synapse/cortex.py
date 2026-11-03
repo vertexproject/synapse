@@ -7,6 +7,7 @@ import logging
 import textwrap
 import contextlib
 import collections
+import contextvars
 
 from collections.abc import Mapping
 
@@ -108,10 +109,15 @@ import synapse.lib.stormlib.version as s_stormlib_version  # noqa: F401
 import synapse.lib.stormlib.easyperm as s_stormlib_easyperm  # noqa: F401
 import synapse.lib.stormlib.ethereum as s_stormlib_ethereum  # noqa: F401
 import synapse.lib.stormlib.modelext as s_stormlib_modelext  # noqa: F401
+import synapse.lib.stormlib.viewhook as s_stormlib_viewhook  # noqa: F401
 import synapse.lib.stormlib.compression as s_stormlib_compression  # noqa: F401
 import synapse.lib.stormlib.notifications as s_stormlib_notifications  # noqa: F401
 
 logger = logging.getLogger(__name__)
+
+# the nesting depth of running view hooks, which is inherited by tasks they start
+ViewHookDepth = contextvars.ContextVar('ViewHookDepth', default=0)
+
 stormlogger = logging.getLogger('synapse.storm')
 
 '''
@@ -1145,6 +1151,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # NOTE: we may not make *any* nexus actions in this method
         self.macrodb = self.slab.initdb('storm:macros')
         self.httpextapidb = self.slab.initdb('http:ext:apis')
+        self.viewhookdb = self.slab.initdb('view:hooks')
 
         if self.inaugural:
             self.cellinfo.set('cortex:version', s_version.version)
@@ -1239,6 +1246,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self._exthttpapiorder = b'exthttpapiorder'
         self._exthttpapicache = s_cache.FixedCache(self._getHttpExtApiByPath, size=1000)
         self._initCortexExtHttpApi()
+
+        self.viewhooks = {}  # iden -> hdef
+        self._initViewHooks()
 
         self.model = s_datamodel.Model(core=self)
 
@@ -5309,6 +5319,255 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return iden, match.groups()
         return None, ()
 
+    def _initViewHooks(self):
+        self.viewhooks.clear()
+
+        hdefs = [s_msgpack.un(byts) for _, byts in self.slab.scanByFull(db=self.viewhookdb)]
+        hdefs.sort(key=lambda hdef: hdef.get('created'))
+
+        for hdef in hdefs:
+            self.viewhooks[hdef.get('iden')] = hdef
+
+    async def addViewHook(self, hdef):
+        '''
+        Add a view hook which runs a Storm query as root on a view lifecycle event.
+
+        Args:
+            hdef (dict): The hook definition containing name, type, storm, creator, and optionally iden and enabled.
+
+        Returns:
+            dict: The new hook definition.
+        '''
+        hdef = dict(hdef)
+        hdef.setdefault('iden', s_common.guid())
+        hdef.setdefault('enabled', True)
+
+        hdef['created'] = s_common.now()
+        hdef['updated'] = hdef['created']
+
+        hdef = s_schemas.reqValidViewHook(hdef)
+
+        iden = hdef['iden']
+        if self.viewhooks.get(iden) is not None:
+            raise s_exc.DupIden(mesg=f'Duplicate iden specified for view hook: {iden}', iden=iden)
+
+        creator = hdef['creator']
+        if self.auth.user(creator) is None:
+            raise s_exc.NoSuchUser(mesg=f'No user found with iden: {creator}', user=creator)
+
+        await self.getStormQuery(hdef['storm'])
+
+        return await self._push('view:hook:add', hdef)
+
+    @s_nexus.Pusher.onPush('view:hook:add')
+    async def _addViewHook(self, hdef):
+        iden = hdef.get('iden')
+        self.viewhooks[iden] = hdef
+        self.slab.put(s_common.uhex(iden), s_msgpack.en(hdef), db=self.viewhookdb)
+        return copy.deepcopy(hdef)
+
+    async def delViewHook(self, iden):
+        '''
+        Delete a view hook.
+
+        Args:
+            iden (str): The iden of the hook.
+        '''
+        if self.viewhooks.get(iden) is None:
+            raise s_exc.NoSuchIden(mesg=f'No view hook for {iden=}', iden=iden)
+
+        return await self._push('view:hook:del', iden)
+
+    @s_nexus.Pusher.onPush('view:hook:del')
+    async def _delViewHook(self, iden):
+        self.viewhooks.pop(iden, None)
+        self.slab.pop(s_common.uhex(iden), db=self.viewhookdb)
+
+    async def modViewHook(self, iden, opts):
+        '''
+        Modify the name, type, storm, or enabled fields of a view hook.
+
+        Args:
+            iden (str): The iden of the hook.
+            opts (dict): The fields to set and their new values.
+
+        Returns:
+            dict: The updated hook definition.
+        '''
+        if not opts:
+            raise s_exc.BadArg(mesg='No view hook fields specified.')
+
+        for name in opts.keys():
+            if name not in ('name', 'type', 'storm', 'enabled'):
+                raise s_exc.BadArg(mesg=f'Cannot set {name=} on view hook', name=name)
+
+        hdef = self.viewhooks.get(iden)
+        if hdef is None:
+            raise s_exc.NoSuchIden(mesg=f'No view hook for {iden=}', iden=iden)
+
+        hdef = copy.deepcopy(hdef)
+        hdef.update(opts)
+        s_schemas.reqValidViewHook(hdef)
+
+        storm = opts.get('storm')
+        if storm is not None:
+            await self.getStormQuery(storm)
+
+        opts = dict(opts)
+        opts['updated'] = s_common.now()
+
+        return await self._push('view:hook:mod', iden, opts)
+
+    @s_nexus.Pusher.onPush('view:hook:mod')
+    async def _modViewHook(self, iden, opts):
+        hdef = self.viewhooks.get(iden)
+        if hdef is None:
+            return None
+
+        hdef = copy.deepcopy(hdef)
+        hdef.update(opts)
+        hdef = s_schemas.reqValidViewHook(hdef)
+
+        self.viewhooks[iden] = hdef
+        self.slab.put(s_common.uhex(iden), s_msgpack.en(hdef), db=self.viewhookdb)
+
+        return copy.deepcopy(hdef)
+
+    async def getViewHook(self, iden):
+        hdef = self.viewhooks.get(iden)
+        if hdef is None:
+            raise s_exc.NoSuchIden(mesg=f'No view hook for {iden=}', iden=iden)
+
+        return copy.deepcopy(hdef)
+
+    async def getViewHooks(self, type=None):
+        hdefs = self.viewhooks.values()
+        if type is not None:
+            hdefs = [hdef for hdef in hdefs if hdef.get('type') == type]
+
+        return copy.deepcopy(list(hdefs))
+
+    def _getRunViewHooks(self, htype):
+        if self.safemode:
+            return []
+
+        return [hdef for hdef in self.viewhooks.values() if hdef.get('type') == htype and hdef.get('enabled')]
+
+    def _reqViewHookDepth(self, htype, **info):
+        depth = ViewHookDepth.get()
+        if depth >= s_const.VIEW_HOOK_MAX_DEPTH:
+            mesg = f'View hooks exceeded the maximum nesting depth of {s_const.VIEW_HOOK_MAX_DEPTH}.'
+            raise s_exc.RecursionLimitHit(mesg=mesg, limit=s_const.VIEW_HOOK_MAX_DEPTH, type=htype, **info)
+
+        return depth
+
+    def _reqCreatedHookDepth(self):
+        '''
+        Raise RecursionLimitHit if a new view's created hooks would exceed VIEW_HOOK_MAX_DEPTH.
+
+        Called before a view is created so a view over the limit is never made.
+        '''
+        if self._getRunViewHooks('created'):
+            self._reqViewHookDepth('created')
+
+    async def _runViewHooks(self, htype, view, errok=False):
+        '''
+        Run the enabled view hooks of the given type in the view, ordered by creation time.
+
+        Hooks run as the root user, in a new task, and do not run in safemode. Hooks run for
+        lifecycle events caused by hook storm, and the tasks it starts, up to a nesting depth
+        of VIEW_HOOK_MAX_DEPTH. Exceptions propagate to the caller unless errok is set, in which
+        case they are logged and the remaining hooks run. If the hook task is cancelled while the
+        caller is not, a SynErr is raised, or logged if errok is set, and the remaining hooks do not run.
+
+        Args:
+            htype (str): The hook type (created, merging, or deleted).
+            view (View): The view the hook storm runs in.
+            errok (bool): Log hook exceptions rather than raising them.
+
+        Returns:
+            bool: True if any hooks ran.
+
+        Raises:
+            s_exc.RecursionLimitHit: If running the hooks would exceed VIEW_HOOK_MAX_DEPTH.
+            s_exc.SynErr: If the hook task is cancelled while the caller is not, and errok is not set.
+        '''
+        hdefs = self._getRunViewHooks(htype)
+        if not hdefs:
+            return False
+
+        depth = self._reqViewHookDepth(htype, view=view.iden)
+
+        hdefs.sort(key=lambda hdef: hdef.get('created'))
+
+        # a new task keeps the python stack from growing with each nesting level
+        task = s_coro.create_task(self._execViewHooks(htype, view, hdefs, depth + 1, errok))
+        s_scope.clone(task)
+
+        try:
+            await task
+
+        except asyncio.CancelledError:
+            # a hook task killed on its own is a hook failure, not a cancel of the caller
+            if asyncio.current_task().cancelling():
+                raise
+
+            mesg = f'A {htype} view hook in view {view.iden} was cancelled.'
+            if not errok:
+                raise s_exc.SynErr(mesg=mesg, type=htype, view=view.iden) from None
+
+            logger.error(mesg, extra=self.getLogExtra(type=htype, view=view.iden))
+
+        return True
+
+    async def _execViewHooks(self, htype, view, hdefs, depth, errok):
+
+        ViewHookDepth.set(depth)
+
+        root = self.auth.rootuser.iden
+        for hdef in hdefs:
+
+            iden = hdef.get('iden')
+
+            # hooks run locally rather than on a storm pool mirror
+            opts = {
+                'user': root,
+                'view': view.iden,
+                'mirror': False,
+                'vars': {'auto': {'iden': iden, 'type': 'view:hook', 'opts': {'type': htype}}},
+            }
+
+            try:
+                await self.callStorm(hdef.get('storm'), opts=opts)
+
+            except Exception:
+                if not errok:
+                    raise
+
+                logger.exception(f'Error running {htype} view hook {iden} in view {view.iden}',
+                                 extra=self.getLogExtra(iden=iden, view=view.iden, creator=hdef.get('creator')))
+
+    async def _runCreatedHooks(self, iden, pack):
+        '''
+        Run the created view hooks for a new view and return its view definition.
+
+        Args:
+            iden (str): The iden of the new view.
+            pack (dict): The view definition of the new view.
+
+        Returns:
+            dict: The view definition repacked after the hooks, or the given one if no hooks ran or a hook
+            deleted the view.
+        '''
+        if not await self._runViewHooks('created', self.reqView(iden), errok=True):
+            return pack
+
+        view = self.getView(iden)
+        if view is None:
+            return pack
+
+        return await view.pack()
+
     async def getCellApi(self, link, user, path):
 
         if not path:
@@ -5496,10 +5755,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         s_schemas.reqValidView(vdef)
 
-        if nexs:
-            return await self._push('view:add', vdef)
-        else:
+        if not nexs:
             return await self._addView(vdef)
+
+        self._reqCreatedHookDepth()
+
+        pack = await self._push('view:add', vdef)
+        return await self._runCreatedHooks(vdef['iden'], pack)
 
     @s_nexus.Pusher.onPush('view:add')
     async def _addView(self, vdef):
@@ -5537,7 +5799,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.feedBeholder('view:add', pack, gates=[iden])
         return pack
 
-    async def delViewWithLayer(self, iden):
+    async def delViewWithLayer(self, iden, hooks=True):
         '''
         Delete a Cortex View and its write Layer if not in use by other View stacks.
 
@@ -5553,9 +5815,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if view is None:
             raise s_exc.NoSuchView(mesg=f'No such view {iden=}', iden=iden)
 
+        if iden == self.view.iden:
+            raise s_exc.SynErr(mesg='Cannot delete the main view')
+
         if view.info.get('protected'):
             mesg = f'Cannot delete view ({iden}) that has protected set.'
             raise s_exc.CantDelView(mesg=mesg)
+
+        if hooks:
+            await self._runViewHooks('deleted', view)
 
         layriden = view.layers[0].iden
         pareiden = None
@@ -5628,14 +5896,24 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             layr.deloffs = nexsitem[0]
 
-    async def delView(self, iden):
+    async def delView(self, iden, hooks=True):
         view = self.views.get(iden)
         if view is None:
             raise s_exc.NoSuchView(mesg=f'No such view {iden=}', iden=iden)
 
+        if iden == self.view.iden:
+            raise s_exc.SynErr(mesg='Cannot delete the main view')
+
         if view.info.get('protected'):
             mesg = f'Cannot delete view ({iden}) that has protected set.'
             raise s_exc.CantDelView(mesg=mesg)
+
+        for cview in self.views.values():
+            if cview.parent is not None and cview.parent.iden == iden:
+                raise s_exc.SynErr(mesg='Cannot delete a view that has children')
+
+        if hooks:
+            await self._runViewHooks('deleted', view)
 
         return await self._push('view:del', iden)
 
