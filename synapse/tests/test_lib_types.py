@@ -988,11 +988,14 @@ class TypesTest(s_t_utils.SynTest):
                     [ test:str=at{name}
                         :tick=$tick :_tick=$tick
                         :_seen=$ival .seen=$ival
-                        +#t.a=$ival +#t:_tp=$tick
+                        +#t.a=$ival +#t:_tp=$tick +#nov
                     ]
                 ''', opts=opts)
 
             pin = 'test:str*in=(atfin, atfut)'
+
+            # a tag with no value never matches
+            self.len(0, await core.nodes(f'{pin} +#nov@=(2019, 2022)'))
 
             # (filter, lift) pairs. :tick is a test:time prop.
             points = (
@@ -1007,6 +1010,7 @@ class TypesTest(s_t_utils.SynTest):
             )
 
             expected = {
+                '2017': (),
                 '2020': (),
                 '(2019, 2022)': ('atfin',),
                 '(2020, "?")': ('atfin',),

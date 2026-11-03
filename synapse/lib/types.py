@@ -1316,17 +1316,14 @@ class Ival(Type):
             if isinstance(item, int):
                 return norm[0] <= item < norm[1]
 
-            if isinstance(item, (list, tuple)) and (item[0] is None or isinstance(item[0], int)):
-                if item[0] is None:
-                    return False
-                othr = item
-            else:
-                othr, info = self.norm(item)
-
-            if othr[0] >= norm[1]:
+            # a valueless tag is a null ival
+            if item[0] is None:
                 return False
 
-            if othr[1] <= norm[0]:
+            if item[0] >= norm[1]:
+                return False
+
+            if item[1] <= norm[0]:
                 return False
 
             return True
