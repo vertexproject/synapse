@@ -313,9 +313,9 @@ class StormlibModelTest(s_test.SynTest):
                 maxvers = '.'.join(str(v) for v in s_modelrev.maxvers)
 
                 msgs = await core.stormlist('v3.checkready')
-                self.stormIsInWarn(f'Layer {layr} contains deprecated model element ou:org:sic', msgs)
-                self.stormIsInWarn(f'Layer {layr} contains deprecated model element ou:hasalias', msgs)
-                self.stormNotInWarn('it:reveng:funcstr', msgs)
+                self.stormIsInPrint(f'ERROR: Layer {layr} contains deprecated model element ou:org:sic', msgs)
+                self.stormIsInPrint(f'ERROR: Layer {layr} contains deprecated model element ou:hasalias', msgs)
+                self.stormNotInPrint('it:reveng:funcstr', msgs)
                 self.stormIsInPrint('Your Cortex is not ready for Synapse 3.x.', msgs)
 
                 # inbound nodes pass through
@@ -340,6 +340,7 @@ class StormlibModelTest(s_test.SynTest):
 
                 msgs = await core.stormlist('v3.checkready')
                 self.stormHasNoWarnErr(msgs)
+                self.stormNotInPrint('ERROR: ', msgs)
                 self.stormIsInPrint('Your Cortex is ready for Synapse 3.x.', msgs)
 
                 await core.addStormPkg({'name': 'foopkg', 'version': '1.2.3'})
@@ -347,13 +348,14 @@ class StormlibModelTest(s_test.SynTest):
                 vers = {'foopkg': '1.3.0', 'newppkg': '1.0.0'}
                 with mock.patch.dict(s_const.V3_READY_PKG_VERSIONS, vers):
                     msgs = await core.stormlist('v3.checkready')
-                    self.stormIsInWarn('Power-Up foopkg version 1.2.3 is not 3.x ready; upgrade to 1.3.0 or later.', msgs)
-                    self.stormNotInWarn('newppkg', msgs)
+                    self.stormIsInPrint('ERROR: Power-Up foopkg version 1.2.3 is not 3.x ready; upgrade to 1.3.0 or later.', msgs)
+                    self.stormNotInPrint('newppkg', msgs)
                     self.stormIsInPrint('Your Cortex is not ready for Synapse 3.x.', msgs)
 
                 with mock.patch.dict(s_const.V3_READY_PKG_VERSIONS, {'foopkg': '1.2.3'}):
                     msgs = await core.stormlist('v3.checkready')
                     self.stormHasNoWarnErr(msgs)
+                    self.stormNotInPrint('ERROR: ', msgs)
                     self.stormIsInPrint('Your Cortex is ready for Synapse 3.x.', msgs)
 
                 vtxauthor = {'url': 'https://vertex.link', 'name': 'The Vertex Project, LLC.'}
@@ -364,29 +366,30 @@ class StormlibModelTest(s_test.SynTest):
 
                 with mock.patch.dict(s_const.V3_READY_PKG_VERSIONS, {'foopkg': '1.2.3'}):
                     msgs = await core.stormlist('v3.checkready')
-                    self.stormIsInWarn('Power-Up vtxpkg is not yet available for Synapse 3.x.', msgs)
-                    self.len(1, [m for m in msgs if m[0] == 'warn'])
+                    self.stormIsInPrint('ERROR: Power-Up vtxpkg is not yet available for Synapse 3.x.', msgs)
+                    self.len(1, [m for m in msgs if m[0] == 'print' and m[1]['mesg'].startswith('ERROR: ')])
                     self.stormIsInPrint('Your Cortex is not ready for Synapse 3.x.', msgs)
 
                 vers = {'foopkg': '1.2.3', 'vtxpkg': '2.0.0'}
                 with mock.patch.dict(s_const.V3_READY_PKG_VERSIONS, vers):
                     msgs = await core.stormlist('v3.checkready')
                     self.stormHasNoWarnErr(msgs)
+                    self.stormNotInPrint('ERROR: ', msgs)
                     self.stormIsInPrint('Your Cortex is ready for Synapse 3.x.', msgs)
                     self.stormIsInPrint('Checking for incomplete migrations...', msgs)
 
                     await layr00.setModelVers((0, 2, 0))
                     msgs = await core.stormlist('v3.checkready')
                     mesg = f'Layer {layr} has not completed model migrations yet (version 0.2.0, expected {maxvers}).'
-                    self.stormIsInWarn(mesg, msgs)
-                    self.len(1, [m for m in msgs if m[0] == 'warn'])
+                    self.stormIsInPrint(f'ERROR: {mesg}', msgs)
+                    self.len(1, [m for m in msgs if m[0] == 'print' and m[1]['mesg'].startswith('ERROR: ')])
                     self.stormIsInPrint('Your Cortex is not ready for Synapse 3.x.', msgs)
                     await layr00.setModelVers(s_modelrev.maxvers)
 
                     core.migration = True
                     msgs = await core.stormlist('v3.checkready')
-                    self.stormIsInWarn('The layer model migration is still running.', msgs)
-                    self.len(1, [m for m in msgs if m[0] == 'warn'])
+                    self.stormIsInPrint('ERROR: The layer model migration is still running.', msgs)
+                    self.len(1, [m for m in msgs if m[0] == 'print' and m[1]['mesg'].startswith('ERROR: ')])
                     self.stormIsInPrint('Your Cortex is not ready for Synapse 3.x.', msgs)
                     core.migration = False
 
@@ -403,13 +406,14 @@ class StormlibModelTest(s_test.SynTest):
                     self.nn(await waiter.wait(timeout=10))
 
                     msgs = await core.stormlist('v3.checkready')
-                    self.stormIsInWarn('Power-Up initpkg has not completed its inits yet (version 1, expected 2).', msgs)
-                    self.len(1, [m for m in msgs if m[0] == 'warn'])
+                    self.stormIsInPrint('ERROR: Power-Up initpkg has not completed its inits yet (version 1, expected 2).', msgs)
+                    self.len(1, [m for m in msgs if m[0] == 'print' and m[1]['mesg'].startswith('ERROR: ')])
                     self.stormIsInPrint('Your Cortex is not ready for Synapse 3.x.', msgs)
 
                     await core.setStormPkgVar('initpkg', 'storage:version', 2)
                     msgs = await core.stormlist('v3.checkready')
                     self.stormHasNoWarnErr(msgs)
+                    self.stormNotInPrint('ERROR: ', msgs)
                     self.stormIsInPrint('Your Cortex is ready for Synapse 3.x.', msgs)
 
                     self.stormNotInPrint('These services are not ready', msgs)
@@ -427,16 +431,17 @@ class StormlibModelTest(s_test.SynTest):
 
                         msgs = await core.stormlist('v3.checkready')
                         self.stormHasNoWarnErr(msgs)
+                        self.stormNotInPrint('ERROR: ', msgs)
                         self.stormIsInPrint('Checking service v3ready...', msgs)
                         self.stormIsInPrint('Checking the widgets...', msgs)
-                        self.stormIsInPrint('Warning: Something to know.', msgs)
+                        self.stormIsInPrint('WARNING: Something to know.', msgs)
                         self.stormNotInPrint('nov3ready', msgs)
                         self.stormIsInPrint('Your Cortex is ready for Synapse 3.x.', msgs)
 
                         ready.mesgs = [('error', 'Not ready at all.')]
                         msgs = await core.stormlist('v3.checkready')
-                        self.stormIsInWarn('Not ready at all.', msgs)
-                        self.len(1, [m for m in msgs if m[0] == 'warn'])
+                        self.stormIsInPrint('ERROR: Not ready at all.', msgs)
+                        self.len(1, [m for m in msgs if m[0] == 'print' and m[1]['mesg'].startswith('ERROR: ')])
 
                         # and is named as not ready, apart from the Cortex
                         self.stormIsInPrint('Your Cortex is ready for Synapse 3.x.', msgs)
@@ -445,27 +450,28 @@ class StormlibModelTest(s_test.SynTest):
                         # a check which raises, sends something other than a message, or takes too long fails
                         ready.mesgs = [s_exc.AuthDeny(mesg='Nope.')]
                         msgs = await core.stormlist('v3.checkready')
-                        self.stormIsInWarn('Could not check service v3ready: Nope.', msgs)
+                        self.stormIsInPrint('ERROR: Could not check service v3ready: Nope.', msgs)
                         self.stormIsInPrint('These services are not ready for Synapse 3.x: v3ready.', msgs)
 
                         ready.mesgs = [None]
                         msgs = await core.stormlist('v3.checkready')
-                        self.stormIsInWarn('Could not check service v3ready: ', msgs)
+                        self.stormIsInPrint('ERROR: Could not check service v3ready: ', msgs)
 
                         ready.mesgs = []
                         ready.delay = 1
                         with mock.patch.object(s_storm.V3CheckReadyCmd, 'svctimeout', 0.01):
                             msgs = await core.stormlist('v3.checkready')
-                        self.stormIsInWarn('Could not check service v3ready: TimeoutError', msgs)
+                        self.stormIsInPrint('ERROR: Could not check service v3ready: TimeoutError', msgs)
                         ready.delay = 0
 
                         msgs = await core.stormlist('v3.checkready')
                         self.stormHasNoWarnErr(msgs)
+                        self.stormNotInPrint('ERROR: ', msgs)
 
                         # a service which is not connected is warned about, but passes
                         with mock.patch.object(core.svcsbyname['v3ready'].proxy, 'proxy', side_effect=TimeoutError()):
                             msgs = await core.stormlist('v3.checkready')
-                        self.stormIsInWarn('Could not check service v3ready, which is not connected.', msgs)
+                        self.stormIsInPrint('WARNING: Could not check service v3ready, which is not connected.', msgs)
                         self.stormNotInPrint('These services are not ready', msgs)
 
                         waiter = core.waiter(2, 'stormsvc:client:unready')
@@ -474,8 +480,8 @@ class StormlibModelTest(s_test.SynTest):
 
                     await core.nodes('service.add v3gone tcp://127.0.0.1:1/newp')
                     msgs = await core.stormlist('v3.checkready')
-                    self.stormIsInWarn('Could not check service v3gone, which is not connected.', msgs)
-                    self.stormIsInWarn('Could not check service v3ready, which is not connected.', msgs)
+                    self.stormIsInPrint('WARNING: Could not check service v3gone, which is not connected.', msgs)
+                    self.stormIsInPrint('WARNING: Could not check service v3ready, which is not connected.', msgs)
                     self.stormNotInPrint('Checking service', msgs)
                     self.stormIsInPrint('Your Cortex is ready for Synapse 3.x.', msgs)
 
@@ -500,12 +506,12 @@ class StormlibModelTest(s_test.SynTest):
                 layr = core.getLayer().iden
 
                 msgs = await core.stormlist('v3.checkready')
-                warns = [m[1]['mesg'] for m in msgs if m[0] == 'warn']
-                self.isin(f'Layer {layr} contains deprecated model element test:dep:easy', warns)
-                self.isin(f'Layer {layr} contains deprecated model element .pdep', warns)
-                self.isin(f'Layer {layr} contains deprecated model element test:dep:str', warns)
-                self.isin(f'Layer {layr} contains deprecated model element test:dep:str:beep', warns)
-                self.stormNotInWarn('test:dep:easy.pdep', msgs)
+                errs = [m[1]['mesg'] for m in msgs if m[0] == 'print' and m[1]['mesg'].startswith('ERROR: ')]
+                self.isin(f'ERROR: Layer {layr} contains deprecated model element test:dep:easy', errs)
+                self.isin(f'ERROR: Layer {layr} contains deprecated model element .pdep', errs)
+                self.isin(f'ERROR: Layer {layr} contains deprecated model element test:dep:str', errs)
+                self.isin(f'ERROR: Layer {layr} contains deprecated model element test:dep:str:beep', errs)
+                self.stormNotInPrint('test:dep:easy.pdep', msgs)
                 self.stormIsInPrint('Your Cortex is not ready for Synapse 3.x.', msgs)
 
     async def test_stormlib_model_migration(self):

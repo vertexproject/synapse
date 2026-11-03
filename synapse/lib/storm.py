@@ -6018,12 +6018,13 @@ class V3CheckReadyCmd(Cmd):
     '''
     Check the Cortex and its Storm services for readiness to upgrade to Synapse 3.x.
 
-    Warns about deprecated forms, properties, and types which are still in use
-    in any layer, about installed Power-Ups which are below the minimum version
-    that supports Synapse 3.x, about installed Vertex Power-Ups which are not
-    yet available for Synapse 3.x, and about layer model migrations or Power-Up
-    inits which have not completed yet. Then runs the 3.x readiness check of
-    each Storm service in a section of its own, and names those which are not ready.
+    Prints an error for each deprecated form, property, or type which is still
+    in use in any layer, installed Power-Up which is below the minimum version
+    that supports Synapse 3.x, installed Vertex Power-Up which is not yet
+    available for Synapse 3.x, and layer model migration or Power-Up init which
+    has not completed yet. Then runs the 3.x readiness check of each Storm
+    service in a section of its own, and names those which are not ready.
+    Errors block the upgrade, and warnings do not.
 
     NOTE: This command requires admin privileges.
 
@@ -6076,7 +6077,7 @@ class V3CheckReadyCmd(Cmd):
                 pass
 
         if proxy is None:
-            await runt.warn(f'Could not check service {ssvc.name}, which is not connected.')
+            await runt.printf(f'WARNING: Could not check service {ssvc.name}, which is not connected.')
             return True
 
         if not proxy._hasTeleMeth('checkV3Ready'):
@@ -6088,7 +6089,7 @@ class V3CheckReadyCmd(Cmd):
 
         except Exception as e:
             mesg = e.get('mesg') if isinstance(e, s_exc.SynErr) else str(e)
-            await runt.warn(f'Could not check service {ssvc.name}: {mesg or e.__class__.__name__}')
+            await runt.printf(f'ERROR: Could not check service {ssvc.name}: {mesg or e.__class__.__name__}')
             return False
 
     async def _printCheck(self, runt, genr):
@@ -6102,9 +6103,9 @@ class V3CheckReadyCmd(Cmd):
 
             elif name == 'error':
                 ok = False
-                await runt.warn(info)
+                await runt.printf(f'ERROR: {info}')
 
             elif name == 'warning':
-                await runt.printf(f'Warning: {info}')
+                await runt.printf(f'WARNING: {info}')
 
         return ok
