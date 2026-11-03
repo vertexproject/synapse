@@ -1294,7 +1294,7 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:url', 'synapse.models.inet.Url', {}, {
-                        'doc': 'A Universal Resource Locator (URL).',
+                        'doc': 'A Uniform Resource Locator (URL).',
                         'ex': 'http://www.woot.com/files/index.html'
                     }),
 
@@ -1422,7 +1422,7 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:urlfile', ('comp', {'fields': (('url', 'inet:url'), ('file', 'file:bytes'))}), {
-                        'doc': 'A file hosted at a specific Universal Resource Locator (URL).'
+                        'doc': 'A file hosted at a specific Uniform Resource Locator (URL).'
                     }),
 
                     ('inet:urlredir', ('comp', {'fields': (('src', 'inet:url'), ('dst', 'inet:url'))}), {

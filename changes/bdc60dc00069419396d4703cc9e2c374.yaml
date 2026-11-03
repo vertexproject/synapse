@@ -1,0 +1,7 @@
+---
+desc: Corrected the ``inet:url`` and ``inet:urlfile`` type documentation to use the
+  standard expansion of URL, "Uniform Resource Locator", as defined in RFC 3986.
+desc:literal: false
+prs: []
+type: model
+...
