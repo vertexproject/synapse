@@ -22,6 +22,23 @@ class TestsvcApi(s_cell.CellApi, s_stormsvc.StormSvc):
                 },
             )
         },
+        {
+            'name': 'testsvcinits',
+            'version': (0, 0, 1),
+            'inits': {
+                'versions': (
+                    {
+                        'name': 'first',
+                        'version': 0,
+                        'inaugural': True,
+                        'query': '''
+                            $lib.time.sleep($lib.globals.get(init_sleep, 0))
+                            $lib.globals.set(testsvcinits, testsvcinits-done)
+                        ''',
+                    },
+                ),
+            },
+        },
     )
 
     async def test(self):

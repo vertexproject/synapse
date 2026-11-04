@@ -106,10 +106,12 @@ class StormWhoisTest(s_test.SynTest):
                 [(inet:whois:ipcontact=$lib.inet.whois.guid($props, "foobar"))]
             '''
             opts = {'vars': {'props': {}}}
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(stormcmd, opts=opts))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(stormcmd, opts=opts)
 
             stormcmd = '''
                 [(inet:whois:ipcontact=$lib.inet.whois.guid($props, "ipcontact"))]
             '''
             opts = {'vars': {'props': 123}}
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(stormcmd, opts=opts))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(stormcmd, opts=opts)

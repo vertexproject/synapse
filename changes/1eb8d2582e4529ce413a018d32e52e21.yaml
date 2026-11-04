@@ -1,0 +1,7 @@
+---
+desc: Fixed an issue which caused garbage collection cycles to delay cleanup during
+  node editing.
+desc:literal: false
+prs: []
+type: bug
+...
