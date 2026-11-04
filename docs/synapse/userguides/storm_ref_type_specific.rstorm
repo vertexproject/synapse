@@ -712,6 +712,24 @@ dictionary or on ``$unsets`` constraint validation.
 
 .. storm-cli:: [ ou:org=( { "name": "vertex project", "$try": true, "$props": { "phone": "not-a-phone-number", "desc": "fine value" } } ) ]
 
+**$unsets**
+
+``$unsets`` accepts a list of property names that must not be set on the node for the dictionary to match an existing
+node. If no existing node satisfies the constraint, a new node is created instead. For new nodes, the named properties
+are absent by default.
+
+This is analogous to the ``*unset=`` conditional edit operator (see :ref:`edit-conditional`), where "unset" describes
+the required state of the property rather than a destructive action.
+
+Each name in ``$unsets`` must be a valid property on the form. Specifying a property that also appears in the
+deconfliction dictionary or in ``$props`` is an error.
+
+.. storm-pre:: ou:org:name='example org' | delnode
+
+.. storm-cli:: [ ou:org=( { "name": "example org" } ) ]
+
+.. storm-cli:: [ ou:org=( { "name": "example org", "$unsets": ["desc"] } ) ]
+
 
 .. _guid-predictable:
 
