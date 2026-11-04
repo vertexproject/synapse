@@ -1,6 +1,0 @@
----
-desc: Updated the minimum allowed version of the ``oauthlib`` library to 4.0.0.
-desc:literal: false
-prs: []
-type: note
-...
