@@ -1,0 +1,6 @@
+---
+desc: Updated the allowed versions of the ``oauthlib`` library to include 4.x.
+desc:literal: false
+prs: []
+type: feat
+...
