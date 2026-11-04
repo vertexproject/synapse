@@ -970,6 +970,67 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes(q)
 
+    async def test_ival_at_stored_future(self):
+
+        # an @= filter must match the same nodes as the lift when a stored time
+        # or ival max is the future (?) value, rather than raising
+        async with self.getTestCore() as core:
+
+            await core.nodes('''
+                $lib.model.ext.addFormProp(test:str, _tick, (time, ({})), ({}))
+                $lib.model.ext.addFormProp(test:str, _seen, (ival, ({})), ({}))
+                $lib.model.ext.addTagProp(_tp, (time, ({})), ({}))
+            ''')
+
+            for name, tick, imax in (('fin', '2020-06-15', '2020-06-16'), ('fut', '?', '?')):
+                opts = {'vars': {'tick': tick, 'ival': ('2018', imax)}}
+                await core.nodes(f'''
+                    [ test:str=at{name}
+                        :tick=$tick :_tick=$tick
+                        :_seen=$ival .seen=$ival
+                        +#t.a=$ival +#t:_tp=$tick +#nov
+                    ]
+                ''', opts=opts)
+
+            pin = 'test:str*in=(atfin, atfut)'
+
+            # a tag with no value never matches
+            self.len(0, await core.nodes(f'{pin} +#nov@=(2019, 2022)'))
+
+            # (filter, lift) pairs. :tick is a test:time prop.
+            points = (
+                (':tick', 'test:str:tick'),
+                (':_tick', 'test:str:_tick'),
+                ('#t:_tp', 'test:str#t:_tp'),
+            )
+            ivals = (
+                (':_seen', 'test:str:_seen'),
+                ('.seen', 'test:str.seen'),
+                ('#t.a', 'test:str#t.a'),
+            )
+
+            expected = {
+                '2017': (),
+                '2020': (),
+                '(2019, 2022)': ('atfin',),
+                '(2020, "?")': ('atfin',),
+                'now': (),
+                '(2019, now)': ('atfin',),
+            }
+
+            async def getNames(text):
+                return tuple(sorted(n.ndef[1] for n in await core.nodes(text)))
+
+            for qval, names in expected.items():
+
+                for filt, lift in points:
+                    self.eq(names, await getNames(f'{pin} +{filt}@={qval}'), msg=f'{filt}@={qval}')
+                    self.eq(names, await getNames(f'{lift}@={qval}'), msg=f'{lift}@={qval}')
+
+                for filt, lift in ivals:
+                    lifted = await getNames(f'{lift}@={qval}')
+                    self.eq(lifted, await getNames(f'{pin} +{filt}@={qval}'), msg=f'{filt}@={qval}')
+
     async def test_loc(self):
         model = s_datamodel.Model()
         loctype = model.types.get('loc')

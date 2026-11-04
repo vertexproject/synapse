@@ -1,0 +1,7 @@
+---
+desc: Fixed ``@=`` filters on time values raising an error when a node had a future
+  (``?``) time. They now match the same nodes as the equivalent lift.
+desc:literal: false
+prs: []
+type: bug
+...
