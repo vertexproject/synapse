@@ -1,7 +1,0 @@
----
-desc: Fixed Storm guid dictionary syntax overwriting the properties of an existing
-  node that no longer matched the dictionary, rather than creating a new node.
-desc:literal: false
-prs: []
-type: bug
-...
