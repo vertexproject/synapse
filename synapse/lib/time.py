@@ -65,10 +65,17 @@ tzhour_re = regex.compile(
 
 # after timezone removal, only digits and separators may remain, and every separator must fall on a
 # year, month, day, hour, minute or second boundary. only a trailing fraction may follow the seconds.
-timefields_re = regex.compile(
-    r'\d{15,}|\d{4}(?:%(s)s?\d{2}(?:%(s)s?\d{2}(?:%(s)s?\d{2}(?:%(s)s?\d{2}(?:%(s)s?\d{2}(?:[\.,]\d+)?)?)?)?)?)?'
-    % {'s': r'[\-/\._:t@]'}
-)
+timefields_re = regex.compile(r'''
+    \d{15,}                             # separator free digits beyond seconds precision
+    |
+    \d{4}                               # year
+    (?:
+        (?:%(s)s?\d{2}){5}              # month, day, hour, minute and second
+        (?:[\.,]\d+)?                   # only a full seconds time may carry a fraction
+        |
+        (?:%(s)s?\d{2}){0,4}            # a partial time, from year up to minutes
+    )
+''' % {'s': r'[\-/\._:t@]'}, flags=regex.VERBOSE)
 
 daycat = '|'.join(calendar.day_abbr[i].lower() for i in range(7))
 monthcat = '|'.join(calendar.month_abbr[i].lower() for i in range(1, 13))

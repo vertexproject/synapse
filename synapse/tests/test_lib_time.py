@@ -206,6 +206,13 @@ class TimeTest(s_t_utils.SynTest):
             '2024-01-02,03:04:05',
             '2024-01-02 03:04:05.123.456',
             '-2024-01-02',
+            # a fraction may only follow the seconds
+            '2024,12',
+            '2024-01,02',
+            '2024-01-02,03',
+            '2024-01-02 03,04',
+            '2024-01-02 03:04,123',
+            '2024-01-02 03:04.123',
         )
         for tv in tvs:
             with self.raises(s_exc.BadTypeValu):
