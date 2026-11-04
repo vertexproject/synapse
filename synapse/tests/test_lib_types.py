@@ -1400,6 +1400,44 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:str:tick=201401*')
             self.eq({node.ndef[1] for node in nodes}, {'a'})
 
+            # leftover text is rejected rather than silently dropped or glued onto the value
+            junk = (
+                '2024-01-02 03:04:05 PM',
+                '2024-01-02 03:04:05 America/New_York',
+                '2024-01-02 03:04:05+1 week',
+                '2024-01-05 03:04:05+1y',
+                'Tue Jan 02 03:04:05 2024',
+                '2024-1-2',
+            )
+            for valu in junk:
+                self.raises(s_exc.BadTypeValu, t.norm, valu)
+
+                retn = await core.callStorm('return($lib.trycast(time, $valu))', opts={'vars': {'valu': valu}})
+                self.false(retn[0])
+
+                nodes = await core.nodes('[ test:str=junk :tick?=$valu ]', opts={'vars': {'valu': valu}})
+                self.none(nodes[0].get('tick'))
+
+            await core.nodes('test:str=junk | delnode')
+
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('test:str:tick=2024-1*'))
+
+            # wildcard lifts whose prefix ends in a separator
+            self.eq(['a'], [n.ndef[1] for n in await core.nodes('test:str:tick=2014/*')])
+            self.eq(['a'], [n.ndef[1] for n in await core.nodes('test:str:tick="2014/01/01 00:*"')])
+
+            # zone offsets which were previously dropped are now applied
+            ztick = t.norm('2024-01-02T03:04:05Z')[0]
+            self.eq(t.norm('2024-01-02 03:04:05-07')[0], ztick + s_time.onehour * 7)
+            self.eq(t.norm('2024-01-02 03:04:05 GMT+5')[0], ztick - s_time.onehour * 5)
+            self.eq(t.norm('2024-01-02 03:04:05 (EST)')[0], ztick + s_time.onehour * 5)
+
+            # inputs which were already correct keep working through the type
+            self.eq(t.norm('2020-07-07 -04:00')[0], t.norm('2020-07-07 04:00')[0])
+            self.eq(t.norm('2024-01-02 03:04:05 (UTC)')[0], ztick)
+            self.eq(t.norm('2024-01-02 03:04:05.123456789 +0000 UTC')[0], ztick + 123)
+            self.eq(t.norm('2024/01/02 03:04:05+1day')[0], ztick + s_time.oneday)
+
             utc = datetime.timezone.utc
             delta = datetime.datetime.now(tz=utc) - datetime.datetime(2014, 1, 1, tzinfo=utc)
             days = delta.days + 14
