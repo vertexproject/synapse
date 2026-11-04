@@ -1,0 +1,8 @@
+---
+desc: Added the ``$lib.model.migration.s.inetWhoisEmailToRefs()`` Storm API to migrate
+  deprecated ``inet:whois:email`` nodes to ``inet:whois:rec -(refs)> inet:email``
+  edges.
+desc:literal: false
+prs: []
+type: feat
+...

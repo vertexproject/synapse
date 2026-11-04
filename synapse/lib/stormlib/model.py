@@ -1321,6 +1321,33 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
                        'desc': 'Do not copy nodedata to the inet:service:platform node.'},
                  ),
                  'returns': {'type': 'node', 'desc': 'The inet:service:platform node.'}}},
+        {'name': 'inetWhoisEmailToRefs', 'desc': '''
+            Add an inet:whois:rec -(refs)> inet:email edge for the provided inet:whois:email node.
+
+            Edits will be made in the current write layer.
+
+            Each inet:whois:rec node in the current view with the same :fqdn as the
+            inet:whois:email node is given a -(refs)> edge to the inet:email node if
+            the email is scraped from its :text property. This matches the edges which
+            are added when the :text property of an inet:whois:rec node is set.
+            If no inet:whois:rec node matches, a warning is emitted.
+
+            Tags, tag properties, the .seen property, and node data on the
+            inet:whois:email node are not migrated.
+
+            Power-Ups which create inet:whois:email nodes should be updated before
+            this migration is run.
+
+            The inet:whois:email node is not deleted and may be removed once the
+            migration has been verified. The v3.checkready command reports any
+            inet:whois:email nodes which remain.
+        ''',
+        'type': {'type': 'function', '_funcname': '_storm_query',
+                 'args': (
+                      {'name': 'n', 'type': 'node', 'desc': 'The inet:whois:email node to migrate.'},
+                 ),
+                 'returns': {'type': 'boolean',
+                             'desc': 'True if any inet:whois:rec node has the edge, otherwise false.'}}},
 
     )
     _storm_lib_path = ('model', 'migration', 's')
@@ -1440,6 +1467,38 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
             }
 
             fini { return($plat) }
+        }
+
+        function inetWhoisEmailToRefs(n) {
+            if (not $n.isform(inet:whois:email)) {
+                $mesg = `$lib.model.migration.s.inetWhoisEmailToRefs() only accepts inet:whois:email nodes, not {$n.form()}`
+                $lib.raise(BadArg, $mesg)
+            }
+
+            $fqdn = $n.props.fqdn
+            $email = $n.props.email
+
+            $linked = (false)
+
+            inet:whois:rec:fqdn=$fqdn +:text
+
+            for ($form, $valu) in $lib.scrape.ndefs(:text) {
+                if ($form != 'inet:email') { continue }
+
+                ($ok, $norm) = $lib.trycast(inet:email, $valu)
+                if (not $ok or $norm != $email) { continue }
+
+                [ +(refs)> {[ inet:email=$email ]} ]
+                $linked = (true)
+                break
+            }
+
+            fini {
+                if (not $linked) {
+                    $lib.warn(`No inet:whois:rec node with the :fqdn {$fqdn} has the email {$email} in its :text, so no edge was added for inet:whois:email=({$fqdn}, {$email}).`)
+                }
+                return($linked)
+            }
         }
     '''
 

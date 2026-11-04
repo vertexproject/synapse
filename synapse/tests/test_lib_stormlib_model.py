@@ -1347,6 +1347,110 @@ class StormlibModelTest(s_test.SynTest):
                 await core.callStorm('inet:web:instance | $lib.model.migration.s.inetServiceInstanceToPlatform($node)')
             self.isin(', not inet:web:instance', exc.exception.get('mesg'))
 
+    async def test_stormlib_model_migrations_inet_whois_email(self):
+
+        async with self.getTestCore() as core:
+
+            text = '''
+                Registrant: Bob@Vertex.LINK
+                Admin: jimbob@vertex.link
+                Tech: bob@vertex.link.au
+                Abuse: carol@vertex.link
+            '''
+            opts = {'vars': {'text': text}}
+
+            # the edges which the :text hook adds are the edges the helper adds
+            nodes = await core.nodes('[ inet:whois:rec=(hook.link, 2020) :text=$text ] -(refs)> inet:email', opts=opts)
+            hookrefs = sorted(n.ndef[1] for n in nodes)
+            self.eq(hookrefs, ['bob@vertex.link', 'bob@vertex.link.au', 'carol@vertex.link', 'jimbob@vertex.link'])
+
+            await core.nodes('''[
+                (inet:whois:rec=(vertex.link, 2020) :text=$text)
+                (inet:whois:rec=(vertex.link, 2021) :text="jimbob@vertex.link bob@vertex.link.au")
+                (inet:whois:rec=(vertex.link, 2022) :text="no emails here")
+                (inet:whois:rec=(vertex.link, 2023))
+                (inet:whois:rec=(woot.com, 2020) :text="bob@vertex.link")
+            ]''', opts=opts)
+
+            # records whose :text was set before the hook added edges
+            await core.nodes('inet:whois:rec [ -(refs)> { inet:email } ]')
+            self.len(0, await core.nodes('inet:whois:rec -(refs)> *'))
+
+            q = '''
+                [ inet:whois:email=(vertex.link, $email) ]
+                return($lib.model.migration.s.inetWhoisEmailToRefs($node))
+            '''
+
+            # an email matches regardless of case, and not as part of a longer email
+            for email in ('bob@vertex.link', 'carol@vertex.link', 'jimbob@vertex.link', 'bob@vertex.link.au'):
+                self.true(await core.callStorm(q, opts={'vars': {'email': email}}))
+
+            nodes = await core.nodes('inet:whois:rec=(vertex.link, 2020) -(refs)> inet:email')
+            self.eq(hookrefs, sorted(n.ndef[1] for n in nodes))
+
+            nodes = await core.nodes('inet:whois:rec=(vertex.link, 2021) -(refs)> inet:email')
+            self.eq(['bob@vertex.link.au', 'jimbob@vertex.link'], sorted(n.ndef[1] for n in nodes))
+
+            self.len(0, await core.nodes('inet:whois:rec=(vertex.link, 2022) -(refs)> *'))
+            self.len(0, await core.nodes('inet:whois:rec=(vertex.link, 2023) -(refs)> *'))
+            self.len(0, await core.nodes('inet:whois:rec:fqdn=woot.com -(refs)> *'))
+
+            # the inet:whois:email nodes are not deleted
+            self.len(4, await core.nodes('inet:whois:email'))
+
+            # running it again changes nothing
+            self.true(await core.callStorm(q, opts={'vars': {'email': 'bob@vertex.link'}}))
+            self.len(4, await core.nodes('inet:whois:rec=(vertex.link, 2020) -(refs)> inet:email'))
+
+            # no record holds the email
+            msgs = await core.stormlist('''
+                [ inet:whois:email=(vertex.link, nobody@vertex.link) ]
+                $lib.print(`linked={$lib.model.migration.s.inetWhoisEmailToRefs($node)}`)
+            ''')
+            self.stormHasNoErr(msgs)
+            self.stormIsInPrint('linked=false', msgs)
+            self.stormIsInWarn('so no edge was added for inet:whois:email=(vertex.link, nobody@vertex.link)', msgs)
+            self.len(1, await core.nodes('inet:whois:email=(vertex.link, nobody@vertex.link)'))
+            self.len(0, await core.nodes('inet:email=nobody@vertex.link <(refs)- *'))
+
+            # a fqdn with no records
+            msgs = await core.stormlist('''
+                [ inet:whois:email=(newp.link, visi@newp.link) ]
+                $lib.model.migration.s.inetWhoisEmailToRefs($node)
+            ''')
+            self.stormIsInWarn('inet:whois:email=(newp.link, visi@newp.link)', msgs)
+
+            with self.raises(s_exc.BadArg) as exc:
+                await core.callStorm('inet:fqdn=vertex.link return($lib.model.migration.s.inetWhoisEmailToRefs($node))')
+            self.isin('only accepts inet:whois:email nodes, not inet:fqdn', exc.exception.get('mesg'))
+
+            # each view is migrated in its own write layer
+            fork = (await core.view.fork())['iden']
+            forkopts = {'view': fork}
+
+            await core.nodes('''
+                [ inet:whois:rec=(vertex.link, 2024) :text="dave@vertex.link" ]
+                [ -(refs)> { inet:email } ]
+                [ inet:whois:email=(vertex.link, dave@vertex.link) ]
+            ''', opts=forkopts)
+
+            await core.nodes('''
+                $lib.model.migration.loop(${
+                    inet:whois:email
+                    $lib.model.migration.s.inetWhoisEmailToRefs($node)
+                })
+            ''')
+
+            self.len(1, await core.nodes('inet:whois:rec=(vertex.link, 2024) -(refs)> inet:email=dave@vertex.link',
+                                         opts=forkopts))
+            self.len(0, await core.nodes('inet:email=dave@vertex.link'))
+            self.len(0, await core.nodes('inet:whois:email=(vertex.link, dave@vertex.link)'))
+
+            # the fork's write layer only holds the edge of the record it holds
+            forklayr = core.getView(fork).layers[0]
+            edges = [e async for e in forklayr.getEdges(verb='refs')]
+            self.len(1, edges)
+
     async def test_stormlib_model_migration_fuse(self):
 
         async with self.getTestCore() as core:
