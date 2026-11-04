@@ -39,5 +39,6 @@ Tools
     syn_tools_storm
     syn_tools_storm_pkg_gen
     syn_tools_storm_pkg_docs
+    syn_tools_storm_lint
 
     syn_tools_utils_easycert

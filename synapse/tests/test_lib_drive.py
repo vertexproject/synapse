@@ -188,12 +188,12 @@ class DriveTest(s_t_utils.SynTest):
                 self.eq(data[0]['version'], (1, 1, 1))
                 self.eq(data[1]['stuff'], 3829)
 
-                await self.asyncraises(s_exc.NoSuchIden,
-                                       cell.setDriveItemProp(s_common.guid(), versinfo, ('lolnope',), 'not real'))
+                with self.raises(s_exc.NoSuchIden):
+                    await cell.setDriveItemProp(s_common.guid(), versinfo, ('lolnope',), 'not real')
 
-                await self.asyncraises(s_exc.BadArg,
-                                       cell.setDriveItemProp(iden, versinfo, ('blorp', 0, 'neato'),
-                                                             'my special string'))
+                with self.raises(s_exc.BadArg):
+                    await cell.setDriveItemProp(iden, versinfo, ('blorp', 0, 'neato'), 'my special string')
+
                 data[1]['blorp'] = {
                     'bleep': [{'neato': 'thing'}]
                 }
@@ -212,7 +212,8 @@ class DriveTest(s_t_utils.SynTest):
                 self.nn(data['blorp']['bleep'][0])
                 self.notin('neato', data['blorp']['bleep'][0])
 
-                await self.asyncraises(s_exc.NoSuchIden, cell.delDriveItemProp(s_common.guid(), versinfo, 'blorp'))
+                with self.raises(s_exc.NoSuchIden):
+                    await cell.delDriveItemProp(s_common.guid(), versinfo, 'blorp')
 
                 self.none(await cell.delDriveItemProp(iden, versinfo, ('lolnope', 'nopath')))
 

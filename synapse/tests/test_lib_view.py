@@ -5,10 +5,21 @@ import unittest.mock as mock
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.coro as s_coro
 import synapse.lib.time as s_time
+import synapse.lib.const as s_const
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
+
+HOOKPUT = '$lib.queue.gen(hooks).put(($name, $lib.auth.users.get().name, $lib.view.get().iden))'
+HOOKPOP = '''
+    $retn = ()
+    $queue = $lib.queue.gen(hooks)
+    for ($offs, $item) in $queue.gets(wait=(false)) { $retn.append($item) }
+    if $retn { $queue.cull($offs) }
+    return($retn)
+'''
 
 class ViewTest(s_t_utils.SynTest):
 
@@ -228,16 +239,24 @@ class ViewTest(s_t_utils.SynTest):
             # Forker and forkee have their layer configuration frozen
             tmplayr = await core.addLayer()
             tmpiden = tmplayr['iden']
-            await self.asyncraises(s_exc.ReadOnlyLayer, core.view.addLayer(tmpiden))
-            await self.asyncraises(s_exc.ReadOnlyLayer, view2.addLayer(tmpiden))
-            await self.asyncraises(s_exc.BadArg, view2.setLayers([tmpiden]))
+            with self.raises(s_exc.ReadOnlyLayer):
+                await core.view.addLayer(tmpiden)
+
+            with self.raises(s_exc.ReadOnlyLayer):
+                await view2.addLayer(tmpiden)
+
+            with self.raises(s_exc.BadArg):
+                await view2.setLayers([tmpiden])
 
             # You can't merge a non-forked view
-            await self.asyncraises(s_exc.SynErr, view2.core.view.merge())
+            with self.raises(s_exc.SynErr):
+                await view2.core.view.merge()
 
             # You can't merge if the parent's write layer is readonly
             view2.parent.layers[0].readonly = True
-            await self.asyncraises(s_exc.ReadOnlyLayer, view2.merge())
+            with self.raises(s_exc.ReadOnlyLayer):
+                await view2.merge()
+
             view2.parent.layers[0].readonly = False
 
             vdef3 = await view2.fork()
@@ -245,12 +264,20 @@ class ViewTest(s_t_utils.SynTest):
             view3 = core.getView(view3_iden)
 
             # You can't delete a view or merge it if it has children
-            await self.asyncraises(s_exc.SynErr, view2.merge())
-            await self.asyncraises(s_exc.SynErr, view2.core.delView(view2.iden))
-            await self.asyncraises(s_exc.SynErr, view2.core.delView(view2.iden))
+            with self.raises(s_exc.SynErr):
+                await view2.merge()
+
+            with self.raises(s_exc.SynErr):
+                await view2.core.delView(view2.iden)
+
+            with self.raises(s_exc.SynErr):
+                await view2.core.delView(view2.iden)
+
             layr = await core.addLayer()
             layriden = layr['iden']
-            await self.asyncraises(s_exc.SynErr, view2.addLayer(layriden))
+            with self.raises(s_exc.SynErr):
+                await view2.addLayer(layriden)
+
             await view3.core.delView(view3.iden)
 
             async with core.getLocalProxy(user='visi') as prox:
@@ -309,7 +336,8 @@ class ViewTest(s_t_utils.SynTest):
             await core.view.addLayer(layriden)
 
             # But not the same layer twice
-            await self.asyncraises(s_exc.DupIden, core.view.addLayer(layriden))
+            with self.raises(s_exc.DupIden):
+                await core.view.addLayer(layriden)
 
             # Nodes with a large number of edge edits may be chunked by iterLayerNodeEdits
             await core.nodes('[ test:str=foo ] for $i in $lib.range(102) {[ test:int=$i ]}')
@@ -346,6 +374,331 @@ class ViewTest(s_t_utils.SynTest):
             self.notin('a.b', retn[0].get('tags'))
 
             self.isin('a.b', retn[1].get('tags'))
+
+            # view hooks run as root in the view for each lifecycle event
+            hookuser = await core.auth.addUser('hookuser')
+            await hookuser.setAdmin(True)
+
+            async def addhook(name, htype, storm, enabled=True):
+                hdef = {'name': name, 'type': htype, 'storm': storm, 'enabled': enabled, 'creator': hookuser.iden}
+                return (await core.addViewHook(hdef)).get('iden')
+
+            created = await addhook('created', 'created', f'$name=created {HOOKPUT} $lib.view.get().set(desc, hooked)')
+            merging = await addhook('merging', 'merging', f'$name=merging {HOOKPUT}')
+            deleted = await addhook('deleted', 'deleted', f'$name=deleted {HOOKPUT}')
+            await addhook('disabled', 'created', f'$name=disabled {HOOKPUT}', enabled=False)
+
+            self.eq([], await core.callStorm(HOOKPOP))
+
+            # the returned view definition includes changes made by created hooks
+            forkiden, desc = await core.callStorm('$f = $lib.view.get().fork() return(($f.iden, $f.get(desc)))')
+            self.eq('hooked', desc)
+            self.eq([('created', 'root', forkiden)], await core.callStorm(HOOKPOP))
+
+            await core.nodes('[ test:str=hookmerge ]', opts={'view': forkiden})
+            await core.callStorm('$lib.view.get().merge()', opts={'view': forkiden})
+            self.len(1, await core.nodes('test:str=hookmerge'))
+            self.eq([('merging', 'root', forkiden)], await core.callStorm(HOOKPOP))
+
+            await core.callStorm('$lib.view.del($iden)', opts={'vars': {'iden': forkiden}})
+            self.none(core.getView(forkiden))
+            self.eq([('deleted', 'root', forkiden)], await core.callStorm(HOOKPOP))
+
+            vdef = await core.view.fork()
+            self.eq('hooked', vdef.get('desc'))
+            forkiden = vdef.get('iden')
+            self.eq([('created', 'root', forkiden)], await core.callStorm(HOOKPOP))
+
+            await core.delViewWithLayer(forkiden)
+            self.none(core.getView(forkiden))
+            self.eq([('deleted', 'root', forkiden)], await core.callStorm(HOOKPOP))
+
+            # merging and deleted hook exceptions abort and leave the view intact
+            await core.modViewHook(merging, {'storm': '$lib.raise(HookFail, nomerge)'})
+            await core.modViewHook(deleted, {'storm': '$lib.raise(HookFail, nodel)'})
+
+            forkiden = (await core.view.fork()).get('iden')
+            forkview = core.getView(forkiden)
+            self.eq([('created', 'root', forkiden)], await core.callStorm(HOOKPOP))
+
+            await core.nodes('[ test:str=hookfail ]', opts={'view': forkiden})
+            with self.raises(s_exc.StormRaise):
+                await core.callStorm('$lib.view.get().merge()', opts={'view': forkiden})
+
+            self.len(0, await core.nodes('test:str=hookfail'))
+            self.len(1, await core.nodes('test:str=hookfail', opts={'view': forkiden}))
+            self.len(1, await core.nodes('[ test:str=hookfail2 ]', opts={'view': forkiden}))
+
+            with self.raises(s_exc.StormRaise):
+                await core.delView(forkiden)
+
+            self.nn(core.getView(forkiden))
+
+            with self.raises(s_exc.StormRaise):
+                await core.delViewWithLayer(forkiden)
+
+            self.nn(core.getView(forkiden))
+            self.nn(core.getLayer(forkview.layers[0].iden))
+
+            # the main view is rejected before any deleted hooks run
+            with self.raises(s_exc.SynErr) as cm:
+                await core.callStorm('$lib.view.del($lib.view.get().iden)')
+            self.eq('Cannot delete the main view', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.SynErr) as cm:
+                await core.delViewWithLayer(core.view.iden)
+            self.eq('Cannot delete the main view', cm.exception.get('mesg'))
+            self.nn(core.getView(core.view.iden))
+
+            # a view with children is rejected before any deleted hooks run
+            childiden = (await forkview.fork()).get('iden')
+            self.eq([('created', 'root', childiden)], await core.callStorm(HOOKPOP))
+            with self.raises(s_exc.SynErr) as cm:
+                await core.callStorm('$lib.view.del($iden)', opts={'vars': {'iden': forkiden}})
+            self.eq('Cannot delete a view that has children', cm.exception.get('mesg'))
+            self.nn(core.getView(forkiden))
+            await core.delView(childiden, hooks=False)
+
+            # hooks=False skips the raising deleted hook
+            skipiden = (await core.view.fork()).get('iden')
+            self.eq([('created', 'root', skipiden)], await core.callStorm(HOOKPOP))
+            await core.delView(skipiden, hooks=False)
+            self.none(core.getView(skipiden))
+
+            skipiden = (await core.view.fork()).get('iden')
+            skiplayr = core.getView(skipiden).layers[0].iden
+            self.eq([('created', 'root', skipiden)], await core.callStorm(HOOKPOP))
+            await core.delViewWithLayer(skipiden, hooks=False)
+            self.none(core.getView(skipiden))
+            self.none(core.getLayer(skiplayr))
+            self.eq([], await core.callStorm(HOOKPOP))
+
+            # cancelling a merge during a slow merging hook cancels the task running the hooks
+            await core.modViewHook(merging, {'storm': f'$name=merging {HOOKPUT} $lib.time.sleep(30)'})
+
+            task = core.schedCoro(core.callStorm('$lib.view.get().merge()', opts={'view': forkiden}))
+            popq = 'return($lib.queue.gen(hooks).pop(wait=(true)))'
+            self.eq(('merging', 'root', forkiden), (await core.callStorm(popq))[1])
+
+            task.cancel()
+            with self.raises(asyncio.CancelledError):
+                await task
+
+            self.eq([], [t for t in s_coro.bgtasks if t.get_coro().__name__ == '_execViewHooks'])
+            self.len(0, await core.nodes('test:str=hookfail'))
+
+            # killing the task of a slow merging hook aborts the merge
+            async def killhook(storm):
+                synts = [t for t in core.boss.ps() if t.info.get('query') == storm]
+                self.len(1, synts)
+                await synts[0].kill()
+
+            slowmerge = f'$name=merging {HOOKPUT} $lib.time.sleep(30)'
+            task = core.schedCoro(core.callStorm('$lib.view.get().merge()', opts={'view': forkiden}))
+            self.eq(('merging', 'root', forkiden), (await core.callStorm(popq))[1])
+
+            await killhook(slowmerge)
+            with self.raises(s_exc.SynErr) as cm:
+                await task
+            self.eq(f'A merging view hook in view {forkiden} was cancelled.', cm.exception.get('mesg'))
+
+            self.len(0, await core.nodes('test:str=hookfail'))
+            self.len(1, await core.nodes('test:str=hookfail', opts={'view': forkiden}))
+
+            # killing the task of a slow deleted hook aborts the delete
+            slowdel = f'$name=deleted {HOOKPUT} $lib.time.sleep(30)'
+            await core.modViewHook(deleted, {'storm': slowdel})
+
+            task = core.schedCoro(core.delView(forkiden))
+            self.eq(('deleted', 'root', forkiden), (await core.callStorm(popq))[1])
+
+            await killhook(slowdel)
+            with self.raises(s_exc.SynErr) as cm:
+                await task
+            self.eq(f'A deleted view hook in view {forkiden} was cancelled.', cm.exception.get('mesg'))
+            self.nn(core.getView(forkiden))
+
+            # disabled hooks do not run
+            await core.modViewHook(merging, {'enabled': False})
+            await core.modViewHook(deleted, {'enabled': False})
+
+            await core.callStorm('$lib.view.get().merge()', opts={'view': forkiden})
+            self.len(1, await core.nodes('test:str=hookfail'))
+
+            await core.delView(forkiden)
+            self.none(core.getView(forkiden))
+
+            # killing the task of a slow created hook is logged and a streaming caller completes
+            slowcreate = f'$name=created {HOOKPUT} $lib.time.sleep(30)'
+            await core.modViewHook(created, {'storm': slowcreate})
+
+            forkq = '$lib.view.get().fork() $lib.print(after)'
+            with self.getLoggerStream('synapse.cortex') as stream:
+                task = core.schedCoro(core.stormlist(forkq))
+                _, _, forkiden = (await core.callStorm(popq))[1]
+                await killhook(slowcreate)
+                msgs = await task
+
+            self.stormIsInPrint('after', msgs)
+            self.eq('fini', msgs[-1][0])
+            self.nn(core.getView(forkiden))
+            self.isin(f'A created view hook in view {forkiden} was cancelled.', stream.getvalue())
+
+            await core.delView(forkiden)
+
+            # a created hook exception is logged and the view is kept
+            await core.modViewHook(created, {'storm': '$lib.raise(HookFail, nocreate)'})
+            with self.getLoggerStream('synapse.cortex') as stream:
+                forkiden = (await core.view.fork()).get('iden')
+
+            self.nn(core.getView(forkiden))
+            self.isin(f'Error running created view hook {created} in view {forkiden}', stream.getvalue())
+
+            # lifecycle events from hook storm run hooks
+            hookfork = f'$name=created {HOOKPUT} if ($lib.view.get().parent = "{core.view.iden}") {{ $lib.view.get().fork() }}'
+            await core.modViewHook(created, {'storm': hookfork})
+            forkiden = (await core.view.fork()).get('iden')
+            childiden = [v.iden async for v in core.getView(forkiden).children()]
+            self.len(1, childiden)
+            self.eq([], [v async for v in core.getView(childiden[0]).children()])
+            self.eq([('created', 'root', forkiden), ('created', 'root', childiden[0])], await core.callStorm(HOOKPOP))
+
+            # a runaway hook chain stops at the nesting limit without creating the view over it, and
+            # each level runs in a new task so it nests deeper than one python stack allows
+            await core.modViewHook(created, {'storm': f'$name=created {HOOKPUT} $lib.view.get().fork()'})
+            with mock.patch.object(s_const, 'VIEW_HOOK_MAX_DEPTH', 80):
+                with self.getLoggerStream('synapse.cortex') as stream:
+                    forkiden = (await core.view.fork()).get('iden')
+
+            self.isin('View hooks exceeded the maximum nesting depth of 80.', stream.getvalue())
+            self.len(80, await core.callStorm(HOOKPOP))
+
+            chain = [core.getView(forkiden)]
+            while (kids := [v async for v in chain[-1].children()]):
+                chain.extend(kids)
+
+            self.len(80, chain)
+            for view in reversed(chain):
+                await core.delView(view.iden)
+
+            # a view deleted by a created hook returns its original view definition
+            hookdel = '$lib.view.get().set(desc, hooked) $lib.view.del($lib.view.get().iden)'
+            await core.modViewHook(created, {'storm': hookdel})
+            vdef = await core.view.fork()
+            self.none(vdef.get('desc'))
+            self.none(core.getView(vdef.get('iden')))
+
+            # hooks populate $auto
+            autoput = '$lib.queue.gen(autos).put(($auto.iden, $auto.type, $auto.opts.type))'
+            await core.modViewHook(created, {'storm': autoput})
+            await core.modViewHook(merging, {'storm': autoput, 'enabled': True})
+            await core.modViewHook(deleted, {'storm': autoput, 'enabled': True})
+
+            autopop = 'return($lib.queue.gen(autos).pop(wait=(true)).1)'
+
+            forkiden = (await core.view.fork()).get('iden')
+            self.eq((created, 'view:hook', 'created'), await core.callStorm(autopop))
+
+            await core.callStorm('$lib.view.get().merge()', opts={'view': forkiden})
+            self.eq((merging, 'view:hook', 'merging'), await core.callStorm(autopop))
+
+            await core.delView(forkiden)
+            self.eq((deleted, 'view:hook', 'deleted'), await core.callStorm(autopop))
+            self.eq(0, await core.callStorm('return($lib.queue.gen(autos).size())'))
+
+            await core.modViewHook(merging, {'enabled': False})
+
+            # triggers run by hook storm run view hooks
+            await core.modViewHook(created, {'storm': f'$name=created {HOOKPUT}'})
+
+            trigview = (await core.view.fork()).get('iden')
+            self.eq([('created', 'root', trigview)], await core.callStorm(HOOKPOP))
+
+            trigq = f'''
+                $view = $lib.view.get({core.view.iden}).fork()
+                $lib.queue.gen(trigviews).put($view.iden)
+                $lib.view.del($view.iden)
+            '''
+            tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': trigq}
+            await core.callStorm('$lib.trigger.add($tdef)', opts={'view': trigview, 'vars': {'tdef': tdef}})
+
+            await core.modViewHook(deleted, {'storm': f'''
+                $name=deleted {HOOKPUT}
+                if ($lib.view.get().iden = "{trigview}") {{
+                    [ test:str=hooktrig ]
+                    $lib.queue.gen(hookviews).put($lib.view.get({core.view.iden}).fork().iden)
+                }}
+            '''})
+
+            await core.delView(trigview)
+            self.none(core.getView(trigview))
+
+            trigfork = await core.callStorm('return($lib.queue.gen(trigviews).pop().1)')
+            hookfork = await core.callStorm('return($lib.queue.gen(hookviews).pop().1)')
+            self.none(core.getView(trigfork))
+            self.nn(core.getView(hookfork))
+
+            self.eq([
+                ('deleted', 'root', trigview),
+                ('created', 'root', trigfork),
+                ('deleted', 'root', trigfork),
+                ('created', 'root', hookfork),
+            ], await core.callStorm(HOOKPOP))
+
+            # dmons added by hook storm run view hooks
+            await core.modViewHook(deleted, {'enabled': False})
+            await core.modViewHook(created, {'storm': f'''
+                $name=created {HOOKPUT}
+                $text = $lib.globals.get(hookdmon)
+                if $text {{
+                    $lib.globals.pop(hookdmon)
+                    $lib.dmon.add($text, name=hookdmon)
+                }}
+            '''})
+
+            dmonq = f'''
+                $lib.queue.gen(dmonviews).put($lib.view.get({core.view.iden}).fork().iden)
+                $lib.time.sleep(3600)
+            '''
+            await core.callStorm('$lib.globals.set(hookdmon, $text)', opts={'vars': {'text': dmonq}})
+
+            dmonview = (await core.view.fork()).get('iden')
+            dmonfork = await core.callStorm('return($lib.queue.gen(dmonviews).pop(wait=(true)).1)')
+            self.nn(core.getView(dmonfork))
+
+            self.eq([
+                ('created', 'root', dmonview),
+                ('created', 'root', dmonfork),
+            ], await core.callStorm(HOOKPOP))
+
+            for dmon in await core.getStormDmons():
+                await core.delStormDmon(dmon.get('iden'))
+
+            # package onloads started by hook storm run view hooks
+            await core.modViewHook(created, {'storm': f'''
+                $name=created {HOOKPUT}
+                $pkgdef = $lib.globals.get(hookpkg)
+                if $pkgdef {{
+                    $lib.globals.pop(hookpkg)
+                    $lib.pkg.add($pkgdef)
+                }}
+            '''})
+
+            pkgdef = {
+                'name': 'hookpkg',
+                'version': '0.0.1',
+                'onload': f'$lib.queue.gen(pkgviews).put($lib.view.get({core.view.iden}).fork().iden)',
+            }
+            await core.callStorm('$lib.globals.set(hookpkg, $pkgdef)', opts={'vars': {'pkgdef': pkgdef}})
+
+            pkgview = (await core.view.fork()).get('iden')
+            pkgfork = await core.callStorm('return($lib.queue.gen(pkgviews).pop(wait=(true)).1)')
+            self.nn(core.getView(pkgfork))
+
+            self.eq([
+                ('created', 'root', pkgview),
+                ('created', 'root', pkgfork),
+            ], await core.callStorm(HOOKPOP))
 
     async def test_view_merge_ival(self):
 
@@ -403,7 +756,9 @@ class ViewTest(s_t_utils.SynTest):
 
             # bad type
 
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('test:str=maxval [ .seen=newp ]', opts=forkopts))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:str=maxval [ .seen=newp ]', opts=forkopts)
+
             await core.nodes('test:str=maxval [ .seen?=newp +#foo ]', opts=forkopts)
             self.len(1, await core.nodes('test:str#foo', opts=forkopts))
 
@@ -596,7 +951,8 @@ class ViewTest(s_t_utils.SynTest):
 
             async with core.getLocalProxy(share=f'*/view/{view}', user='user') as prox:
                 self.eq(0, await prox.getEditSize())
-                await self.asyncraises(s_exc.AuthDeny, prox.storNodeEdits(edits, None))
+                with self.raises(s_exc.AuthDeny):
+                    await prox.storNodeEdits(edits, None)
 
             await user.addRule((True, ('node',)))
 
@@ -700,7 +1056,8 @@ class ViewTest(s_t_utils.SynTest):
             useriden = user['iden']
             opts = {'user': useriden}
 
-            await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.view.get().wipeLayer()', opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.view.get().wipeLayer()', opts=opts)
 
             await core.addUserRule(useriden, (True, ('node', 'del')), gateiden=layr.iden)
             await core.addUserRule(useriden, (True, ('node', 'prop', 'del')), gateiden=layr.iden)
@@ -1023,6 +1380,52 @@ class ViewTest(s_t_utils.SynTest):
             view03.merging = False
             self.eq(piden, view03.parent.parent.iden)
 
+            # created hooks run in an inserted parent fork
+            root = core.auth.rootuser.iden
+            await core.addViewHook({'name': 'created', 'type': 'created', 'creator': root,
+                                    'storm': f'$name=created {HOOKPUT} $lib.view.get().set(desc, hooked)'})
+
+            vdef = await view03.insertParentFork(visi.iden)
+            self.eq(vdef.get('iden'), view03.parent.iden)
+            self.eq('hooked', vdef.get('desc'))
+            self.eq([('created', 'root', vdef.get('iden'))], await core.callStorm(HOOKPOP))
+
+            # a merging hook exception rejects a quorum merge request
+            hdef = await core.addViewHook({'name': 'merging', 'type': 'merging',
+                                           'storm': '$lib.raise(HookFail, nomerge)', 'creator': root})
+
+            forkiden = (await view00.fork()).get('iden')
+            forkview = core.getView(forkiden)
+            self.eq([('created', 'root', forkiden)], await core.callStorm(HOOKPOP))
+
+            setmerge = 'return($lib.view.get().setMergeRequest(comment=woot))'
+            with self.raises(s_exc.StormRaise):
+                await core.callStorm(setmerge, opts={'view': forkiden})
+
+            self.none(forkview.getMergeRequest())
+
+            await core.modViewHook(hdef.get('iden'), {'storm': f'$name=merging {HOOKPUT}'})
+            await core.callStorm(setmerge, opts={'view': forkiden})
+            self.nn(forkview.getMergeRequest())
+            self.eq([('merging', 'root', forkiden)], await core.callStorm(HOOKPOP))
+
+            # the delete which completes a quorum merge does not run deleted hooks
+            await core.addViewHook({'name': 'deleted', 'type': 'deleted', 'storm': f'$name=deleted {HOOKPUT}',
+                                    'creator': root})
+
+            ninja = await core.auth.addUser('ninja')
+            await ninja.grant(role.iden)
+            await ninja.allow(('view', 'read'))
+
+            await core.nodes('[ test:str=quorumhook ]', opts={'view': forkiden})
+            vote = 'return($lib.view.get().setMergeVote())'
+            await core.callStorm(vote, opts={'view': forkiden, 'user': ninja.iden})
+
+            self.true(await forkview.waitfini(timeout=5))
+            self.none(core.getView(forkiden))
+            self.len(1, await core.nodes('test:str=quorumhook'))
+            self.eq([], await core.callStorm(HOOKPOP))
+
     async def test_view_insert_child_fork(self):
 
         with self.getTestDir() as dirn:
@@ -1221,6 +1624,14 @@ class ViewTest(s_t_utils.SynTest):
 
                 self.len(1, await core.nodes('test:str=raz', opts={'view': vdef.get('iden')}))
                 self.len(0, await core.nodes('test:str=raz', opts={'view': viewa2.iden}))
+
+                # created hooks run in an inserted child fork
+                await core.addViewHook({'name': 'created', 'type': 'created', 'creator': core.auth.rootuser.iden,
+                                        'storm': f'$name=created {HOOKPUT} $lib.view.get().set(desc, hooked)'})
+
+                vdef = await viewb.insertChildFork(visi.iden)
+                self.eq('hooked', vdef.get('desc'))
+                self.eq([('created', 'root', vdef.get('iden'))], await core.callStorm(HOOKPOP))
 
                 layridens = [lyr.iden for lyr in viewa2.layers]
 
