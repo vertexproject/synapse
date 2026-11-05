@@ -2372,10 +2372,7 @@ class ModelMigration_0_2_35(ModelMigrationBase):
         removed = 0
         async for buid in targets:
 
-            # an earlier move may have removed it
-            node = self.nodes.get(buid)
-            if node is None:  # pragma: no cover
-                continue
+            node = self.getNode(buid)
 
             formname = node.get('formname')
             formvalu = node.get('formvalu')
