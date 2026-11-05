@@ -1,0 +1,8 @@
+---
+desc: Fixed ``=`` lifts and ``<=`` lifts and filters using a wildcard time value
+  (e.g. ``:time=2021/05/13*``) also matching the first instant after the wildcard
+  window.
+desc:literal: false
+prs: []
+type: bug
+...

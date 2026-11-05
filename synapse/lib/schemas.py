@@ -4,18 +4,24 @@ import synapse.lib.grammar as s_grammar
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 
+_easyPermLevelSchema = {'type': 'number', 'minimum': 0, 'maximum': 3}
+
 easyPermSchema = {
     'type': 'object',
     'properties': {
+        # users and roles are keyed by iden, so their key space stays open while
+        # every value is constrained to a permission level.
         'users': {
             'type': 'object',
-            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
+            'additionalProperties': _easyPermLevelSchema,
         },
         'roles': {
             'type': 'object',
-            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
+            'additionalProperties': _easyPermLevelSchema,
         },
+        'default': _easyPermLevelSchema,
     },
+    'additionalProperties': False,
     'required': ['users', 'roles'],
 }
 
@@ -67,6 +73,24 @@ _HttpExtAPIConfSchema = {
 }
 
 reqValidHttpExtAPIConf = s_config.getJsValidator(_HttpExtAPIConfSchema)
+
+_viewHookSchema = {
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'name': {'type': 'string', 'minLength': 1},
+        'type': {'type': 'string', 'enum': ['created', 'merging', 'deleted']},
+        'storm': {'type': 'string'},
+        'enabled': {'type': 'boolean'},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'created': {'type': 'integer', 'minimum': 0},
+        'updated': {'type': 'integer', 'minimum': 0},
+    },
+    'additionalProperties': False,
+    'required': ['iden', 'name', 'type', 'storm', 'enabled', 'creator', 'created', 'updated'],
+}
+
+reqValidViewHook = s_config.getJsValidator(_viewHookSchema)
 
 _LayerPushPullSchema = {
     'type': 'object',
@@ -145,7 +169,7 @@ _CronJobSchema = {
 }
 
 reqValidCronDef = s_config.getJsValidator(_CronJobSchema)
-reqValidVault = s_config.getJsValidator({
+vaultSchema = {
     'type': 'object',
     'properties': {
         'name': {'type': 'string', 'pattern': '^.{1,128}$'},
@@ -168,7 +192,9 @@ reqValidVault = s_config.getJsValidator({
         'secrets',
         'configs',
     ],
-})
+}
+
+reqValidVault = s_config.getJsValidator(vaultSchema)
 
 reqValidView = s_config.getJsValidator({
     'type': 'object',
@@ -1248,3 +1274,18 @@ _jwtclaimschema = {
 }
 reqValidJwtClaims = s_config.getJsValidator(_jwtclaimschema)
 jwtRegisteredClaims = frozenset(_jwtclaimschema['properties'])
+
+_stormLintStrList = {'type': 'array', 'items': {'type': 'string'}}
+
+_stormLintConfSchema = {
+    'type': 'object',
+    'properties': {
+        'select': _stormLintStrList,
+        'ignore': _stormLintStrList,
+        'enable': _stormLintStrList,
+        'exclude': _stormLintStrList,
+        'v3_ready': {'type': 'boolean'},
+    },
+    'additionalProperties': False,
+}
+reqValidStormLintConf = s_config.getJsValidator(_stormLintConfSchema)

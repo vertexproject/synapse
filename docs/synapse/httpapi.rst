@@ -794,6 +794,128 @@ in msgpack format such that they can be directly ingested with the ``syn.nodes``
                 }
             }
 
+/api/v1/vault/list
+~~~~~~~~~~~~~~~~~~
+
+The ``/api/v1/vault/*`` APIs enforce the vault permissions of the authenticated user. A caller without the
+required permission receives an ``AuthDeny`` error with a 403 status code, and an invalid request body receives a
+``SchemaViolation`` or ``BadArg`` error with a 400 status code.
+
+*Method*
+    GET
+
+    This API allows the caller to list the vaults they have ``read`` permission on. The ``secrets`` of a vault are
+    only included if the caller has ``edit`` permission on it.
+
+    *Input*
+        The API takes no input.
+
+    *Returns*
+        The API returns a list of vault definitions using the REST API convention described earlier.
+
+/api/v1/vault/get
+~~~~~~~~~~~~~~~~~
+
+*Method*
+    GET, POST
+
+    This API allows the caller to get a vault by iden, name, or type. It requires ``read`` permission on the vault,
+    and the ``secrets`` of the vault are only included if the caller has ``edit`` permission on it.
+
+    *Input*
+        The API expects a JSON body with exactly one of ``iden``, ``name``, or ``type``. The optional ``scope``
+        (``user``, ``role``, or ``global``) may only be used with ``type``; if it is omitted, the ``user``, ``role``,
+        and ``global`` scopes of the caller are searched in that order::
+
+            {
+                "iden": "<iden>",
+                "name": "<name>",
+                "type": "<type>",
+                "scope": "<scope>",
+            }
+
+    *Returns*
+        The API returns the vault definition using the REST API convention described earlier. A missing vault
+        returns a ``NoSuchIden`` or ``NoSuchName`` error with a 404 status code.
+
+/api/v1/vault/add
+~~~~~~~~~~~~~~~~~
+
+*Method*
+    POST
+
+    This API allows the caller to add a vault. A user who is not an admin may only add unscoped vaults, and
+    ``user`` vaults which they own.
+
+    *Input*
+        The API expects the following JSON body. The ``scope`` may be ``user``, ``role``, ``global``, or ``null`` for
+        an unscoped vault. The ``owner`` is the iden of the user or role which owns the vault, and may only be
+        ``null`` for a ``global`` vault::
+
+            {
+                "name": "<name>",
+                "type": "<type>",
+                "scope": "<scope>",
+                "owner": "<iden>",
+                "secrets": { ... },
+                "configs": { ... },
+            }
+
+    *Returns*
+        The API returns the new vault definition using the REST API convention described earlier. The ``secrets``
+        of the new vault are only included if the caller has ``edit`` permission on it. A vault with the same name,
+        or the same type, scope, and owner, returns a ``DupName`` error with a 409 status code.
+
+/api/v1/vault/mod
+~~~~~~~~~~~~~~~~~
+
+*Method*
+    POST
+
+    This API allows the caller to replace a vault with a full vault definition. Changing the ``name``,
+    ``secrets``, or ``configs`` requires ``edit`` permission on the vault, and changing the ``permissions`` requires
+    ``admin`` permission on it. The ``type``, ``scope``, and ``owner`` of a vault cannot be changed.
+
+    *Input*
+        The API expects a full vault definition, such as one returned by ``/api/v1/vault/get`` to a user with
+        ``edit`` permission::
+
+            {
+                "iden": "<iden>",
+                "name": "<name>",
+                "type": "<type>",
+                "scope": "<scope>",
+                "owner": "<iden>",
+                "permissions": { ... },
+                "secrets": { ... },
+                "configs": { ... },
+            }
+
+    *Returns*
+        The API returns the updated vault definition using the REST API convention described earlier. A missing
+        vault returns a ``NoSuchIden`` error with a 404 status code. Permission levels must be between 0 and 3. A user
+        or role that is added to or changed in the ``permissions`` must exist, or the API returns a ``NoSuchUser`` or
+        ``NoSuchRole`` error with a 404 status code.
+
+/api/v1/vault/del
+~~~~~~~~~~~~~~~~~
+
+*Method*
+    POST
+
+    This API allows the caller to delete a vault. It requires ``admin`` permission on the vault.
+
+    *Input*
+        The API expects the following JSON body::
+
+            {
+                "iden": "<iden>",
+            }
+
+    *Returns*
+        The API returns ``null`` using the REST API convention described earlier, including when the vault does
+        not exist.
+
 /api/v1/mcp
 ~~~~~~~~~~~
 
@@ -803,8 +925,8 @@ in msgpack format such that they can be directly ingested with the ``syn.nodes``
 
 This endpoint implements a `Model Context Protocol <https://modelcontextprotocol.io/>`_ (MCP) server
 over the MCP Streamable HTTP transport. It exposes the Cortex to MCP capable clients (such as LLM
-agents) as a set of tools and resources for running and validating Storm queries, browsing the
-Synapse data model, and managing views. Messages use JSON-RPC 2.0.
+agents) as a set of tools and resources for running, validating and linting Storm queries, browsing
+the Synapse data model, and managing views. Messages use JSON-RPC 2.0.
 
 *Method*
     POST

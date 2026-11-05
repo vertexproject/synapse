@@ -911,6 +911,8 @@ class Slab(s_base.Base):
         if self.maxsize is not None:
             self.mapsize = min(self.mapsize, self.maxsize)
 
+        opts['map_size'] = self.mapsize
+
         self._saveOptsFile()
 
         try:

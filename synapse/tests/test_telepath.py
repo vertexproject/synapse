@@ -245,7 +245,8 @@ class TeleTest(s_t_utils.SynTest):
 
             dmon.share('foo', foo)
 
-            await self.asyncraises(s_exc.BadUrl, s_telepath.openurl('noscheme/foo'))
+            with self.raises(s_exc.BadUrl):
+                await s_telepath.openurl('noscheme/foo')
 
             with self.raises(s_exc.BadArg):
                 await s_telepath.openurl(10)
@@ -294,7 +295,8 @@ class TeleTest(s_t_utils.SynTest):
 
             # check generator explodes channel
             genr = await prox.genrboom()
-            await self.asyncraises(s_exc.SynErr, genr.list())
+            with self.raises(s_exc.SynErr):
+                await genr.list()
 
             # check an async generator return channel
             genr = prox.corogenr(3)
@@ -303,7 +305,8 @@ class TeleTest(s_t_utils.SynTest):
 
             # check async generator explodes channel
             genr = prox.agenrboom()
-            await self.asyncraises(s_exc.SynErr, genr.list())
+            with self.raises(s_exc.SynErr):
+                await genr.list()
 
             with self.raises(s_exc.SynErr) as cm:
                 await prox.raze()
@@ -327,7 +330,8 @@ class TeleTest(s_t_utils.SynTest):
         # Fini'ing a daemon fini's proxies connected to it.
         self.true(await s_coro.event_wait(evt, 2))
         self.true(prox.isfini)
-        await self.asyncraises(s_exc.IsFini, prox.bar((10, 20)))
+        with self.raises(s_exc.IsFini):
+            await prox.bar((10, 20))
 
     async def test_telepath_openinfo_cell(self):
         with self.getTestDir() as dirn:
@@ -385,7 +389,8 @@ class TeleTest(s_t_utils.SynTest):
 
             dmon.share('foo', foo)
 
-            await self.asyncraises(s_exc.BadUrl, s_telepath.openurl('noscheme/foo'))
+            with self.raises(s_exc.BadUrl):
+                await s_telepath.openurl('noscheme/foo')
 
             async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=dmon.addr[1]) as prox:
 
@@ -408,18 +413,23 @@ class TeleTest(s_t_utils.SynTest):
                 genr = prox.corogenr(3)
                 self.eq((0, 1, 2), await s_t_utils.alist(genr))
 
-                await self.asyncraises(s_exc.SynErr, prox.raze())
+                with self.raises(s_exc.SynErr):
+                    await prox.raze()
 
-                await self.asyncraises(s_exc.NoSuchMeth, prox.fake())
+                with self.raises(s_exc.NoSuchMeth):
+                    await prox.fake()
 
-                await self.asyncraises(s_exc.NoSuchMeth, prox._fake())
+                with self.raises(s_exc.NoSuchMeth):
+                    await prox._fake()
 
-                await self.asyncraises(s_exc.SynErr, prox.boom())
+                with self.raises(s_exc.SynErr):
+                    await prox.boom()
 
             # Fini'ing a daemon fini's proxies connected to it.
             self.true(await s_coro.event_wait(evt, 2))
             self.true(prox.isfini)
-            await self.asyncraises(s_exc.IsFini, prox.bar((10, 20)))
+            with self.raises(s_exc.IsFini):
+                await prox.bar((10, 20))
 
     async def test_telepath_tls_bad_cert(self):
         self.thisHostMustNot(platform='darwin')
@@ -437,8 +447,8 @@ class TeleTest(s_t_utils.SynTest):
             dmon.share('foo', foo)
 
             # host cert is *NOT* signed by a CA that client recognizes
-            await self.asyncraises(ssl.SSLCertVerificationError,
-                                   s_telepath.openurl(f'ssl://{hostname}/foo', port=addr[1]))
+            with self.raises(ssl.SSLCertVerificationError):
+                await s_telepath.openurl(f'ssl://{hostname}/foo', port=addr[1])
 
     async def test_telepath_tls_certhash(self):
 
@@ -721,7 +731,8 @@ class TeleTest(s_t_utils.SynTest):
                 self.eq([0, 1, 2], [x async for x in genr])
 
                 aitr = prox.corogenr('fred').__aiter__()
-                await self.asyncraises(s_exc.SynErr, aitr.__anext__())
+                with self.raises(s_exc.SynErr):
+                    await aitr.__anext__()
 
                 aitr = prox.corogenr(3).__aiter__()
                 await aitr.__anext__()
@@ -735,7 +746,9 @@ class TeleTest(s_t_utils.SynTest):
 
                 task = dmon.schedCoro(longwaiter())
 
-            await self.asyncraises(s_exc.LinkShutDown, aitr.__anext__())
+            with self.raises(s_exc.LinkShutDown):
+                await aitr.__anext__()
+
             start_event.set()
 
             # Test that a coroutine about to await on an async proxy method doesn't become "stuck" by awaiting on a
@@ -744,7 +757,8 @@ class TeleTest(s_t_utils.SynTest):
             # Give the longwaiter a chance to run
             await asyncio.sleep(.1)
 
-            await self.asyncraises(s_exc.IsFini, asyncio.wait_for(task, timeout=2))
+            with self.raises(s_exc.IsFini):
+                await asyncio.wait_for(task, timeout=2)
 
     async def test_telepath_asyncgenr_early_term(self):
 
@@ -936,10 +950,12 @@ class TeleTest(s_t_utils.SynTest):
             host, port = dmon.addr
 
             url = 'tcp://localhost/auth'
-            await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url, port=port))
+            with self.raises(s_exc.AuthDeny):
+                await s_telepath.openurl(url, port=port)
 
             url = 'tcp://visi@localhost/auth'
-            await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url, port=port))
+            with self.raises(s_exc.AuthDeny):
+                await s_telepath.openurl(url, port=port)
 
             url = 'tcp://visi:secretsauce@localhost/auth'
             async with await s_telepath.openurl(url, port=port) as proxy:
@@ -953,7 +969,8 @@ class TeleTest(s_t_utils.SynTest):
 
             host, port = await dmon.listen('tcp://127.0.0.1:0/')
 
-            await self.asyncraises(s_exc.BadMesgVers, s_telepath.openurl('tcp://127.0.0.1/', port=port))
+            with self.raises(s_exc.BadMesgVers):
+                await s_telepath.openurl('tcp://127.0.0.1/', port=port)
 
     async def test_alias(self):
 
@@ -1292,7 +1309,8 @@ class TeleTest(s_t_utils.SynTest):
             self.true(await s_coro.event_wait(foo.simplesleep_evt, 2))
             await prox.fini()
 
-            await self.asyncraises(s_exc.LinkShutDown, task)
+            with self.raises(s_exc.LinkShutDown):
+                await task
 
     async def test_telepath_pipeline(self):
 
