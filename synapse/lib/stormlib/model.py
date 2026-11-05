@@ -1338,9 +1338,8 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
 
             Each inet:whois:rec node in the current view with the same :fqdn as the
             inet:whois:email node is given a -(refs)> edge to the inet:email node if
-            the email is scraped from its :text property. This matches the edges which
-            are added when the :text property of an inet:whois:rec node is set.
-            If no inet:whois:rec node matches, a warning is emitted.
+            the email is scraped from its :text property. If no inet:whois:rec node
+            matches, a warning is emitted.
 
             Tags, tag properties, the .seen property, and node data on the
             inet:whois:email node are not migrated.
@@ -1349,8 +1348,7 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
             this migration is run.
 
             The inet:whois:email node is not deleted and may be removed once the
-            migration has been verified. The v3.checkready command reports any
-            inet:whois:email nodes which remain.
+            migration has been verified.
         ''',
         'type': {'type': 'function', '_funcname': '_storm_query',
                  'args': (

@@ -1335,10 +1335,7 @@ class StormlibModelTest(s_test.SynTest):
             '''
             opts = {'vars': {'text': text}}
 
-            # the edges which the :text hook adds are the edges the helper adds
-            nodes = await core.nodes('[ inet:whois:rec=(hook.link, 2020) :text=$text ] -(refs)> inet:email', opts=opts)
-            hookrefs = sorted(n.ndef[1] for n in nodes)
-            self.eq(hookrefs, ['bob@vertex.link', 'bob@vertex.link.au', 'carol@vertex.link', 'jimbob@vertex.link'])
+            emails = ['bob@vertex.link', 'bob@vertex.link.au', 'carol@vertex.link', 'jimbob@vertex.link']
 
             await core.nodes('''[
                 (inet:whois:rec=(vertex.link, 2020) :text=$text)
@@ -1348,21 +1345,23 @@ class StormlibModelTest(s_test.SynTest):
                 (inet:whois:rec=(woot.com, 2020) :text="bob@vertex.link")
             ]''', opts=opts)
 
-            # records whose :text was set before the hook added edges
-            await core.nodes('inet:whois:rec [ -(refs)> { inet:email } ]')
+            # the :text hook creates inet:whois:email nodes and no edges
+            nodes = await core.nodes('inet:whois:email:fqdn=vertex.link')
+            self.eq(emails, sorted(n.get('email') for n in nodes))
+            self.len(1, await core.nodes('inet:whois:email=(woot.com, bob@vertex.link)'))
             self.len(0, await core.nodes('inet:whois:rec -(refs)> *'))
 
             q = '''
-                [ inet:whois:email=(vertex.link, $email) ]
+                inet:whois:email=($fqdn, $email)
                 return($lib.model.migration.s.inetWhoisEmailToRefs($node))
             '''
 
             # an email matches regardless of case, and not as part of a longer email
             for email in ('bob@vertex.link', 'carol@vertex.link', 'jimbob@vertex.link', 'bob@vertex.link.au'):
-                self.true(await core.callStorm(q, opts={'vars': {'email': email}}))
+                self.true(await core.callStorm(q, opts={'vars': {'fqdn': 'vertex.link', 'email': email}}))
 
             nodes = await core.nodes('inet:whois:rec=(vertex.link, 2020) -(refs)> inet:email')
-            self.eq(hookrefs, sorted(n.ndef[1] for n in nodes))
+            self.eq(emails, sorted(n.ndef[1] for n in nodes))
 
             nodes = await core.nodes('inet:whois:rec=(vertex.link, 2021) -(refs)> inet:email')
             self.eq(['bob@vertex.link.au', 'jimbob@vertex.link'], sorted(n.ndef[1] for n in nodes))
@@ -1371,11 +1370,16 @@ class StormlibModelTest(s_test.SynTest):
             self.len(0, await core.nodes('inet:whois:rec=(vertex.link, 2023) -(refs)> *'))
             self.len(0, await core.nodes('inet:whois:rec:fqdn=woot.com -(refs)> *'))
 
+            # only records of the same :fqdn are linked
+            self.true(await core.callStorm(q, opts={'vars': {'fqdn': 'woot.com', 'email': 'bob@vertex.link'}}))
+            self.len(1, await core.nodes('inet:whois:rec:fqdn=woot.com -(refs)> inet:email=bob@vertex.link'))
+            self.len(1, await core.nodes('inet:whois:rec:fqdn=vertex.link -(refs)> inet:email=bob@vertex.link'))
+
             # the inet:whois:email nodes are not deleted
-            self.len(4, await core.nodes('inet:whois:email'))
+            self.len(5, await core.nodes('inet:whois:email'))
 
             # running it again changes nothing
-            self.true(await core.callStorm(q, opts={'vars': {'email': 'bob@vertex.link'}}))
+            self.true(await core.callStorm(q, opts={'vars': {'fqdn': 'vertex.link', 'email': 'bob@vertex.link'}}))
             self.len(4, await core.nodes('inet:whois:rec=(vertex.link, 2020) -(refs)> inet:email'))
 
             # no record holds the email
@@ -1404,11 +1408,8 @@ class StormlibModelTest(s_test.SynTest):
             fork = (await core.view.fork())['iden']
             forkopts = {'view': fork}
 
-            await core.nodes('''
-                [ inet:whois:rec=(vertex.link, 2024) :text="dave@vertex.link" ]
-                [ -(refs)> { inet:email } ]
-                [ inet:whois:email=(vertex.link, dave@vertex.link) ]
-            ''', opts=forkopts)
+            await core.nodes('[ inet:whois:rec=(vertex.link, 2024) :text="dave@vertex.link" ]', opts=forkopts)
+            self.len(1, await core.nodes('inet:whois:email=(vertex.link, dave@vertex.link)', opts=forkopts))
 
             await core.nodes('''
                 $lib.model.migration.loop(${
