@@ -143,6 +143,32 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('data:components'), [dcguid])
             self.eq(nodes[1].ndef, ('it:mitre:attack:data:component', dcguid))
 
+            for name in ('it:mitre:attack:datasource', 'it:mitre:attack:data:component', 'it:mitre:attack:flow'):
+                self.true(core.model.form(name).deprecated)
+                self.true(core.model.type(name).deprecated)
+
+            prop = core.model.prop('it:mitre:attack:technique:data:components')
+            self.true(prop.deprecated)
+            self.true(prop.info.get('doc').startswith('Deprecated.'))
+
+            msgs = await core.stormlist('[ it:mitre:attack:datasource=DS0027 ]')
+            self.stormIsInWarn('The form it:mitre:attack:datasource is deprecated', msgs)
+
+            msgs = await core.stormlist('[ it:mitre:attack:data:component=(DS0027, foo) ]')
+            self.stormIsInWarn('The form it:mitre:attack:data:component is deprecated', msgs)
+
+            msgs = await core.stormlist('[ it:mitre:attack:flow=* ]')
+            self.stormIsInWarn('The form it:mitre:attack:flow is deprecated', msgs)
+
+            msgs = await core.stormlist('it:mitre:attack:technique=T0100 [ :data:components=($lib.guid(newdc),) ]')
+            self.stormIsInWarn('The property it:mitre:attack:technique:data:components is deprecated', msgs)
+
+            msgs = await core.stormlist('model.deprecated.check')
+            self.stormIsInWarn('it:mitre:attack:flow', msgs)
+            self.stormIsInWarn('it:mitre:attack:datasource', msgs)
+            self.stormIsInWarn('it:mitre:attack:data:component', msgs)
+            self.stormIsInWarn('it:mitre:attack:technique:data:components', msgs)
+
             nodes = await core.nodes('''[
                 it:mitre:attack:software=S0100
                     :software=*

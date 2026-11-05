@@ -732,14 +732,17 @@ class ItModule(s_module.CoreModule):
                     'ex': 'C0028',
                 }),
                 ('it:mitre:attack:datasource', ('str', {'regex': r'^DS[0-9]{4}$'}), {
-                    'doc': 'A MITRE ATT&CK Datasource ID.',
+                    'deprecated': True,
+                    'doc': 'Deprecated. A MITRE ATT&CK Datasource ID.',
                     'ex': 'DS0026',
                 }),
                 ('it:mitre:attack:data:component', ('guid', {}), {
-                        'doc': 'A MITRE ATT&CK data component.',
+                    'deprecated': True,
+                    'doc': 'Deprecated. A MITRE ATT&CK data component.',
                 }),
                 ('it:mitre:attack:flow', ('guid', {}), {
-                    'doc': 'A MITRE ATT&CK Flow diagram.',
+                    'deprecated': True,
+                    'doc': 'Deprecated. A MITRE ATT&CK Flow diagram.',
                 }),
 
                 ('it:dev:function', ('guid', {}), {
@@ -1764,7 +1767,8 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('data:components', ('array', {'type': 'it:mitre:attack:data:component',
                                                    'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of MITRE ATT&CK data components that detect the ATT&CK technique.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. An array of MITRE ATT&CK data components that detect the ATT&CK technique.',
                     }),
                 )),
                 ('it:mitre:attack:software', {}, (

@@ -1,0 +1,7 @@
+---
+desc: Deprecated the ``inet:whois:email`` form. Use ``inet:whois:rec -(refs)> inet:email``
+  edges instead.
+desc:literal: false
+prs: []
+type: deprecation
+...

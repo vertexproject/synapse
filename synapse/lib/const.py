@@ -58,5 +58,11 @@ AXON_READY_TIMEOUT = 300  # seconds
 # Socket constants
 UNIX_SOCKET_PATH_MAX = 103
 
+# Minimum Power-Up versions which are ready for Synapse 3.x
+V3_READY_PKG_VERSIONS = {}
+
+# Author URL of Power-Ups published by The Vertex Project
+VERTEX_PKG_AUTHOR_URL = 'https://vertex.link'
+
 # The maximum nesting depth of view hooks.
 VIEW_HOOK_MAX_DEPTH = 256

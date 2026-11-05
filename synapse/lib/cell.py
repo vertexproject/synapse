@@ -934,6 +934,80 @@ class CellApi(s_base.Base):
     async def reload(self, subsystem=None):
         return await self.cell.reload(subsystem=subsystem)
 
+    @adminapi(log=True)
+    async def dropV3Slab(self):
+        '''
+        Remove the local v3migration slab and all of its data.
+        '''
+        await self.cell.dropV3Slab()
+
+    @adminapi(log=True)
+    async def initV3Db(self, name):
+        '''
+        Initialize a DB in the local v3migration slab.
+        '''
+        await self.cell.initV3Db(name)
+
+    @adminapi(log=True)
+    async def dropV3Db(self, name):
+        '''
+        Drop a DB from the local v3migration slab.
+        '''
+        await self.cell.dropV3Db(name)
+
+    @adminapi()
+    async def getV3DbSize(self, name):
+        '''
+        Return the number of entries in a DB in the local v3migration slab.
+        '''
+        return await self.cell.getV3DbSize(name)
+
+    @adminapi()
+    async def getV3DbNames(self):
+        '''
+        Return a list of the DB names in the local v3migration slab.
+        '''
+        return await self.cell.getV3DbNames()
+
+    @adminapi()
+    async def setV3Value(self, dbname, keyname, value):
+        '''
+        Set a msgpack value by key in a DB in the local v3migration slab.
+
+        The admin API log entry omits the value.
+        '''
+        func = 'CellApi.setV3Value'
+        extra = s_logging.getLogExtra(func=func, args=(dbname, keyname), kwargs={})
+        logger.info('Admin API invoked api=%s', func, extra=extra)
+
+        await self.cell.setV3Value(dbname, keyname, value)
+
+    @adminapi(log=True)
+    async def delV3Value(self, dbname, keyname):
+        '''
+        Delete a value by key from a DB in the local v3migration slab.
+
+        Returns True if a value was deleted.
+        '''
+        return await self.cell.delV3Value(dbname, keyname)
+
+    @adminapi()
+    async def getV3Value(self, dbname, keyname, defval=s_common.novalu):
+        '''
+        Get a value by key from a DB in the local v3migration slab.
+
+        Raises NoSuchName if the value is missing and no default is given.
+        '''
+        return await self.cell.getV3Value(dbname, keyname, defval=defval)
+
+    @adminapi()
+    async def getV3Values(self, dbname, prefix=None):
+        '''
+        Yield (keyname, value) tuples from a DB in the local v3migration slab.
+        '''
+        async for item in self.cell.getV3Values(dbname, prefix=prefix):
+            yield item
+
 class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
     A Cell() implements a synapse micro-service.
@@ -1331,6 +1405,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.enter_context(s_telepath.loadTeleCell(self.dirn))
 
         await self._initCellSlab(readonly=readonly)
+
+        self.v3slab = None
+        self.v3slablock = asyncio.Lock()
 
         # initialize network daemons (but do not listen yet)
         # to allow registration of callbacks and shared objects
@@ -4932,6 +5009,164 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         slabkv = self.slab.getSafeKeyVal(name, prefix=prefix, create=False)
         for key, valu in slabkv.items():
             yield key, valu
+            await asyncio.sleep(0)
+
+    async def _getV3Slab(self):
+
+        if self.v3slab is not None:
+            return self.v3slab
+
+        path = s_common.genpath(self.dirn, 'slabs', 'v3migration.lmdb')
+        if os.path.exists(path):
+            return await self.initV3Slab()
+
+        return None
+
+    async def initV3Slab(self):
+        '''
+        Open (creating if needed) the local non-nexus v3migration slab.
+        '''
+        async with self.v3slablock:
+
+            if self.v3slab is None:
+                path = s_common.genpath(self.dirn, 'slabs', 'v3migration.lmdb')
+                self.v3slab = await self._initSlabFile(path)
+
+            return self.v3slab
+
+    async def dropV3Slab(self):
+        '''
+        Remove the local v3migration slab and all of its data.
+        '''
+        async with self.v3slablock:
+
+            slab = self.v3slab
+            if slab is not None:
+                self.v3slab = None
+                await slab.trash()
+                return
+
+            # remove an unopened slab without opening it
+            path = s_common.genpath(self.dirn, 'slabs', 'v3migration.lmdb')
+            optspath = s_common.switchext(path, ext='.opts.yaml')
+            if os.path.isfile(optspath):
+                os.unlink(optspath)
+
+            shutil.rmtree(path, ignore_errors=True)
+
+    def _reqV3DbName(self, name):
+        if not isinstance(name, str):
+            mesg = f'The v3migration DB name must be a string, not {type(name).__name__}.'
+            raise s_exc.BadArg(mesg=mesg, name=name)
+
+    async def initV3Db(self, name):
+        '''
+        Initialize a DB in the local v3migration slab.
+        '''
+        self._reqV3DbName(name)
+
+        slab = await self.initV3Slab()
+        slab.initdb(name)
+        return slab
+
+    async def dropV3Db(self, name):
+        '''
+        Drop a DB from the local v3migration slab.
+        '''
+        self._reqV3DbName(name)
+
+        slab = await self._getV3Slab()
+        if slab is not None:
+            slab.dropdb(name)
+
+    async def getV3DbNames(self):
+        '''
+        Return a list of the DB names in the local v3migration slab.
+        '''
+        slab = await self._getV3Slab()
+        if slab is None:
+            return []
+
+        return [lkey.decode() for lkey in slab.scanKeys()]
+
+    async def getV3DbSize(self, name):
+        '''
+        Return the number of entries in a DB in the local v3migration slab.
+        '''
+        self._reqV3DbName(name)
+
+        slab = await self._getV3Slab()
+        if slab is None or not slab.dbexists(name):
+            return 0
+
+        slab.initdb(name)
+        return slab.stat(db=name)['entries']
+
+    async def setV3Value(self, dbname, keyname, value):
+        '''
+        Set a msgpack value by key in a DB in the local v3migration slab.
+        '''
+        slab = await self.initV3Db(dbname)
+        slab.put(keyname.encode(), s_msgpack.en(value), db=dbname)
+
+    async def delV3Value(self, dbname, keyname):
+        '''
+        Delete a value by key from a DB in the local v3migration slab.
+
+        Returns True if a value was deleted.
+        '''
+        self._reqV3DbName(dbname)
+
+        slab = await self._getV3Slab()
+        if slab is None or not slab.dbexists(dbname):
+            return False
+
+        slab.initdb(dbname)
+        return slab.delete(keyname.encode(), db=dbname)
+
+    async def getV3Value(self, dbname, keyname, defval=s_common.novalu):
+        '''
+        Get a value by key from a DB in the local v3migration slab.
+
+        Raises NoSuchName if the value is missing and no default is given.
+        '''
+        self._reqV3DbName(dbname)
+
+        byts = None
+
+        slab = await self._getV3Slab()
+        if slab is not None and slab.dbexists(dbname):
+            slab.initdb(dbname)
+            byts = slab.get(keyname.encode(), db=dbname)
+
+        if byts is not None:
+            return s_msgpack.un(byts)
+
+        if defval is s_common.novalu:
+            mesg = f'No v3migration value named {keyname} in DB {dbname}.'
+            raise s_exc.NoSuchName(mesg=mesg, name=keyname)
+
+        return defval
+
+    async def getV3Values(self, dbname, prefix=None):
+        '''
+        Yield (keyname, value) tuples from a DB in the local v3migration slab.
+        '''
+        self._reqV3DbName(dbname)
+
+        slab = await self._getV3Slab()
+        if slab is None or not slab.dbexists(dbname):
+            return
+
+        slab.initdb(dbname)
+
+        if prefix is None:
+            genr = slab.scanByFull(db=dbname)
+        else:
+            genr = slab.scanByPref(prefix.encode(), db=dbname)
+
+        for lkey, byts in genr:
+            yield lkey.decode(), s_msgpack.un(byts)
             await asyncio.sleep(0)
 
     @s_nexus.Pusher.onPushAuto('sync')
