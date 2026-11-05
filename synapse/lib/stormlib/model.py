@@ -1483,10 +1483,7 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
             inet:whois:rec:fqdn=$fqdn +:text
 
             for ($form, $valu) in $lib.scrape.ndefs(:text) {
-                if ($form != 'inet:email') { continue }
-
-                ($ok, $norm) = $lib.trycast(inet:email, $valu)
-                if (not $ok or $norm != $email) { continue }
+                if ($form != 'inet:email' or $valu != $email) { continue }
 
                 [ +(refs)> {[ inet:email=$email ]} ]
                 $linked = (true)
