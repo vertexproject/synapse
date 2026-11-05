@@ -5177,7 +5177,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             yield lkey.decode(), s_msgpack.un(byts)
             await asyncio.sleep(0)
 
-    def checkV3Ready(self):
+    async def checkV3Ready(self):
         '''
         Check the cell for readiness to upgrade to Synapse 3.x. Subclasses with something to check override it.
 
@@ -5185,7 +5185,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             (str, str): ('print', mesg) with progress, ('error', mesg) for each problem which fails the check, and
             ('warning', mesg) for each which does not.
         '''
-        return s_common.agen()
+        # Make this a generator
+        if False:  # pragma: no cover
+            yield
 
     @s_nexus.Pusher.onPushAuto('sync')
     async def sync(self):
