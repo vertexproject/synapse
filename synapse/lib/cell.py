@@ -5066,8 +5066,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self._reqV3DbName(name)
 
         slab = await self.initV3Slab()
-        slab.initdb(name)
-        return slab
+        return slab.initdb(name)
 
     async def dropV3Db(self, name):
         '''
@@ -5106,8 +5105,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         Set a msgpack value by key in a DB in the local v3migration slab.
         '''
-        slab = await self.initV3Db(dbname)
-        slab.put(keyname.encode(), s_msgpack.en(value), db=dbname)
+        db = await self.initV3Db(dbname)
+        self.v3slab.put(keyname.encode(), s_msgpack.en(value), db=db)
 
     async def delV3Value(self, dbname, keyname):
         '''
