@@ -1526,6 +1526,52 @@ class AhaTest(s_test.SynTest):
             items = [item async for item in cell00.callPeerApi(todo)]
             self.len(2, items)
 
+            # real service entries are returned rather than the leader alias
+            names = [s['name'] async for s in aha.getAhaSvcsByIden(cell00.iden)]
+            self.sorteq(names, ('0.cell.synapse', '1.cell.synapse', '2.cell.synapse'))
+
+            # a leader whose name sorts after its alias
+            purlx = await aha.addAhaSvcProv('x.cell2')
+            purl0 = await aha.addAhaSvcProv('0.cell2', provinfo={'mirror': 'x.cell2'})
+
+            cellx = await aha.enter_context(self.getTestCell(conf={'aha:provision': purlx}))
+            cell0 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl0}))
+
+            await cell0.sync()
+
+            self.nn(await aha.getAhaSvc('cell2.synapse'))
+
+            names = [s['name'] async for s in aha.getAhaSvcsByIden(cellx.iden)]
+            self.sorteq(names, ('0.cell2.synapse', 'x.cell2.synapse'))
+
+            names = [s['name'] async for s in aha.getAhaSvcsByIden(cellx.iden, skiprun=cell0.runid)]
+            self.eq(names, ['x.cell2.synapse'])
+
+            names = [s['name'] async for s in aha.getAhaSvcsByIden(cellx.iden, skiprun=cellx.runid)]
+            self.eq(names, ['0.cell2.synapse'])
+
+            items = dict([item async for item in aha.callAhaPeerApi(cellx.iden, todo, timeout=10)])
+            self.sorteq(items.keys(), ('0.cell2.synapse', 'x.cell2.synapse'))
+            self.eq(cellx.runid, items['x.cell2.synapse'][1]['cell']['run'])
+
+            items = dict([item async for item in cell0.callPeerApi(todo, timeout=10)])
+            self.eq(list(items.keys()), ['x.cell2.synapse'])
+            self.true(items['x.cell2.synapse'][0])
+            self.eq(cellx.runid, items['x.cell2.synapse'][1]['cell']['run'])
+
+            items = dict([item async for item in cellx.callPeerApi(todo, timeout=10)])
+            self.eq(list(items.keys()), ['0.cell2.synapse'])
+            self.true(items['0.cell2.synapse'][0])
+
+            # a run registered only under the leader alias is still returned
+            iden = s_common.guid()
+            info = {'iden': iden, 'run': s_common.guid(), 'leader': 'alias', 'online': s_common.guid(),
+                    'urlinfo': {'scheme': 'ssl', 'host': '127.0.0.1', 'port': 1}}
+            await aha.addAhaSvc('alias.synapse', info)
+
+            names = [s['name'] async for s in aha.getAhaSvcsByIden(iden)]
+            self.eq(names, ['alias.synapse'])
+
     async def test_lib_aha_peer_genr(self):
 
         async with self.getTestAha() as aha:
@@ -1545,6 +1591,27 @@ class AhaTest(s_test.SynTest):
             todo = s_common.todo('getNexusChanges', 0, wait=False)
             items = dict([item async for item in cell00.callPeerGenr(todo, timeout=2)])
             self.len(1, items)
+
+            # a leader whose name sorts after its alias
+            purlx = await aha.addAhaSvcProv('x.cell2')
+            purl0 = await aha.addAhaSvcProv('0.cell2', provinfo={'mirror': 'x.cell2'})
+
+            cellx = await aha.enter_context(self.getTestCell(conf={'aha:provision': purlx}))
+            cell0 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl0}))
+
+            await cell0.sync()
+
+            items = dict([item async for item in aha.callAhaPeerGenr(cellx.iden, todo, timeout=10)])
+            self.sorteq(items.keys(), ('0.cell2.synapse', 'x.cell2.synapse'))
+
+            genr = aha.callAhaPeerGenr(cellx.iden, todo, timeout=10, skiprun=cellx.runid)
+            items = dict([item async for item in genr])
+            self.eq(list(items.keys()), ['0.cell2.synapse'])
+
+            items = [item async for item in cell0.callPeerGenr(todo, timeout=10)]
+            self.ge(len(items), 1)
+            self.true(all(name == 'x.cell2.synapse' for name, retn in items))
+            self.true(all(retn[0] for name, retn in items))
 
     async def test_lib_aha_call_aha_peer_api_isactive(self):
 

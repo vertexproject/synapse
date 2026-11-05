@@ -1940,11 +1940,15 @@ class SynTest(unittest.TestCase):
         '''
         Helper to validate that an async generator will throw an exception.
 
+        Deprecated and will be removed on 2026-12-31. Use ``with self.raises(exc): await alist(genr)`` instead.
+
         Args:
             exc: Exception class to catch
             gfunc: async Generator
         '''
-        await self.asyncraises(exc, alist(gfunc))
+        s_common.deprdate('SynTest.agenraises()', '2026-12-31')
+        with self.raises(exc):
+            await alist(gfunc)
 
     @contextlib.contextmanager
     def setSynDir(self, dirn):
@@ -2059,6 +2063,12 @@ class SynTest(unittest.TestCase):
         return self.assertRaises(*args, **kwargs)
 
     async def asyncraises(self, exc, coro):
+        '''
+        Assert a coroutine raises an exception.
+
+        Deprecated and will be removed on 2026-12-31. Use ``with self.raises(exc): await coro`` instead.
+        '''
+        s_common.deprdate('SynTest.asyncraises()', '2026-12-31')
         with self.assertRaises(exc):
             await coro
 

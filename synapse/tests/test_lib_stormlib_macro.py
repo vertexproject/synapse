@@ -236,7 +236,8 @@ class MacroTest(s_test.SynTest):
             macros = await core.callStorm('return($lib.macro.list())', opts=asvisi)
             self.len(0, macros)
 
-            await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.macro.get(foo)', opts=asvisi))
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.macro.get(foo)', opts=asvisi)
 
             opts = {'vars': {'visi': visi.iden}}
             msgs = await core.stormlist('$lib.macro.grant(foo, users, $visi, $lib.null)', opts=opts)

@@ -190,6 +190,9 @@ class View(s_nexus.Pusher):  # type: ignore
         self.reqParentQuorum()
         mergeinfo['iden'] = s_common.guid()
         mergeinfo['created'] = s_common.now()
+
+        await self.core._runViewHooks('merging', self)
+
         return await self._push('merge:set', mergeinfo)
 
     def hasKids(self):
@@ -460,7 +463,7 @@ class View(s_nexus.Pusher):  # type: ignore
             await self.core.feedBeholder('view:merge:fini', {'view': self.iden, 'merge': merge, 'votes': votes})
 
             # remove the view and top layer
-            await self.core.delViewWithLayer(self.iden)
+            await self.core.delViewWithLayer(self.iden, hooks=False)
 
         except Exception as e: # pragma: no cover
             logger.exception(f'Error while merging view: {self.iden}')
@@ -1419,7 +1422,10 @@ class View(s_nexus.Pusher):  # type: ignore
         s_layer.reqValidLdef(ldef)
         s_schemas.reqValidView(vdef)
 
-        return await self._push('view:forkparent', ldef, vdef)
+        self.core._reqCreatedHookDepth()
+
+        pack = await self._push('view:forkparent', ldef, vdef)
+        return await self.core._runCreatedHooks(vdef['iden'], pack)
 
     @s_nexus.Pusher.onPush('view:forkparent', passitem=True)
     async def _insertParentFork(self, ldef, vdef, nexsitem):
@@ -1500,7 +1506,10 @@ class View(s_nexus.Pusher):  # type: ignore
         s_layer.reqValidLdef(ldef)
         s_schemas.reqValidView(vdef)
 
-        return await self._push('view:forkchild', ldef, vdef)
+        self.core._reqCreatedHookDepth()
+
+        pack = await self._push('view:forkchild', ldef, vdef)
+        return await self.core._runCreatedHooks(vdef['iden'], pack)
 
     @s_nexus.Pusher.onPush('view:forkchild', passitem=True)
     async def _insertChildFork(self, ldef, vdef, nexsitem):
@@ -1588,6 +1597,8 @@ class View(s_nexus.Pusher):  # type: ignore
         if vdef is None:
             vdef = {}
 
+        self.core._reqCreatedHookDepth()
+
         ldef = await self.core.addLayer(ldef)
         layriden = ldef.get('iden')
 
@@ -1607,6 +1618,7 @@ class View(s_nexus.Pusher):  # type: ignore
             user = await self.core.auth.reqUser(useriden)
 
         await self.mergeAllowed(user, force=force)
+        await self.core._runViewHooks('merging', self)
 
         taskinfo = {'merging': self.iden, 'view': self.iden}
         await self.core.boss.promote('storm', user=user, info=taskinfo)
