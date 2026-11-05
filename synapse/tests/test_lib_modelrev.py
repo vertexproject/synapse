@@ -2121,6 +2121,35 @@ class ModelRevTest(s_tests.SynTest):
                     self.none(servers[0].get('port'))
                     control(servers[1])
 
+                # A node reached by paths of different lengths has its references collected once
+                async with self.getTestCore() as core:
+
+                    async def mkedge(form, n1, n2):
+                        opts = {'vars': {'n1': n1, 'n2': n2}}
+                        return (await core.nodes(f'[{form}=($n1, $n2)]', opts=opts))[0]
+
+                    # q refers to both anode and m, so it is reached again once m's references are collected
+                    anode = (await core.nodes('[it:dev:str=a]'))[0]
+                    m = await mkedge('edge:refs', anode.ndef, ('it:dev:str', 'm'))
+                    q = await mkedge('edge:has', anode.ndef, m.ndef)
+                    s = await mkedge('edge:refs', q.ndef, ('it:dev:str', 's'))
+
+                    layer = core.getLayer()
+                    migration = await s_modelrev.ModelMigration_0_2_35.anit(core, [layer])
+                    self.eq(migration.nodes.size, maxval)
+
+                    await migration.todos.add(('getvalu', (anode.buid, True)))
+                    await migration._collectReferences()
+
+                    def refsof(node):
+                        refs = migration.nodes.get(node.buid)['refs'].get(layer.iden, ())
+                        return sorted(iden for iden, info in refs)
+
+                    self.eq(sorted([m.iden(), q.iden()]), refsof(anode))
+                    self.eq([q.iden()], refsof(m))
+                    self.eq([s.iden()], refsof(q))
+                    self.eq([], refsof(s))
+
     async def test_modelrev_0_2_36(self):
         async with self.getRegrCore('model-0.2.36') as core:
             nodes = await core.nodes('econ:pay:pan=4024007150779444')
