@@ -1310,6 +1310,33 @@ class CellTest(s_t_utils.SynTest):
                     self.eq((), await proxy.getBackups())
                     self.false(os.path.exists(backupdir))
 
+                    # A slab opened while the backup waits on the nexslock is synced before the copy
+                    with mock.patch.object(s_lmdbslab.Slab, 'COMMIT_PERIOD', 600):
+
+                        # let the slab sync loop enter the patched wait
+                        await asyncio.sleep(0.5)
+
+                        async with core.nexslock:
+                            task = core.schedCoro(core.runBackup(name='lockwait'))
+                            while not core.backuprunning:
+                                await asyncio.sleep(0.01)
+                            await asyncio.sleep(0.1)
+
+                            slabpath = s_common.genpath(coredirn, 'lockslab')
+                            slab = await s_lmdbslab.Slab.anit(slabpath)
+                            slab.put(b'foo', b'bar')
+                            self.true(slab.dirty)
+
+                        self.eq('lockwait', await asyncio.wait_for(task, timeout=30))
+                        self.false(slab.dirty)
+                        await slab.fini()
+
+                    backupdir = s_common.reqdir(backdirn, 'lockwait')
+                    async with await s_lmdbslab.Slab.anit(s_common.genpath(backupdir, 'lockslab'), readonly=True) as slab:
+                        self.eq(b'bar', slab.get(b'foo'))
+
+                    await proxy.delBackup('lockwait')
+
                     name = await proxy.runBackup(name='foo/bar')
 
                     with self.raises(s_exc.BadArg):
