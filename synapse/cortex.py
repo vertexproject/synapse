@@ -3741,7 +3741,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     def getStormSvcs(self):
         return list(self.svcsbyiden.values())
 
-    async def checkV3Ready(self):
+    async def _checkV3Ready(self):
         async for mesg in self._checkV3Model():
             yield mesg
 
@@ -5152,6 +5152,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.IntersectCmd)
         self.addStormCmd(s_storm.MoveNodesCmd)
         self.addStormCmd(s_storm.BackgroundCmd)
+        self.addStormCmd(s_storm.V3PrepareCmd)
         self.addStormCmd(s_storm.V3CheckReadyCmd)
         self.addStormCmd(s_stormlib_macro.MacroExecCmd)
         self.addStormCmd(s_stormlib_storm.StormExecCmd)

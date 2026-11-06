@@ -175,6 +175,30 @@ async def altAuthCtor(cell):
     cell.onfini(auth.fini)
     return auth
 
+class V3Cell(s_cell.Cell):
+
+    async def initServiceStorage(self):
+        self.v3mesgs = [('print', 'Checking...')]
+        self.v3wait = None
+
+    async def _checkV3Ready(self):
+        async for mesg in self._v3Mesgs():
+            yield mesg
+
+    async def _prepareV3(self):
+        async for mesg in self._v3Mesgs():
+            yield mesg
+
+    async def _v3Mesgs(self):
+        for mesg in self.v3mesgs:
+            if isinstance(mesg, Exception):
+                raise mesg
+
+            yield mesg
+
+        if self.v3wait is not None:
+            await self.v3wait.wait()
+
 class CellTest(s_t_utils.SynTest):
 
     async def test_cell_getLocalUrl(self):
@@ -3424,18 +3448,15 @@ class CellTest(s_t_utils.SynTest):
                     self.eq(0, await prox.getV3DbSize('vals'))
                     self.eq(['empty'], await prox.getV3DbNames())
 
-                    # the 3.x readiness check has nothing to check on a base cell, and relays what a subclass checks
-                    self.eq([], await s_t_utils.alist(prox.checkV3Ready()))
+                    # a base cell has no 3.x readiness check, and nothing to prepare
+                    with self.raises(s_exc.NoSuchImpl):
+                        await s_t_utils.alist(prox.checkV3Ready())
 
-                    async def checks():
-                        yield ('print', 'Checking...')
-                        yield ('error', 'Not ready.')
-                        yield ('warning', 'Something to know.')
+                    with self.raises(s_exc.NoSuchImpl):
+                        await s_t_utils.alist(prox.prepareV3())
 
-                    with mock.patch.object(cell, 'checkV3Ready', checks):
-                        mesgs = await s_t_utils.alist(prox.checkV3Ready())
-
-                    self.eq([('print', 'Checking...'), ('error', 'Not ready.'), ('warning', 'Something to know.')], mesgs)
+                    self.none(await cell.getV3Value('preflight', 'result', defval=None))
+                    self.none(await cell.getV3Value('prepare', 'result', defval=None))
 
                     await prox.dropV3Slab()
                     self.none(cell.v3slab)
@@ -3474,8 +3495,111 @@ class CellTest(s_t_utils.SynTest):
                     with self.raises(s_exc.AuthDeny):
                         await s_t_utils.alist(prox.checkV3Ready())
 
+                    with self.raises(s_exc.AuthDeny):
+                        await s_t_utils.alist(prox.prepareV3())
+
                 self.none(cell.v3slab)
                 self.false(os.path.exists(v3path))
+
+    async def test_cell_v3ready(self):
+
+        async with self.getTestAha() as aha:
+            async with await s_base.Base.anit() as base:
+                with self.getTestDir() as dirn:
+
+                    dirn00 = s_common.genpath(dirn, '00.cell')
+                    dirn01 = s_common.genpath(dirn, '01.cell')
+
+                    cell00 = await base.enter_context(self.addSvcToAha(aha, '00.cell', V3Cell, dirn=dirn00))
+
+                    # each step relays the messages of the cell type's hook, and records its result
+                    cell00.v3mesgs = [('print', 'Checking...'), ('warning', 'Something to know.')]
+                    async with cell00.getLocalProxy() as prox:
+                        mesgs = await s_t_utils.alist(prox.checkV3Ready())
+
+                    self.eq([('print', 'Checking...'), ('warning', 'Something to know.')], mesgs)
+
+                    info = await cell00.getV3Value('preflight', 'result')
+                    self.true(info['ok'])
+                    self.eq([], info['errors'])
+                    self.eq(['Something to know.'], info['warnings'])
+                    self.eq(s_version.verstring, info['cell:version'])
+                    self.eq(s_version.verstring, info['synapse:version'])
+                    self.isinstance(info['time'], int)
+
+                    cell00.v3mesgs = [('error', 'Not prepared.')]
+                    async with cell00.getLocalProxy() as prox:
+                        self.eq([('error', 'Not prepared.')], await s_t_utils.alist(prox.prepareV3()))
+
+                    info = await cell00.getV3Value('prepare', 'result')
+                    self.false(info['ok'])
+                    self.eq(['Not prepared.'], info['errors'])
+
+                    # a step which fails to finish removes the result of the last one
+                    cell00.v3mesgs = [('print', 'Checking...'), s_exc.BadArg(mesg='Bad widget.')]
+                    with self.raises(s_exc.BadArg):
+                        await s_t_utils.alist(cell00.checkV3Ready())
+
+                    self.none(await cell00.getV3Value('preflight', 'result', defval=None))
+
+                    # one step at a time, and one which the caller stops records nothing
+                    cell00.v3mesgs = [('print', 'Checking...')]
+                    cell00.v3wait = asyncio.Event()
+
+                    genr = cell00.checkV3Ready()
+                    self.eq(('print', 'Checking...'), await genr.__anext__())
+
+                    with self.raises(s_exc.BadState) as cm:
+                        await s_t_utils.alist(cell00.prepareV3())
+                    self.eq('This v3cell is already being checked or prepared for Synapse 3.x.', cm.exception.get('mesg'))
+
+                    await genr.aclose()
+                    self.false(cell00.v3running)
+
+                    cell00.v3wait.set()
+                    self.none(await cell00.getV3Value('preflight', 'result', defval=None))
+
+                    cell00.v3wait = None
+                    await s_t_utils.alist(cell00.checkV3Ready())
+                    self.nn(await cell00.getV3Value('preflight', 'result', defval=None))
+
+                    # a mirror provisioned from the leader starts with no results, and refuses to check or prepare
+                    cell01 = await base.enter_context(self.addSvcToAha(aha, '01.cell', V3Cell, dirn=dirn01,
+                                                                       provinfo={'mirror': 'cell'}))
+                    self.false(cell01.isactive)
+                    self.none(await cell01.getV3Value('preflight', 'result', defval=None))
+                    self.none(await cell01.getV3Value('prepare', 'result', defval=None))
+
+                    with self.raises(s_exc.BadState) as cm:
+                        await s_t_utils.alist(cell01.checkV3Ready())
+                    self.eq('This v3cell is a mirror. Check or prepare it for Synapse 3.x on its leader.',
+                            cm.exception.get('mesg'))
+
+                    with self.raises(s_exc.BadState) as cm:
+                        await s_t_utils.alist(cell01.prepareV3())
+                    self.isin('is a mirror', cm.exception.get('mesg'))
+
+                    # a leader which is demoted mid-step stops, and its results are removed
+                    cell00.v3wait = asyncio.Event()
+
+                    genr = cell00.prepareV3()
+                    self.eq(('print', 'Checking...'), await genr.__anext__())
+
+                    await cell01.promote(graceful=True)
+                    self.false(cell00.isactive)
+
+                    with self.raises(s_exc.BadState) as cm:
+                        await genr.__anext__()
+                    self.isin('no longer the leader', cm.exception.get('mesg'))
+
+                    self.false(cell00.v3running)
+                    self.none(await cell00.getV3Value('preflight', 'result', defval=None))
+                    self.none(await cell00.getV3Value('prepare', 'result', defval=None))
+
+                    # and the new leader may run it
+                    cell01.v3mesgs = []
+                    self.eq([], await s_t_utils.alist(cell01.prepareV3()))
+                    self.true((await cell01.getV3Value('prepare', 'result'))['ok'])
 
     async def test_cell_nexus_compat(self):
         with mock.patch('synapse.lib.cell.NEXUS_VERSION', (0, 0)):

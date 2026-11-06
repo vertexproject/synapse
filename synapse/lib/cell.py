@@ -1013,8 +1013,18 @@ class CellApi(s_base.Base):
         '''
         Check the cell for readiness to upgrade to Synapse 3.x. See Cell.checkV3Ready().
         '''
-        async for mesg in self.cell.checkV3Ready():
-            yield mesg
+        async with contextlib.aclosing(self.cell.checkV3Ready()) as genr:
+            async for mesg in genr:
+                yield mesg
+
+    @adminapi(log=True)
+    async def prepareV3(self):
+        '''
+        Prepare the cell to upgrade to Synapse 3.x. See Cell.prepareV3().
+        '''
+        async with contextlib.aclosing(self.cell.prepareV3()) as genr:
+            async for mesg in genr:
+                yield mesg
 
 class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
@@ -1415,6 +1425,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self._initCellSlab(readonly=readonly)
 
         self.v3slab = None
+        self.v3running = False
         self.v3slablock = asyncio.Lock()
 
         # initialize network daemons (but do not listen yet)
@@ -2392,6 +2403,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.nexsroot.recover()
             await self.nexsroot.startup()
             await self.setCellActive(self.conf.get('mirror') is None)
+            if not self.isactive:
+                await self._clearV3Results()
 
             if self.minfree is not None:
                 self.schedCoro(self._runFreeSpaceLoop())
@@ -2946,6 +2959,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self._killActiveCoros()
             await self.activebase.fini()
             self.activebase = None
+            await self._clearV3Results()
             await self.initServicePassive()
 
         await self._setAhaActive()
@@ -5178,15 +5192,113 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def checkV3Ready(self):
         '''
-        Check the cell for readiness to upgrade to Synapse 3.x. Subclasses with something to check override it.
+        Check the cell for readiness to upgrade to Synapse 3.x, on the leader, and record the result in the
+        `preflight` DB of the v3migration slab as `result`. A cell type with a check implements _checkV3Ready().
 
         Yields:
             (str, str): ('print', mesg) with progress, ('error', mesg) for each problem which fails the check, and
             ('warning', mesg) for each which does not.
+
+        Raises:
+            NoSuchImpl: The cell type has no 3.x readiness check.
+            BadState: The cell is a mirror, loses leadership while checking, or is already checking or preparing.
         '''
-        # Make this a generator
-        if False:  # pragma: no cover
-            yield
+        async with contextlib.aclosing(self._runV3Step('preflight', self._checkV3Ready)) as genr:
+            async for mesg in genr:
+                yield mesg
+
+    async def prepareV3(self):
+        '''
+        Prepare the cell to upgrade to Synapse 3.x, on the leader, and record the result in the `prepare` DB of the
+        v3migration slab as `result`. A cell type with something to prepare implements _prepareV3().
+
+        Yields:
+            (str, str): Messages as from checkV3Ready().
+
+        Raises:
+            NoSuchImpl: The cell type has nothing to prepare.
+            BadState: The cell is a mirror, loses leadership while preparing, or is already checking or preparing.
+        '''
+        async with contextlib.aclosing(self._runV3Step('prepare', self._prepareV3)) as genr:
+            async for mesg in genr:
+                yield mesg
+
+    async def _checkV3Ready(self):
+        raise s_exc.NoSuchImpl(mesg=f'{self.getCellType()} has no Synapse 3.x readiness check.')
+        yield  # pragma: no cover
+
+    async def _prepareV3(self):
+        raise s_exc.NoSuchImpl(mesg=f'{self.getCellType()} has nothing to prepare for Synapse 3.x.')
+        yield  # pragma: no cover
+
+    async def _runV3Step(self, dbname, func):
+
+        celltype = self.getCellType()
+
+        # the result is only recorded on the leader, and cleared when it is demoted
+        if not self.isactive:
+            mesg = f'This {celltype} is a mirror. Check or prepare it for Synapse 3.x on its leader.'
+            raise s_exc.BadState(mesg=mesg)
+
+        if self.v3running:
+            raise s_exc.BadState(mesg=f'This {celltype} is already being checked or prepared for Synapse 3.x.')
+
+        queue = asyncio.Queue()
+
+        async def run():
+            try:
+                await self.delV3Value(dbname, 'result')
+
+                errors = []
+                warnings = []
+                async for name, mesg in func():
+                    if name == 'error':
+                        errors.append(mesg)
+
+                    elif name == 'warning':
+                        warnings.append(mesg)
+
+                    queue.put_nowait((name, mesg))
+
+                await self.setV3Value(dbname, 'result', {
+                    'ok': not errors,
+                    'time': s_common.now(),
+                    'cell:version': self.VERSTRING,
+                    'synapse:version': s_version.verstring,
+                    'errors': errors,
+                    'warnings': warnings,
+                })
+
+            except asyncio.CancelledError:
+                mesg = f'Stopped before it finished, as this {celltype} is no longer the leader. Run it on the new leader.'
+                queue.put_nowait(s_exc.BadState(mesg=mesg))
+                raise
+
+            except Exception as e:
+                queue.put_nowait(e)
+
+            finally:
+                queue.put_nowait(None)
+
+        # an active task, so a demotion stops it before its result is recorded
+        task = self.runActiveTask(run())
+        self.v3running = True
+        try:
+            while (item := await queue.get()) is not None:
+                if isinstance(item, Exception):
+                    raise item
+
+                yield item
+
+        finally:
+            task.cancel()
+            await asyncio.wait((task,))
+            self.v3running = False
+
+    async def _clearV3Results(self):
+        # a 3.x readiness result stands for a cell which has been the leader since it was recorded
+        for dbname in ('preflight', 'prepare'):
+            await self.delV3Value(dbname, 'result')
 
     @s_nexus.Pusher.onPushAuto('sync')
     async def sync(self):

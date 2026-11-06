@@ -1,0 +1,7 @@
+---
+desc: Added the `v3.prepare` Storm command and the `prepareV3()` Cell API to prepare a Cortex and its Storm services
+  for Synapse 3.x, and the `synapse.tools.service.v3ready` tool to check or prepare a single service.
+desc:literal: false
+prs: []
+type: feat
+...
