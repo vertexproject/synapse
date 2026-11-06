@@ -2364,6 +2364,8 @@ class ModelMigration_0_2_35(ModelMigrationBase):
         removed = 0
         async for buid in targets:
 
+            await asyncio.sleep(0)
+
             node = self.getNode(buid)
 
             formname = node.get('formname')
