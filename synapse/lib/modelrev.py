@@ -2351,19 +2351,27 @@ class ModelMigration_0_2_35(ModelMigrationBase):
 
         logger.info(f'Migrating {total} {formstr} nodes')
 
+        # moveNode() adds nodes to self.nodes, so iterate a snapshot of the primary target buids
+        targets = await s_spooled.Set.anit(dirn=self.core.dirn)
+        self.core.onfini(targets)
+
+        async for buid, node in s_coro.pause(self.nodes.items()):
+            if node.get('formname') in formnames:
+                await targets.add(buid)
+
         count = 0
         migrated = 0
         removed = 0
-        async for buid, node in s_coro.pause(self.nodes.items()):
+        async for buid in targets:
+
+            await asyncio.sleep(0)
+
+            node = self.getNode(buid)
 
             formname = node.get('formname')
             formvalu = node.get('formvalu')
 
-            if formname is None or formvalu is None:  # pragma: no cover
-                continue
-
-            # Only process primary target forms; comp form refs are handled recursively
-            if formname not in formnames:
+            if formvalu is None:  # pragma: no cover
                 continue
 
             form = self.core.model.form(formname)
@@ -2384,6 +2392,8 @@ class ModelMigration_0_2_35(ModelMigrationBase):
             count = migrated + removed
             if count % 1000 == 0:  # pragma: no cover
                 logger.info(f'Processed {count} bare IPv6 address nodes')
+
+        await targets.fini()
 
         await self._flushEdits()
 
