@@ -2183,6 +2183,43 @@ class LayerTest(s_t_utils.SynTest):
 
             self.eq(seen, set())
 
+    async def test_layer_edit_perms_tag_leaves(self):
+
+        async with self.getTestCore() as core:
+
+            user = await core.auth.addUser('visi')
+            await user.addRule((True, ('node', 'add')))
+            await user.addRule((True, ('node', 'prop', 'set')))
+            await user.addRule((True, ('node', 'tag', 'add', 'foo', 'bar', 'baz')))
+            await user.addRule((True, ('node', 'tag', 'add', 'rep', 'vt')))
+
+            parent = core.view.layers[0]
+
+            await core.nodes('[ test:str=foo test:str=bar +#foo.bar ]')
+
+            # parent tags in a lower layer are not leaves of the tags in the fork
+            fork = await core.view.fork()
+            opts = {'view': fork['iden']}
+            layr = core.getLayer(fork['layers'][0]['iden'])
+
+            await core.nodes('test:str=foo [ +#foo.bar.baz +#rep.vt ]', opts=opts)
+            await layr.confirmLayerEditPerms(user, parent.iden)
+
+            # a node with a single tag in the fork is checked for its own tag
+            fork = await core.view.fork()
+            opts = {'view': fork['iden']}
+            layr = core.getLayer(fork['layers'][0]['iden'])
+
+            await core.nodes('[ test:str=baz +#newp ]', opts=opts)
+            await core.nodes('test:str=bar [ +#foo.bar.baz ]', opts=opts)
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await layr.confirmLayerEditPerms(user, parent.iden)
+            self.eq(cm.exception.get('perm'), 'node.tag.add.newp')
+
+            await user.addRule((True, ('node', 'tag', 'add', 'newp')))
+            await layr.confirmLayerEditPerms(user, parent.iden)
+
     async def test_layer_v9(self):
         async with self.getRegrCore('2.101.1-hugenum-indxprec') as core:
 
