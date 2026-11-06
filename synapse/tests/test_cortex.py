@@ -22,6 +22,7 @@ import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
+import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
@@ -3629,7 +3630,216 @@ class CortexBasicTest(s_t_utils.SynTest):
             emsg = [m for m in msgs if 'Error during storm execution' in m.get('message')][0]
             self.eq(emsg['params'].get('view'), view)
             self.eq(emsg['params'].get('text'), q)
+            self.eq(emsg['params'].get('hash'), s_storm.queryhash(q))
+            self.ge(emsg['params'].get('took'), 0)
             self.eq(emsg['username'], 'foouser')
+
+    async def test_storm_logging_fini(self):
+
+        def getFini(stream, text):
+            msgs = [m for m in stream.jsonlines() if m['message'].startswith('Completed storm query')]
+            msgs = [m for m in msgs if m['params']['text'] == text]
+            self.len(1, msgs)
+            return msgs[0]
+
+        async def nodes(core, text):
+            # only View.storm() runs the query in its own task and records stats
+            msgs = await core.stormlist(text)
+            return [m for m in msgs if m[0] == 'node']
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=foo test:str=bar test:str=baz test:int=1 ] [ +#big ]')
+            await core.nodes('[ test:str=other ]')
+
+            # no stats are collected and no completion line is logged unless storm:log is enabled
+            self.none(core._getStormQueryStats())
+            with self.getLoggerStream('synapse.storm') as stream:
+                self.len(4, await nodes(core, '#big'))
+            self.len(0, stream.jsonlines())
+
+            core.stormlog = True
+
+            # or when the storm logger would discard the line
+            stormlogger = logging.getLogger('synapse.storm')
+            oldlevel = stormlogger.level
+            stormlogger.setLevel(logging.WARNING)
+            try:
+                self.none(core._getStormQueryStats())
+                stormlogger.setLevel(logging.INFO)
+                self.nn(core._getStormQueryStats())
+
+            finally:
+                stormlogger.setLevel(oldlevel)
+
+            # flush the dirty storage nodes and drop the cache so every fetch hits disk
+            layr = core.getLayer()
+            await layr.layrslab.sync()
+            layr.buidcache = s_cache.LruDict(10000)
+
+            q = '#big'
+            with self.getLoggerStream('synapse.storm') as stream:
+                self.len(4, await nodes(core, q))
+
+            mesg = getFini(stream, q)
+            self.eq(mesg['message'], 'Completed storm query {#big} as [root] status=ok took=%dms: scanned 4 index rows, '
+                                     'read 4 storage nodes from disk, yielded 4' % mesg['params']['took'])
+            self.eq(mesg['username'], 'root')
+            self.eq(mesg['params']['hash'], s_storm.queryhash(q))
+            self.eq(mesg['params']['view'], core.view.iden)
+            self.eq(mesg['params']['mode'], 'storm')
+            self.eq(mesg['params']['status'], 'ok')
+            self.eq(mesg['params']['count'], 4)
+            self.eq(mesg['params']['stats'], {'scanned': 4, 'disk': 4})
+
+            # the start line and the completion line join on the hash
+            start = [m for m in stream.jsonlines() if m['message'].startswith('Executing storm query')]
+            self.len(1, start)
+            self.eq(start[0]['params']['hash'], mesg['params']['hash'])
+
+            # same lift again is served from the buid cache
+            with self.getLoggerStream('synapse.storm') as stream:
+                self.len(4, await nodes(core, q))
+            stats = getFini(stream, q)['params']['stats']
+            self.eq(stats, {'scanned': 4, 'disk': 0})
+
+            # filtered results still account for every row scanned
+            q = '#big +test:int'
+            with self.getLoggerStream('synapse.storm') as stream:
+                self.len(1, await nodes(core, q))
+            mesg = getFini(stream, q)
+            self.eq(mesg['params']['count'], 1)
+            self.eq(mesg['params']['stats']['scanned'], 4)
+
+            # creating a node checks the disk and the new node is dirty until the slab commits
+            q = '[ test:str=newp +#dirty ] | spin | #dirty'
+            with self.getLoggerStream('synapse.storm') as stream:
+                self.len(1, await nodes(core, q))
+            stats = getFini(stream, q)['params']['stats']
+            self.eq(stats['scanned'], 1)
+            self.gt(stats['disk'], 0)
+
+            # lifts which are closed early still count the rows they scanned
+            q = '#big | limit 1'
+            with self.getLoggerStream('synapse.storm') as stream:
+                self.len(1, await nodes(core, q))
+            self.eq(getFini(stream, q)['params']['stats']['scanned'], 1)
+
+            # prop, prop value, and form value lifts
+            q = 'test:str:tick'
+            await core.nodes('test:str=foo [ :tick=2020 ]')
+            with self.getLoggerStream('synapse.storm') as stream:
+                self.len(1, await nodes(core, q))
+            self.eq(getFini(stream, q)['params']['stats']['scanned'], 1)
+
+            q = 'test:str:tick=2020'
+            with self.getLoggerStream('synapse.storm') as stream:
+                self.len(1, await nodes(core, q))
+            self.eq(getFini(stream, q)['params']['stats']['scanned'], 1)
+
+            q = 'test:str^=ba'
+            with self.getLoggerStream('synapse.storm') as stream:
+                self.len(2, await nodes(core, q))
+            self.eq(getFini(stream, q)['params']['stats']['scanned'], 2)
+
+            # regex lifts count the rows the regex rejects
+            q = 'test:str~="^ba"'
+            with self.getLoggerStream('synapse.storm') as stream:
+                self.len(2, await nodes(core, q))
+            self.eq(getFini(stream, q)['params']['stats']['scanned'], 5)
+
+            await core.nodes('[ test:arrayprop=* :strs=(foo, bar) ]')
+            q = 'test:arrayprop:strs*[~="^ba"]'
+            with self.getLoggerStream('synapse.storm') as stream:
+                self.len(1, await nodes(core, q))
+            self.eq(getFini(stream, q)['params']['stats']['scanned'], 2)
+
+            # work done by child tasks is attributed to the query
+            q = '#big | parallel --size 2 { test:str=foo }'
+            with self.getLoggerStream('synapse.storm') as stream:
+                self.len(6, await nodes(core, q))
+            self.eq(getFini(stream, q)['params']['stats']['scanned'], 6)
+
+            # concurrent queries do not blend their counters
+            qs = ('#big', 'test:str^=ba', 'test:str=foo')
+            with self.getLoggerStream('synapse.storm') as stream:
+                await asyncio.gather(*[nodes(core, f'{q} | sleep 0.01') for q in qs])
+            self.eq(getFini(stream, '#big | sleep 0.01')['params']['stats']['scanned'], 4)
+            self.eq(getFini(stream, 'test:str^=ba | sleep 0.01')['params']['stats']['scanned'], 2)
+            self.eq(getFini(stream, 'test:str=foo | sleep 0.01')['params']['stats']['scanned'], 1)
+
+            # nested queries roll up into the top-level query which logs once
+            q = '$q=${ #big } for $m in $lib.storm.run($q) { } | spin | test:str^=ba'
+            with self.getLoggerStream('synapse.storm') as stream:
+                self.len(2, await nodes(core, q))
+            fini = [m for m in stream.jsonlines() if m['message'].startswith('Completed storm query')]
+            self.len(1, fini)
+            self.eq(fini[0]['params']['text'], q)
+            self.eq(fini[0]['params']['stats']['scanned'], 6)
+
+            # background queries outlive the parent and log their own totals
+            q = '[ test:int=2 ] | background ${ #big | sleep 0.1 }'
+            with self.getLoggerStream('synapse.storm') as stream:
+                await nodes(core, q)
+                await stream.expect('Completed storm query { #big | sleep 0.1 }')
+
+            mesg = getFini(stream, q)
+            self.eq(mesg['params']['stats']['scanned'], 0)
+
+            mesg = getFini(stream, ' #big | sleep 0.1 ')
+            self.true(mesg['params']['background'])
+            self.eq(mesg['params']['status'], 'ok')
+            self.eq(mesg['params']['count'], 4)
+            self.eq(mesg['params']['stats']['scanned'], 4)
+
+            # a task spawned by a query which outlives it starts its own stats
+            stats = s_layer.QueryStats()
+            stats.done = True
+            s_layer.querystats.set(stats)
+            with self.getLoggerStream('synapse.storm') as stream:
+                self.len(4, await nodes(core, '#big'))
+            self.eq(getFini(stream, '#big')['params']['stats']['scanned'], 4)
+            self.eq(stats.scanned, 0)
+            s_layer.querystats.set(None)
+
+            # the stats do not leak into the caller
+            self.none(s_layer.querystats.get())
+
+            # errors
+            q = '#big $lib.raise(Oops, oops)'
+            with self.getLoggerStream('synapse.storm') as stream:
+                await core.stormlist(q)
+            mesg = getFini(stream, q)
+            self.eq(mesg['params']['status'], 'error')
+            self.eq(mesg['params']['count'], 0)
+            self.eq(mesg['params']['stats']['scanned'], 1)
+
+            # cancellation
+            q = '#big | sleep 120'
+            with self.getLoggerStream('synapse') as stream:
+                task = core.schedCoro(nodes(core, q))
+                await stream.expect('Executing storm query {#big | sleep 120}', timeout=6)
+                await asyncio.sleep(0.05)
+                task.cancel()
+                await asyncio.sleep(0.1)
+
+            mesg = getFini(stream, q)
+            self.eq(mesg['params']['status'], 'cancelled')
+            self.eq(mesg['params']['stats']['scanned'], 1)
+
+            cmsg = [m for m in stream.jsonlines() if m['message'] == 'Storm runtime cancelled.']
+            self.len(1, cmsg)
+            self.eq(cmsg[0]['params']['hash'], s_storm.queryhash(q))
+            self.ge(cmsg[0]['params']['took'], 50)
+
+            # queries which do not show nodes are logged too
+            q = '#big'
+            with self.getLoggerStream('synapse.storm') as stream:
+                msgs = await core.stormlist(q, opts={'show': ('fini',)})
+            self.eq(['init', 'fini'], [m[0] for m in msgs])
+            mesg = getFini(stream, q)
+            self.eq(mesg['params']['count'], 4)
+            self.eq(mesg['params']['stats']['scanned'], 4)
 
     async def test_strict(self):
 
@@ -9947,7 +10157,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     data = stream.getvalue()
                     self.notin('Timeout', data)
                     msgs = stream.jsonlines()
-                    self.len(2, msgs)
+                    self.len(3, msgs)
 
                     self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
                     self.eq(msgs[0]['params'].get('hash'), qhash)
@@ -9956,6 +10166,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
                     self.eq(msgs[1]['params'].get('hash'), qhash)
                     self.eq(msgs[1]['params'].get('pool:from'), f'00.core.{ahanet}')
+
+                    self.true(msgs[2].get('message').startswith(f'Completed storm query {{{q}}} as [root] status=ok'))
+                    self.eq(msgs[2]['params'].get('hash'), qhash)
+                    self.eq(msgs[2]['params'].get('pool:from'), f'00.core.{ahanet}')
+                    self.eq(msgs[2]['params'].get('count'), 1)
 
                     # callStorm()
                     q = 'inet:asn=0 return($lib.true)'

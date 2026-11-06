@@ -7210,6 +7210,33 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 stormlogger.log(self.stormloglvl, 'Executing storm query via %s {%s} as [%s]', via, text, user.name,
                                 extra=self.getLogExtra(**info))
 
+    def _getStormQueryStats(self):
+        '''
+        Get a QueryStats for a top-level storm query, or None if its completion will not be logged.
+        '''
+        if self.stormlog and stormlogger.isEnabledFor(self.stormloglvl):
+            return s_layer.QueryStats()
+
+    def _logStormFini(self, text, user, info):
+        '''
+        Log the completion of a storm query.
+
+        Args:
+            text (str): The query text.
+            user: The User who ran the query.
+            info (dict): Fields to record alongside the query. Must include took, count, status, and stats.
+        '''
+        if self.stormlog:
+            info['text'] = text
+            info['hash'] = s_storm.queryhash(text)
+
+            stats = info['stats']
+            stormlogger.log(self.stormloglvl,
+                            'Completed storm query {%s} as [%s] status=%s took=%dms: scanned %d index rows, '
+                            'read %d storage nodes from disk, yielded %d',
+                            text, user.name, info['status'], info['took'], stats['scanned'], stats['disk'],
+                            info['count'], extra=self.getLogExtra(**info))
+
     async def getNodeByNdef(self, ndef, view=None):
         '''
         Return a single Node() instance by (form,valu) tuple.

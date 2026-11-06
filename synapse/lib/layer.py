@@ -63,6 +63,7 @@ import struct
 import asyncio
 import logging
 import contextlib
+import contextvars
 import collections
 
 import regex
@@ -211,6 +212,34 @@ class LayerApi(s_cell.CellApi):
         return self.layr.iden
 
 BUID_CACHE_SIZE = 10000
+
+class QueryStats:
+    '''
+    Storage access counters for a single Storm query.
+
+    Set in the querystats ContextVar by the Storm runtime task so Layer reads
+    are attributed to the query that caused them rather than to the Layer.
+    Nested queries share the stats of the top-level query. Tasks spawned by a
+    query inherit the ContextVar, so the stats are marked done when the query
+    completes and any task which outlives it starts its own.
+
+    Only cache misses read the ContextVar, so cache hits pay nothing, and the
+    Cortex only sets it when the completion of the query will be logged.
+    '''
+    __slots__ = ('scanned', 'disk', 'done')
+
+    def __init__(self):
+        self.scanned = 0
+        self.disk = 0
+        self.done = False
+
+    def pack(self):
+        return {
+            'scanned': self.scanned,
+            'disk': self.disk,
+        }
+
+querystats = contextvars.ContextVar('querystats', default=None)
 
 STOR_TYPE_UTF8 = 1
 
@@ -532,6 +561,9 @@ class StorType:
         else:
             scan = liftby.keyBuidsByPref
 
+        # matching rows are counted by the lift which consumes them
+        stats = querystats.get()
+
         for lkey, buid in scan():
 
             await asyncio.sleep(0)
@@ -549,6 +581,8 @@ class StorType:
                             storvalu = sval
                             break
                     else:
+                        if stats is not None:
+                            stats.scanned += 1
                         continue
 
             def regexin(regx, storvalu):
@@ -563,6 +597,9 @@ class StorType:
 
             if regexin(regx, storvalu):
                 yield lkey, buid
+
+            elif stats is not None:
+                stats.scanned += 1
 
 class StorTypeUtf8(StorType):
 
@@ -2986,6 +3023,9 @@ class Layer(s_nexus.Pusher):
         if sode is not None:
             return sode
 
+        if (stats := querystats.get()) is not None:
+            stats.disk += 1
+
         byts = self.layrslab.get(buid, db=self.bybuidv3)
         if byts is None:
             return None
@@ -3162,7 +3202,12 @@ class Layer(s_nexus.Pusher):
         else:
             scan = self.layrslab.scanByPref
 
+        stats = querystats.get()
+
         for lkey, buid in scan(abrv, db=self.bytag):
+
+            if stats is not None:
+                stats.scanned += 1
 
             sode = self._getStorNode(buid)
             if sode is None: # pragma: no cover
@@ -3307,7 +3352,13 @@ class Layer(s_nexus.Pusher):
         else:
             scan = self.layrslab.scanByPref
 
+        stats = querystats.get()
+
         for lkey, buid in scan(abrv, db=self.byprop):
+
+            if stats is not None:
+                stats.scanned += 1
+
             sode = self._getStorNode(buid)
             if sode is None: # pragma: no cover
                 # logger.warning(f'PropIndex for {form}:{prop} has {s_common.ehex(buid)} but no storage node.')
@@ -3316,12 +3367,19 @@ class Layer(s_nexus.Pusher):
 
     # NOTE: form vs prop valu lifting is differentiated to allow merge sort
     async def liftByFormValu(self, form, cmprvals, reverse=False):
+
+        stats = querystats.get()
+
         for cmpr, valu, kind in cmprvals:
 
             if kind & 0x8000:
                 kind = STOR_TYPE_MSGP
 
             async for lkey, buid in self.stortypes[kind].indxByForm(form, cmpr, valu, reverse=reverse):
+
+                if stats is not None:
+                    stats.scanned += 1
+
                 sode = self._getStorNode(buid)
                 if sode is None: # pragma: no cover
                     # logger.warning(f'FormValuIndex for {form} has {s_common.ehex(buid)} but no storage node.')
@@ -3329,12 +3387,18 @@ class Layer(s_nexus.Pusher):
                 yield lkey[8:], buid, deepcopy(sode)
 
     async def liftByPropValu(self, form, prop, cmprvals, reverse=False):
+
+        stats = querystats.get()
+
         for cmpr, valu, kind in cmprvals:
 
             if kind & 0x8000:
                 kind = STOR_TYPE_MSGP
 
             async for lkey, buid in self.stortypes[kind].indxByProp(form, prop, cmpr, valu, reverse=reverse):
+
+                if stats is not None:
+                    stats.scanned += 1
 
                 sode = self._getStorNode(buid)
                 if sode is None: # pragma: no cover
@@ -3344,8 +3408,15 @@ class Layer(s_nexus.Pusher):
                 yield lkey[8:], buid, deepcopy(sode)
 
     async def liftByPropArray(self, form, prop, cmprvals, reverse=False):
+
+        stats = querystats.get()
+
         for cmpr, valu, kind in cmprvals:
             async for lkey, buid in self.stortypes[kind].indxByPropArray(form, prop, cmpr, valu, reverse=reverse):
+
+                if stats is not None:
+                    stats.scanned += 1
+
                 sode = self._getStorNode(buid)
                 if sode is None: # pragma: no cover
                     # logger.warning(f'PropArrayIndex for {form}:{prop} has {s_common.ehex(buid)} but no storage node.')
