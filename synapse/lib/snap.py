@@ -1222,18 +1222,18 @@ class Snap(s_base.Base):
             if node is not None:
                 yield node
 
-    async def nodesByPropTypeValu(self, name, valu, reverse=False):
+    async def nodesByPropTypeValu(self, name, valu, reverse=False, norm=True):
 
         _type = self.core.model.types.get(name)
         if _type is None:
             raise s_exc.NoSuchType(name=name)
 
         for prop in self.core.model.getPropsByType(name):
-            async for node in self.nodesByPropValu(prop.full, '=', valu, reverse=reverse):
+            async for node in self.nodesByPropValu(prop.full, '=', valu, reverse=reverse, norm=norm):
                 yield node
 
         for prop in self.core.model.getArrayPropsByType(name):
-            async for node in self.nodesByPropArray(prop.full, '=', valu, reverse=reverse):
+            async for node in self.nodesByPropArray(prop.full, '=', valu, reverse=reverse, norm=norm):
                 yield node
 
     async def nodesByPropArray(self, full, cmpr, valu, reverse=False, norm=True):
