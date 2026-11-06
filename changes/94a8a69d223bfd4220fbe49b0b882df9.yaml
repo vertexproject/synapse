@@ -1,5 +1,5 @@
 ---
-desc: Fixed an issue where `delnode` failed with a `BadTypeValu` error on nodes whose
+desc: Fixed an issue where ``delnode`` failed with a ``BadTypeValu`` error on nodes whose
   stored value is no longer accepted by the current data model normalization.
 desc:literal: false
 prs: []
