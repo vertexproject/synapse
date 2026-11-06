@@ -3019,7 +3019,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 # Temporary slabs (e.g. spooled sets/dicts) are not backed up
                 slabs = [slab for slab in s_lmdbslab.Slab.getSlabsInDir(self.dirn)
                          if 'tmp' not in os.path.relpath(slab.path, self.dirn).split(os.sep)]
-                assert slabs
 
                 paths = [str(slab.path) for slab in slabs]
 
