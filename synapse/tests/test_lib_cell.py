@@ -34,6 +34,7 @@ import synapse.lib.nexus as s_nexus
 import synapse.lib.certdir as s_certdir
 import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.crypto.passwd as s_passwd
@@ -1259,7 +1260,26 @@ class CellTest(s_t_utils.SynTest):
                     await proxy.delBackup('_sleeper2Proc')
                     await proxy.delBackup('_exiterProc')
 
-                    name = await proxy.runBackup()
+                    # A spooled slab which is continuously written must not stall the backup
+                    async with await s_spooled.Dict.anit(dirn=coredirn, size=10) as sdict:
+
+                        async def spin():
+                            valu = 0
+                            while True:
+                                await sdict.set(valu, valu)
+                                valu += 1
+                                await asyncio.sleep(0)
+
+                        for valu in range(10):
+                            await sdict.set(valu, valu)
+                        self.true(sdict.fallback)
+
+                        task = core.schedCoro(spin())
+                        try:
+                            name = await asyncio.wait_for(proxy.runBackup(), timeout=30)
+                        finally:
+                            task.cancel()
+
                     self.eq((name,), await proxy.getBackups())
 
                     srcreal, _ = s_common.getDirSize(coredirn)
@@ -1284,6 +1304,7 @@ class CellTest(s_t_utils.SynTest):
                     s_common.reqpath(backupdir, 'cell.yaml')
                     s_common.reqpath(backupdir, 'randoslab', 'data.mdb')
                     s_common.reqpath(backupdir, 'randodirn', 'randoslab2', 'data.mdb')
+                    self.false(os.path.exists(os.path.join(backupdir, 'tmp')))
 
                     await proxy.delBackup(name)
                     self.eq((), await proxy.getBackups())

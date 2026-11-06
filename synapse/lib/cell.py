@@ -3000,7 +3000,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         logger.info(f'Starting backup to [{dirn}]')
 
         await self.boss.promote('backup', self.auth.rootuser)
-        slabs = s_lmdbslab.Slab.getSlabsInDir(self.dirn)
+
+        # Temporary slabs (e.g. spooled sets/dicts) are not backed up
+        slabs = [slab for slab in s_lmdbslab.Slab.getSlabsInDir(self.dirn)
+                 if 'tmp' not in os.path.relpath(slab.path, self.dirn).split(os.sep)]
         assert slabs
 
         ctx = multiprocessing.get_context('spawn')
@@ -3020,7 +3023,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 await self.drive.sync()
 
                 while True:
-                    await s_lmdbslab.Slab.syncLoopOnce()
+                    for slab in slabs:
+                        if slab.dirty:
+                            await slab.sync()
+                            await asyncio.sleep(0)
+
                     if not any(slab.dirty for slab in slabs):
                         break
 
