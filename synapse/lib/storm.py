@@ -21,16 +21,14 @@ import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.snap as s_snap
 import synapse.lib.cache as s_cache
-import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.scope as s_scope
 import synapse.lib.autodoc as s_autodoc
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
-import synapse.lib.version as s_version
+import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.hashitem as s_hashitem
-import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -6040,15 +6038,126 @@ class ColorizeCmd(Cmd):
 
             yield (node, path)
 
-class V3CheckReadyCmd(Cmd):
+class V3Cmd(Cmd):
     '''
-    Check the Cortex for readiness to upgrade to Synapse 3.x.
+    A base class for the commands which check or prepare the Cortex and its Storm services for Synapse 3.x.
+    '''
 
-    Warns about deprecated forms, properties, and types which are still in use
-    in any layer, about installed Power-Ups which are below the minimum version
-    that supports Synapse 3.x, about installed Vertex Power-Ups which are not
-    yet available for Synapse 3.x, and about layer model migrations or Power-Up
-    inits which have not completed yet.
+    async def _checkV3Ready(self, runt):
+
+        core = runt.snap.core
+
+        ready = await self._printMesgs(runt, core.checkV3Ready())
+
+        notready = []
+        for ssvc in sorted(core.getStormSvcs(), key=lambda s: s.name):
+
+            proxy = await self._getSvcProxy(runt, ssvc)
+            if proxy is None:
+                notready.append(ssvc.name)
+                continue
+
+            await runt.printf(f'Checking service {ssvc.name}...')
+            try:
+                coro = self._printMesgs(runt, proxy.checkV3Ready())
+                if not await s_common.wait_for(coro, timeout=V3CheckReadyCmd.svctimeout):
+                    notready.append(ssvc.name)
+
+            except s_exc.NoSuchImpl:
+                await runt.printf(f'ERROR: Service {ssvc.name} has no Synapse 3.x readiness check.')
+                notready.append(ssvc.name)
+
+            except Exception as e:
+                await self._printSvcExc(runt, ssvc, e, 'checked', V3CheckReadyCmd.svctimeout)
+                notready.append(ssvc.name)
+
+        if ready:
+            await runt.printf('Your Cortex is ready for Synapse 3.x.')
+        else:
+            await runt.printf('Your Cortex is not ready for Synapse 3.x.')
+
+        if notready:
+            await runt.printf(f'These services are not ready for Synapse 3.x: {", ".join(notready)}.')
+
+    async def _getSvcProxy(self, runt, ssvc):
+        '''
+        Return the proxy of a Storm service which can be checked or prepared for Synapse 3.x, or print an error and
+        return None.
+        '''
+        proxy = None
+        info = None
+        if ssvc.ready.is_set():
+            try:
+                proxy = await ssvc.proxy.proxy()
+                if proxy._hasTeleMeth('prepareV3'):
+                    info = await proxy.getCellInfo()
+
+            except (TimeoutError, s_exc.IsFini, s_exc.LinkErr):
+                proxy = None
+
+        if proxy is None:
+            await runt.printf(f'ERROR: Service {ssvc.name} is not connected.')
+            return None
+
+        if info is None:
+            await runt.printf(f'ERROR: Service {ssvc.name} must be upgraded to a version which supports Synapse 3.x.')
+            return None
+
+        # the Cortex reaches the leader by its AHA leader name, a mirror only if added by its own
+        if not info['cell']['active']:
+            url = s_urlhelp.sanitizeUrl(ssvc.sdef.get('url'))
+            await runt.printf(f"ERROR: Service {ssvc.name} is connected to a mirror ({url}); add it by its leader's name.")
+            return None
+
+        return proxy
+
+    async def _printSvcExc(self, runt, ssvc, exc, verb, timeout):
+        if isinstance(exc, TimeoutError):
+            await runt.printf(f'ERROR: Service {ssvc.name} could not be {verb} within {timeout} seconds.')
+            return
+
+        mesg = exc.get('mesg') if isinstance(exc, s_exc.SynErr) else str(exc)
+        await runt.printf(f'ERROR: Service {ssvc.name} could not be {verb}: {mesg or exc.__class__.__name__}')
+
+    async def _printMesgs(self, runt, genr, head=None):
+        '''
+        Print the messages of a Synapse 3.x readiness check or preparation as they arrive, after a head line if one
+        is given, returning whether it had no errors.
+        '''
+        ok = True
+        async for name, info in genr:
+
+            if head is not None:
+                await runt.printf(head)
+                head = None
+
+            if name == 'print':
+                await runt.printf(info)
+
+            elif name == 'error':
+                ok = False
+                await runt.printf(f'ERROR: {info}')
+
+            elif name == 'warning':
+                await runt.printf(f'WARNING: {info}')
+
+        return ok
+
+class V3CheckReadyCmd(V3Cmd):
+    '''
+    Check the Cortex and its Storm services for readiness to upgrade to Synapse 3.x.
+
+    Prints an error for each deprecated form, property, or type which is still
+    in use in any layer, installed Power-Up which is below the minimum version
+    that supports Synapse 3.x, installed Vertex Power-Up which is not yet
+    available for Synapse 3.x, and layer model migration or Power-Up init which
+    has not completed yet. Then runs the 3.x readiness check of each Storm
+    service in a section of its own, and names those which are not ready.
+    Errors block the upgrade, and warnings do not.
+
+    Run it on the Cortex leader, with each Storm service added by the AHA name
+    of its leader. The result of each check is recorded by the Cortex or
+    service, for its Synapse 3.x migration.
 
     NOTE: This command requires admin privileges.
 
@@ -6061,122 +6170,90 @@ class V3CheckReadyCmd(Cmd):
     name = 'v3.checkready'
     readonly = True
 
+    # seconds the 3.x readiness check of a Storm service may take
+    svctimeout = 60
+
     async def execStormCmd(self, runt, genr):
 
         runt.reqAdmin(mesg='The v3.checkready command requires admin privileges.')
 
-        ready = await self._checkModel(runt)
-        ready = await self._checkPkgs(runt) and ready
-        ready = await self._checkMigrations(runt) and ready
-
-        if ready:
-            await runt.printf('Your Cortex is ready for Synapse 3.x.')
-        else:
-            await runt.printf('Your Cortex is not ready for Synapse 3.x.')
+        await self._checkV3Ready(runt)
 
         async for item in genr:
             yield item
 
-    async def _checkModel(self, runt):
+class V3PrepareCmd(V3Cmd):
+    '''
+    Prepare the Cortex and its Storm services to upgrade to Synapse 3.x.
 
-        await runt.printf('Checking for deprecated model elements in use...')
+    Runs the Synapse 3.x preparation of each Storm service which has one, such
+    as Optic, in a section of its own, and names those which could not be
+    prepared. Then runs v3.checkready, unless --check false is given.
 
-        core = runt.snap.core
+    Run it on the Cortex leader, with each Storm service added by the AHA name
+    of its leader.
 
-        ready = True
-        for prop in list(core.model.props.values()):
+    NOTE: This command requires admin privileges.
 
-            if not (prop.deprecated or prop.type.deprecated):
-                continue
+    Examples:
 
-            # Skip universal properties on other forms
-            if not prop.isform and prop.univ is not None:
-                continue
+        // Prepare the Cortex and its Storm services for Synapse 3.x, then check them.
+        v3.prepare
 
-            for layr in core.layers.values():
+        // Prepare them without checking them.
+        v3.prepare --check false
+    '''
 
-                if prop.isform:
-                    count = await layr.getPropCount(prop.name, maxsize=1)
-                elif prop.isuniv:
-                    count = await layr.getUnivPropCount(prop.name, maxsize=1)
-                else:
-                    count = await layr.getPropCount(prop.form.name, prop.name, maxsize=1)
+    name = 'v3.prepare'
 
-                if count:
-                    ready = False
-                    await runt.warn(f'Layer {layr.iden} contains deprecated model element {prop.full}')
+    # seconds the 3.x preparation of a Storm service may take
+    svctimeout = 4 * 60 * 60
 
-        return ready
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('--check', type='bool', default=True,
+                          help='Run v3.checkready after preparing.')
+        return pars
 
-    async def _checkPkgs(self, runt):
+    async def execStormCmd(self, runt, genr):
 
-        await runt.printf('Checking Power-Up versions...')
-
-        core = runt.snap.core
-
-        pkgdefs = await core.getStormPkgs()
-
-        ready = True
-        for pkgdef in sorted(pkgdefs, key=lambda p: p['name']):
-
-            name = pkgdef['name']
-
-            minv = s_const.V3_READY_PKG_VERSIONS.get(name)
-            if minv is None:
-
-                author = pkgdef.get('author')
-                if author is not None and author.get('url') == s_const.VERTEX_PKG_AUTHOR_URL:
-                    ready = False
-                    await runt.warn(f'Power-Up {name} is not yet available for Synapse 3.x.')
-
-                continue
-
-            vers = pkgdef.get('version')
-            if self._semvTuple(vers) < self._semvTuple(minv):
-                ready = False
-                mesg = f'Power-Up {name} version {vers} is not 3.x ready; upgrade to {minv} or later.'
-                await runt.warn(mesg)
-
-        return ready
-
-    async def _checkMigrations(self, runt):
-
-        await runt.printf('Checking for incomplete migrations...')
+        runt.reqAdmin(mesg='The v3.prepare command requires admin privileges.')
 
         core = runt.snap.core
 
-        ready = True
-        if core.migration:
-            ready = False
-            await runt.warn('The layer model migration is still running.')
+        try:
+            await self._printMesgs(runt, core.prepareV3())
+        except s_exc.NoSuchImpl:
+            pass
 
-        maxvers = '.'.join(str(v) for v in s_modelrev.maxvers)
-        for layr in core.layers.values():
+        failed = []
+        for ssvc in sorted(core.getStormSvcs(), key=lambda s: s.name):
 
-            vers = await layr.getModelVers()
-            if vers < s_modelrev.maxvers:
-                ready = False
-                curv = '.'.join(str(v) for v in vers)
-                mesg = f'Layer {layr.iden} has not completed model migrations yet (version {curv}, expected {maxvers}).'
-                await runt.warn(mesg)
-
-        pkgdefs = await core.getStormPkgs()
-        for pkgdef in sorted(pkgdefs, key=lambda p: p['name']):
-
-            inits = pkgdef.get('inits')
-            if inits is None:
+            proxy = await self._getSvcProxy(runt, ssvc)
+            if proxy is None:
+                failed.append(ssvc.name)
                 continue
 
-            name = pkgdef['name']
-            maxv = max(i['version'] for i in inits['versions'])
-            curv = await core.getStormPkgVar(name, 'storage:version', default=-1)
-            if curv < maxv:
-                ready = False
-                mesg = f'Power-Up {name} has not completed its inits yet (version {curv}, expected {maxv}).'
-                await runt.warn(mesg)
+            # a service with nothing to prepare raises NoSuchImpl before its first message
+            try:
+                coro = self._printMesgs(runt, proxy.prepareV3(), head=f'Preparing service {ssvc.name}...')
+                if not await s_common.wait_for(coro, timeout=self.svctimeout):
+                    failed.append(ssvc.name)
 
-        return ready
+            except s_exc.NoSuchImpl:
+                pass
 
-    def _semvTuple(self, text):
-        info = s_version.parseSemver(text)
-        return (info['major'], info['minor'], info['patch'])
+            except Exception as e:
+                await self._printSvcExc(runt, ssvc, e, 'prepared', self.svctimeout)
+                failed.append(ssvc.name)
+
+        if failed:
+            await runt.printf(f'These services could not be prepared for Synapse 3.x: {", ".join(failed)}.')
+
+        if self.opts.check:
+            await self._checkV3Ready(runt)
+        else:
+            await runt.printf('Run v3.checkready to check whether the Cortex is ready for Synapse 3.x.')
+
+        async for item in genr:
+            yield item

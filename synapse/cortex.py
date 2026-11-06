@@ -3741,6 +3741,98 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     def getStormSvcs(self):
         return list(self.svcsbyiden.values())
 
+    async def _checkV3Ready(self):
+        async for mesg in self._checkV3Model():
+            yield mesg
+
+        pkgdefs = sorted(await self.getStormPkgs(), key=lambda p: p['name'])
+
+        async for mesg in self._checkV3Pkgs(pkgdefs):
+            yield mesg
+
+        async for mesg in self._checkV3Migrations(pkgdefs):
+            yield mesg
+
+    async def _checkV3Model(self):
+
+        yield ('print', 'Checking for deprecated model elements in use...')
+
+        for prop in list(self.model.props.values()):
+
+            if not (prop.deprecated or prop.type.deprecated):
+                continue
+
+            # Skip universal properties on other forms
+            if not prop.isform and prop.univ is not None:
+                continue
+
+            for layr in self.layers.values():
+
+                if prop.isform:
+                    count = await layr.getPropCount(prop.name, maxsize=1)
+                elif prop.isuniv:
+                    count = await layr.getUnivPropCount(prop.name, maxsize=1)
+                else:
+                    count = await layr.getPropCount(prop.form.name, prop.name, maxsize=1)
+
+                if count:
+                    yield ('error', f'Layer {layr.iden} contains deprecated model element {prop.full}')
+
+    async def _checkV3Pkgs(self, pkgdefs):
+
+        yield ('print', 'Checking Power-Up versions...')
+
+        for pkgdef in pkgdefs:
+
+            name = pkgdef['name']
+
+            minv = s_const.V3_READY_PKG_VERSIONS.get(name)
+            if minv is None:
+
+                author = pkgdef.get('author')
+                if author is not None and author.get('url') == s_const.VERTEX_PKG_AUTHOR_URL:
+                    yield ('error', f'Power-Up {name} is not yet available for Synapse 3.x.')
+
+                continue
+
+            vers = pkgdef.get('version')
+            if self._semvTuple(vers) < self._semvTuple(minv):
+                mesg = f'Power-Up {name} version {vers} is not 3.x ready; upgrade to {minv} or later.'
+                yield ('error', mesg)
+
+    async def _checkV3Migrations(self, pkgdefs):
+
+        yield ('print', 'Checking for incomplete migrations...')
+
+        if self.migration:
+            yield ('error', 'The layer model migration is still running.')
+
+        maxvers = s_common.verstr(s_modelrev.maxvers)
+        for layr in self.layers.values():
+
+            vers = await layr.getModelVers()
+            if vers < s_modelrev.maxvers:
+                curv = s_common.verstr(vers)
+                mesg = f'Layer {layr.iden} has not completed model migrations yet (version {curv}, expected {maxvers}).'
+                yield ('error', mesg)
+
+        for pkgdef in pkgdefs:
+
+            inits = pkgdef.get('inits')
+            if inits is None:
+                continue
+
+            name = pkgdef['name']
+            maxv = max(i['version'] for i in inits['versions'])
+            curv = await self.getStormPkgVar(name, 'storage:version', default=-1)
+            if curv < maxv:
+                mesg = f'Power-Up {name} has not completed its inits yet (version {curv}, expected {maxv}).'
+                yield ('error', mesg)
+
+    def _semvTuple(self, text):
+        info = s_version.parseSemver(text)
+        return (info['major'], info['minor'], info['patch'])
+
     # Global stormvars APIs
 
     async def getStormVar(self, name, default=None):
@@ -5060,6 +5152,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.IntersectCmd)
         self.addStormCmd(s_storm.MoveNodesCmd)
         self.addStormCmd(s_storm.BackgroundCmd)
+        self.addStormCmd(s_storm.V3PrepareCmd)
         self.addStormCmd(s_storm.V3CheckReadyCmd)
         self.addStormCmd(s_stormlib_macro.MacroExecCmd)
         self.addStormCmd(s_stormlib_storm.StormExecCmd)
