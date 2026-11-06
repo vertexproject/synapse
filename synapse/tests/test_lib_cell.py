@@ -3257,9 +3257,8 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(0, await cell.getV3DbSize('newp'))
                 self.eq([], await s_t_utils.alist(cell.getV3Values('newp')))
 
-                slab = await cell.initV3Db('empty')
-                self.true(slab is cell.v3slab)
-                self.true(slab.dbexists('empty'))
+                self.eq('empty', await cell.initV3Db('empty'))
+                self.true(cell.v3slab.dbexists('empty'))
                 self.eq(0, await cell.getV3DbSize('empty'))
                 self.eq([], await s_t_utils.alist(cell.getV3Values('empty')))
                 self.eq(['empty', 'vals'], await cell.getV3DbNames())
