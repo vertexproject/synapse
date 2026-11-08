@@ -808,6 +808,27 @@ class StormTypesTest(s_test.SynTest):
             '''
             self.eq(((2, 3), {'k': 'v'}), await core.callStorm(q))
 
+            # read-only values are not mutable: hashable, set members, and usable as parameter defaults
+            self.eq(1, await core.callStorm(imp + 'return($lib.set($p.modconf).size())'))
+            q = '$i = $p.modconf.items return($lib.set($i.index(1), $i.index(1)).size())'
+            self.eq(1, await core.callStorm(imp + q))
+            q = '$i = $p.modconf.items return($lib.set($i.index(1), $i.index(2)).size())'
+            self.eq(2, await core.callStorm(imp + q))
+            self.eq('foo', await core.callStorm(imp + 'function f(x=$p.modconf) { return($x.source) } return($f())'))
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm(imp + 'function f(x=$p.modconf) { $x.foo = bar } $f()')
+
+            rodict = s_stormtypes.ReadOnlyDict({'a': 1, 'b': [1, {'c': 2}]})
+            self.false(rodict.ismutable())
+            self.eq(hash(rodict), hash(s_stormtypes.ReadOnlyDict({'b': [1, {'c': 2}], 'a': 1})))
+            self.ne(hash(rodict), hash(s_stormtypes.ReadOnlyDict({'a': 1})))
+
+            rolist = s_stormtypes.ReadOnlyList([1, [2], {'k': 'v'}])
+            self.false(rolist.ismutable())
+            self.eq(hash(rolist), hash(s_stormtypes.ReadOnlyList([1, [2], {'k': 'v'}])))
+            self.ne(hash(rolist), hash(s_stormtypes.ReadOnlyList([1])))
+
             mods = await core.getStormMods()
             self.len(3, mods)
             mods['test']['modconf']['valu'] = 'bar'

@@ -5714,10 +5714,24 @@ def _roerr():
     mesg = 'This value is read-only and cannot be modified. Use $lib.copy() to get a mutable copy.'
     return s_exc.StormRuntimeError(mesg=mesg)
 
+def _toHashable(valu):
+    if isinstance(valu, dict):
+        return frozenset((k, _toHashable(v)) for k, v in valu.items())
+
+    if isinstance(valu, (list, tuple)):
+        return tuple(_toHashable(v) for v in valu)
+
+    return valu
+
 class ReadOnlyDict(Dict):
     '''
     A Dict whose contents, and the contents of any nested dict/list, cannot be modified.
     '''
+    _ismutable = False
+
+    def __hash__(self):
+        return hash((self._storm_typename, _toHashable(self.valu)))
+
     @stormfunc(readonly=True)
     async def setitem(self, name, valu):
         raise _roerr()
@@ -5733,6 +5747,11 @@ class ReadOnlyList(List):
     '''
     A List whose contents, and the contents of any nested dict/list, cannot be modified.
     '''
+    _ismutable = False
+
+    def __hash__(self):
+        return hash((self._storm_typename, _toHashable(self.valu)))
+
     @stormfunc(readonly=True)
     async def setitem(self, name, valu):
         raise _roerr()
