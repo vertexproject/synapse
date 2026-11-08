@@ -477,6 +477,13 @@ class CortexTest(s_t_utils.SynTest):
                  '''
                 },
                 {'name': 'coverage', 'storm': ''},
+                {'name': 'modro', 'interfaces': ['modro'],
+                 'modconf': {'a': {'b': 1}},
+                 'storm': '''
+                     function modget() { return($modconf.a.b) }
+                     function modset() { $modconf.a.b = 2 emit ((0), woot) }
+                 '''
+                },
                 {'name': 'boom', 'interfaces': ['boom'], 'storm': '''
                     function boom() { $lib.raise(omg, omg) return() }
                     function boomgenr() { emit ((0), woot) $lib.raise(omg, omg) }
@@ -520,6 +527,18 @@ class CortexTest(s_t_utils.SynTest):
             todo = s_common.todo('boom')
             vals = [r async for r in core.view.callStormIface('boom', todo)]
             self.eq((), vals)
+
+            # the iface modconf is read-only and the stored modconf is unchanged
+            todo = s_common.todo('modget')
+            vals = [r async for r in core.view.callStormIface('modro', todo)]
+            self.eq((1,), vals)
+
+            with self.raises(s_exc.StormRuntimeError):
+                todo = s_common.todo('modset')
+                [r async for r in core.view.mergeStormIface('modro', todo)]
+
+            mods = await core.getStormIfaces('modro')
+            self.eq({'a': {'b': 1}}, mods[0]['modconf'])
 
             core._dropStormPkg(pkgdef)
             self.none(core.modsbyiface.get('lookup'))
