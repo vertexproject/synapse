@@ -2352,48 +2352,46 @@ class ModelMigration_0_2_35(ModelMigrationBase):
         logger.info(f'Migrating {total} {formstr} nodes')
 
         # moveNode() adds nodes to self.nodes, so iterate a snapshot of the primary target buids
-        targets = await s_spooled.Set.anit(dirn=self.core.dirn)
-        self.core.onfini(targets)
-
-        async for buid, node in s_coro.pause(self.nodes.items()):
-            if node.get('formname') in formnames:
-                await targets.add(buid)
-
         count = 0
         migrated = 0
         removed = 0
-        async for buid in targets:
 
-            await asyncio.sleep(0)
+        async with await s_spooled.Set.anit(dirn=self.core.dirn) as targets:
 
-            node = self.getNode(buid)
+            async for buid, node in s_coro.pause(self.nodes.items()):
+                if node.get('formname') in formnames:
+                    await targets.add(buid)
 
-            formname = node.get('formname')
-            formvalu = node.get('formvalu')
+            async for buid in targets:
 
-            if formvalu is None:  # pragma: no cover
-                continue
+                await asyncio.sleep(0)
 
-            form = self.core.model.form(formname)
-            if form is None:  # pragma: no cover
-                continue
+                node = self.getNode(buid)
 
-            try:
-                newvalu, newinfo = form.type.norm(formvalu)
-            except Exception:  # pragma: no cover
-                logger.debug('Failed to re-normalize %s=%s, removing', formname, formvalu)
-                await self.removeNode(buid)
-                removed += 1
-                continue
+                formname = node.get('formname')
+                formvalu = node.get('formvalu')
 
-            await self.moveNode(buid, newvalu)
-            migrated += 1
+                if formvalu is None:  # pragma: no cover
+                    continue
 
-            count = migrated + removed
-            if count % 1000 == 0:  # pragma: no cover
-                logger.info(f'Processed {count} bare IPv6 address nodes')
+                form = self.core.model.form(formname)
+                if form is None:  # pragma: no cover
+                    continue
 
-        await targets.fini()
+                try:
+                    newvalu, newinfo = form.type.norm(formvalu)
+                except Exception:  # pragma: no cover
+                    logger.debug('Failed to re-normalize %s=%s, removing', formname, formvalu)
+                    await self.removeNode(buid)
+                    removed += 1
+                    continue
+
+                await self.moveNode(buid, newvalu)
+                migrated += 1
+
+                count = migrated + removed
+                if count % 1000 == 0:  # pragma: no cover
+                    logger.info(f'Processed {count} bare IPv6 address nodes')
 
         await self._flushEdits()
 
