@@ -1992,8 +1992,7 @@ class ModelMigrationBase:
                             node.setdefault('refs', {})
 
                             # spilled nodes hold tuples, and a node may be reached more than once
-                            refs = list(node['refs'].get(layer.iden, ()))
-                            seen = set(refs)
+                            refs = set(node['refs'].get(layer.iden, ()))
 
                             for refinfo in self.getRefInfo(formname):
                                 (refform, refprop, reftype, isarray, isro) = refinfo
@@ -2005,16 +2004,15 @@ class ModelMigrationBase:
 
                                 async for refbuid, refsode in self.getSodeByPropValuNoNorm(layer, refform, refprop, propvalu):
                                     ref = (s_common.ehex(refbuid), refinfo)
-                                    if ref in seen:
+                                    if ref in refs:
                                         continue
 
-                                    seen.add(ref)
-                                    refs.append(ref)
+                                    refs.add(ref)
 
                                     await self.todos.add(('getvalu', (refbuid, True)))
 
                             if refs:
-                                node['refs'][layer.iden] = refs
+                                node['refs'][layer.iden] = list(refs)
 
                             await self.nodes.set(buid, node)
 
