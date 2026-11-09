@@ -8,6 +8,7 @@ import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
+import synapse.lib.layer as s_layer
 import synapse.lib.spooled as s_spooled
 import synapse.lib.modelrev as s_modelrev
 
@@ -2427,6 +2428,11 @@ class ModelRevTest(s_tests.SynTest):
 
             self.true(views.get('roview').layers[0].readonly)
 
+            ctrlcreated = (await core.nodes('inet:url="file://user@host.vertex.link/share/x"'))[0].get('.created')
+            destcreated = (await core.nodes('inet:url=http://exists.com/y'))[0].get('.created')
+            self.nn(ctrlcreated)
+            self.nn(destcreated)
+
         async with self.getRegrCore('model-0.2.38') as core:
 
             self.ge(await core.getLayer().getModelVers(), (0, 2, 38))
@@ -2443,6 +2449,10 @@ class ModelRevTest(s_tests.SynTest):
                     valu = node.ndef[1]
                     self.eq(valu, core.model.type('inet:url').norm(valu)[0])
                     self.true(s_inet.schemere.fullmatch(node.get('proto')))
+
+                    # .created is read-only but not derived from the value, so a moved or
+                    # re-normalized node must keep it
+                    self.nn(node.get('.created'))
 
             self.sorteq(collapsed + moved + fixprops + untouched,
                         [k.ndef[1] for k in await core.nodes('inet:url')])
@@ -2570,6 +2580,11 @@ class ModelRevTest(s_tests.SynTest):
             nodes = await core.nodes('inet:url="file://user@host.vertex.link/share/x"')
             self.eq('user', nodes[0].get('user'))
             self.eq('host.vertex.link', nodes[0].get('fqdn'))
+            self.eq(ctrlcreated, nodes[0].get('.created'))
+
+            # the node merged into keeps its own .created
+            nodes = await core.nodes('inet:url=http://exists.com/y')
+            self.eq(destcreated, nodes[0].get('.created'))
 
             self.len(0, await core.nodes('inet:url:user~="#"'))
 
@@ -2669,3 +2684,40 @@ class ModelRevTest(s_tests.SynTest):
 
             msgs = await core.stormlist('$lib.model.migration.s.model_0_2_38.repairNode((0), newp)')
             self.stormIsInPrint('Queue model_0_2_38:nodes not found, no nodes to repair.', msgs)
+
+    async def test_modelrev_0_2_38_comp_refs(self):
+
+        # A read-only comp which embeds two URLs that are both removed is reached
+        # through a reference from each of them, and must only be removed once.
+        async with self.getTestCore() as core:
+
+            layr = core.getLayer()
+            meta = {'time': s_common.now(), 'user': core.auth.rootuser.iden}
+
+            urlstor = core.model.form('inet:url').type.stortype
+            redir = core.model.form('inet:urlredir')
+
+            src, dst = 'c:////spam////eggs', 'dvdnav:////dev/sr1'
+
+            edits = []
+            for valu in (src, dst):
+                buid = s_common.buid(('inet:url', valu))
+                edits.append((buid, 'inet:url', [(s_layer.EDIT_NODE_ADD, (valu, urlstor), ())]))
+
+            redirvalu = (src, dst)
+            edits.append((s_common.buid(('inet:urlredir', redirvalu)), 'inet:urlredir', [
+                (s_layer.EDIT_NODE_ADD, (redirvalu, redir.type.stortype), ()),
+                (s_layer.EDIT_PROP_SET, ('src', src, None, redir.props['src'].type.stortype), ()),
+                (s_layer.EDIT_PROP_SET, ('dst', dst, None, redir.props['dst'].type.stortype), ()),
+            ]))
+
+            await layr.storNodeEdits(edits, meta)
+
+            migr = await s_modelrev.ModelMigration_0_2_38.anit(core, [layr])
+            await migr.revModel_0_2_38()
+
+            self.len(0, await core.nodes('inet:url'))
+            self.len(0, await core.nodes('inet:urlredir'))
+
+            items = [item async for _, item in core.coreQueueGets('model_0_2_38:nodes', 0, cull=False, wait=False)]
+            self.sorteq(('inet:url', 'inet:url', 'inet:urlredir'), [item.get('formname') for item in items])

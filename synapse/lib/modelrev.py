@@ -2602,6 +2602,14 @@ class ModelMigration_0_2_38(ModelMigrationBase):
         item.pop('newvalu', None)
         item.pop('newsubs', None)
 
+    @s_cache.memoizemethod()
+    def getUrlSubProps(self):
+        '''
+        The read-only properties inet:url derives from its value. Universal properties
+        such as .created are also read-only, but are not derived from the value.
+        '''
+        return [name for name in self.getRoProps('inet:url') if not name.startswith('.')]
+
     def _getVerdict(self, form, formvalu, props):
         '''
         Classify a stored inet:url value using only string checks, normalizing
@@ -2669,15 +2677,10 @@ class ModelMigration_0_2_38(ModelMigrationBase):
 
         newsubs = info.get('subs', {})
 
-        # A normalizer without scheme validation still accepts values whose
-        # protocol came from an embedded URL, so check the result as well.
-        if not s_inet.schemere.fullmatch(newsubs.get('proto', '')):
-            return ('remove', None, None)
-
         if newvalu != formvalu:
             return ('move', newvalu, newsubs)
 
-        for propname in self.getRoProps('inet:url'):
+        for propname in self.getUrlSubProps():
 
             curv = props.get(propname)
             if curv is not None:
@@ -2724,7 +2727,7 @@ class ModelMigration_0_2_38(ModelMigrationBase):
 
             props = node['sodes'].get(layriden, {}).get('props', {})
 
-            for propname in self.getRoProps('inet:url'):
+            for propname in self.getUrlSubProps():
 
                 prop = form.props.get(propname)
                 stortype = prop.type.stortype
