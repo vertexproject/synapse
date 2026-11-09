@@ -5193,14 +5193,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def checkV3Ready(self):
         '''
         Check the cell for readiness to upgrade to Synapse 3.x, on the leader, and record the result in the
-        `preflight` DB of the v3migration slab as `result`. A cell type with a check implements _checkV3Ready().
+        `preflight` DB of the v3migration slab as `result`. A cell type with a check implements _checkV3Ready();
+        any other passes with a message saying it has none.
 
         Yields:
             (str, str): ('print', mesg) with progress, ('error', mesg) for each problem which fails the check, and
             ('warning', mesg) for each which does not.
 
         Raises:
-            NoSuchImpl: The cell type has no 3.x readiness check.
             BadState: The cell is a mirror, loses leadership while checking, or is already checking or preparing.
         '''
         async with contextlib.aclosing(self._runV3Step('preflight', self._checkV3Ready)) as genr:
@@ -5210,13 +5210,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def prepareV3(self):
         '''
         Prepare the cell to upgrade to Synapse 3.x, on the leader, and record the result in the `prepare` DB of the
-        v3migration slab as `result`. A cell type with something to prepare implements _prepareV3().
+        v3migration slab as `result`. A cell type with something to prepare implements _prepareV3(); any other
+        passes with a message saying it has nothing to prepare.
 
         Yields:
             (str, str): Messages as from checkV3Ready().
 
         Raises:
-            NoSuchImpl: The cell type has nothing to prepare.
             BadState: The cell is a mirror, loses leadership while preparing, or is already checking or preparing.
         '''
         async with contextlib.aclosing(self._runV3Step('prepare', self._prepareV3)) as genr:
@@ -5224,12 +5224,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 yield mesg
 
     async def _checkV3Ready(self):
-        raise s_exc.NoSuchImpl(mesg=f'{self.getCellType()} has no Synapse 3.x readiness check.')
-        yield  # pragma: no cover
+        yield ('print', f'This {self.getCellType()} has no Synapse 3.x readiness checks.')
 
     async def _prepareV3(self):
-        raise s_exc.NoSuchImpl(mesg=f'{self.getCellType()} has nothing to prepare for Synapse 3.x.')
-        yield  # pragma: no cover
+        yield ('print', f'This {self.getCellType()} has nothing to prepare for Synapse 3.x.')
 
     async def _runV3Step(self, dbname, func):
 
@@ -5263,6 +5261,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 await self.setV3Value(dbname, 'result', {
                     'ok': not errors,
                     'time': s_common.now(),
+                    'cell:type': celltype,
                     'cell:version': self.VERSTRING,
                     'synapse:version': s_version.verstring,
                     'errors': errors,

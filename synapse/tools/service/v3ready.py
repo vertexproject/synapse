@@ -50,13 +50,9 @@ async def main(argv, outp=s_output.stdout):
 
             try:
                 if opts.action == 'prepare':
-                    try:
-                        if not await printMesgs(outp, cell.prepareV3()):
-                            outp.printf('The service could not be prepared for Synapse 3.x.')
-                            return 1
-
-                    except s_exc.NoSuchImpl:
-                        outp.printf('The service has nothing to prepare for Synapse 3.x.')
+                    if not await printMesgs(outp, cell.prepareV3()):
+                        outp.printf('The service could not be prepared for Synapse 3.x.')
+                        return 1
 
                     if not opts.check:
                         return 0

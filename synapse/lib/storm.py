@@ -6063,10 +6063,6 @@ class V3Cmd(Cmd):
                 if not await s_common.wait_for(coro, timeout=V3CheckReadyCmd.svctimeout):
                     notready.append(ssvc.name)
 
-            except s_exc.NoSuchImpl:
-                await runt.printf(f'ERROR: Service {ssvc.name} has no Synapse 3.x readiness check.')
-                notready.append(ssvc.name)
-
             except Exception as e:
                 await self._printSvcExc(runt, ssvc, e, 'checked', V3CheckReadyCmd.svctimeout)
                 notready.append(ssvc.name)
@@ -6119,17 +6115,13 @@ class V3Cmd(Cmd):
         mesg = exc.get('mesg') if isinstance(exc, s_exc.SynErr) else str(exc)
         await runt.printf(f'ERROR: Service {ssvc.name} could not be {verb}: {mesg or exc.__class__.__name__}')
 
-    async def _printMesgs(self, runt, genr, head=None):
+    async def _printMesgs(self, runt, genr):
         '''
-        Print the messages of a Synapse 3.x readiness check or preparation as they arrive, after a head line if one
-        is given, returning whether it had no errors.
+        Print the messages of a Synapse 3.x readiness check or preparation as they arrive, returning whether it had
+        no errors.
         '''
         ok = True
         async for name, info in genr:
-
-            if head is not None:
-                await runt.printf(head)
-                head = None
 
             if name == 'print':
                 await runt.printf(info)
@@ -6186,7 +6178,7 @@ class V3PrepareCmd(V3Cmd):
     '''
     Prepare the Cortex and its Storm services to upgrade to Synapse 3.x.
 
-    Runs the Synapse 3.x preparation of each Storm service which has one, such
+    Runs the Synapse 3.x preparation of the Cortex and each Storm service, such
     as Optic, in a section of its own, and names those which could not be
     prepared. Then runs v3.checkready, unless --check false is given.
 
@@ -6221,10 +6213,7 @@ class V3PrepareCmd(V3Cmd):
 
         core = runt.snap.core
 
-        try:
-            await self._printMesgs(runt, core.prepareV3())
-        except s_exc.NoSuchImpl:
-            pass
+        await self._printMesgs(runt, core.prepareV3())
 
         failed = []
         for ssvc in sorted(core.getStormSvcs(), key=lambda s: s.name):
@@ -6234,14 +6223,11 @@ class V3PrepareCmd(V3Cmd):
                 failed.append(ssvc.name)
                 continue
 
-            # a service with nothing to prepare raises NoSuchImpl before its first message
+            await runt.printf(f'Preparing service {ssvc.name}...')
             try:
-                coro = self._printMesgs(runt, proxy.prepareV3(), head=f'Preparing service {ssvc.name}...')
+                coro = self._printMesgs(runt, proxy.prepareV3())
                 if not await s_common.wait_for(coro, timeout=self.svctimeout):
                     failed.append(ssvc.name)
-
-            except s_exc.NoSuchImpl:
-                pass
 
             except Exception as e:
                 await self._printSvcExc(runt, ssvc, e, 'prepared', self.svctimeout)

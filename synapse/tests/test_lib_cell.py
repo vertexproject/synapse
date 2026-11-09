@@ -3448,15 +3448,14 @@ class CellTest(s_t_utils.SynTest):
                     self.eq(0, await prox.getV3DbSize('vals'))
                     self.eq(['empty'], await prox.getV3DbNames())
 
-                    # a base cell has no 3.x readiness check, and nothing to prepare
-                    with self.raises(s_exc.NoSuchImpl):
-                        await s_t_utils.alist(prox.checkV3Ready())
+                    # a base cell has no 3.x readiness checks, and nothing to prepare
+                    self.eq([('print', 'This cell has no Synapse 3.x readiness checks.')],
+                            await s_t_utils.alist(prox.checkV3Ready()))
+                    self.eq([('print', 'This cell has nothing to prepare for Synapse 3.x.')],
+                            await s_t_utils.alist(prox.prepareV3()))
 
-                    with self.raises(s_exc.NoSuchImpl):
-                        await s_t_utils.alist(prox.prepareV3())
-
-                    self.none(await cell.getV3Value('preflight', 'result', defval=None))
-                    self.none(await cell.getV3Value('prepare', 'result', defval=None))
+                    self.true((await cell.getV3Value('preflight', 'result'))['ok'])
+                    self.true((await cell.getV3Value('prepare', 'result'))['ok'])
 
                     await prox.dropV3Slab()
                     self.none(cell.v3slab)
@@ -3523,6 +3522,7 @@ class CellTest(s_t_utils.SynTest):
                     self.true(info['ok'])
                     self.eq([], info['errors'])
                     self.eq(['Something to know.'], info['warnings'])
+                    self.eq('v3cell', info['cell:type'])
                     self.eq(s_version.verstring, info['cell:version'])
                     self.eq(s_version.verstring, info['synapse:version'])
                     self.isinstance(info['time'], int)

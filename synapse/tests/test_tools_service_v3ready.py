@@ -58,11 +58,11 @@ class V3ReadyToolTest(s_test.SynTest):
 
             argv = ['--url', cell.getLocalUrl()]
 
+            # a cell type with no checks and nothing to prepare is ready
             outp = self.getTestOutp()
-            self.eq(1, await s_tools_v3ready.main(argv + ['prepare'], outp=outp))
-            outp.expect('The service has nothing to prepare for Synapse 3.x.')
-            outp.expect('ERROR: NoSuchImpl: cell has no Synapse 3.x readiness check.')
-
-            outp = self.getTestOutp()
-            self.eq(0, await s_tools_v3ready.main(argv + ['prepare', '--no-check'], outp=outp))
-            outp.expect('The service has nothing to prepare for Synapse 3.x.')
+            self.eq(0, await s_tools_v3ready.main(argv + ['prepare'], outp=outp))
+            outp.expect('This cell has nothing to prepare for Synapse 3.x.')
+            outp.expect('This cell has no Synapse 3.x readiness checks.')
+            outp.expect('The service is ready for Synapse 3.x.')
+            self.true((await cell.getV3Value('preflight', 'result'))['ok'])
+            self.true((await cell.getV3Value('prepare', 'result'))['ok'])

@@ -454,19 +454,15 @@ class StormlibModelTest(s_test.SynTest):
                         self.stormIsInPrint('Checking the widgets...', msgs)
                         self.stormIsInPrint('WARNING: Something to know.', msgs)
 
-                        # a service with no check is not ready
-                        self.stormIsInPrint('ERROR: Service nov3ready has no Synapse 3.x readiness check.', msgs)
-                        self.len(1, [m for m in msgs if m[0] == 'print' and m[1]['mesg'].startswith('ERROR: ')])
-
-                        # and is named as not ready, apart from the Cortex
+                        # a service with no checks says so, and is ready
+                        self.stormIsInPrint('Checking service nov3ready...', msgs)
+                        self.stormIsInPrint('This nov3readycell has no Synapse 3.x readiness checks.', msgs)
+                        self.stormNotInPrint('ERROR: ', msgs)
                         self.stormIsInPrint('Your Cortex is ready for Synapse 3.x.', msgs)
-                        self.stormIsInPrint('These services are not ready for Synapse 3.x: nov3ready.', msgs)
+                        self.stormNotInPrint('These services are not ready', msgs)
+                        self.true((await noready.getV3Value('preflight', 'result'))['ok'])
 
                         await core.delStormSvc(core.svcsbyname['nov3ready'].iden)
-
-                        msgs = await core.stormlist('v3.checkready')
-                        self.stormNotInPrint('ERROR: ', msgs)
-                        self.stormNotInPrint('These services are not ready', msgs)
 
                         # each check records its result on the cell checked
                         info = await ready.getV3Value('preflight', 'result')
@@ -514,7 +510,7 @@ class StormlibModelTest(s_test.SynTest):
                         msgs = await core.stormlist('v3.checkready')
                         self.stormNotInPrint('ERROR: ', msgs)
 
-                        # v3.prepare runs the preparation of each service which has one, then v3.checkready
+                        # v3.prepare runs the preparation of the Cortex and each service, then v3.checkready
                         ready.prepmesgs = [('print', 'Preparing the widgets...'), ('warning', 'Widget 2 failed.')]
                         msgs = await core.stormlist('v3.prepare')
                         self.stormHasNoWarnErr(msgs)
@@ -528,7 +524,9 @@ class StormlibModelTest(s_test.SynTest):
                         info = await ready.getV3Value('prepare', 'result')
                         self.true(info['ok'])
                         self.eq(['Widget 2 failed.'], info['warnings'])
-                        self.none(await core.getV3Value('prepare', 'result', defval=None))
+
+                        self.stormIsInPrint('This cortex has nothing to prepare for Synapse 3.x.', msgs)
+                        self.true((await core.getV3Value('prepare', 'result'))['ok'])
 
                         msgs = await core.stormlist('v3.prepare --check false')
                         self.stormIsInPrint('Preparing service v3ready...', msgs)
@@ -553,11 +551,13 @@ class StormlibModelTest(s_test.SynTest):
                         self.stormIsInPrint('ERROR: Service v3ready could not be prepared within 0.01 seconds.', msgs)
                         ready.delay = 0
 
-                        # a service with nothing to prepare is skipped
+                        # a service with nothing to prepare says so
                         await self.addSvcToCore(noready, core, svcname='nov3ready')
                         msgs = await core.stormlist('v3.prepare --check false')
                         self.stormNotInPrint('ERROR: ', msgs)
-                        self.stormNotInPrint('nov3ready', msgs)
+                        self.stormIsInPrint('Preparing service nov3ready...', msgs)
+                        self.stormIsInPrint('This nov3readycell has nothing to prepare for Synapse 3.x.', msgs)
+                        self.true((await noready.getV3Value('prepare', 'result'))['ok'])
 
                         await core.delStormSvc(core.svcsbyname['nov3ready'].iden)
 
