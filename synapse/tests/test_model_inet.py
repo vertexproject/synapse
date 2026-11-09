@@ -1619,6 +1619,29 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(info['subs']['proto'], 'https')
             self.eq(info['subs']['fqdn'], 'www.example.com')
 
+            # an @ in a URL embedded in the params is not userinfo
+            url = 'http://foo.com/r?u=https://a@evil.com/x'
+            expected = (url, {'subs': {
+                'proto': 'http',
+                'path': '/r',
+                'params': '?u=https://a@evil.com/x',
+                'port': 80,
+                'fqdn': 'foo.com',
+                'base': 'http://foo.com/r',
+            }})
+            self.eq(t.norm(url), expected)
+
+            # nor is a WebDAV-shaped @port suffix in the params of a file URL
+            url = 'file://host/r?u=https://evil.com@80/x'
+            expected = (url, {'subs': {
+                'proto': 'file',
+                'path': '/r',
+                'params': '?u=https://evil.com@80/x',
+                'fqdn': 'host',
+                'base': 'file://host/r',
+            }})
+            self.eq(t.norm(url), expected)
+
             self.raises(s_exc.BadTypeValu, t.norm, 'www.google\udcfesites.com/hehe.asp')
             valu = t.norm('http://www.googlesites.com/hehe\udcfestuff.asp')
             url = 'http://www.googlesites.com/hehe\udcfestuff.asp'
