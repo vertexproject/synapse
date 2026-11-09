@@ -28,6 +28,9 @@ drivre = regex.compile(r'^\w[:|]')
 fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
 srv6re = regex.compile(r'^\[([a-f0-9\.:]+)\](?::(\d+))?$', regex.IGNORECASE)
 
+# RFC 3986 URI scheme, matched against the lowercased text before the first ://
+schemere = regex.compile(r'[a-z][a-z0-9+.-]*')
+
 # Windows WebDAV host suffix from \\server[@SSL][@port]\path, as it appears in file URLs
 davre = regex.compile(r'@(SSL)(?:@(\d+))?$|@(\d+)$', regex.IGNORECASE)
 
@@ -946,6 +949,10 @@ class Url(s_types.Str):
             try:
                 proto, valu = orig.split('://', 1)
                 proto = proto.lower()
+                if not schemere.fullmatch(proto):
+                    # the first :// belongs to a URL embedded in the path or query
+                    proto = valu = ''
+
             except Exception:
                 pass
 
