@@ -11,6 +11,8 @@ import synapse.lib.time as s_time
 import synapse.lib.spooled as s_spooled
 import synapse.lib.modelrev as s_modelrev
 
+import synapse.models.inet as s_inet
+
 import synapse.tests.utils as s_tests
 
 
@@ -1865,249 +1867,290 @@ class ModelRevTest(s_tests.SynTest):
             self.eq(servers[2].ndef, server01)
             self.none(servers[2].get('port'))
 
-        async with self.getRegrCore('model-0.2.35') as core:
-            nodes = await core.nodes('.created')
-            self.len(0, nodes)
+        orig = s_spooled.Spooled.__anit__
+        for maxval in (s_spooled.MAX_SPOOL_SIZE, 1):
 
-            views = {view.info.get('name'): view for view in core.listViews()}
-            self.len(3, views)
+            async def __anit__(self, dirn=None, size=s_spooled.MAX_SPOOL_SIZE, cell=None):
+                await orig(self, dirn=dirn, size=maxval, cell=cell)
 
-            fork00 = views.get('fork00').iden
-            infork00 = {'view': fork00}
+            with mock.patch('synapse.lib.spooled.Spooled.__anit__', __anit__):
+                async with self.getRegrCore('model-0.2.35') as core:
 
-            fork01 = views.get('fork01').iden
-            infork01 = {'view': fork01}
+                    # Make sure the mock worked
+                    migration = await s_modelrev.ModelMigration_0_2_35.anit(core, [])
+                    self.eq(migration.nodes.size, maxval)
+                    self.eq(migration.todos.size, maxval)
+                    nodes = await core.nodes('.created')
+                    self.len(0, nodes)
 
-            def fixed(node, nodedata):
-                # .seen times were extended out both directions
-                self.eq(node.get('.seen'), (t2019, t2022))
+                    views = {view.info.get('name'): view for view in core.listViews()}
+                    self.len(3, views)
 
-                # _valid didn't get overwritten
-                self.eq(node.get('_valid'), 1)
+                    fork00 = views.get('fork00').iden
+                    infork00 = {'view': fork00}
 
-                # tag values were merged
-                self.eq(node.get('#test.foo00'), (t2019, t2022))
-                self.eq(node.get('#test.foo01'), (t2019, t2022))
-                self.eq(node.get('#test.foo02'), (t2020, t2026))
-                self.eq(node.get('#test.foo03'), (t2020, t2026))
+                    fork01 = views.get('fork01').iden
+                    infork01 = {'view': fork01}
 
-                # tagprop didn't get overwritten
-                self.eq(node.tagprops, {
-                    'test.tagprop': {'score': 1},
-                    'test.same': {'score': 10},
-                })
+                    def fixed(node, nodedata):
+                        # .seen times were extended out both directions
+                        self.eq(node.get('.seen'), (t2019, t2022))
 
-                # tags merged
-                self.isin('test.valid', node.tags)
-                self.isin('test.invalid', node.tags)
+                        # _valid didn't get overwritten
+                        self.eq(node.get('_valid'), 1)
 
-                # nodedata has stored conflicts
-                self.eq(node.nodedata, {
-                    'addr': 'valid',
-                    'same': 'same',
-                    'only': 'value',
-                    'model_0_2_35': nodedata,
-                })
+                        # tag values were merged
+                        self.eq(node.get('#test.foo00'), (t2019, t2022))
+                        self.eq(node.get('#test.foo01'), (t2019, t2022))
+                        self.eq(node.get('#test.foo02'), (t2020, t2026))
+                        self.eq(node.get('#test.foo03'), (t2020, t2026))
 
-            def control(node):
-                self.eq(node.get('.seen'), (t2020, t2021))
-                self.eq(node.get('_valid'), 1)
-                self.eq(node.tagprops.get('test.tagprop'), {'score': 1})
-                self.isin('test.valid', node.tags)
-                self.notin('test.invalid', node.tags)
-                self.eq(node.get('#test.foo00'), (t2020, t2021))
-                self.eq(node.get('#test.foo01'), (t2019, t2022))
-                self.eq(node.get('#test.foo02'), (t2020, t2026))
-                self.eq(node.get('#test.foo03'), (None, None))
-                self.eq(node.nodedata, {'addr': 'valid', 'same': 'same'})
+                        # tagprop didn't get overwritten
+                        self.eq(node.tagprops, {
+                            'test.tagprop': {'score': 1},
+                            'test.same': {'score': 10},
+                        })
 
-            q = '''
-                .created
-                for ($k, $v) in $node.data.list() {
-                    $node.data.load($k)
-                }
-                | uniq
-            '''
-            nodes = await core.nodes(q, opts=infork00)
-            self.len(23, nodes)
+                        # tags merged
+                        self.isin('test.valid', node.tags)
+                        self.isin('test.invalid', node.tags)
 
-            nodedata = {
-                badclient: {
-                    'nodedata': {'addr': 'invalid'},
-                    'props': {'_valid': 0},
-                    'tagprops': {'test.tagprop': {'score': 0}}
-                }
-            }
-            clients = select(nodes, 'inet:client')
-            self.eq([k.ndef for k in clients], [client00, client01])
-            fixed(clients[0], nodedata)
-            control(clients[1])
-            self.eq(clients[1].get('port'), 80)
+                        # nodedata has stored conflicts
+                        self.eq(node.nodedata, {
+                            'addr': 'valid',
+                            'same': 'same',
+                            'only': 'value',
+                            'model_0_2_35': nodedata,
+                        })
 
-            nodedata = {
-                badserver: {
-                    'nodedata': {'addr': 'invalid'},
-                    'props': {'_valid': 0},
-                    'tagprops': {'test.tagprop': {'score': 0}}
-                }
-            }
-            servers = select(nodes, 'inet:server')
-            self.eq([k.ndef for k in servers], [server00, server01])
-            fixed(servers[0], nodedata)
-            control(servers[1])
-            self.eq(servers[1].get('port'), 80)
+                    def control(node):
+                        self.eq(node.get('.seen'), (t2020, t2021))
+                        self.eq(node.get('_valid'), 1)
+                        self.eq(node.tagprops.get('test.tagprop'), {'score': 1})
+                        self.isin('test.valid', node.tags)
+                        self.notin('test.invalid', node.tags)
+                        self.eq(node.get('#test.foo00'), (t2020, t2021))
+                        self.eq(node.get('#test.foo01'), (t2019, t2022))
+                        self.eq(node.get('#test.foo02'), (t2020, t2026))
+                        self.eq(node.get('#test.foo03'), (None, None))
+                        self.eq(node.nodedata, {'addr': 'valid', 'same': 'same'})
 
-            nodedata = {
-                badurl: {
-                    'nodedata': {'addr': 'invalid'},
-                    'props': {
-                        '_valid': 0,
-                        'base': badurl,
-                    },
-                    'tagprops': {'test.tagprop': {'score': 0}}
-                }
-            }
-            urls = select(nodes, 'inet:url')
-            self.eq([k.ndef for k in urls], [url00, url01])
-            fixed(urls[0], nodedata)
-            control(urls[1])
+                    q = '''
+                        .created
+                        for ($k, $v) in $node.data.list() {
+                            $node.data.load($k)
+                        }
+                        | uniq
+                    '''
+                    nodes = await core.nodes(q, opts=infork00)
+                    self.len(23, nodes)
 
-            nodedata = {
-                badja3: {
-                    'nodedata': {'addr': 'invalid'},
-                    'props': {'_valid': 0},
-                    'tagprops': {'test.tagprop': {'score': 0}}
-                }
-            }
-            ja3s = select(nodes, 'inet:tls:ja3:sample')
-            self.eq([k.ndef for k in ja3s], [ja300, ja301])
-            fixed(ja3s[0], nodedata)
-            control(ja3s[1])
+                    nodedata = {
+                        badclient: {
+                            'nodedata': {'addr': 'invalid'},
+                            'props': {'_valid': 0},
+                            'tagprops': {'test.tagprop': {'score': 0}}
+                        }
+                    }
+                    clients = select(nodes, 'inet:client')
+                    self.eq([k.ndef for k in clients], [client00, client01])
+                    fixed(clients[0], nodedata)
+                    control(clients[1])
+                    self.eq(clients[1].get('port'), 80)
 
-            nodedata = {
-                badja3s: {
-                    'nodedata': {'addr': 'invalid'},
-                    'props': {'_valid': 0},
-                    'tagprops': {'test.tagprop': {'score': 0}}
-                }
-            }
-            ja3ss = select(nodes, 'inet:tls:ja3s:sample')
-            self.eq([k.ndef for k in ja3ss], [ja3s00, ja3s01])
-            fixed(ja3ss[0], nodedata)
-            control(ja3ss[1])
+                    nodedata = {
+                        badserver: {
+                            'nodedata': {'addr': 'invalid'},
+                            'props': {'_valid': 0},
+                            'tagprops': {'test.tagprop': {'score': 0}}
+                        }
+                    }
+                    servers = select(nodes, 'inet:server')
+                    self.eq([k.ndef for k in servers], [server00, server01])
+                    fixed(servers[0], nodedata)
+                    control(servers[1])
+                    self.eq(servers[1].get('port'), 80)
 
-            nodedata = {
-                badurlfile: {
-                    'nodedata': {'addr': 'invalid'},
-                    'props': {'_valid': 0},
-                    'tagprops': {'test.tagprop': {'score': 0}}
-                }
-            }
-            urlfiles = select(nodes, 'inet:urlfile')
-            self.eq([k.ndef for k in urlfiles], [urlfile00, urlfile01])
-            fixed(urlfiles[0], nodedata)
-            control(urlfiles[1])
+                    nodedata = {
+                        badurl: {
+                            'nodedata': {'addr': 'invalid'},
+                            'props': {
+                                '_valid': 0,
+                                'base': badurl,
+                            },
+                            'tagprops': {'test.tagprop': {'score': 0}}
+                        }
+                    }
+                    urls = select(nodes, 'inet:url')
+                    self.eq([k.ndef for k in urls], [url00, url01])
+                    fixed(urls[0], nodedata)
+                    control(urls[1])
 
-            # check edges were moved correctly
-            nodes = await core.nodes('meta:source=(regression, 0.2.35, invalid) -(seen)> *', opts=infork00)
-            self.len(10, nodes)
-            self.sorteq(
-                [k.ndef for k in nodes],
-                [
-                    ('_ext:model:form', 'invalid'),
-                    client00,
-                    flow00, flow01,
-                    server00,
-                    ja300,
-                    ja3s00,
-                    url00,
-                    urlfile00,
-                    vuln00,
-                ]
-            )
+                    nodedata = {
+                        badja3: {
+                            'nodedata': {'addr': 'invalid'},
+                            'props': {'_valid': 0},
+                            'tagprops': {'test.tagprop': {'score': 0}}
+                        }
+                    }
+                    ja3s = select(nodes, 'inet:tls:ja3:sample')
+                    self.eq([k.ndef for k in ja3s], [ja300, ja301])
+                    fixed(ja3s[0], nodedata)
+                    control(ja3s[1])
 
-            # check old edges didn't change
-            nodes = await core.nodes('meta:source=(regression, 0.2.35, valid) -(seen)> *', opts=infork00)
-            self.len(19, nodes)
-            self.sorteq(
-                [k.ndef for k in nodes],
-                [
-                    ('_ext:model:form', 'valid'),
-                    client00, client01,
-                    flow02, flow03, flow04, flow05,
-                    server00, server01,
-                    ja300, ja301,
-                    ja3s00, ja3s01,
-                    url00, url01,
-                    urlfile00, urlfile01,
-                    vuln01, vuln02,
-                ]
-            )
+                    nodedata = {
+                        badja3s: {
+                            'nodedata': {'addr': 'invalid'},
+                            'props': {'_valid': 0},
+                            'tagprops': {'test.tagprop': {'score': 0}}
+                        }
+                    }
+                    ja3ss = select(nodes, 'inet:tls:ja3s:sample')
+                    self.eq([k.ndef for k in ja3ss], [ja3s00, ja3s01])
+                    fixed(ja3ss[0], nodedata)
+                    control(ja3ss[1])
 
-            # property migration check
-            nodes = await core.nodes('_ext:model:form=invalid -> * | uniq', opts=infork00)
-            self.len(6, nodes)
-            self.sorteq(
-                [k.ndef for k in nodes],
-                [
-                    client00,
-                    server00,
-                    ja300,
-                    ja3s00,
-                    url00,
-                    urlfile00,
-                ]
-            )
+                    nodedata = {
+                        badurlfile: {
+                            'nodedata': {'addr': 'invalid'},
+                            'props': {'_valid': 0},
+                            'tagprops': {'test.tagprop': {'score': 0}}
+                        }
+                    }
+                    urlfiles = select(nodes, 'inet:urlfile')
+                    self.eq([k.ndef for k in urlfiles], [urlfile00, urlfile01])
+                    fixed(urlfiles[0], nodedata)
+                    control(urlfiles[1])
 
-            nodes = await core.nodes('_ext:model:form=valid -> * | uniq', opts=infork00)
-            self.len(12, nodes)
-            self.sorteq(
-                [k.ndef for k in nodes],
-                [
-                    client00, client01,
-                    server00, server01,
-                    ja300, ja301,
-                    ja3s00, ja3s01,
-                    url00, url01,
-                    urlfile00, urlfile01,
-                ]
-            )
+                    # check edges were moved correctly
+                    nodes = await core.nodes('meta:source=(regression, 0.2.35, invalid) -(seen)> *', opts=infork00)
+                    self.len(10, nodes)
+                    self.sorteq(
+                        [k.ndef for k in nodes],
+                        [
+                            ('_ext:model:form', 'invalid'),
+                            client00,
+                            flow00, flow01,
+                            server00,
+                            ja300,
+                            ja3s00,
+                            url00,
+                            urlfile00,
+                            vuln00,
+                        ]
+                    )
 
-            q = '''
-                inet:client inet:server
-                for ($k, $v) in $node.data.list() {
-                    $node.data.load($k)
-                }
-                | uniq
-            '''
-            nodes = await core.nodes(q, opts=infork01)
-            self.len(4, nodes)
+                    # check old edges didn't change
+                    nodes = await core.nodes('meta:source=(regression, 0.2.35, valid) -(seen)> *', opts=infork00)
+                    self.len(19, nodes)
+                    self.sorteq(
+                        [k.ndef for k in nodes],
+                        [
+                            ('_ext:model:form', 'valid'),
+                            client00, client01,
+                            flow02, flow03, flow04, flow05,
+                            server00, server01,
+                            ja300, ja301,
+                            ja3s00, ja3s01,
+                            url00, url01,
+                            urlfile00, urlfile01,
+                            vuln01, vuln02,
+                        ]
+                    )
 
-            nodedata = {
-                badclient: {
-                    'nodedata': {'addr': 'invalid'},
-                    'props': {'_valid': 0},
-                    'tagprops': {'test.tagprop': {'score': 0}}
-                }
-            }
-            clients = select(nodes, 'inet:client')
-            self.eq([k.ndef for k in clients], [client00, client01])
-            fixed(clients[0], nodedata)
-            self.none(clients[0].get('port'))
-            control(clients[1])
+                    # property migration check
+                    nodes = await core.nodes('_ext:model:form=invalid -> * | uniq', opts=infork00)
+                    self.len(6, nodes)
+                    self.sorteq(
+                        [k.ndef for k in nodes],
+                        [
+                            client00,
+                            server00,
+                            ja300,
+                            ja3s00,
+                            url00,
+                            urlfile00,
+                        ]
+                    )
 
-            nodedata = {
-                badserver: {
-                    'nodedata': {'addr': 'invalid'},
-                    'props': {'_valid': 0},
-                    'tagprops': {'test.tagprop': {'score': 0}}
-                }
-            }
-            servers = select(nodes, 'inet:server')
-            self.eq([k.ndef for k in servers], [server00, server01])
-            fixed(servers[0], nodedata)
-            self.none(servers[0].get('port'))
-            control(servers[1])
+                    nodes = await core.nodes('_ext:model:form=valid -> * | uniq', opts=infork00)
+                    self.len(12, nodes)
+                    self.sorteq(
+                        [k.ndef for k in nodes],
+                        [
+                            client00, client01,
+                            server00, server01,
+                            ja300, ja301,
+                            ja3s00, ja3s01,
+                            url00, url01,
+                            urlfile00, urlfile01,
+                        ]
+                    )
+
+                    q = '''
+                        inet:client inet:server
+                        for ($k, $v) in $node.data.list() {
+                            $node.data.load($k)
+                        }
+                        | uniq
+                    '''
+                    nodes = await core.nodes(q, opts=infork01)
+                    self.len(4, nodes)
+
+                    nodedata = {
+                        badclient: {
+                            'nodedata': {'addr': 'invalid'},
+                            'props': {'_valid': 0},
+                            'tagprops': {'test.tagprop': {'score': 0}}
+                        }
+                    }
+                    clients = select(nodes, 'inet:client')
+                    self.eq([k.ndef for k in clients], [client00, client01])
+                    fixed(clients[0], nodedata)
+                    self.none(clients[0].get('port'))
+                    control(clients[1])
+
+                    nodedata = {
+                        badserver: {
+                            'nodedata': {'addr': 'invalid'},
+                            'props': {'_valid': 0},
+                            'tagprops': {'test.tagprop': {'score': 0}}
+                        }
+                    }
+                    servers = select(nodes, 'inet:server')
+                    self.eq([k.ndef for k in servers], [server00, server01])
+                    fixed(servers[0], nodedata)
+                    self.none(servers[0].get('port'))
+                    control(servers[1])
+
+                # A node reached by paths of different lengths has its references collected once
+                async with self.getTestCore() as core:
+
+                    async def mkedge(form, n1, n2):
+                        opts = {'vars': {'n1': n1, 'n2': n2}}
+                        return (await core.nodes(f'[{form}=($n1, $n2)]', opts=opts))[0]
+
+                    # q refers to both anode and m, so it is reached again once m's references are collected
+                    anode = (await core.nodes('[it:dev:str=a]'))[0]
+                    m = await mkedge('edge:refs', anode.ndef, ('it:dev:str', 'm'))
+                    q = await mkedge('edge:has', anode.ndef, m.ndef)
+                    s = await mkedge('edge:refs', q.ndef, ('it:dev:str', 's'))
+
+                    layer = core.getLayer()
+                    migration = await s_modelrev.ModelMigration_0_2_35.anit(core, [layer])
+                    self.eq(migration.nodes.size, maxval)
+
+                    await migration.todos.add(('getvalu', (anode.buid, True)))
+                    await migration._collectReferences()
+
+                    def refsof(node):
+                        refs = migration.nodes.get(node.buid)['refs'].get(layer.iden, ())
+                        return sorted(iden for iden, info in refs)
+
+                    self.eq(sorted([m.iden(), q.iden()]), refsof(anode))
+                    self.eq([q.iden()], refsof(m))
+                    self.eq([s.iden()], refsof(q))
+                    self.eq([], refsof(s))
 
     async def test_modelrev_0_2_36(self):
         async with self.getRegrCore('model-0.2.36') as core:
@@ -2259,6 +2302,32 @@ class ModelRevTest(s_tests.SynTest):
             items = [item async for item in core.coreQueueGets('model_0_2_37:nodes', 0, cull=False, wait=False)]
             self.len(6, items)
 
+        # spilled working sets visit nodes in a different order but remove the same nodes
+        orig = s_spooled.Spooled.__anit__
+
+        async def __anit__(self, dirn=None, size=s_spooled.MAX_SPOOL_SIZE, cell=None):
+            await orig(self, dirn=dirn, size=1, cell=cell)
+
+        with mock.patch('synapse.lib.spooled.Spooled.__anit__', __anit__):
+            async with self.getRegrCore('model-0.2.37') as core:
+                migration = await s_modelrev.ModelMigration_0_2_37.anit(core, [])
+                self.eq(migration.nodes.size, 1)
+                self.eq(migration.todos.size, 1)
+
+                self.ge(await core.getLayer().getModelVers(), (0, 2, 37))
+
+                self.eq([('econ:bank:swift:bic', 'DEUTDEFFXXX')],
+                        [k.ndef for k in await core.nodes('econ:bank:swift:bic')])
+                self.eq([('econ:bank:aba:rtn', '987654321')],
+                        [k.ndef for k in await core.nodes('econ:bank:aba:rtn')])
+                self.eq([('econ:bank:iban', 'VV09WootWoot')],
+                        [k.ndef for k in await core.nodes('econ:bank:iban')])
+
+                items = [item async for item in core.coreQueueGets('model_0_2_37:nodes', 0, cull=False, wait=False)]
+                self.len(7, items)
+                self.sorteq((badbic, badiban, badrtn, forkbic, '123456789junk', 'TRWIBEB1XXXjunk'),
+                            [item.get('formvalu') for _, item in items if item.get('formname') != 'meta:seen'])
+
         # the helpers report cleanly on a Cortex which never had anything to migrate
         async with self.getTestCore() as core:
 
@@ -2373,7 +2442,7 @@ class ModelRevTest(s_tests.SynTest):
                 for node in await core.nodes('inet:url', opts=opts):
                     valu = node.ndef[1]
                     self.eq(valu, core.model.type('inet:url').norm(valu)[0])
-                    self.true(s_modelrev.urlschemere.fullmatch(node.get('proto')))
+                    self.true(s_inet.schemere.fullmatch(node.get('proto')))
 
             self.sorteq(collapsed + moved + fixprops + untouched,
                         [k.ndef[1] for k in await core.nodes('inet:url')])

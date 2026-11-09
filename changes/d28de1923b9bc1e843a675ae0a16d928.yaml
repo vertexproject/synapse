@@ -1,0 +1,8 @@
+---
+desc: Fixed an issue where ``inet:url`` accepted values without a valid scheme, such
+  as ``//www.example.com/a?u=https://example.org``, and took the ``:proto`` and host
+  from a URL embedded in the path or query.
+desc:literal: false
+prs: []
+type: bug
+...
