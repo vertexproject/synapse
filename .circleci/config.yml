@@ -166,8 +166,7 @@ commands:
       - run:
           name: checkout regression repo
           command: |
-            # TEMPORARY (SYN-12067): use the model-0.2.38 cortex branch until it merges, then revert this line
-            git clone --branch bender/SYN-12067/model-0.2.38 https://github.com/vertexproject/synapse-regression ~/git/synapse-regression
+            git clone https://github.com/vertexproject/synapse-regression ~/git/synapse-regression
 
       - run:
           name: python version dump
