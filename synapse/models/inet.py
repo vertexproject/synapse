@@ -28,6 +28,9 @@ drivre = regex.compile(r'^\w[:|]')
 fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
 srv6re = regex.compile(r'^\[([a-f0-9\.:]+)\](?::(\d+))?$', regex.IGNORECASE)
 
+# Windows WebDAV host suffix from \\server[@SSL][@port]\path, as it appears in file URLs
+davre = regex.compile(r'@(SSL)(?:@(\d+))?$|@(\d+)$', regex.IGNORECASE)
+
 udots = regex.compile(r'[\u3002\uff0e\uff61]')
 
 cidrmasks = [((0xffffffff - (2 ** (32 - i) - 1)), (2 ** (32 - i))) for i in range(33)]
@@ -967,6 +970,14 @@ class Url(s_types.Str):
             valu, queryrem = valu.split('?', 1)
             # TODO break out query params separately
 
+        # the authority ends at the first / or # (the query was split off above)
+        fragpart = ''
+        hashoff = valu.find('#')
+        if hashoff != -1:
+            slashoff = valu.find('/')
+            if slashoff == -1 or hashoff < slashoff:
+                valu, fragpart = valu[:hashoff], valu[hashoff:]
+
         # Resource Path
         parts = valu.split('/', 1)
         subs['path'] = ''
@@ -994,6 +1005,19 @@ class Url(s_types.Str):
         if queryrem:
             parampart = f'?{queryrem}'
         subs['params'] = parampart
+
+        # Windows WebDAV host suffix: file://host@SSL@443/path or file://host@80/path
+        isdav = False
+        davssl = False
+        davport = None
+        if proto == 'file' and not local:
+            match = davre.search(valu)
+            if match is not None:
+                isdav = True
+                sslmark, sslport, plainport = match.groups()
+                davssl = sslmark is not None
+                davport = sslport or plainport
+                valu = valu[:match.start()]
 
         # Optional User/Password
         parts = valu.rsplit('@', 1)
@@ -1060,13 +1084,22 @@ class Url(s_types.Str):
             raise s_exc.BadTypeValu(valu=orig, name=self.name,
                                     mesg='Host specified on local-only file URI') from None
 
+        if host is None and (authparts is not None or isdav):
+            raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg='Missing address/url')
+
+        if isdav:
+            if port is not None:
+                raise s_exc.BadTypeValu(valu=orig, name=self.name,
+                                        mesg='Port specified with both : and a WebDAV @ suffix')
+            port = davport
+
         # Optional Port
         if port is not None:
             port = self.modl.type('inet:port').norm(port)[0]
             subs['port'] = port
         else:
             # Look up default port for protocol, but don't add it back into the url
-            defport = s_l_iana.services.get(proto)
+            defport = s_l_iana.services.get('https' if davssl else proto)
             if defport:
                 subs['port'] = self.modl.type('inet:port').norm(defport)[0]
 
@@ -1075,11 +1108,18 @@ class Url(s_types.Str):
             hostparts += '//'
 
         if authparts:
-            hostparts = f'{authparts}@'
+            hostparts += f'{authparts}@'
 
         if host is not None:
             hostparts = f'{hostparts}{host}'
-            if port is not None:
+            if isdav:
+                if davssl:
+                    hostparts = f'{hostparts}@SSL'
+
+                if port is not None:
+                    hostparts = f'{hostparts}@{port}'
+
+            elif port is not None:
                 hostparts = f'{hostparts}:{port}'
 
         if proto != 'file' and host is None:
@@ -1089,7 +1129,7 @@ class Url(s_types.Str):
             raise s_exc.BadTypeValu(valu=orig, name=self.name,
                                     mesg='Missing address/url') from None
 
-        base = f'{proto}://{hostparts}{pathpart}'
+        base = f'{proto}://{hostparts}{pathpart}{fragpart}'
         subs['base'] = base
         norm = f'{base}{parampart}'
         return norm, {'subs': subs}
