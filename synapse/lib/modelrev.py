@@ -1990,7 +1990,9 @@ class ModelMigrationBase:
                             formndef = (formname, formvalu)
 
                             node.setdefault('refs', {})
-                            refs = node['refs'].get(layer.iden, [])
+
+                            # spilled nodes hold tuples, and a node may be reached more than once
+                            refs = set(node['refs'].get(layer.iden, ()))
 
                             for refinfo in self.getRefInfo(formname):
                                 (refform, refprop, reftype, isarray, isro) = refinfo
@@ -2001,12 +2003,16 @@ class ModelMigrationBase:
                                     propvalu = formvalu
 
                                 async for refbuid, refsode in self.getSodeByPropValuNoNorm(layer, refform, refprop, propvalu):
-                                    refs.append((s_common.ehex(refbuid), refinfo))
+                                    ref = (s_common.ehex(refbuid), refinfo)
+                                    if ref in refs:
+                                        continue
+
+                                    refs.add(ref)
 
                                     await self.todos.add(('getvalu', (refbuid, True)))
 
                             if refs:
-                                node['refs'][layer.iden] = refs
+                                node['refs'][layer.iden] = list(refs)
 
                             await self.nodes.set(buid, node)
 
@@ -2351,39 +2357,47 @@ class ModelMigration_0_2_35(ModelMigrationBase):
 
         logger.info(f'Migrating {total} {formstr} nodes')
 
+        # moveNode() adds nodes to self.nodes, so iterate a snapshot of the primary target buids
         count = 0
         migrated = 0
         removed = 0
-        async for buid, node in s_coro.pause(self.nodes.items()):
 
-            formname = node.get('formname')
-            formvalu = node.get('formvalu')
+        async with await s_spooled.Set.anit(dirn=self.core.dirn) as targets:
 
-            if formname is None or formvalu is None:  # pragma: no cover
-                continue
+            async for buid, node in s_coro.pause(self.nodes.items()):
+                if node.get('formname') in formnames:
+                    await targets.add(buid)
 
-            # Only process primary target forms; comp form refs are handled recursively
-            if formname not in formnames:
-                continue
+            async for buid in targets:
 
-            form = self.core.model.form(formname)
-            if form is None:  # pragma: no cover
-                continue
+                await asyncio.sleep(0)
 
-            try:
-                newvalu, newinfo = form.type.norm(formvalu)
-            except Exception:  # pragma: no cover
-                logger.debug('Failed to re-normalize %s=%s, removing', formname, formvalu)
-                await self.removeNode(buid)
-                removed += 1
-                continue
+                node = self.getNode(buid)
 
-            await self.moveNode(buid, newvalu)
-            migrated += 1
+                formname = node.get('formname')
+                formvalu = node.get('formvalu')
 
-            count = migrated + removed
-            if count % 1000 == 0:  # pragma: no cover
-                logger.info(f'Processed {count} bare IPv6 address nodes')
+                if formvalu is None:  # pragma: no cover
+                    continue
+
+                form = self.core.model.form(formname)
+                if form is None:  # pragma: no cover
+                    continue
+
+                try:
+                    newvalu, newinfo = form.type.norm(formvalu)
+                except Exception:  # pragma: no cover
+                    logger.debug('Failed to re-normalize %s=%s, removing', formname, formvalu)
+                    await self.removeNode(buid)
+                    removed += 1
+                    continue
+
+                await self.moveNode(buid, newvalu)
+                migrated += 1
+
+                count = migrated + removed
+                if count % 1000 == 0:  # pragma: no cover
+                    logger.info(f'Processed {count} bare IPv6 address nodes')
 
         await self._flushEdits()
 

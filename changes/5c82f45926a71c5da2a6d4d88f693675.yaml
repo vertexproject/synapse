@@ -1,0 +1,8 @@
+---
+desc: Fixed the `0.2.35` model migration deleting renamed `inet:client`, `inet:server`,
+  and `inet:url` nodes with bare IPv6 values on a Cortex with 10,000 or more `inet:client`
+  and `inet:server` nodes.
+desc:literal: false
+prs: []
+type: bug
+...
