@@ -1,0 +1,14 @@
+---
+desc: Migrated ``inet:url`` nodes stored with an invalid value or incorrect properties
+  by earlier versions of Synapse, such as values stored while running with Python optimizations
+  enabled (``python -O``), values without a valid scheme, and values whose host was misparsed
+  around an ``@``. Values with a recognized scheme, such as ``http:////foo.com/x``, are
+  moved to ``http://foo.com/x``, Windows WebDAV ``file`` URLs whose port was stored as
+  an IPv4 address are moved back to a port, nodes whose properties were derived from the
+  wrong part of the URL are re-normalized, and all other affected nodes, such as ``//www.example.com/a?u=https://example.org``,
+  are removed and recorded in the ``model_0_2_38:nodes`` queue, from which they may be
+  restored with ``$lib.model.migration.s.model_0_2_38.repairNode()``.
+desc:literal: false
+prs: []
+type: migration
+...
