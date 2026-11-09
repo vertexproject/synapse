@@ -1990,7 +1990,9 @@ class ModelMigrationBase:
                             formndef = (formname, formvalu)
 
                             node.setdefault('refs', {})
-                            refs = node['refs'].get(layer.iden, [])
+
+                            # spilled nodes hold tuples, and a node may be reached more than once
+                            refs = set(node['refs'].get(layer.iden, ()))
 
                             for refinfo in self.getRefInfo(formname):
                                 (refform, refprop, reftype, isarray, isro) = refinfo
@@ -2001,12 +2003,16 @@ class ModelMigrationBase:
                                     propvalu = formvalu
 
                                 async for refbuid, refsode in self.getSodeByPropValuNoNorm(layer, refform, refprop, propvalu):
-                                    refs.append((s_common.ehex(refbuid), refinfo))
+                                    ref = (s_common.ehex(refbuid), refinfo)
+                                    if ref in refs:
+                                        continue
+
+                                    refs.add(ref)
 
                                     await self.todos.add(('getvalu', (refbuid, True)))
 
                             if refs:
-                                node['refs'][layer.iden] = refs
+                                node['refs'][layer.iden] = list(refs)
 
                             await self.nodes.set(buid, node)
 
