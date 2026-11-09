@@ -1546,6 +1546,39 @@ class InetModelTest(s_t_utils.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, "file://$")  # Missing address/url
             self.raises(s_exc.BadTypeValu, t.norm, "file://%")  # Missing address/url
 
+            # the text before the first :// must be a valid scheme, not part of an embedded URL
+            for valu in ('//www.example.com/submit?url=https://example.org/x',
+                         '/share?u=http://example.net/a',
+                         'www.example.com/submit?url=https://example.org/x',
+                         '//www.example.org',
+                         'mailto:visi@vertex.link?x=http://example.net',
+                         'http\n://example.com',
+                         '1http://example.com',
+                         'h_t://example.com'):
+                with self.raises(s_exc.BadTypeValu) as cm:
+                    t.norm(valu)
+
+                self.eq(cm.exception.get('mesg'), 'Invalid/Missing protocol')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ inet:url="//www.example.com/submit?url=https://example.org/x" ]')
+
+            self.eq(t.norm('file:/foo?x=http://a'), ('file:///foo?x=http://a', {'subs': {
+                'proto': 'file',
+                'path': '/foo',
+                'params': '?x=http://a',
+                'base': 'file:///foo',
+            }}))
+
+            for proto in ('git+ssh', 'chrome-extension', 'z39.50r'):
+                norm, info = t.norm(f'{proto}://vertex.link/x')
+                self.eq(norm, f'{proto}://vertex.link/x')
+                self.eq(info['subs']['proto'], proto)
+
+            norm, info = t.norm('https://www.example.com/submit?url=https://example.org/x')
+            self.eq(info['subs']['proto'], 'https')
+            self.eq(info['subs']['fqdn'], 'www.example.com')
+
             self.raises(s_exc.BadTypeValu, t.norm, 'www.google\udcfesites.com/hehe.asp')
             valu = t.norm('http://www.googlesites.com/hehe\udcfestuff.asp')
             url = 'http://www.googlesites.com/hehe\udcfestuff.asp'
