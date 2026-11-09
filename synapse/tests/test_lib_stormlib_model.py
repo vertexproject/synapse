@@ -345,6 +345,10 @@ class StormlibModelTest(s_test.SynTest):
                 self.len(1, nodes)
                 self.eq('ou:org', nodes[0].ndef[0])
 
+                nodes = await core.nodes('ou:org=(t0,) | v3.prepare --check false')
+                self.len(1, nodes)
+                self.eq('ou:org', nodes[0].ndef[0])
+
                 lowuser = await core.auth.addUser('lowuser')
                 with self.raises(s_exc.AuthDeny):
                     await core.nodes('v3.checkready', opts={'user': lowuser.iden})
