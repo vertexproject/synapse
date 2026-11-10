@@ -936,14 +936,14 @@ class Url(s_types.Str):
 
         # Protocol
         for splitter in ('://///', ':////'):
-            try:
-                proto, valu = orig.split(splitter, 1)
-                proto = proto.lower()
-                assert proto == 'file'
+            parts = orig.split(splitter, 1)
+            if len(parts) == 2 and parts[0].lower() == 'file':
+                proto = 'file'
+                valu = parts[1]
                 isUNC = True
                 break
-            except Exception:
-                proto = valu = ''
+
+            proto = valu = ''
 
         if not proto:
             try:
@@ -957,13 +957,12 @@ class Url(s_types.Str):
                 pass
 
         if not proto:
-            try:
-                proto, valu = orig.split(':', 1)
-                proto = proto.lower()
-                assert proto == 'file'
-                assert valu
+            parts = orig.split(':', 1)
+            if len(parts) == 2 and parts[0].lower() == 'file' and parts[1]:
+                proto = 'file'
+                valu = parts[1]
                 local = True
-            except Exception:
+            else:
                 proto = valu = ''
 
         if not proto or not valu:

@@ -1586,6 +1586,12 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(info['subs']['fqdn'], 'a.example')
             self.notin('user', info['subs'])
 
+            # only file: URLs may be UNC or local paths
+            self.raises(s_exc.BadTypeValu, t.norm, 'http://///foo.com/x')  # Missing address/url
+            self.raises(s_exc.BadTypeValu, t.norm, 'http:////foo.com/x')  # Missing address/url
+            self.raises(s_exc.BadTypeValu, t.norm, 'mailto:visi@vertex.link')  # Invalid/Missing protocol
+            self.raises(s_exc.BadTypeValu, t.norm, 'foo:bar')  # Invalid/Missing protocol
+
             # the text before the first :// must be a valid scheme, not part of an embedded URL
             for valu in ('//www.example.com/submit?url=https://example.org/x',
                          '/share?u=http://example.net/a',
@@ -2031,6 +2037,26 @@ class InetModelTest(s_t_utils.SynTest):
                 'base': 'file:////host.vertex.link/SharedDir/Firefox/Unc/File/Path',
                 'path': '/SharedDir/Firefox/Unc/File/Path',
                 'fqdn': 'host.vertex.link',
+            }})
+            self.eq(t.norm(url), expected)
+
+            # the file scheme is case insensitive for UNC and local paths
+            url = 'FILE:////host.vertex.link/SharedDir/Unc/FilePath'
+            expected = ('file:////host.vertex.link/SharedDir/Unc/FilePath', {'subs': {
+                'proto': 'file',
+                'params': '',
+                'path': '/SharedDir/Unc/FilePath',
+                'fqdn': 'host.vertex.link',
+                'base': 'file:////host.vertex.link/SharedDir/Unc/FilePath',
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'File:c:/foo/bar.txt'
+            expected = ('file:///c:/foo/bar.txt', {'subs': {
+                'proto': 'file',
+                'params': '',
+                'path': 'c:/foo/bar.txt',
+                'base': 'file:///c:/foo/bar.txt',
             }})
             self.eq(t.norm(url), expected)
 

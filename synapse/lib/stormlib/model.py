@@ -1574,7 +1574,8 @@ class LibModelMigrationsQueue(s_stormtypes.Lib):
     '''
     Base class for the model migration queue helper libraries.
 
-    Subclasses set ``queuename`` to select which migration queue they operate on.
+    Subclasses set ``queuename`` to select which migration queue they operate on,
+    and ``_storm_lib_path`` to name the Storm library.
     '''
     queuename = None
 
@@ -1922,6 +1923,24 @@ class LibModelMigrations_0_2_37(LibModelMigrationsQueue):
     '''
     queuename = 'model_0_2_37:nodes'
     _storm_lib_path = ('model', 'migration', 's', 'model_0_2_37')
+
+    async def _methListNodes(self, form=None, source=None, offset=0, size=None):
+        async for item in self._implListNodes(form=form, source=source, offset=offset, size=size):
+            yield item
+
+    async def _methPrintNode(self, offset):
+        return await self._implPrintNode(offset)
+
+    async def _methRepairNode(self, offset, newvalu, remove=False):
+        return await self._implRepairNode(offset, newvalu, remove=remove)
+
+@s_stormtypes.registry.registerLib
+class LibModelMigrations_0_2_38(LibModelMigrationsQueue):
+    '''
+    A Storm library with helper functions for the 0.2.38 model inet:url migration.
+    '''
+    queuename = 'model_0_2_38:nodes'
+    _storm_lib_path = ('model', 'migration', 's', 'model_0_2_38')
 
     async def _methListNodes(self, form=None, source=None, offset=0, size=None):
         async for item in self._implListNodes(form=form, source=source, offset=offset, size=size):
