@@ -1,7 +1,5 @@
 ---
-desc: Fixed ``inet:url`` normalization accepting malformed URLs such as ``http://///foo.com/x``
-  when Synapse runs with Python optimizations enabled (``python -O``), as the Docker
-  images do.
+desc: Fixed ``inet:url`` normalization accepting malformed URLs such as ``http://///foo.com/x``.
 desc:literal: false
 prs: []
 type: bug

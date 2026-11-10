@@ -1,4 +1,3 @@
-import types
 import asyncio
 
 import synapse.exc as s_exc
@@ -1580,21 +1579,6 @@ class LibModelMigrationsQueue(s_stormtypes.Lib):
     '''
     queuename = None
 
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-
-        # registerLib() annotates each Storm function with its $lib path for error
-        # messages, so each subclass needs its own copy of the functions rather
-        # than sharing the base class functions.
-        for name in ('_methListNodes', '_methPrintNode', '_methRepairNode'):
-            func = getattr(LibModelMigrationsQueue, name)
-            copy = types.FunctionType(func.__code__, func.__globals__, func.__name__,
-                                      func.__defaults__, func.__closure__)
-            copy.__kwdefaults__ = func.__kwdefaults__
-            copy.__qualname__ = f'{cls.__qualname__}.{name}'
-            copy.__doc__ = func.__doc__
-            setattr(cls, name, copy)
-
     _storm_locals = (
         {'name': 'listNodes', 'desc': 'Yield queued nodes.',
          'type': {'type': 'function', '_funcname': '_methListNodes',
@@ -1641,7 +1625,7 @@ class LibModelMigrationsQueue(s_stormtypes.Lib):
         except s_exc.NoSuchName:
             return False
 
-    async def _methListNodes(self, form=None, source=None, offset=0, size=None):
+    async def _implListNodes(self, form=None, source=None, offset=0, size=None):
         form = await s_stormtypes.tostr(form, noneok=True)
         source = await s_stormtypes.tostr(source, noneok=True)
         offset = await s_stormtypes.toint(offset)
@@ -1661,7 +1645,7 @@ class LibModelMigrationsQueue(s_stormtypes.Lib):
 
             yield (offs, node['formname'], node['formvalu'], node['sources'])
 
-    async def _methPrintNode(self, offset):
+    async def _implPrintNode(self, offset):
         offset = await s_stormtypes.toint(offset)
 
         if not await self._hasCoreQueue(self.queuename):
@@ -1894,7 +1878,7 @@ class LibModelMigrationsQueue(s_stormtypes.Lib):
 
         return True
 
-    async def _methRepairNode(self, offset, newvalu, remove=False):
+    async def _implRepairNode(self, offset, newvalu, remove=False):
         ok = False
 
         if not await self._hasCoreQueue(self.queuename):
@@ -1922,6 +1906,15 @@ class LibModelMigrations_0_2_31(LibModelMigrationsQueue):
     queuename = 'model_0_2_31:nodes'
     _storm_lib_path = ('model', 'migration', 's', 'model_0_2_31')
 
+    async def _methListNodes(self, form=None, source=None, offset=0, size=None):
+        async for item in self._implListNodes(form=form, source=source, offset=offset, size=size):
+            yield item
+
+    async def _methPrintNode(self, offset):
+        return await self._implPrintNode(offset)
+
+    async def _methRepairNode(self, offset, newvalu, remove=False):
+        return await self._implRepairNode(offset, newvalu, remove=remove)
 
 @s_stormtypes.registry.registerLib
 class LibModelMigrations_0_2_37(LibModelMigrationsQueue):
@@ -1931,6 +1924,15 @@ class LibModelMigrations_0_2_37(LibModelMigrationsQueue):
     queuename = 'model_0_2_37:nodes'
     _storm_lib_path = ('model', 'migration', 's', 'model_0_2_37')
 
+    async def _methListNodes(self, form=None, source=None, offset=0, size=None):
+        async for item in self._implListNodes(form=form, source=source, offset=offset, size=size):
+            yield item
+
+    async def _methPrintNode(self, offset):
+        return await self._implPrintNode(offset)
+
+    async def _methRepairNode(self, offset, newvalu, remove=False):
+        return await self._implRepairNode(offset, newvalu, remove=remove)
 
 @s_stormtypes.registry.registerLib
 class LibModelMigrations_0_2_38(LibModelMigrationsQueue):
@@ -1939,3 +1941,13 @@ class LibModelMigrations_0_2_38(LibModelMigrationsQueue):
     '''
     queuename = 'model_0_2_38:nodes'
     _storm_lib_path = ('model', 'migration', 's', 'model_0_2_38')
+
+    async def _methListNodes(self, form=None, source=None, offset=0, size=None):
+        async for item in self._implListNodes(form=form, source=source, offset=offset, size=size):
+            yield item
+
+    async def _methPrintNode(self, offset):
+        return await self._implPrintNode(offset)
+
+    async def _methRepairNode(self, offset, newvalu, remove=False):
+        return await self._implRepairNode(offset, newvalu, remove=remove)
