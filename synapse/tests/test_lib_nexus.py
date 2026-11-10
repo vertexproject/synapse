@@ -137,7 +137,8 @@ class NexusTest(s_t_utils.SynTest):
                             return
 
                         async def issue(self, nexsiden, event, args, kwargs, meta=None, wait=True):
-                            issued.append((nexsiden, event, args, kwargs, dict(meta), wait))
+                            # nexslock is never held while forwarding to the leader
+                            issued.append((nexsiden, event, args, kwargs, dict(meta), wait, nexus1.nexslock.locked()))
                             if (futu := nexsroot._futures.get(meta['resp'])) is not None:
                                 futu.set_result((99, 'forwarded'))
 
@@ -156,6 +157,7 @@ class NexusTest(s_t_utils.SynTest):
                         self.len(1, issued)
                         self.eq((nexus1.nexsiden, 'auto1', (edict, 'haha'), {}), issued[0][:4])
                         self.true(issued[0][5])
+                        self.false(issued[0][6])
                         self.eq(indx, await nexsroot.index())
                         self.none(edict.get('autohappened2'))
                         self.false(nexus1.nexslock.locked())
@@ -174,9 +176,21 @@ class NexusTest(s_t_utils.SynTest):
 
                         self.none(await asyncio.wait_for(task, timeout=10))
                         self.len(2, issued)
-                        self.eq((nexus1.nexsiden, 'auto1', (edict, 'hoho'), {}, {'resp': 'downstream'}, False), issued[1])
+                        self.eq((nexus1.nexsiden, 'auto1', (edict, 'hoho'), {}, {'resp': 'downstream'}, False, False), issued[1])
                         self.eq(indx, await nexsroot.index())
                         self.false(nexus1.nexslock.locked())
+
+                        # a follower write which never waited on nexslock is forwarded the same way
+                        nexsroot.issuewait = False
+                        self.eq((99, 'forwarded'), await nexsroot.issue(nexus1.nexsiden, 'auto1', (edict, 'hehe'), {}))
+                        self.len(3, issued)
+                        self.eq((nexus1.nexsiden, 'auto1', (edict, 'hehe'), {}), issued[2][:4])
+                        self.true(issued[2][5])
+                        self.false(issued[2][6])
+                        self.eq(indx, await nexsroot.index())
+                        self.none(edict.get('autohappened2'))
+                        self.false(nexus1.nexslock.locked())
+                        self.len(0, nexsroot._futures)
 
                     finally:
                         nexsroot.client = None

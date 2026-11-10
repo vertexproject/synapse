@@ -339,19 +339,17 @@ class NexsRoot(s_base.Base):
         If I'm not a follower, mutate, otherwise, ask the leader to make the change and wait for the follower loop
         to hand me the result through a future.
 
-        As the leader, cell.nexslock is acquired here and leadership is re-checked under it: if a handoff
-        demoted us while we waited on the lock, it is released and the write is forwarded to the new leader.
+        cell.nexslock is acquired here before leadership is checked, so a handoff cannot demote us before
+        eat. As a follower, the lock is released and the write is forwarded to the leader.
         '''
-        # pick up a reference to avoid race when we eventually can promote
+        await self.cell.nexslock.acquire()
+
+        # leadership is checked under nexslock so a handoff cannot demote us before eat
         if (client := self.client) is None:
+            return await self.eat(nexsiden, event, args, kwargs, meta, wait=wait, lock=False)
 
-            await self.cell.nexslock.acquire()
-
-            # a handoff may have demoted us while we waited on the lock
-            if (client := self.client) is None:
-                return await self.eat(nexsiden, event, args, kwargs, meta, wait=wait, lock=False)
-
-            self.cell.nexslock.release()
+        # never hold nexslock while forwarding: the mirror loop needs it to apply the result
+        self.cell.nexslock.release()
 
         # check here because we shouldn't be sending an edit upstream if we
         # are in readonly mode because the mirror sync will never complete.
