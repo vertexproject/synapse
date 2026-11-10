@@ -5723,10 +5723,13 @@ def _toHashable(valu):
 
     return valu
 
+@registry.registerType
 class ReadOnlyDict(Dict):
     '''
-    A Dict whose contents, and the contents of any nested dict/list, cannot be modified.
+    A read-only dictionary. Setting or removing a key, including in any nested dictionary or list, raises an error.
+    Use $lib.copy() to get a mutable copy.
     '''
+    _storm_typename = 'dict:readonly'
     _ismutable = False
 
     def __hash__(self):
@@ -5743,10 +5746,15 @@ class ReadOnlyDict(Dict):
         for name, valu in tuple(self.valu.items()):
             yield name, toReadOnly(valu)
 
+@registry.registerType
 class ReadOnlyList(List):
     '''
-    A List whose contents, and the contents of any nested dict/list, cannot be modified.
+    A read-only list. It supports the non-modifying operations of a list, such as indexing, iteration, size(), and
+    has(). Methods that would modify it, including in any nested dictionary or list, raise an error. Use $lib.copy()
+    to get a mutable copy.
     '''
+    _storm_typename = 'list:readonly'
+    _storm_locals = ()
     _ismutable = False
 
     def __hash__(self):

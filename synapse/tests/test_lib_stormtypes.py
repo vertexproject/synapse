@@ -819,6 +819,19 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm(imp + 'function f(x=$p.modconf) { $x.foo = bar } $f()')
 
+            # read-only values report distinct, registered type names; copies are plain
+            self.eq('dict:readonly', await core.callStorm(imp + 'return($lib.vars.type($p.modconf))'))
+            self.eq('dict:readonly', await core.callStorm(imp + 'return($lib.vars.type($p.modconf.endpoints.x))'))
+            self.eq('list:readonly', await core.callStorm(imp + 'return($lib.vars.type($p.modconf.items))'))
+            self.eq('list:readonly', await core.callStorm(imp + 'return($lib.vars.type($p.modconf.items.index(1)))'))
+            self.eq('dict', await core.callStorm(imp + 'return($lib.vars.type($lib.copy($p.modconf)))'))
+            self.eq('list', await core.callStorm(imp + 'return($lib.vars.type($lib.copy($p.modconf.items)))'))
+            self.isin('dict:readonly', s_stormtypes.registry.known_types)
+            self.isin('list:readonly', s_stormtypes.registry.known_types)
+
+            msgs = await core.stormlist(imp + '$lib.print($p.modconf) help $p.modconf.items')
+            self.stormIsInPrint('A read-only list.', msgs)
+
             rodict = s_stormtypes.ReadOnlyDict({'a': 1, 'b': [1, {'c': 2}]})
             self.false(rodict.ismutable())
             self.eq(hash(rodict), hash(s_stormtypes.ReadOnlyDict({'b': [1, {'c': 2}], 'a': 1})))
