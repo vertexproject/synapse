@@ -6063,8 +6063,12 @@ class V3Cmd(Cmd):
                 if not await s_common.wait_for(coro, timeout=V3CheckReadyCmd.svctimeout):
                     notready.append(ssvc.name)
 
+            except TimeoutError:
+                await runt.printf(f'ERROR: Service {ssvc.name} could not be checked within {V3CheckReadyCmd.svctimeout} seconds.')
+                notready.append(ssvc.name)
+
             except Exception as e:
-                await self._printSvcExc(runt, ssvc, e, 'checked', V3CheckReadyCmd.svctimeout)
+                await self._printSvcExc(runt, ssvc, e, 'checked')
                 notready.append(ssvc.name)
 
         if ready:
@@ -6096,7 +6100,7 @@ class V3Cmd(Cmd):
             return None
 
         if info is None:
-            await runt.printf(f'ERROR: Service {ssvc.name} must be upgraded to a version which supports Synapse 3.x.')
+            await runt.printf(f'ERROR: Service {ssvc.name} must be upgraded to a Synapse 2.x release which can check it for Synapse 3.x.')
             return None
 
         # the Cortex reaches the leader by its AHA leader name, a mirror only if added by its own
@@ -6107,11 +6111,7 @@ class V3Cmd(Cmd):
 
         return proxy
 
-    async def _printSvcExc(self, runt, ssvc, exc, verb, timeout):
-        if isinstance(exc, TimeoutError):
-            await runt.printf(f'ERROR: Service {ssvc.name} could not be {verb} within {timeout} seconds.')
-            return
-
+    async def _printSvcExc(self, runt, ssvc, exc, verb):
         mesg = exc.get('mesg') if isinstance(exc, s_exc.SynErr) else str(exc)
         await runt.printf(f'ERROR: Service {ssvc.name} could not be {verb}: {mesg or exc.__class__.__name__}')
 
@@ -6198,9 +6198,6 @@ class V3PrepareCmd(V3Cmd):
 
     name = 'v3.prepare'
 
-    # seconds the 3.x preparation of a Storm service may take
-    svctimeout = 4 * 60 * 60
-
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
         pars.add_argument('--check', type='bool', default=True,
@@ -6225,12 +6222,11 @@ class V3PrepareCmd(V3Cmd):
 
             await runt.printf(f'Preparing service {ssvc.name}...')
             try:
-                coro = self._printMesgs(runt, proxy.prepareV3())
-                if not await s_common.wait_for(coro, timeout=self.svctimeout):
+                if not await self._printMesgs(runt, proxy.prepareV3()):
                     failed.append(ssvc.name)
 
             except Exception as e:
-                await self._printSvcExc(runt, ssvc, e, 'prepared', self.svctimeout)
+                await self._printSvcExc(runt, ssvc, e, 'prepared')
                 failed.append(ssvc.name)
 
         if failed:

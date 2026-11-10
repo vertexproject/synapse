@@ -549,11 +549,6 @@ class StormlibModelTest(s_test.SynTest):
                         self.stormIsInPrint('These services could not be prepared for Synapse 3.x: v3ready.', msgs)
 
                         ready.prepmesgs = []
-                        ready.delay = 1
-                        with mock.patch.object(s_storm.V3PrepareCmd, 'svctimeout', 0.01):
-                            msgs = await core.stormlist('v3.prepare --check false')
-                        self.stormIsInPrint('ERROR: Service v3ready could not be prepared within 0.01 seconds.', msgs)
-                        ready.delay = 0
 
                         # a service with nothing to prepare says so
                         await self.addSvcToCore(noready, core, svcname='nov3ready')
@@ -592,7 +587,7 @@ class StormlibModelTest(s_test.SynTest):
                             await core.nodes('$lib.service.wait(oldv3ready)')
 
                             msgs = await core.stormlist('v3.prepare')
-                            mesg = 'ERROR: Service oldv3ready must be upgraded to a version which supports Synapse 3.x.'
+                            mesg = 'ERROR: Service oldv3ready must be upgraded to a Synapse 2.x release which can check it for Synapse 3.x.'
                             self.len(2, [m for m in msgs if m[0] == 'print' and m[1]['mesg'] == mesg])
                             self.stormIsInPrint('These services could not be prepared for Synapse 3.x: oldv3ready.', msgs)
                             self.stormIsInPrint('These services are not ready for Synapse 3.x: oldv3ready.', msgs)

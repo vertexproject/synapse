@@ -2813,9 +2813,9 @@ v3.prepare
 ----------
 
 The ``v3.prepare`` command prepares the Cortex and its Storm services, such as Optic, to upgrade to Synapse 3.x.
-Each service is prepared in a section of its own, which may take several hours. A
-service which is not connected, runs a Synapse version without 3.x preparation, or is connected to a mirror gets
-an ``ERROR:`` line, and the command names each service which could not be prepared. It then runs
+Each service is prepared in a section of its own, and the command waits for each to finish, which may take several
+hours. A service which is not connected, runs a Synapse version without 3.x preparation, or is connected to a
+mirror gets an ``ERROR:`` line, and the command names each service which could not be prepared. It then runs
 :ref:`storm-v3-checkready`, unless ``--check false`` is given. Each service records the result of its
 preparation for its Synapse 3.x migration. A service with nothing to prepare says so, and is not an error.
 
