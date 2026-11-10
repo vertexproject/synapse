@@ -28,6 +28,9 @@ drivre = regex.compile(r'^\w[:|]')
 fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
 srv6re = regex.compile(r'^\[([a-f0-9\.:]+)\](?::(\d+))?$', regex.IGNORECASE)
 
+# RFC 3986 URI scheme, matched against the lowercased text before the first ://
+schemere = regex.compile(r'[a-z][a-z0-9+.-]*')
+
 udots = regex.compile(r'[\u3002\uff0e\uff61]')
 
 cidrmasks = [((0xffffffff - (2 ** (32 - i) - 1)), (2 ** (32 - i))) for i in range(33)]
@@ -943,6 +946,10 @@ class Url(s_types.Str):
             try:
                 proto, valu = orig.split('://', 1)
                 proto = proto.lower()
+                if not schemere.fullmatch(proto):
+                    # the first :// belongs to a URL embedded in the path or query
+                    proto = valu = ''
+
             except Exception:
                 pass
 
