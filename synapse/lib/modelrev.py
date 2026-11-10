@@ -20,10 +20,6 @@ logger = logging.getLogger(__name__)
 
 maxvers = (0, 2, 38)
 
-# An inet:url value stored by the pre-2.258.0 normalizer running with asserts
-# stripped (python -O): <proto>:////<rest>, where <proto> contains no ://
-urlslashre = regex.compile(r'((?:(?!://).)*):////(.*)', flags=regex.DOTALL)
-
 # The end of the host of a Windows WebDAV file URL, file://host[@SSL]@port/path, as
 # stored by a normalizer which took the port for an IPv4 host: host[@SSL]@0.0.x.y
 urldavre = regex.compile(r'@(?:(ssl)@)?0\.0\.(\d{1,3})\.(\d{1,3})$', flags=regex.IGNORECASE)
@@ -2618,21 +2614,21 @@ class ModelMigration_0_2_38(ModelMigrationBase):
         Returns:
             (tuple|None): (verdict, newvalu, newsubs), or None if the node is valid.
         '''
-        match = urlslashre.fullmatch(formvalu)
-        if match is not None and match.group(1) != 'file':
+        # The pre-2.258.0 normalizer running with asserts stripped (python -O) stored
+        # values such as <scheme>:////<rest>, where <scheme> contains no ://
+        scheme, sep, rest = formvalu.partition('://')
+        if sep and rest.startswith('//') and scheme != 'file':
 
-            proto = match.group(1)
-            if proto not in s_scrape.urilist:
+            if scheme not in s_scrape.urilist:
                 return ('remove', None, None)
 
-            return self._getNormVerdict(form, f'{proto}://{match.group(2)}', formvalu, props)
+            return self._getNormVerdict(form, f'{scheme}://{rest[2:]}', formvalu, props)
 
         proto = props.get('proto')
         if proto is not None and '://' in proto[0]:
             return self._getNormVerdict(form, formvalu, formvalu, props)
 
-        parts = formvalu.split('://', 1)
-        if len(parts) == 2 and not s_inet.schemere.fullmatch(parts[0].lower()):
+        if sep and not s_inet.schemere.fullmatch(scheme.lower()):
             return self._getNormVerdict(form, formvalu, formvalu, props)
 
         # A # in the userinfo was taken as part of it, rather than ending the host,

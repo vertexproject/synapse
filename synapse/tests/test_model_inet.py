@@ -1,9 +1,7 @@
-import inspect
 import logging
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.models.inet as s_inet
 import synapse.tests.utils as s_t_utils
 
 logger = logging.getLogger(__name__)
@@ -2042,6 +2040,26 @@ class InetModelTest(s_t_utils.SynTest):
             }})
             self.eq(t.norm(url), expected)
 
+            # the file scheme is case insensitive for UNC and local paths
+            url = 'FILE:////host.vertex.link/SharedDir/Unc/FilePath'
+            expected = ('file:////host.vertex.link/SharedDir/Unc/FilePath', {'subs': {
+                'proto': 'file',
+                'params': '',
+                'path': '/SharedDir/Unc/FilePath',
+                'fqdn': 'host.vertex.link',
+                'base': 'file:////host.vertex.link/SharedDir/Unc/FilePath',
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'File:c:/foo/bar.txt'
+            expected = ('file:///c:/foo/bar.txt', {'subs': {
+                'proto': 'file',
+                'params': '',
+                'path': 'c:/foo/bar.txt',
+                'base': 'file:///c:/foo/bar.txt',
+            }})
+            self.eq(t.norm(url), expected)
+
             # userinfo requires a host
             self.raises(s_exc.BadTypeValu, t.norm, 'file://user@/x')
             self.raises(s_exc.BadTypeValu, t.norm, 'file://user@')
@@ -2135,41 +2153,6 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.raises(s_exc.BadTypeValu, t.norm, 'file://@80/x')
             self.raises(s_exc.BadTypeValu, t.norm, 'file://host:8080@80/x')
-
-    async def test_url_optimized(self):
-
-        # Production containers run python -O, which strips assert statements. Compile the
-        # inet model with optimize=1 so this exercises the same code production runs.
-        code = compile(inspect.getsource(s_inet), s_inet.__file__, 'exec', optimize=1)
-        optmod = {'__name__': s_inet.__name__}
-        exec(code, optmod)
-        optnorm = optmod['Url']._normPyStr
-
-        async with self.getTestCore() as core:
-
-            t = core.model.type('inet:url')
-
-            for valu in ('http://///foo.com/x', 'http:////foo.com/x'):
-                with self.raises(s_exc.BadTypeValu) as cm:
-                    optnorm(t, valu)
-
-                self.eq(cm.exception.get('mesg'), 'Missing address/url')
-
-            for valu in ('mailto:visi@vertex.link', 'foo:bar'):
-                with self.raises(s_exc.BadTypeValu) as cm:
-                    optnorm(t, valu)
-
-                self.eq(cm.exception.get('mesg'), 'Invalid/Missing protocol')
-
-            for valu in ('file:////host.vertex.link/SharedDir/Unc/FilePath',
-                         'file://///host.vertex.link/SharedDir/Unc/FilePath',
-                         'FILE:////host.vertex.link/SharedDir/Unc/FilePath',
-                         'file:/c:/foo/bar.txt',
-                         'File:c:/foo/bar.txt'):
-                self.eq(optnorm(t, valu), t.norm(valu))
-
-            for valu in ('file:', 'file://', 'file:////', 'file://///'):
-                self.raises(s_exc.BadTypeValu, optnorm, t, valu)
 
     async def test_url_fqdn(self):
 

@@ -2721,3 +2721,33 @@ class ModelRevTest(s_tests.SynTest):
 
             items = [item async for _, item in core.coreQueueGets('model_0_2_38:nodes', 0, cull=False, wait=False)]
             self.sorteq(('inet:url', 'inet:url', 'inet:urlredir'), [item.get('formname') for item in items])
+
+    async def test_modelrev_migration_queue_libs(self):
+
+        async with self.getTestCore() as core:
+
+            for name in ('model_0_2_31', 'model_0_2_37', 'model_0_2_38'):
+
+                path = f'$lib.model.migration.s.{name}'
+
+                msgs = await core.stormlist(f'for $item in {path}.listNodes() {{ $lib.print($item) }}')
+                self.stormIsInPrint(f'Queue {name}:nodes not found, no nodes to list.', msgs)
+
+                msgs = await core.stormlist(f'{path}.printNode((0))')
+                self.stormIsInPrint(f'Queue {name}:nodes not found, no nodes to print.', msgs)
+
+                msgs = await core.stormlist(f'{path}.repairNode((0), newp)')
+                self.stormIsInPrint(f'Queue {name}:nodes not found, no nodes to repair.', msgs)
+
+                # each library reports its own Storm path, rather than that of the
+                # last library registered with the shared implementation
+                with self.raises(s_exc.StormRuntimeError) as cm:
+                    await core.callStorm(f'{path}.printNode()')
+
+                self.eq(cm.exception.get('mesg'),
+                        f"{path}.printNode() missing 1 required positional argument: 'offset'")
+
+                with self.raises(s_exc.IsReadOnly) as cm:
+                    await core.callStorm(f'return({path}.repairNode((0), newp))', opts={'readonly': True})
+
+                self.eq(cm.exception.get('mesg'), f'{path}.repairNode() is not marked readonly safe.')
