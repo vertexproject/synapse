@@ -27,6 +27,7 @@ FOLLOWER_WRITE_WAIT_S = 30.0
 FOLLOWER_CONNECT_WAIT_S = 60.0
 
 mirrordisconnect = f'Unable to connect to leader for {FOLLOWER_CONNECT_WAIT_S}s.'
+mirrorpromoted = 'Leadership changed while a forwarded write was in flight.'
 
 WINDOW_MAXSIZE = 10_000
 YIELD_PREFIX = b'\x92\xa8t2:yield\x81\xa4retn\x92\xc3\x92'
@@ -337,12 +338,20 @@ class NexsRoot(s_base.Base):
         '''
         If I'm not a follower, mutate, otherwise, ask the leader to make the change and wait for the follower loop
         to hand me the result through a future.
+
+        As the leader, cell.nexslock is acquired here and leadership is re-checked under it: if a handoff
+        demoted us while we waited on the lock, it is released and the write is forwarded to the new leader.
         '''
         # pick up a reference to avoid race when we eventually can promote
-        client = self.client
+        if (client := self.client) is None:
 
-        if client is None:
-            return await self.eat(nexsiden, event, args, kwargs, meta, wait=wait)
+            await self.cell.nexslock.acquire()
+
+            # a handoff may have demoted us while we waited on the lock
+            if (client := self.client) is None:
+                return await self.eat(nexsiden, event, args, kwargs, meta, wait=wait, lock=False)
+
+            self.cell.nexslock.release()
 
         # check here because we shouldn't be sending an edit upstream if we
         # are in readonly mode because the mirror sync will never complete.
@@ -373,14 +382,29 @@ class NexsRoot(s_base.Base):
                 await client.issue(nexsiden, event, args, kwargs, meta)
             return await futu
 
-    async def eat(self, nexsiden, event, args, kwargs, meta, wait=True):
+    async def eat(self, nexsiden, event, args, kwargs, meta, wait=True, lock=True):
         '''
         Actually mutate for the given nexsiden instance.
+
+        Args:
+            nexsiden (str): The iden of the Pusher whose handler will be run.
+            event (str): The name of the handler to run.
+            args (tuple): The positional arguments to pass to the handler.
+            kwargs (dict): The keyword arguments to pass to the handler.
+            meta (dict): Transaction metadata recorded with the log entry.
+            wait (bool): When True, wait for the apply task and return its result.
+            lock (bool): When True, acquire cell.nexslock here. When False, the caller already holds it
+                         and hands ownership of it to us: it is released exactly once, either here or by
+                         the apply task, and the caller must not release it.
+
+        Returns:
+            A (nexsoffs, retn) tuple, or None when wait is False.
         '''
         if meta is None:
             meta = {}
 
-        await self.cell.nexslock.acquire()
+        if lock:
+            await self.cell.nexslock.acquire()
 
         if self.isfini:
             self.cell.nexslock.release()
@@ -609,6 +633,11 @@ class NexsRoot(s_base.Base):
             raise s_exc.BadConfValu(mesg=mesg)
 
         await self.startup()
+
+        # the mirror loop which would resolve forwarded writes is gone
+        for futu in list(self._futures.values()):
+            if not futu.done():
+                futu.set_exception(s_exc.LinkErr(mesg=mirrorpromoted))
 
     async def connectTimeout(self):
         try:

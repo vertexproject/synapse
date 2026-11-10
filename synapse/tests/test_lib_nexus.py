@@ -7,6 +7,7 @@ import synapse.common as s_common
 
 import synapse.lib.auth as s_auth
 import synapse.lib.cell as s_cell
+import synapse.lib.coro as s_coro
 import synapse.lib.nexus as s_nexus
 
 import synapse.tools.service.backup as s_backup
@@ -126,6 +127,85 @@ class NexusTest(s_t_utils.SynTest):
                     offs, item = await asyncio.wait_for(task, timeout=12)
                     self.eq(offs, nexsindx)
                     self.eq(item[1], 'thing:doathing')
+
+                    # a writer queued on nexslock while a handoff demotes us is forwarded
+                    issued = []
+
+                    class FwdClient:
+
+                        async def waitready(self, timeout=None):
+                            return
+
+                        async def issue(self, nexsiden, event, args, kwargs, meta=None, wait=True):
+                            issued.append((nexsiden, event, args, kwargs, dict(meta), wait))
+                            if (futu := nexsroot._futures.get(meta['resp'])) is not None:
+                                futu.set_result((99, 'forwarded'))
+
+                    try:
+                        indx = await nexsroot.index()
+                        edict = {}
+
+                        await nexus1.nexslock.acquire()
+                        task = nexus1.schedCoro(nexsroot.issue(nexus1.nexsiden, 'auto1', (edict, 'haha'), {}))
+                        self.false(await s_coro.waittask(task, timeout=0.1))
+
+                        nexsroot.client = FwdClient()
+                        nexus1.nexslock.release()
+
+                        self.eq((99, 'forwarded'), await asyncio.wait_for(task, timeout=10))
+                        self.len(1, issued)
+                        self.eq((nexus1.nexsiden, 'auto1', (edict, 'haha'), {}), issued[0][:4])
+                        self.true(issued[0][5])
+                        self.eq(indx, await nexsroot.index())
+                        self.none(edict.get('autohappened2'))
+                        self.false(nexus1.nexslock.locked())
+                        self.len(0, nexsroot._futures)
+
+                        # a downstream mirror's forwarded write is passed along and returns None
+                        await nexus1.nexslock.acquire()
+                        nexsroot.client = None
+                        nexsroot.issuewait = True
+                        meta = {'resp': 'downstream'}
+                        task = nexus1.schedCoro(nexsroot.issue(nexus1.nexsiden, 'auto1', (edict, 'hoho'), {}, meta=meta))
+                        self.false(await s_coro.waittask(task, timeout=0.1))
+
+                        nexsroot.client = FwdClient()
+                        nexus1.nexslock.release()
+
+                        self.none(await asyncio.wait_for(task, timeout=10))
+                        self.len(2, issued)
+                        self.eq((nexus1.nexsiden, 'auto1', (edict, 'hoho'), {}, {'resp': 'downstream'}, False), issued[1])
+                        self.eq(indx, await nexsroot.index())
+                        self.false(nexus1.nexslock.locked())
+
+                    finally:
+                        nexsroot.client = None
+                        nexsroot.issuewait = False
+
+                        if nexus1.nexslock.locked():
+                            nexus1.nexslock.release()
+
+                    # still the leader once the lock is acquired, the write is applied locally
+                    self.eq((indx, 'haha'), await nexsroot.issue(nexus1.nexsiden, 'auto1', (edict, 'haha'), {}))
+                    self.eq(nexus1.iden, edict.get('autohappened2'))
+                    self.eq(indx + 1, await nexsroot.index())
+                    self.false(nexus1.nexslock.locked())
+
+                    # eat with lock=False takes ownership of a nexslock the caller already holds
+                    await nexus1.nexslock.acquire()
+                    self.eq((indx + 1, 'hehe'), await nexsroot.eat(nexus1.nexsiden, 'auto1', (edict, 'hehe'), {}, None, lock=False))
+                    self.false(nexus1.nexslock.locked())
+
+                    await nexus1.nexslock.acquire()
+                    with self.raises(s_exc.NoSuchName):
+                        await nexsroot.eat(nexus1.nexsiden, 'newp', (), {}, None, lock=False)
+                    self.false(nexus1.nexslock.locked())
+
+                    await nexus1.nexslock.acquire()
+                    self.none(await nexsroot.eat(nexus1.nexsiden, 'auto1', (edict, 'hehe'), {}, None, wait=False, lock=False))
+                    self.eq((indx + 2, 'hehe'), await asyncio.wait_for(nexsroot.applytask, timeout=10))
+                    self.eq(indx + 3, await nexsroot.index())
+                    self.false(nexus1.nexslock.locked())
 
     async def test_nexus_fini(self):
 
@@ -751,8 +831,24 @@ class NexusTest(s_t_utils.SynTest):
                             self.len(2, core00.views)
                             self.len(2, core01.views)
 
-                            # After promotion we should not have any stray connect timeouts
-                            await core01.promote(graceful=True)
+                            # A forwarded write still in flight fails rather than hangs on promotion
+                            with core01.nexsroot._getResponseFuture() as (iden, futu):
+
+                                with core01.nexsroot._getResponseFuture() as (doneiden, donefutu):
+                                    donefutu.set_result('done')
+
+                                    # After promotion we should not have any stray connect timeouts
+                                    await core01.promote(graceful=True)
+
+                                    self.eq('done', donefutu.result())
+
+                                with self.raises(s_exc.LinkErr) as cm:
+                                    await asyncio.wait_for(futu, timeout=10)
+
+                                self.eq(s_nexus.mirrorpromoted, cm.exception.get('mesg'))
+
+                            self.len(0, core01.nexsroot._futures)
+
                             await s_common.wait_for(core00.nexsroot._mirready.wait(), 6)
 
                             self.false(core00.nexsroot.readonly)
