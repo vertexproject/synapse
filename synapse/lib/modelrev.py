@@ -2588,6 +2588,16 @@ class ModelMigration_0_2_38(ModelMigrationBase):
 
     queuename = 'model_0_2_38:nodes'
 
+    @classmethod
+    async def anit(cls, core, layers):
+        self = await super().anit(core, layers)
+
+        # The read-only properties inet:url derives from its value. Universal properties
+        # such as .created are also read-only, but are not derived from the value.
+        self.urlsubs = [name for name in self.getRoProps('inet:url') if not name.startswith('.')]
+
+        return self
+
     def getNode(self, buid):
         node = ModelMigrationBase.getNode(self, buid)
         node.setdefault('verdict', None)
@@ -2597,14 +2607,6 @@ class ModelMigration_0_2_38(ModelMigrationBase):
         item.pop('verdict', None)
         item.pop('newvalu', None)
         item.pop('newsubs', None)
-
-    @s_cache.memoizemethod()
-    def getUrlSubProps(self):
-        '''
-        The read-only properties inet:url derives from its value. Universal properties
-        such as .created are also read-only, but are not derived from the value.
-        '''
-        return [name for name in self.getRoProps('inet:url') if not name.startswith('.')]
 
     def _getVerdict(self, form, formvalu, props):
         '''
@@ -2671,12 +2673,12 @@ class ModelMigration_0_2_38(ModelMigrationBase):
         except s_exc.BadTypeValu:
             return ('remove', None, None)
 
-        newsubs = info.get('subs', {})
+        newsubs = info['subs']
 
         if newvalu != formvalu:
             return ('move', newvalu, newsubs)
 
-        for propname in self.getUrlSubProps():
+        for propname in self.urlsubs:
 
             curv = props.get(propname)
             if curv is not None:
@@ -2721,9 +2723,15 @@ class ModelMigration_0_2_38(ModelMigrationBase):
 
         for layriden in layridens:
 
-            props = node['sodes'].get(layriden, {}).get('props', {})
+            props = None
+            if (sode := node['sodes'].get(layriden)) is not None:
+                props = sode.get('props')
 
-            for propname in self.getUrlSubProps():
+            # this should be impossible, but has been observed in the wild...
+            if props is None:  # pragma: no cover
+                props = {}
+
+            for propname in self.urlsubs:
 
                 prop = form.props.get(propname)
                 stortype = prop.type.stortype
@@ -2760,7 +2768,11 @@ class ModelMigration_0_2_38(ModelMigrationBase):
 
                 formvalu = formvalu[0]
 
-                verdict = self._getVerdict(form, formvalu, sode.get('props', {}))
+                # this should be impossible, but has been observed in the wild...
+                if (props := sode.get('props')) is None:  # pragma: no cover
+                    props = {}
+
+                verdict = self._getVerdict(form, formvalu, props)
                 if verdict is None:
                     continue
 
