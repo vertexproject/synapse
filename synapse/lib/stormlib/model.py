@@ -1939,4 +1939,3 @@ class LibModelMigrations_0_2_38(LibModelMigrationsQueue):
     '''
     queuename = 'model_0_2_38:nodes'
     _storm_lib_path = ('model', 'migration', 's', 'model_0_2_38')
-
