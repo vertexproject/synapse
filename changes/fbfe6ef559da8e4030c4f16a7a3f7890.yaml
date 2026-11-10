@@ -1,0 +1,7 @@
+---
+desc: Fixed an issue where ``inet:url`` stored the host of Windows WebDAV ``file``
+  URLs such as ``file://1.2.3.4@80/x`` or ``file://host@SSL@443/x`` as ``:user``.
+desc:literal: false
+prs: []
+type: bug
+...
