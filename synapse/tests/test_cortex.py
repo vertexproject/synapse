@@ -230,10 +230,12 @@ class CortexTest(s_t_utils.SynTest):
                             self.len(1, retn[-1])
                             self.eq(('inet:ipv4', 0x07070707), retn[-1][0].ndef)
 
-                            fwdretn = await asyncio.wait_for(asyncio.gather(*fwds, return_exceptions=True), timeout=30)
-                            for valu in fwdretn:
-                                if isinstance(valu, Exception):
-                                    self.isinstance(valu, s_exc.LinkErr)
+                            # promoting core00 closes its link to core01 under the in-flight forward
+                            with self.raises(s_exc.LinkShutDown):
+                                await asyncio.wait_for(fwds[0], timeout=30)
+
+                            # core01 forwards the write from core02 on to the new leader
+                            await asyncio.wait_for(fwds[1], timeout=30)
 
                             self.true(core00.isactive)
                             self.false(core01.isactive)
@@ -244,11 +246,6 @@ class CortexTest(s_t_utils.SynTest):
                             await asyncio.wait_for(core01.sync(), timeout=30)
                             await asyncio.wait_for(core02.sync(), timeout=30)
 
-                            fwdvals = [await core00.getStormVar(name) for name in ('fwd00', 'fwd02')]
-                            for name, valu in zip(('fwd00', 'fwd02'), fwdretn):
-                                if not isinstance(valu, Exception):
-                                    self.eq(name, await core00.getStormVar(name))
-
                             for core in (core00, core01, core02):
                                 for i in range(7):
                                     self.eq(i, await core.getStormVar(f'old{i}'))
@@ -258,7 +255,8 @@ class CortexTest(s_t_utils.SynTest):
 
                                 self.nn(await core.auth.getUserByName('handoffuser'))
                                 self.len(1, await core.nodes('inet:ipv4=7.7.7.7'))
-                                self.eq(fwdvals, [await core.getStormVar(name) for name in ('fwd00', 'fwd02')])
+                                self.none(await core.getStormVar('fwd00'))
+                                self.eq('fwd02', await core.getStormVar('fwd02'))
 
                             indx = await core00.getNexsIndx()
                             self.eq(indx, await core01.getNexsIndx())
