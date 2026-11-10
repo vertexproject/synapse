@@ -35,6 +35,7 @@ Tools
     syn_tools_service_promote
     syn_tools_service_shutdown
     syn_tools_service_snapshot
+    syn_tools_service_v3ready
 
     syn_tools_storm
     syn_tools_storm_pkg_gen

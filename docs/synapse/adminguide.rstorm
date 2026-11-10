@@ -1511,11 +1511,18 @@ model elements in the Cortex. Warnings will be produced for any deprecated model
 unlocked or still in use in the Cortex. Once all warnings have been resolved, your Cortex will be
 ready for future model updates.
 
-To check whether your Cortex is ready to upgrade to Synapse 3.x, use the :ref:`storm-v3-checkready`
-command. It warns about deprecated model elements still in use in any layer, about installed
-Power-Ups which are below the minimum version that supports Synapse 3.x, about installed Vertex
-Power-Ups which are not yet available for Synapse 3.x, and about layer model migrations or Power-Up
-inits which have not completed yet.
+To prepare your Cortex to upgrade to Synapse 3.x, run the :ref:`storm-v3-prepare` command, then the
+:ref:`storm-v3-checkready` command, which ``v3.prepare`` runs by default. ``v3.prepare`` prepares the Cortex and
+each Storm service, such as Optic. ``v3.checkready`` prints an error for each deprecated model
+element still in use in any layer, installed Power-Up which is below the minimum version that supports Synapse 3.x,
+installed Vertex Power-Up which is not yet available for Synapse 3.x, and layer model migration or Power-Up init
+which has not completed yet. It then runs the 3.x readiness check of each Storm service, and names each one which
+is not ready. Errors block the upgrade, and warnings do not.
+
+Run both commands on the Cortex leader, with each Storm service added by the AHA name of its leader, since only a
+leader is checked and prepared. A leader which is demoted discards the results of its checks and preparation, so
+run them again on the new leader. To check or prepare a service which is not a Storm service, use the
+:ref:`syn-tools-service-v3ready` tool.
 
 
 .. _admin_config_mirror:
