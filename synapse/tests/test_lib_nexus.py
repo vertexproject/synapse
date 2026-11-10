@@ -517,6 +517,11 @@ class NexusTest(s_t_utils.SynTest):
                     cell01._nexshands['sync'] = orig
                     await cell01.sync()
 
+                    # the mirror failing eat() checks before the apply still fails the caller
+                    cell01._nexshands.pop('sync')
+                    with self.raises(s_exc.NoSuchName):
+                        await asyncio.wait_for(cell01.sync(), timeout=10)
+
     async def test_mirror_nexus_loop_failure(self):
         with self.getTestDir() as dirn:
 
@@ -821,11 +826,17 @@ class NexusTest(s_t_utils.SynTest):
 
                                 await evnt1.wait()
 
+                                # an already resolved future is left alone by the reconnect timeout
+                                donefutu = core01.nexsroot.loop.create_future()
+                                donefutu.set_result('done')
+                                core01.nexsroot._futures['donefutu'] = donefutu
+
                         # Our task should be cancelled by the reconnect timeout
                         with self.raises(s_exc.LinkErr) as cm:
                             await coro
 
                         self.true(cm.exception.get('mesg').startswith('Unable to connect to leader'))
+                        self.eq('done', core01.nexsroot._futures.pop('donefutu').result())
                         self.true(core01.nexsroot.readonly)
                         self.isin(s_nexus.mirrordisconnect, core01.nexsroot.writeholds)
 
@@ -851,8 +862,35 @@ class NexusTest(s_t_utils.SynTest):
                                 with core01.nexsroot._getResponseFuture() as (doneiden, donefutu):
                                     donefutu.set_result('done')
 
-                                    # After promotion we should not have any stray connect timeouts
-                                    await core01.promote(graceful=True)
+                                    # a forwarded write being applied when promoted returns its result
+                                    applying = asyncio.Event()
+                                    release = asyncio.Event()
+                                    apply01 = core01.nexsroot._apply
+
+                                    async def blockApply(indx, mesg):
+                                        applying.set()
+                                        await release.wait()
+                                        return await apply01(indx, mesg)
+
+                                    indx = await core01.getNexsIndx()
+
+                                    with mock.patch.object(core01.nexsroot, '_apply', blockApply):
+
+                                        task = core01.schedCoro(core01.nexsroot.issue(core01.nexsiden, 'stormvar:set', ('promoted', 'yes'), {}))
+                                        self.true(await s_coro.event_wait(applying, timeout=10))
+
+                                        # After promotion we should not have any stray connect timeouts
+                                        prom = core01.schedCoro(core01.promote(graceful=True))
+
+                                        # promote waits out the in-flight apply
+                                        self.false(await s_coro.waittask(prom, timeout=0.2))
+                                        self.false(task.done())
+
+                                        release.set()
+                                        await asyncio.wait_for(prom, timeout=10)
+
+                                    self.eq((indx, 'yes'), await asyncio.wait_for(task, timeout=10))
+                                    self.eq('yes', await core01.getStormVar('promoted'))
 
                                     self.eq('done', donefutu.result())
 

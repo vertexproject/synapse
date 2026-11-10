@@ -1,6 +1,7 @@
 ---
-desc: Fixed graceful leadership handoff so writes queued on the old leader are applied
-  on the new leader instead of diverging the Nexus logs.
+desc: Fixed graceful leadership handoff (`Cell.handoff()`, `synapse.tools.service.promote`)
+  diverging the Nexus logs. A write forwarded by a mirror that is promoted before it
+  completes now raises `LinkErr` instead of hanging.
 desc:literal: false
 prs: []
 type: bug

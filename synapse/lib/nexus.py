@@ -437,9 +437,14 @@ class NexsRoot(s_base.Base):
 
     async def _eat(self, item, indx=None):
 
+        respfutu = None
+
         try:
             if self.isfini:
                 raise s_exc.IsFini(mesg=f'Nexus has been shutdown, cannot apply {s_common.trimText(str(item))}')
+
+            # resolve our own forwarded write here, since promote() may cancel the mirror loop mid-apply
+            respfutu = self._futures.get(item[4].get('resp'))
 
             if self.donexslog:
                 saveindx, packitem = await self.nexslog.addWithPackRetn(item, indx=indx)
@@ -460,7 +465,18 @@ class NexsRoot(s_base.Base):
 
                 self.nexshot.inc('nexs:indx')
 
-            return (saveindx, await self._apply(saveindx, item))
+            retn = await self._apply(saveindx, item)
+
+            if respfutu is not None and not respfutu.done():
+                respfutu.set_result((saveindx, retn))
+
+            return (saveindx, retn)
+
+        except Exception as e:
+            if respfutu is not None and not respfutu.done():
+                respfutu.set_exception(e)
+
+            raise
 
         finally:
             self.cell.nexslock.release()
@@ -632,10 +648,14 @@ class NexsRoot(s_base.Base):
 
         await self.startup()
 
-        # the mirror loop which would resolve forwarded writes is gone
+        # the mirror loop is gone, but an apply still in flight resolves its own forwarded write
+        async with self.cell.nexslock:
+            self._failFutures(mirrorpromoted)
+
+    def _failFutures(self, mesg):
         for futu in list(self._futures.values()):
             if not futu.done():
-                futu.set_exception(s_exc.LinkErr(mesg=mirrorpromoted))
+                futu.set_exception(s_exc.LinkErr(mesg=mesg))
 
     async def connectTimeout(self):
         try:
@@ -644,8 +664,7 @@ class NexsRoot(s_base.Base):
         except asyncio.TimeoutError:
             await self.addWriteHold(mirrordisconnect)
 
-            for futu in list(self._futures.values()):
-                futu.set_exception(s_exc.LinkErr(mesg=mirrordisconnect))
+            self._failFutures(mirrordisconnect)
 
     async def _onTeleLink(self, proxy):
         self.miruplink.set()
@@ -739,22 +758,21 @@ class NexsRoot(s_base.Base):
                     respiden = meta.get('resp')
                     respfutu = self._futures.get(respiden)
 
+                    # _eat resolves respfutu once the entry is applied
                     try:
-                        retn = await self.eat(*args)
+                        await self.eat(*args)
 
                     except Exception as e:
-                        if respfutu is not None:
-                            assert not respfutu.done()
+                        # the head of the traceback is our own still running frame
+                        # and the caller may clear the frames of the traceback it gets.
+                        e.with_traceback(e.__traceback__.tb_next)
 
-                            # the head of the traceback is our own still running frame
-                            # and the caller may clear the frames of the traceback it gets.
-                            respfutu.set_exception(e.with_traceback(e.__traceback__.tb_next))
-                        else:  # pragma: no cover
+                        if respfutu is None:  # pragma: no cover
                             logger.exception(e)
 
-                    else:
-                        if respfutu is not None:
-                            respfutu.set_result(retn)
+                        # eat() raises its checks before _eat could resolve respfutu
+                        elif not respfutu.done():
+                            respfutu.set_exception(e)
 
             except s_exc.LinkShutDown:
                 logger.warning('mirror loop: leader closed the connection.')
