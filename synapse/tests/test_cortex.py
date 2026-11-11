@@ -192,6 +192,83 @@ class CortexTest(s_t_utils.SynTest):
                             self.false((await core01.getCellInfo())['cell']['uplink'])
                             self.true((await core02.getCellInfo())['cell']['uplink'])
 
+                            # writes queued on nexslock during a handoff land on the new leader
+                            gate = asyncio.Event()
+                            entered = asyncio.Event()
+                            waitNexsOffs = core00.waitNexsOffs
+
+                            async def gatedWaitNexsOffs(offs, timeout=None):
+                                entered.set()
+                                await gate.wait()
+                                return await waitNexsOffs(offs, timeout=timeout)
+
+                            async def waitLockQueue(size):
+                                while len(core01.nexslock._waiters or ()) < size:
+                                    await asyncio.sleep(0.01)
+
+                            with patch.object(core00, 'waitNexsOffs', gatedWaitNexsOffs):
+
+                                hand = core01.schedCoro(core01.handoff(core00.getLocalUrl()))
+                                self.true(await s_coro.event_wait(entered, timeout=10))
+
+                                tasks = [core01.schedCoro(core01.setStormVar(f'old{i}', i)) for i in range(7)]
+                                tasks.append(core01.schedCoro(core01.auth.addUser('handoffuser')))
+                                tasks.append(core01.schedCoro(core01.nodes('[ inet:ipv4=7.7.7.7 ]')))
+
+                                # writes forwarded to the old leader by the promotion target and a mirror
+                                fwds = [
+                                    core00.schedCoro(core00.setStormVar('fwd00', 'fwd00')),
+                                    core02.schedCoro(core02.setStormVar('fwd02', 'fwd02')),
+                                ]
+
+                                await asyncio.wait_for(waitLockQueue(11), timeout=10)
+
+                                gate.set()
+                                await asyncio.wait_for(hand, timeout=30)
+
+                            retn = await asyncio.wait_for(asyncio.gather(*tasks), timeout=30)
+                            self.len(1, retn[-1])
+                            self.eq(('inet:ipv4', 0x07070707), retn[-1][0].ndef)
+
+                            # promoting core00 closes its link to core01 under the in-flight forward
+                            with self.raises(s_exc.LinkShutDown):
+                                await asyncio.wait_for(fwds[0], timeout=30)
+
+                            # core01 forwards the write from core02 on to the new leader
+                            await asyncio.wait_for(fwds[1], timeout=30)
+
+                            self.true(core00.isactive)
+                            self.false(core01.isactive)
+
+                            for i in range(8):
+                                await core00.setStormVar(f'new{i}', i)
+
+                            await asyncio.wait_for(core01.sync(), timeout=30)
+                            await asyncio.wait_for(core02.sync(), timeout=30)
+
+                            for core in (core00, core01, core02):
+                                for i in range(7):
+                                    self.eq(i, await core.getStormVar(f'old{i}'))
+
+                                for i in range(8):
+                                    self.eq(i, await core.getStormVar(f'new{i}'))
+
+                                self.nn(await core.auth.getUserByName('handoffuser'))
+                                self.len(1, await core.nodes('inet:ipv4=7.7.7.7'))
+                                self.none(await core.getStormVar('fwd00'))
+                                self.eq('fwd02', await core.getStormVar('fwd02'))
+
+                            indx = await core00.getNexsIndx()
+                            self.eq(indx, await core01.getNexsIndx())
+                            self.eq(indx, await core02.getNexsIndx())
+
+                            nexs00 = [item async for item in core00.getNexusChanges(0, wait=False)]
+                            nexs01 = [item async for item in core01.getNexusChanges(0, wait=False)]
+                            nexs02 = [item async for item in core02.getNexusChanges(0, wait=False)]
+                            self.len(indx, nexs00)
+                            self.eq(nexs00, nexs01)
+                            self.eq(nexs00, nexs02)
+
     async def test_cortex_bugfix_2_80_0(self):
         async with self.getRegrCore('2.80.0-jsoniden') as core:
             self.eq(core.jsonstor.iden, s_common.guid((core.iden, 'jsonstor')))

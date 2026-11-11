@@ -27,6 +27,7 @@ FOLLOWER_WRITE_WAIT_S = 30.0
 FOLLOWER_CONNECT_WAIT_S = 60.0
 
 mirrordisconnect = f'Unable to connect to leader for {FOLLOWER_CONNECT_WAIT_S}s.'
+mirrorpromoted = 'Leadership changed while a forwarded write was in flight.'
 
 WINDOW_MAXSIZE = 10_000
 YIELD_PREFIX = b'\x92\xa8t2:yield\x81\xa4retn\x92\xc3\x92'
@@ -337,12 +338,18 @@ class NexsRoot(s_base.Base):
         '''
         If I'm not a follower, mutate, otherwise, ask the leader to make the change and wait for the follower loop
         to hand me the result through a future.
-        '''
-        # pick up a reference to avoid race when we eventually can promote
-        client = self.client
 
-        if client is None:
-            return await self.eat(nexsiden, event, args, kwargs, meta, wait=wait)
+        cell.nexslock is acquired here before leadership is checked, so a handoff cannot demote us before
+        eat. As a follower, the lock is released and the write is forwarded to the leader.
+        '''
+        await self.cell.nexslock.acquire()
+
+        # leadership is checked under nexslock so a handoff cannot demote us before eat
+        if (client := self.client) is None:
+            return await self.eat(nexsiden, event, args, kwargs, meta, wait=wait, lock=False)
+
+        # never hold nexslock while forwarding: the mirror loop needs it to apply the result
+        self.cell.nexslock.release()
 
         # check here because we shouldn't be sending an edit upstream if we
         # are in readonly mode because the mirror sync will never complete.
@@ -373,14 +380,29 @@ class NexsRoot(s_base.Base):
                 await client.issue(nexsiden, event, args, kwargs, meta)
             return await futu
 
-    async def eat(self, nexsiden, event, args, kwargs, meta, wait=True):
+    async def eat(self, nexsiden, event, args, kwargs, meta, wait=True, lock=True):
         '''
         Actually mutate for the given nexsiden instance.
+
+        Args:
+            nexsiden (str): The iden of the Pusher whose handler will be run.
+            event (str): The name of the handler to run.
+            args (tuple): The positional arguments to pass to the handler.
+            kwargs (dict): The keyword arguments to pass to the handler.
+            meta (dict): Transaction metadata recorded with the log entry.
+            wait (bool): When True, wait for the apply task and return its result.
+            lock (bool): When True, acquire cell.nexslock here. When False, the caller already holds it
+                         and hands ownership of it to us: it is released exactly once, either here or by
+                         the apply task, and the caller must not release it.
+
+        Returns:
+            A (nexsoffs, retn) tuple, or None when wait is False.
         '''
         if meta is None:
             meta = {}
 
-        await self.cell.nexslock.acquire()
+        if lock:
+            await self.cell.nexslock.acquire()
 
         if self.isfini:
             self.cell.nexslock.release()
@@ -415,9 +437,14 @@ class NexsRoot(s_base.Base):
 
     async def _eat(self, item, indx=None):
 
+        respfutu = None
+
         try:
             if self.isfini:
                 raise s_exc.IsFini(mesg=f'Nexus has been shutdown, cannot apply {s_common.trimText(str(item))}')
+
+            # resolve our own forwarded write here, since promote() may cancel the mirror loop mid-apply
+            respfutu = self._futures.get(item[4].get('resp'))
 
             if self.donexslog:
                 saveindx, packitem = await self.nexslog.addWithPackRetn(item, indx=indx)
@@ -438,7 +465,18 @@ class NexsRoot(s_base.Base):
 
                 self.nexshot.inc('nexs:indx')
 
-            return (saveindx, await self._apply(saveindx, item))
+            retn = await self._apply(saveindx, item)
+
+            if respfutu is not None and not respfutu.done():
+                respfutu.set_result((saveindx, retn))
+
+            return (saveindx, retn)
+
+        except Exception as e:
+            if respfutu is not None and not respfutu.done():
+                respfutu.set_exception(e)
+
+            raise
 
         finally:
             self.cell.nexslock.release()
@@ -610,6 +648,15 @@ class NexsRoot(s_base.Base):
 
         await self.startup()
 
+        # the mirror loop is gone, but an apply still in flight resolves its own forwarded write
+        async with self.cell.nexslock:
+            self._failFutures(mirrorpromoted)
+
+    def _failFutures(self, mesg):
+        for futu in list(self._futures.values()):
+            if not futu.done():
+                futu.set_exception(s_exc.LinkErr(mesg=mesg))
+
     async def connectTimeout(self):
         try:
             await s_common.wait_for(self.miruplink.wait(), FOLLOWER_CONNECT_WAIT_S)
@@ -617,8 +664,7 @@ class NexsRoot(s_base.Base):
         except asyncio.TimeoutError:
             await self.addWriteHold(mirrordisconnect)
 
-            for futu in list(self._futures.values()):
-                futu.set_exception(s_exc.LinkErr(mesg=mirrordisconnect))
+            self._failFutures(mirrordisconnect)
 
     async def _onTeleLink(self, proxy):
         self.miruplink.set()
@@ -712,22 +758,21 @@ class NexsRoot(s_base.Base):
                     respiden = meta.get('resp')
                     respfutu = self._futures.get(respiden)
 
+                    # _eat resolves respfutu once the entry is applied
                     try:
-                        retn = await self.eat(*args)
+                        await self.eat(*args)
 
                     except Exception as e:
-                        if respfutu is not None:
-                            assert not respfutu.done()
+                        # the head of the traceback is our own still running frame
+                        # and the caller may clear the frames of the traceback it gets.
+                        e.with_traceback(e.__traceback__.tb_next)
 
-                            # the head of the traceback is our own still running frame
-                            # and the caller may clear the frames of the traceback it gets.
-                            respfutu.set_exception(e.with_traceback(e.__traceback__.tb_next))
-                        else:  # pragma: no cover
+                        if respfutu is None:  # pragma: no cover
                             logger.exception(e)
 
-                    else:
-                        if respfutu is not None:
-                            respfutu.set_result(retn)
+                        # eat() raises its checks before _eat could resolve respfutu
+                        elif not respfutu.done():
+                            respfutu.set_exception(e)
 
             except s_exc.LinkShutDown:
                 logger.warning('mirror loop: leader closed the connection.')
