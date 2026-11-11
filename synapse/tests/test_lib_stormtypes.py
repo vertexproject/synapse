@@ -555,6 +555,20 @@ class StormTypesTest(s_test.SynTest):
                     'modconf': {'valu': 'foo'},
                 },
                 {
+                    'name': 'test.modconf',
+                    'storm': '''
+                        $__endpoints = $modconf.endpoints
+                        function geturl() { return($__endpoints.x.url) }
+                        function seturl() { $__endpoints.x.url = newp return($__endpoints.x.url) }
+                        function copyurl() { $c = $lib.copy($modconf) $c.endpoints.x.url = copied return($c.endpoints.x.url) }
+                    ''',
+                    'modconf': {
+                        'source': 'foo',
+                        'endpoints': {'x': {'url': 'https://good.example'}},
+                        'items': [1, [2, 3], {'k': 'v'}],
+                    },
+                },
+                {
                     'name': 'test.danger',
                     'storm': '''
                         init { $src=$lib.null }
@@ -728,15 +742,108 @@ class StormTypesTest(s_test.SynTest):
             self.eq(erfo[1][0], 'NoSuchName')
             self.eq(erfo[1][1].get('name'), 'newp')
 
-            await core.callStorm('$test = $lib.import(test) $test.modconf.valu=bar')
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('$test = $lib.import(test) $test.modconf.valu=bar')
+
             self.eq('foo', await core.callStorm('return($lib.import(test).getvalu())'))
             self.eq('foo', await core.callStorm('return($lib.import(test).getvalu())', opts={'readonly': True}))
 
             with self.raises(s_exc.IsReadOnly):
                 await core.callStorm('return($lib.import(test.danger).src)', opts={'readonly': True})
 
+            # $modconf is deeply read-only for importers and for the module itself
+            imp = '$p = $lib.import(test.modconf) '
+            for mutate in (
+                '$p.modconf.endpoints.x.url = evil',
+                '$p.modconf.endpoints.x = ({})',
+                '$p.modconf.foo = bar',
+                '$p.modconf.items.append(x)',
+                '$p.modconf.items.pop()',
+                '$p.modconf.items.extend((x,))',
+                '$p.modconf.items.sort()',
+                '$p.modconf.items.reverse()',
+                '$p.modconf.items.rem((1))',
+                '$i = (0) $p.modconf.items.$i = x',
+                '$i = (0) $p.modconf.items.index(1).$i = x',
+                '$p.modconf.items.index(1).append(x)',
+                '$p.modconf.items.index(2).k = x',
+                '$lib.dict.update($p.modconf, ({"a": 1}))',
+                '$lib.dict.pop($p.modconf, source)',
+                '$p.seturl()',
+            ):
+                with self.raises(s_exc.StormRuntimeError) as cm:
+                    await core.callStorm(imp + mutate)
+                self.isin('read-only', cm.exception.get('mesg'))
+
+            self.eq('https://good.example', await core.callStorm(imp + 'return($p.geturl())'))
+            self.eq('https://good.example', await core.callStorm(imp + 'return($p.modconf.endpoints.x.url)'))
+            self.eq('copied', await core.callStorm(imp + 'return($p.copyurl())'))
+            self.eq('https://good.example', await core.callStorm(imp + 'return($p.geturl())'))
+
+            # reads, iteration, and copies still work and are detached from the module
+            self.eq('foo', await core.callStorm(imp + 'return($p.modconf.source)'))
+            self.eq(3, await core.callStorm(imp + 'return($lib.len($p.modconf.items))'))
+            self.eq(3, await core.callStorm(imp + 'return($p.modconf.items.index(1).index(1))'))
+            self.eq('v', await core.callStorm(imp + 'return($p.modconf.items.index(2).k)'))
+            self.eq('https://good.example', await core.callStorm(imp + '''
+                for ($name, $info) in $p.modconf.endpoints { return($info.url) }
+            '''))
+            self.eq(6, await core.callStorm(imp + '''
+                $sum = (0)
+                for $item in $p.modconf.items.index(1) { $sum = $($sum + $item) }
+                for $item in $p.modconf.items { if ($item = 1) { $sum = $($sum + 1) } }
+                return($sum)
+            '''))
+
+            q = imp + '''
+                $s = $p.modconf.items.slice(1)
+                $s.index(0).append(4)
+                $s.index(1).k = changed
+                $u = $p.modconf.items.unique()
+                $u.index(1).append(5)
+                $u.index(2).k = changed
+                $c = $lib.copy($p.modconf.items)
+                $c.index(1).append(6)
+                return(($p.modconf.items.index(1), $p.modconf.items.index(2)))
+            '''
+            self.eq(((2, 3), {'k': 'v'}), await core.callStorm(q))
+
+            # read-only values are not mutable: hashable, set members, and usable as parameter defaults
+            self.eq(1, await core.callStorm(imp + 'return($lib.set($p.modconf).size())'))
+            q = '$i = $p.modconf.items return($lib.set($i.index(1), $i.index(1)).size())'
+            self.eq(1, await core.callStorm(imp + q))
+            q = '$i = $p.modconf.items return($lib.set($i.index(1), $i.index(2)).size())'
+            self.eq(2, await core.callStorm(imp + q))
+            self.eq('foo', await core.callStorm(imp + 'function f(x=$p.modconf) { return($x.source) } return($f())'))
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm(imp + 'function f(x=$p.modconf) { $x.foo = bar } $f()')
+
+            # read-only values report distinct, registered type names; copies are plain
+            self.eq('dict:readonly', await core.callStorm(imp + 'return($lib.vars.type($p.modconf))'))
+            self.eq('dict:readonly', await core.callStorm(imp + 'return($lib.vars.type($p.modconf.endpoints.x))'))
+            self.eq('list:readonly', await core.callStorm(imp + 'return($lib.vars.type($p.modconf.items))'))
+            self.eq('list:readonly', await core.callStorm(imp + 'return($lib.vars.type($p.modconf.items.index(1)))'))
+            self.eq('dict', await core.callStorm(imp + 'return($lib.vars.type($lib.copy($p.modconf)))'))
+            self.eq('list', await core.callStorm(imp + 'return($lib.vars.type($lib.copy($p.modconf.items)))'))
+            self.isin('dict:readonly', s_stormtypes.registry.known_types)
+            self.isin('list:readonly', s_stormtypes.registry.known_types)
+
+            msgs = await core.stormlist(imp + '$lib.print($p.modconf) help $p.modconf.items')
+            self.stormIsInPrint('A read-only list.', msgs)
+
+            rodict = s_stormtypes.ReadOnlyDict({'a': 1, 'b': [1, {'c': 2}]})
+            self.false(rodict.ismutable())
+            self.eq(hash(rodict), hash(s_stormtypes.ReadOnlyDict({'b': [1, {'c': 2}], 'a': 1})))
+            self.ne(hash(rodict), hash(s_stormtypes.ReadOnlyDict({'a': 1})))
+
+            rolist = s_stormtypes.ReadOnlyList([1, [2], {'k': 'v'}])
+            self.false(rolist.ismutable())
+            self.eq(hash(rolist), hash(s_stormtypes.ReadOnlyList([1, [2], {'k': 'v'}])))
+            self.ne(hash(rolist), hash(s_stormtypes.ReadOnlyList([1])))
+
             mods = await core.getStormMods()
-            self.len(2, mods)
+            self.len(3, mods)
             mods['test']['modconf']['valu'] = 'bar'
             mods = await core.getStormMods()
             self.eq('foo', mods['test']['modconf']['valu'])

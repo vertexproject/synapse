@@ -1564,7 +1564,7 @@ class LibBase(Lib):
                     mesg = f'Module ({name}) elevates privileges.  You need perm: storm.asroot.mod.{name}'
                     raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
-        modr = await self.runt.getModRuntime(query, opts={'vars': {'modconf': modconf}})
+        modr = await self.runt.getModRuntime(query, opts={'vars': {'modconf': toReadOnly(modconf)}})
         modr.asroot = asroot
 
         if debug:
@@ -5697,6 +5697,112 @@ class List(Prim):
         reprs = [await torepr(k) for k in self.valu]
         rval = ', '.join(reprs)
         return f'[{rval}]'
+
+def toReadOnly(valu):
+    '''
+    Wrap a python dict/list/tuple in a deeply read-only Storm Dict/List. Other values are returned as is.
+    '''
+    if isinstance(valu, dict):
+        return ReadOnlyDict(valu)
+
+    if isinstance(valu, (list, tuple)):
+        return ReadOnlyList(valu)
+
+    return valu
+
+def _roerr():
+    mesg = 'This value is read-only and cannot be modified. Use $lib.copy() to get a mutable copy.'
+    return s_exc.StormRuntimeError(mesg=mesg)
+
+def _toHashable(valu):
+    if isinstance(valu, dict):
+        return frozenset((k, _toHashable(v)) for k, v in valu.items())
+
+    if isinstance(valu, (list, tuple)):
+        return tuple(_toHashable(v) for v in valu)
+
+    return valu
+
+@registry.registerType
+class ReadOnlyDict(Dict):
+    '''
+    A read-only dictionary. Setting or removing a key, including in any nested dictionary or list, raises an error.
+    Use $lib.copy() to get a mutable copy.
+    '''
+    _storm_typename = 'dict:readonly'
+    _ismutable = False
+
+    def __hash__(self):
+        return hash((self._storm_typename, _toHashable(self.valu)))
+
+    @stormfunc(readonly=True)
+    async def setitem(self, name, valu):
+        raise _roerr()
+
+    async def deref(self, name):
+        return toReadOnly(await Dict.deref(self, name))
+
+    async def iter(self):
+        for name, valu in tuple(self.valu.items()):
+            yield name, toReadOnly(valu)
+
+@registry.registerType
+class ReadOnlyList(List):
+    '''
+    A read-only list. It supports the non-modifying operations of a list, such as indexing, iteration, size(), and
+    has(). Methods that would modify it, including in any nested dictionary or list, raise an error. Use $lib.copy()
+    to get a mutable copy.
+    '''
+    _storm_typename = 'list:readonly'
+    _storm_locals = ()
+    _ismutable = False
+
+    def __hash__(self):
+        return hash((self._storm_typename, _toHashable(self.valu)))
+
+    @stormfunc(readonly=True)
+    async def setitem(self, name, valu):
+        raise _roerr()
+
+    @stormfunc(readonly=True)
+    async def _methListPop(self, index=-1):
+        raise _roerr()
+
+    @stormfunc(readonly=True)
+    async def _methListAppend(self, valu):
+        raise _roerr()
+
+    @stormfunc(readonly=True)
+    async def _methListReverse(self):
+        raise _roerr()
+
+    @stormfunc(readonly=True)
+    async def _methListSort(self, reverse=False):
+        raise _roerr()
+
+    @stormfunc(readonly=True)
+    async def _methListExtend(self, valu):
+        raise _roerr()
+
+    @stormfunc(readonly=True)
+    async def _methListRemove(self, item, all=False):
+        raise _roerr()
+
+    @stormfunc(readonly=True)
+    async def _methListIndex(self, valu):
+        return toReadOnly(await List._methListIndex(self, valu))
+
+    @stormfunc(readonly=True)
+    async def _methListSlice(self, start, end=None):
+        return await toprim(await List._methListSlice(self, start, end), use_list=True)
+
+    @stormfunc(readonly=True)
+    async def _methListUnique(self):
+        return await toprim(await List._methListUnique(self), use_list=True)
+
+    async def iter(self):
+        for valu in self.valu:
+            yield toReadOnly(valu)
 
 @registry.registerType
 class Bool(Prim):

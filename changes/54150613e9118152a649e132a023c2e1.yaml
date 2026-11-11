@@ -1,0 +1,7 @@
+desc: Changed the `$modconf` of an imported Storm module to be read-only, including nested
+  dictionaries and lists. Attempting to modify it now raises a `StormRuntimeError`. Use
+  `$lib.copy()` to get a mutable copy.
+desc:literal: false
+prs: []
+type: bug
+...
