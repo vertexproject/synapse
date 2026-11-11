@@ -1,0 +1,7 @@
+---
+desc: Fixed an issue where ``inet:url`` dropped the UNC slashes from ``file`` URLs
+  that include a username or password.
+desc:literal: false
+prs: []
+type: bug
+...

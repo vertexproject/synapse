@@ -1,0 +1,7 @@
+---
+desc: Fixed an issue where ``inet:url`` accepted URLs with a username or password
+  but no host, such as ``file://user@/x``.
+desc:literal: false
+prs: []
+type: bug
+...
