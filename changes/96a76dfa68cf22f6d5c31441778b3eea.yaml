@@ -1,0 +1,8 @@
+---
+desc: Migrated ``inet:url`` nodes stored with an invalid value or incorrect properties
+  by earlier versions of Synapse. Nodes which cannot be repaired are removed and recorded
+  in the ``model_0_2_38:nodes`` queue.
+desc:literal: false
+prs: []
+type: migration
+...

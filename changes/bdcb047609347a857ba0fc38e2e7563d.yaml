@@ -1,0 +1,7 @@
+---
+desc: Fixed an issue where ``inet:url`` did not end the host at a ``#``, so an ``@``
+  in the fragment set the wrong ``:fqdn`` and ``:user``.
+desc:literal: false
+prs: []
+type: bug
+...

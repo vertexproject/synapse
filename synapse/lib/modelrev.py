@@ -9,14 +9,20 @@ import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.types as s_types
+import synapse.lib.scrape as s_scrape
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 
+import synapse.models.inet as s_inet
 import synapse.models.infotech as s_infotech
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 37)
+maxvers = (0, 2, 38)
+
+# The end of the host of a Windows WebDAV file URL, file://host[@SSL]@port/path, as
+# stored by a normalizer which took the port for an IPv4 host: host[@SSL]@0.0.x.y
+urldavre = regex.compile(r'@(?:(ssl)@)?0\.0\.(\d{1,3})\.(\d{1,3})$', flags=regex.IGNORECASE)
 
 class ModelRev:
 
@@ -59,6 +65,7 @@ class ModelRev:
             ((0, 2, 35), self.revModel_0_2_35),
             ((0, 2, 36), self.revModel_0_2_36),
             ((0, 2, 37), self.revModel_0_2_37),
+            ((0, 2, 38), self.revModel_0_2_38),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -846,6 +853,10 @@ class ModelRev:
         migr = await ModelMigration_0_2_37.anit(self.core, layers)
         await migr.revModel_0_2_37()
 
+    async def revModel_0_2_38(self, layers):
+        migr = await ModelMigration_0_2_38.anit(self.core, layers)
+        await migr.revModel_0_2_38()
+
     async def runStorm(self, text, opts=None):
         '''
         Run storm code in a schedcoro and log the output messages.
@@ -1523,6 +1534,23 @@ class ModelMigrationBase:
 
         return refinfo
 
+    async def getNewCompValu(self, form, formvalu, oldvalu, newvalu):
+        '''
+        Return the (valu, info) a comp node should move to when a node it embeds
+        moves from oldvalu to newvalu. By default the comp value is re-normalized,
+        which relies on the embedded type normalizing oldvalu to newvalu.
+
+        Args:
+            form (synapse.datamodel.Form): The comp form of the referring node.
+            formvalu (tuple): The current primary value of the referring node.
+            oldvalu (any): The primary value of the node being moved.
+            newvalu (any): The primary value it is moving to.
+
+        Returns:
+            tuple: The normalized (valu, info) for the referring node.
+        '''
+        return form.type.norm(formvalu)
+
     async def removeNode(self, buid):
         assert self.nodes.has(buid)
         node = self.getNode(buid)
@@ -1539,6 +1567,12 @@ class ModelMigrationBase:
             for refiden, refinfo in reflist:
                 refbuid = s_common.uhex(refiden)
                 (refform, refprop, reftype, isarray, isro) = refinfo
+
+                # A node which refers to this one more than once (e.g. a comp with two
+                # slots naming it) has an entry per reference, and may already have been
+                # moved or removed while handling an earlier one.
+                if not self.nodes.has(refbuid):
+                    continue
 
                 if reftype == 'ndef':
                     propvalu = formndef
@@ -1890,6 +1924,12 @@ class ModelMigrationBase:
                 refbuid = s_common.uhex(refiden)
                 (refform, refprop, reftype, isarray, isro) = refinfo
 
+                # A node which refers to this one more than once (e.g. a comp with two
+                # slots naming it) has an entry per reference, and may already have been
+                # moved or removed while handling an earlier one.
+                if not self.nodes.has(refbuid):
+                    continue
+
                 if isro:
                     # For read-only comp form refs, compute the new comp value and recursively move
                     refnode = self.getNode(refbuid)
@@ -1899,7 +1939,7 @@ class ModelMigrationBase:
                     refformobj = self.core.model.form(refformname)
                     if refformobj is not None and isinstance(refformobj.type, s_types.Comp):
                         try:
-                            newrefvalu, refnorminfo = refformobj.type.norm(refformvalu)
+                            newrefvalu, refnorminfo = await self.getNewCompValu(refformobj, refformvalu, formvalu, newvalu)
                         except Exception:
                             logger.debug('Failed to re-normalize comp form %s for migration, removing node', refformname)
                             await self.removeNode(refbuid)
@@ -2521,6 +2561,330 @@ class ModelMigration_0_2_37(ModelMigrationBase):
         await self._flushEdits()
 
         logger.info(f'Finished processing {formstr} nodes: {removed} removed')
+
+        await self.todos.fini()
+        await self.nodes.fini()
+
+class ModelMigration_0_2_38(ModelMigrationBase):
+    '''
+    Repair inet:url nodes stored with an invalid value or incorrect secondary
+    properties by a normalizer which accepted them:
+
+    - Synapse < 2.258.0 running with asserts stripped (python -O), which stored
+      values such as http:////foo.com/x, and took the protocol and host of a URL
+      containing :////, such as http://foo.com/a?u=https:////evil.com/x, from the
+      embedded URL.
+    - Values without a valid scheme before the first ://, such as
+      //www.example.com/a?u=https://example.org, which took the protocol and host
+      from the embedded URL.
+    - Values whose host was misparsed around an @: a file URL with userinfo and no
+      host, such as file://user@/x; a # which did not end the host, such as
+      https://a.example#u@b.example; and a Windows WebDAV file URL, such as
+      file://host@SSL@443/x, whose port was stored as an IPv4 host.
+
+    Each node is either moved to its corrected value, has its secondary properties
+    re-normalized, or is removed and recorded in the model_0_2_38:nodes queue.
+    '''
+
+    queuename = 'model_0_2_38:nodes'
+
+    @classmethod
+    async def anit(cls, core, layers):
+        self = await super().anit(core, layers)
+
+        # The read-only properties inet:url derives from its value. Universal properties
+        # such as .created are also read-only, but are not derived from the value.
+        self.urlsubs = [name for name in self.getRoProps('inet:url') if not name.startswith('.')]
+
+        return self
+
+    def getNode(self, buid):
+        node = ModelMigrationBase.getNode(self, buid)
+        node.setdefault('verdict', None)
+        return node
+
+    def _prepareStoreItem(self, item):
+        item.pop('verdict', None)
+        item.pop('newvalu', None)
+        item.pop('newsubs', None)
+
+    def _getVerdict(self, form, formvalu, props):
+        '''
+        Classify a stored inet:url value using only string checks, normalizing
+        only the values which may need repair.
+
+        Returns:
+            (tuple|None): (verdict, newvalu, newsubs), or None if the node is valid.
+        '''
+        # The pre-2.258.0 normalizer running with asserts stripped (python -O) stored
+        # values such as <scheme>:////<rest>, where <scheme> contains no ://
+        scheme, sep, rest = formvalu.partition('://')
+        if sep and rest.startswith('//') and scheme != 'file':
+
+            if scheme not in s_scrape.urilist:
+                return ('remove', None, None)
+
+            return self._getNormVerdict(form, f'{scheme}://{rest[2:]}', formvalu, props)
+
+        proto = props.get('proto')
+        if proto is not None and '://' in proto[0]:
+            return self._getNormVerdict(form, formvalu, formvalu, props)
+
+        if sep and not s_inet.schemere.fullmatch(scheme.lower()):
+            return self._getNormVerdict(form, formvalu, formvalu, props)
+
+        # A # in the userinfo was taken as part of it, rather than ending the host,
+        # and a file URL with an empty userinfo stored an empty :user.
+        user = props.get('user')
+        passwd = props.get('passwd')
+        if ((user is not None and (user[0] == '' or '#' in user[0])) or
+                (passwd is not None and '#' in passwd[0])):
+            return self._getNormVerdict(form, formvalu, formvalu, props)
+
+        # A file URL with userinfo and no host, or a WebDAV host suffix.
+        if formvalu.startswith('file:'):
+
+            start = len(formvalu) - len(formvalu[5:].lstrip('/'))
+
+            end = len(formvalu)
+            for char in '/?#':
+                offs = formvalu.find(char, start)
+                if offs != -1:
+                    end = min(end, offs)
+
+            host = formvalu[start:end]
+            if '@' in host:
+
+                match = urldavre.search(host)
+                if match is not None:
+                    port = int(match.group(2)) * 256 + int(match.group(3))
+                    suffix = '' if match.group(1) is None else f'@{match.group(1)}'
+                    host = f'{host[:match.start()]}{suffix}@{port}'
+
+                valu = f'{formvalu[:start]}{host}{formvalu[end:]}'
+                return self._getNormVerdict(form, valu, formvalu, props)
+
+        return None
+
+    def _getNormVerdict(self, form, valu, formvalu, props):
+
+        try:
+            newvalu, info = form.type.norm(valu)
+        except s_exc.BadTypeValu:
+            return ('remove', None, None)
+
+        newsubs = info['subs']
+
+        if newvalu != formvalu:
+            return ('move', newvalu, newsubs)
+
+        for propname in self.urlsubs:
+
+            curv = props.get(propname)
+            if curv is not None:
+                curv = curv[0]
+
+            newv = newsubs.get(propname)
+            if newv is not None:
+                newv = form.props.get(propname).type.norm(newv)[0]
+
+            if newv != curv:
+                return ('fixprops', newvalu, newsubs)
+
+        return None
+
+    async def getNewCompValu(self, form, formvalu, oldvalu, newvalu):
+        # Substitute every inet:url field which this migration moves, rather than
+        # re-normalizing values the current normalizer rejects.
+        valu = list(formvalu)
+
+        for idx, field in enumerate(form.type.opts.get('fields', ())):
+
+            if field[1] != 'inet:url':
+                continue
+
+            if valu[idx] == oldvalu:
+                valu[idx] = newvalu
+                continue
+
+            node = self.nodes.get(s_common.buid(('inet:url', valu[idx])))
+            if node is not None and node.get('verdict') == 'move':
+                valu[idx] = node.get('newvalu')
+
+        return form.type.norm(tuple(valu))
+
+    async def _setUrlSubs(self, buid, newsubs, layridens):
+        '''
+        Set the read-only inet:url properties of a node to newsubs, deleting any
+        which newsubs does not contain, in each layer holding its primary value.
+        '''
+        form = self.core.model.form('inet:url')
+        node = self.getNode(buid)
+
+        for layriden in layridens:
+
+            props = None
+            if (sode := node['sodes'].get(layriden)) is not None:
+                props = sode.get('props')
+
+            # this should be impossible, but has been observed in the wild...
+            if props is None:  # pragma: no cover
+                props = {}
+
+            for propname in self.urlsubs:
+
+                prop = form.props.get(propname)
+                stortype = prop.type.stortype
+
+                curv = props.get(propname)
+                if curv is not None:
+                    curv = curv[0]
+
+                newv = newsubs.get(propname)
+                if newv is not None:
+                    newv = prop.type.norm(newv)[0]
+
+                if newv == curv:
+                    continue
+
+                if newv is None:
+                    await self.editPropDel(layriden, buid, 'inet:url', propname, curv, stortype)
+                else:
+                    await self.editPropSet(layriden, buid, 'inet:url', propname, newv, curv, stortype)
+
+    async def revModel_0_2_38(self):
+
+        form = self.core.model.form('inet:url')
+
+        logger.info(f'Collecting invalid inet:url nodes in {len(self.layers)} layers')
+
+        for idx, layer in enumerate(self.layers):
+            logger.debug('Scanning inet:url nodes in layer %s %s', idx, layer.iden)
+
+            async for buid, sode in layer.getStorNodesByForm('inet:url'):
+
+                if (formvalu := sode.get('valu')) is None:
+                    continue
+
+                formvalu = formvalu[0]
+
+                # this should be impossible, but has been observed in the wild...
+                if (props := sode.get('props')) is None:  # pragma: no cover
+                    props = {}
+
+                verdict = self._getVerdict(form, formvalu, props)
+                if verdict is None:
+                    continue
+
+                node = self.getNode(buid)
+                node['formvalu'] = formvalu
+                node['formname'] = 'inet:url'
+                (node['verdict'], node['newvalu'], node['newsubs']) = verdict
+
+                layers = list(node['layers'])
+                if layer.iden not in layers:
+                    layers.append(layer.iden)
+                node['layers'] = layers
+
+                await self.nodes.set(buid, node)
+
+        invalid = len(self.nodes)
+        logger.info(f'Processing {invalid} invalid inet:url nodes in {len(self.layers)} layers')
+
+        if invalid == 0:
+            await self.todos.fini()
+            await self.nodes.fini()
+            return
+
+        for idx, layer in enumerate(self.layers):
+            logger.debug('Loading nodes in layer %s %s', idx, layer.iden)
+
+            async for buid, node in s_coro.pause(self.nodes.items()):
+
+                await self._loadNode(layer, buid, node=node)
+
+                # Re-normalizing properties leaves the primary value, and so every
+                # reference to the node, unchanged.
+                if node.get('verdict') == 'fixprops':
+                    continue
+
+                formvalu = node.get('formvalu')
+                # spilled nodes hold tuples
+                refs = list(node['refs'].get(layer.iden, ()))
+
+                for refinfo in self.getRefInfo('inet:url'):
+                    (refform, refprop, reftype, isarray, isro) = refinfo
+
+                    if reftype == 'ndef':
+                        propvalu = ('inet:url', formvalu)
+                    else:
+                        propvalu = formvalu
+
+                    async for refbuid, refsode in self.getSodeByPropValuNoNorm(layer, refform, refprop, propvalu):
+                        refs.append((s_common.ehex(refbuid), refinfo))
+                        await self.todos.add(('getvalu', (refbuid, True)))
+
+                if refs:
+                    node['refs'][layer.iden] = refs
+
+                await self.nodes.set(buid, node)
+
+        logger.info('Processing invalid inet:url node references (this may happen multiple times)')
+        await self._collectReferences()
+
+        moved = 0
+        fixed = 0
+        removed = 0
+
+        # moveNode() adds nodes to self.nodes, so iterate a snapshot of the target buids
+        async with await s_spooled.Set.anit(dirn=self.core.dirn) as targets:
+
+            async for buid, node in s_coro.pause(self.nodes.items()):
+                if node.get('verdict') is not None:
+                    await targets.add(buid)
+
+            async for buid in targets:
+
+                await asyncio.sleep(0)
+
+                # A node may have been removed with a comp node which embedded it.
+                if not self.nodes.has(buid):  # pragma: no cover
+                    continue
+
+                node = self.getNode(buid)
+                verdict = node.get('verdict')
+                newvalu = node.get('newvalu')
+                newsubs = node.get('newsubs')
+
+                if verdict == 'remove':
+                    logger.warning('Removing invalid node valu: inet:url=%s iden=%s', node.get('formvalu'), s_common.ehex(buid))
+                    await self.removeNode(buid)
+                    removed += 1
+
+                elif verdict == 'fixprops':
+                    await self._setUrlSubs(buid, newsubs, node['layers'])
+                    fixed += 1
+
+                else:
+                    srclayers = list(node['layers'])
+                    newbuid = s_common.buid(('inet:url', newvalu))
+
+                    await self.moveNode(buid, newvalu, newsubs=newsubs)
+
+                    # moveNode() only overrides properties the old node had, and keeps the
+                    # destination's own values when it already existed.
+                    layridens = set(srclayers)
+                    layridens.update(self.getNode(newbuid)['layers'])
+                    await self._setUrlSubs(newbuid, newsubs, sorted(layridens))
+                    moved += 1
+
+                count = moved + fixed + removed
+                if count % 1000 == 0:  # pragma: no cover
+                    logger.info(f'Processed {count} invalid inet:url nodes')
+
+        await self._flushEdits()
+
+        logger.info(f'Finished processing invalid inet:url nodes: {moved} moved, {fixed} re-normalized, {removed} removed')
 
         await self.todos.fini()
         await self.nodes.fini()

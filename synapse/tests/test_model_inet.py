@@ -1545,6 +1545,52 @@ class InetModelTest(s_t_utils.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, "file://#")  # Missing address/url
             self.raises(s_exc.BadTypeValu, t.norm, "file://$")  # Missing address/url
             self.raises(s_exc.BadTypeValu, t.norm, "file://%")  # Missing address/url
+            self.raises(s_exc.BadTypeValu, t.norm, 'http://user@/x')  # Missing address/url
+
+            # the authority ends at the first #, so an @ in the fragment is not userinfo
+            url = 'https://login.example.net#first.last@example.com'
+            expected = (url, {'subs': {
+                'proto': 'https',
+                'path': '',
+                'params': '',
+                'port': 443,
+                'fqdn': 'login.example.net',
+                'base': url,
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'https://a.example#u@b.example'
+            expected = (url, {'subs': {
+                'proto': 'https',
+                'path': '',
+                'params': '',
+                'port': 443,
+                'fqdn': 'a.example',
+                'base': url,
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'https://a.example#frag'
+            expected = (url, {'subs': {
+                'proto': 'https',
+                'path': '',
+                'params': '',
+                'port': 443,
+                'fqdn': 'a.example',
+                'base': url,
+            }})
+            self.eq(t.norm(url), expected)
+
+            valu, info = t.norm('https://a.example#x?y@b.example')
+            self.eq(valu, 'https://a.example#x?y@b.example')
+            self.eq(info['subs']['fqdn'], 'a.example')
+            self.notin('user', info['subs'])
+
+            # only file: URLs may be UNC or local paths
+            self.raises(s_exc.BadTypeValu, t.norm, 'http://///foo.com/x')  # Missing address/url
+            self.raises(s_exc.BadTypeValu, t.norm, 'http:////foo.com/x')  # Missing address/url
+            self.raises(s_exc.BadTypeValu, t.norm, 'mailto:visi@vertex.link')  # Invalid/Missing protocol
+            self.raises(s_exc.BadTypeValu, t.norm, 'foo:bar')  # Invalid/Missing protocol
 
             # the text before the first :// must be a valid scheme, not part of an embedded URL
             for valu in ('//www.example.com/submit?url=https://example.org/x',
@@ -1578,6 +1624,29 @@ class InetModelTest(s_t_utils.SynTest):
             norm, info = t.norm('https://www.example.com/submit?url=https://example.org/x')
             self.eq(info['subs']['proto'], 'https')
             self.eq(info['subs']['fqdn'], 'www.example.com')
+
+            # an @ in a URL embedded in the params is not userinfo
+            url = 'http://foo.com/r?u=https://a@evil.com/x'
+            expected = (url, {'subs': {
+                'proto': 'http',
+                'path': '/r',
+                'params': '?u=https://a@evil.com/x',
+                'port': 80,
+                'fqdn': 'foo.com',
+                'base': 'http://foo.com/r',
+            }})
+            self.eq(t.norm(url), expected)
+
+            # nor is a WebDAV-shaped @port suffix in the params of a file URL
+            url = 'file://host/r?u=https://evil.com@80/x'
+            expected = (url, {'subs': {
+                'proto': 'file',
+                'path': '/r',
+                'params': '?u=https://evil.com@80/x',
+                'fqdn': 'host',
+                'base': 'file://host/r',
+            }})
+            self.eq(t.norm(url), expected)
 
             self.raises(s_exc.BadTypeValu, t.norm, 'www.google\udcfesites.com/hehe.asp')
             valu = t.norm('http://www.googlesites.com/hehe\udcfestuff.asp')
@@ -1970,6 +2039,120 @@ class InetModelTest(s_t_utils.SynTest):
                 'fqdn': 'host.vertex.link',
             }})
             self.eq(t.norm(url), expected)
+
+            # the file scheme is case insensitive for UNC and local paths
+            url = 'FILE:////host.vertex.link/SharedDir/Unc/FilePath'
+            expected = ('file:////host.vertex.link/SharedDir/Unc/FilePath', {'subs': {
+                'proto': 'file',
+                'params': '',
+                'path': '/SharedDir/Unc/FilePath',
+                'fqdn': 'host.vertex.link',
+                'base': 'file:////host.vertex.link/SharedDir/Unc/FilePath',
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'File:c:/foo/bar.txt'
+            expected = ('file:///c:/foo/bar.txt', {'subs': {
+                'proto': 'file',
+                'params': '',
+                'path': 'c:/foo/bar.txt',
+                'base': 'file:///c:/foo/bar.txt',
+            }})
+            self.eq(t.norm(url), expected)
+
+            # userinfo requires a host
+            self.raises(s_exc.BadTypeValu, t.norm, 'file://user@/x')
+            self.raises(s_exc.BadTypeValu, t.norm, 'file://user@')
+            self.raises(s_exc.BadTypeValu, t.norm, 'file://user:pass@/x')
+            self.raises(s_exc.BadTypeValu, t.norm, 'file://@/x')
+            self.raises(s_exc.BadTypeValu, t.norm, 'file://:@/x')
+            self.raises(s_exc.BadTypeValu, t.norm, 'file:user@/x')
+            self.raises(s_exc.BadTypeValu, t.norm, 'file:////user@/x')
+            self.raises(s_exc.BadTypeValu, t.norm, 'file://%@MAC_ACROSANDBOX_TMPDIRAcr%d%u%d%u.tmpB24@?0@')
+
+            # UNC slashes are kept when userinfo is present
+            url = 'file://///user@host.vertex.link/share/x'
+            expected = ('file:////user@host.vertex.link/share/x', {'subs': {
+                'proto': 'file',
+                'params': '',
+                'path': '/share/x',
+                'user': 'user',
+                'fqdn': 'host.vertex.link',
+                'base': 'file:////user@host.vertex.link/share/x',
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file:////user:pass@host.vertex.link/share/x'
+            expected = (url, {'subs': {
+                'proto': 'file',
+                'params': '',
+                'path': '/share/x',
+                'user': 'user',
+                'passwd': 'pass',
+                'fqdn': 'host.vertex.link',
+                'base': url,
+            }})
+            self.eq(t.norm(url), expected)
+
+            # Windows WebDAV host suffix: \\server[@SSL][@port]\path in file URL form
+            url = 'file://1.2.3.4@80/t.htm'
+            expected = (url, {'subs': {
+                'proto': 'file',
+                'params': '',
+                'path': '/t.htm',
+                'ipv4': 0x01020304,
+                'port': 80,
+                'base': url,
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file://evil.example@SSL@443/t.htm'
+            expected = (url, {'subs': {
+                'proto': 'file',
+                'params': '',
+                'path': '/t.htm',
+                'fqdn': 'evil.example',
+                'port': 443,
+                'base': url,
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file://evil.example@ssl/t.htm'
+            expected = ('file://evil.example@SSL/t.htm', {'subs': {
+                'proto': 'file',
+                'params': '',
+                'path': '/t.htm',
+                'fqdn': 'evil.example',
+                'port': 443,
+                'base': 'file://evil.example@SSL/t.htm',
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file://user@evil.example@80/x'
+            expected = (url, {'subs': {
+                'proto': 'file',
+                'params': '',
+                'path': '/x',
+                'user': 'user',
+                'fqdn': 'evil.example',
+                'port': 80,
+                'base': url,
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file:////evil.example@SSL@443/x'
+            expected = (url, {'subs': {
+                'proto': 'file',
+                'params': '',
+                'path': '/x',
+                'fqdn': 'evil.example',
+                'port': 443,
+                'base': url,
+            }})
+            self.eq(t.norm(url), expected)
+
+            self.raises(s_exc.BadTypeValu, t.norm, 'file://@80/x')
+            self.raises(s_exc.BadTypeValu, t.norm, 'file://host:8080@80/x')
 
     async def test_url_fqdn(self):
 
