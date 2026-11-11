@@ -658,6 +658,7 @@ workflows:
             branches:
               only:
                 - master
+                - 20261021-frag-slab-stats
 
       - build_docker_tag:
           requires:

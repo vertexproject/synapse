@@ -1,5 +1,6 @@
 import os
 import shutil
+import struct
 import asyncio
 import threading
 import collections
@@ -770,6 +771,215 @@ def _mapsizeround(size):
 
     return _roundup(size, MAX_DOUBLE_SIZE)
 
+# LMDB on-disk format constants (data version 1, 64-bit) used to read B-tree pages from the data file
+MDB_MAGIC = 0xBEEFC0DE
+MDB_DATA_VERSION = 1
+MDB_PAGEHDRSZ = 16
+MDB_NODESIZE = 8
+MDB_MAXDEPTH = 64
+MDB_P_INVALID = 0xffffffffffffffff
+MDB_P_BRANCH = 0x01
+MDB_P_LEAF = 0x02
+MDB_F_BIGDATA = 0x01
+MDB_F_SUBDATA = 0x02
+
+# leaf pages within this many pages of the previous leaf may be read by the same readahead
+MDB_NEAR_PAGES = 32
+
+def _readMeta(path, psize, txnid):
+    '''
+    Read the free list DB record, the main DB root and the last page number from the meta page for the
+    given transaction.
+
+    Returns:
+        tuple: ((branch, leaf, overflow, root) for the free list, mainroot, lastpg), or None if the
+        transaction is no longer the most recent commit.
+
+    Notes:
+        A commit overwrites the meta page of the transaction two before it, writing the txnid last, so a
+        meta page read during that commit could mix old and new values with the old txnid. The meta page
+        is only returned if the other meta page is still older after it was read, which means the commit
+        that would overwrite it has not started.
+    '''
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        for pgno in (0, 1):
+            byts = os.pread(fd, psize, pgno * psize)
+
+            magic, vers = struct.unpack_from('<II', byts, MDB_PAGEHDRSZ)
+            if magic != MDB_MAGIC or vers != MDB_DATA_VERSION:
+                raise s_exc.BadDataValu(mesg=f'Unsupported LMDB meta page {magic=} {vers=}.')
+
+            # mm_dbs[FREE_DBI] starts at 40, followed by mm_dbs[MAIN_DBI] at 88, mm_last_pg and mm_txnid
+            if struct.unpack_from('<Q', byts, 144)[0] != txnid:
+                continue
+
+            mainroot, lastpg = struct.unpack_from('<QQ', byts, 128)
+            meta = (struct.unpack_from('<QQQ8xQ', byts, 48), mainroot, lastpg)
+
+            othr = os.pread(fd, 8, (1 - pgno) * psize + 144)
+            if struct.unpack('<Q', othr)[0] > txnid:
+                return None
+
+            return meta
+
+        return None
+
+    finally:
+        os.close(fd)
+
+def _getPageStats(path, psize, meta, names):
+    '''
+    Count the pages in the LMDB free list and measure the leaf page order of named databases by walking
+    B-tree pages in the data file.
+
+    The caller must hold open the read transaction that meta was read for by _readMeta(), which prevents
+    the pages of its snapshot from being reused.
+
+    Returns:
+        tuple: (freepages, freedbpages, order) where order maps each name in names which is present in
+        the main DB to a (seqratio, nearratio) tuple, or None if meta is None.
+
+    Notes:
+        Only the leaf pages of each DB's own B-tree are measured, which requires reading its branch pages
+        but not its leaf pages. The leaf pages of dupsort sub-trees are not measured, because finding them
+        requires reading every leaf page of the DB, which was too slow on large layers.
+
+    Raises:
+        s_exc.BadDataValu, struct.error, OSError: If the pages are not readable.
+    '''
+    if meta is None:
+        return None
+
+    (branch, leaf, overflow, root), mainroot, lastpg = meta
+
+    fd = os.open(path, os.O_RDONLY)
+    try:
+
+        def readpage(pgno):
+            if pgno > lastpg:
+                raise s_exc.BadDataValu(mesg=f'Page {pgno} is beyond the last page {lastpg}.')
+            return os.pread(fd, psize, pgno * psize)
+
+        def readnodes(pgno):
+            byts = readpage(pgno)
+            flags, lower = struct.unpack_from('<HH', byts, 10)
+            if not flags & (MDB_P_BRANCH | MDB_P_LEAF):
+                raise s_exc.BadDataValu(mesg=f'Page {pgno} has unexpected flags {flags}.')
+
+            # each node is (lo, hi, flags, ksize) followed by the key
+            nodes = []
+            for i in range((lower - MDB_PAGEHDRSZ) >> 1):
+                offs = struct.unpack_from('<H', byts, MDB_PAGEHDRSZ + i * 2)[0]
+                nodes.append((offs, *struct.unpack_from('<HHHH', byts, offs)))
+
+            return byts, flags, nodes
+
+        free = 0
+        todo = []
+        if root != MDB_P_INVALID:
+            todo.append(root)
+
+        maxpages = branch + leaf
+        while todo:
+
+            maxpages -= 1
+            if maxpages < 0:
+                raise s_exc.BadDataValu(mesg='Free list has more pages than its meta page records.')
+
+            byts, flags, nodes = readnodes(todo.pop())
+            for offs, lo, hi, nflags, ksize in nodes:
+
+                if flags & MDB_P_BRANCH:
+                    todo.append(lo | (hi << 16) | (nflags << 32))
+                    continue
+
+                # each record is an ID list whose first entry is the number of free pages
+                data = byts
+                offs += MDB_NODESIZE + ksize
+                if nflags & MDB_F_BIGDATA:
+                    data = readpage(struct.unpack_from('<Q', byts, offs)[0])
+                    offs = MDB_PAGEHDRSZ
+
+                free += struct.unpack_from('<Q', data, offs)[0]
+
+        def finddb(name):
+            # search the main DB for the record of a named DB, returning its (depth, branch, root)
+            pgno = mainroot
+            for _ in range(MDB_MAXDEPTH):
+
+                if pgno == MDB_P_INVALID:
+                    return None
+
+                byts, flags, nodes = readnodes(pgno)
+                if flags & MDB_P_BRANCH:
+                    # the key of the first node is empty and sorts before every other key
+                    for i, (offs, lo, hi, nflags, ksize) in enumerate(nodes):
+                        if i and byts[offs + MDB_NODESIZE:offs + MDB_NODESIZE + ksize] > name:
+                            break
+                        pgno = lo | (hi << 16) | (nflags << 32)
+                    continue
+
+                for offs, lo, hi, nflags, ksize in nodes:
+                    if nflags & MDB_F_SUBDATA and byts[offs + MDB_NODESIZE:offs + MDB_NODESIZE + ksize] == name:
+                        offs += MDB_NODESIZE + ksize
+                        depth, dbbranch = struct.unpack_from('<6xHQ', byts, offs)
+                        return depth, dbbranch, struct.unpack_from('<Q', byts, offs + 40)[0]
+
+                return None
+
+            raise s_exc.BadDataValu(mesg='Main DB is deeper than the maximum depth.')
+
+        order = {}
+        for name in names:
+
+            dbrec = finddb(name)
+            if dbrec is None:
+                continue
+
+            depth, dbbranch, dbroot = dbrec
+
+            # walk the branch pages in key order to list the leaf pages without reading them
+            seq = near = pairs = 0
+            prev = None
+
+            todo = []
+            if dbroot != MDB_P_INVALID:
+                todo.append((dbroot, 1))
+
+            maxpages = dbbranch
+            while todo:
+
+                pgno, level = todo.pop()
+                if level >= depth:
+                    if prev is not None:
+                        pairs += 1
+                        seq += pgno == prev + 1
+                        near += abs(pgno - prev) <= MDB_NEAR_PAGES
+                    prev = pgno
+                    continue
+
+                maxpages -= 1
+                if maxpages < 0:
+                    raise s_exc.BadDataValu(mesg='DB has more branch pages than its record has.')
+
+                byts, flags, nodes = readnodes(pgno)
+                if not flags & MDB_P_BRANCH:
+                    raise s_exc.BadDataValu(mesg=f'Page {pgno} is not a branch page at depth {level}.')
+
+                for offs, lo, hi, nflags, ksize in reversed(nodes):
+                    todo.append((lo | (hi << 16) | (nflags << 32), level + 1))
+
+            if pairs:
+                order[name] = (seq / pairs, near / pairs)
+            else:
+                order[name] = (None, None)
+
+        return free, branch + leaf + overflow, order
+
+    finally:
+        os.close(fd)
+
 class Slab(s_base.Base):
     '''
     A "monolithic" LMDB instance for use in a asyncio loop thread.
@@ -834,9 +1044,12 @@ class Slab(s_base.Base):
                 await asyncio.sleep(0)
 
     @classmethod
-    async def getSlabStats(clas):
+    async def getSlabStats(clas, pagestats=False):
         retn = []
-        for slab in clas.allslabs.values():
+        for slab in list(clas.allslabs.values()):
+            if slab.isfini:  # pragma: no cover
+                continue
+
             retn.append({
                 'path': str(slab.path),
                 'xactops': len(slab.xactops),
@@ -849,8 +1062,121 @@ class Slab(s_base.Base):
                 'growsize': slab.growsize,
                 'mapasync': True,
                 'commitstats': list(slab.commitstats),
+                **(await slab.pageStats(pagestats=pagestats)),
             })
         return retn
+
+    async def pageStats(self, pagestats=False):
+        '''
+        Get LMDB page accounting for the slab as of the last commit.
+
+        Args:
+            pagestats (bool): Also count the pages in the LMDB free list and measure the leaf page order of
+                each named database.
+
+        Returns:
+            dict: A dictionary containing ``pagesize``, ``allocpages`` and ``dbs``, and ``freepages``,
+            ``freedbpages`` and ``reclaimratio`` if requested.
+
+        Notes:
+            ``allocpages`` is the number of pages in use in the file (matching ``mdb_stat``), which is the
+            on-disk size of the slab in pages. The map size is not; the file is sparse up to the map size.
+
+            ``dbs`` contains a dict of ``pages``, ``entries``, ``depth`` and ``dupsort`` for each named
+            database opened by the slab. LMDB does not count the pages of dupsort sub-trees in a database's
+            page counts, so ``pages`` is a lower bound for dupsort databases.
+
+            ``freepages`` is the number of pages in the free list (matching ``mdb_stat -f``) and ``freedbpages``
+            is the number of pages holding the free list itself. Their sum is the number of pages a compacting
+            copy of the slab, such as the one made by ``onboot:optimize``, would reclaim, and ``reclaimratio``
+            is that sum divided by ``allocpages``. When they are present, ``allocpages`` is from the same
+            snapshot as the free list.
+
+            If requested, each database in ``dbs`` also includes a ``seqratio`` and ``nearratio`` for the order
+            of its leaf pages in the file. Of each pair of leaf pages which are adjacent in key order,
+            ``seqratio`` is the fraction where the second is the next page in the file, and ``nearratio`` is
+            the fraction where the second is within 32 pages of the first, which a readahead may read with it.
+            Both are None for a database with fewer than two leaf pages. Updates scatter leaf pages because
+            LMDB copies each modified page to a free page or the end of the file, and a compacting copy writes
+            them in key order again.
+
+            The leaf pages of dupsort sub-trees are not included, so for a dupsort database the ratios only
+            describe the pages holding its keys, and do not describe the sub-trees which may hold most of its
+            data. A dupsort database with few keys, such as one per verb, may fit its keys in one leaf page and
+            have None for both ratios.
+
+            The python lmdb bindings do not expose the free list or page numbers, so they are read from the
+            data file, and all of these values are None if they could not be read consistently. Reading them
+            holds a read transaction open, which prevents the reuse of pages freed while they are read.
+        '''
+        if self.readonly:
+            xact = self._acqXactForReading()
+        else:
+            # use a short-lived read transaction for a view consistent with the last commit
+            xact = self.lenv.begin()
+
+        try:
+            dbs = {}
+            for name, (realdb, dupsort) in self.dbnames.items():
+                if name is None:
+                    continue
+
+                stat = xact.stat(db=realdb)
+                dbs[name] = {
+                    'pages': stat['branch_pages'] + stat['leaf_pages'] + stat['overflow_pages'],
+                    'entries': stat['entries'],
+                    'depth': stat['depth'],
+                    'dupsort': dupsort,
+                }
+
+            psize = self.lenv.stat()['psize']
+            retn = {
+                'pagesize': psize,
+                'allocpages': self.lenv.info()['last_pgno'] + 1,
+                'dbs': dbs,
+            }
+
+            if pagestats:
+                retn['freepages'] = None
+                retn['freedbpages'] = None
+                retn['reclaimratio'] = None
+
+                for info in dbs.values():
+                    info['seqratio'] = None
+                    info['nearratio'] = None
+
+                mdbpath = s_common.genpath(self.path, 'data.mdb')
+                names = [name.encode() for name in dbs]
+                try:
+                    # the read transaction prevents the pages of its snapshot from being reused during the walk.
+                    # nothing may read through xact after this await; a commit may resize the map meanwhile.
+                    meta = _readMeta(mdbpath, psize, xact.id())
+                    walk = await s_coro.executor(_getPageStats, mdbpath, psize, meta, names)
+
+                except (s_exc.BadDataValu, struct.error, OSError) as e:
+                    logger.warning(f'Unable to read the LMDB pages for {mdbpath}: {e}')
+                    return retn
+
+                if walk is not None:
+                    free, freedb, order = walk
+
+                    # use the last page from the same snapshot as the free list
+                    retn['allocpages'] = meta[2] + 1
+                    retn['freepages'] = free
+                    retn['freedbpages'] = freedb
+                    retn['reclaimratio'] = (free + freedb) / retn['allocpages']
+
+                    for name, (seqratio, nearratio) in order.items():
+                        dbs[name.decode()]['seqratio'] = seqratio
+                        dbs[name.decode()]['nearratio'] = nearratio
+
+            return retn
+
+        finally:
+            if self.readonly:
+                self._relXactForReading()
+            else:
+                xact.abort()
 
     async def __anit__(self, path, **kwargs):
 
