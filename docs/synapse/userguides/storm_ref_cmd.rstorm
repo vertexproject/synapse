@@ -2784,14 +2784,24 @@ The ``uptime`` command displays the uptime for the Cortex or specified service.
 v3.prepare
 ----------
 
-The ``v3.prepare`` command checks the Cortex and its Storm services, such as Optic, for readiness to upgrade to
-Synapse 3.x, and prepares each one whose check has no errors. The check of the Cortex prints an ``ERROR:`` line for
-each layer which contains deprecated model elements, for each installed Power-Up which is below the minimum version
-that supports Synapse 3.x, for each installed Vertex Power-Up which is not yet available for Synapse 3.x, and for
-each layer model migration or Power-Up init which has not completed yet. Each Storm service is then checked and
-prepared in a section of its own. A service which is not connected, runs a Synapse version which cannot prepare it
-for Synapse 3.x, or is connected to a mirror gets an ``ERROR:`` line. The command waits for each service to finish,
-which may take several hours.
+The ``v3.prepare`` command prepares the Cortex and its Storm services, such as Optic, for the upgrade to Synapse
+3.x. It checks each one first, and prepares each one whose check has no errors.
+
+The check of the Cortex prints an ``ERROR:`` line for each:
+
+- layer which contains deprecated model elements
+- installed Power-Up which is below the minimum version that supports Synapse 3.x
+- installed Vertex Power-Up which is not yet available for Synapse 3.x
+- layer model migration or Power-Up init which has not completed yet
+
+Each Storm service is then checked and prepared in a section of its own. The check of a service prints an ``ERROR:``
+line if the service:
+
+- is not connected
+- runs a Synapse version which cannot prepare it for Synapse 3.x
+- is connected to a mirror
+
+The command waits for each service to finish preparing.
 
 Errors block the upgrade and must be fixed by hand, so they also skip the preparation of the Cortex or service which
 has them. Warnings do not block the upgrade. The command prints whether the Cortex is ready for Synapse 3.x, and
