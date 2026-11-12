@@ -24,13 +24,12 @@ Note:
 lintdesc = '''
 Lint Storm code and yield a dictionary for each finding.
 
-Each finding has the keys rule, severity, line, column and mesg, and the
-findings are sorted by line, column and rule. A syntax error yields an E001
-finding. Form and property names are checked against the Cortex data model,
-including extended model elements.
+Findings are checked against the data model of the Cortex, including extended model
+elements. Each finding is a dictionary with the keys rule, severity, line, column and mesg,
+sorted by line, column and rule. A syntax error yields an E001 finding.
 
-Example:
-    Print the findings for a Storm query::
+Examples:
+    Print the findings for a query::
 
         for $finding in $lib.storm.lint($text) {
             $lib.print(`{$finding.line}:{$finding.column} {$finding.rule} {$finding.mesg}`)
@@ -144,17 +143,15 @@ class LibStorm(s_stormtypes.Lib):
                   'args': (
                       {'name': 'text', 'type': 'str', 'desc': 'The Storm code to lint.'},
                       {'name': 'includes', 'type': 'list', 'default': None,
-                       'desc': 'Rule IDs or ID prefixes to add to the default rule set, including rules which are '
-                               'off by default such as S010 and S015. The default rules still run.'},
+                       'desc': 'Rule IDs or ID prefixes to add to the default rules, including rules which are '
+                               'off by default such as S010 and S015.'},
                       {'name': 'excludes', 'type': 'list', 'default': None,
-                       'desc': 'Rule IDs or ID prefixes to remove from the rule set. '
-                               'Applied last, after includes and v3ready.'},
+                       'desc': 'Rule IDs or ID prefixes to remove from the rules, applied last, after includes and v3ready.'},
                       {'name': 'v3ready', 'type': 'boolean', 'default': False,
                        'desc': 'Add every rule which reports Storm that must change for Synapse 3.x, '
                                'the same as storm.lint --v3-ready.'},
                   ),
-                  'returns': {'name': 'yields', 'type': 'dict',
-                              'desc': 'A dictionary for each finding, with the keys rule, severity, line, column and mesg.'}}},
+                  'returns': {'name': 'yields', 'type': 'dict', 'desc': 'A dictionary for each lint finding.'}}},
     )
     _storm_lib_path = ('storm',)
 
@@ -219,24 +216,23 @@ class LibStorm(s_stormtypes.Lib):
     async def _lintStorm(self, text, includes=None, excludes=None, v3ready=False):
 
         text = await s_stormtypes.tostr(text)
+        includes = await s_stormtypes.toprim(includes)
+        excludes = await s_stormtypes.toprim(excludes)
         v3ready = await s_stormtypes.tobool(v3ready)
 
-        includes = await s_stormtypes.toprim(includes)
         if includes is None:
             includes = ()
 
-        if not isinstance(includes, (list, tuple)):
-            raise s_exc.BadArg(mesg='includes must be a list of rule IDs or ID prefixes.', name='includes')
-
-        excludes = await s_stormtypes.toprim(excludes)
         if excludes is None:
             excludes = ()
+
+        if not isinstance(includes, (list, tuple)):
+            raise s_exc.BadArg(mesg='includes must be a list of rule IDs or ID prefixes.', name='includes')
 
         if not isinstance(excludes, (list, tuple)):
             raise s_exc.BadArg(mesg='excludes must be a list of rule IDs or ID prefixes.', name='excludes')
 
         names = s_stormlint._getModelNames(self.runt.model.getModelDict())
 
-        findings = await s_processpool.semafork(_lintStorm, text, includes, excludes, names, v3ready)
-        for finding in findings:
+        for finding in await s_processpool.semafork(_lintStorm, text, includes, excludes, names, v3ready):
             yield finding
