@@ -226,10 +226,10 @@ class LibStorm(s_stormtypes.Lib):
         if excludes is None:
             excludes = ()
 
-        if not isinstance(includes, (list, tuple)):
+        if not isinstance(includes, (list, tuple)) or not all(isinstance(i, str) for i in includes):
             raise s_exc.BadArg(mesg='includes must be a list of rule IDs or ID prefixes.', name='includes')
 
-        if not isinstance(excludes, (list, tuple)):
+        if not isinstance(excludes, (list, tuple)) or not all(isinstance(i, str) for i in excludes):
             raise s_exc.BadArg(mesg='excludes must be a list of rule IDs or ID prefixes.', name='excludes')
 
         names = s_stormlint._getModelNames(self.runt.model.getModelDict())
