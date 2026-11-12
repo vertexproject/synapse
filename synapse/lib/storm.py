@@ -6041,15 +6041,16 @@ class ColorizeCmd(Cmd):
 
 class V3PrepareCmd(Cmd):
     '''
-    Check the Cortex and its Storm services for Synapse 3.x, and prepare them.
+    Prepare the Cortex and its Storm services for the upgrade to Synapse 3.x.
 
-    Prepares each one whose check has no errors. Prints an error for each
-    deprecated form, property, or type which is still in use in any layer,
-    installed Power-Up which is below the minimum version that supports
-    Synapse 3.x, installed Vertex Power-Up which is not yet available for
-    Synapse 3.x, and layer model migration or Power-Up init which has not
-    completed yet. Then checks and prepares each Storm service, such as
-    Optic, in a section of its own, and names those which are not ready.
+    Each one is checked first, and only prepared if its check has no errors.
+    The check of the Cortex prints an error for each deprecated form,
+    property, or type which is still in use in any layer, installed Power-Up
+    which is below the minimum version that supports Synapse 3.x, installed
+    Vertex Power-Up which is not yet available for Synapse 3.x, and layer
+    model migration or Power-Up init which has not completed yet. Each Storm
+    service, such as Optic, is then checked and prepared in a section of its
+    own, and those which are not ready are named.
 
     Errors block the upgrade and must be fixed by hand, so they also skip the
     preparation of the Cortex or service which has them. Warnings do not. Use
