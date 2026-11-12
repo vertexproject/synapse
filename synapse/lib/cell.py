@@ -72,6 +72,8 @@ SSLCTX_CACHE_SIZE = 64
 
 ONBOOT_OPTIMIZE_PROGRESS_SECS = 30
 
+V3_DRYRUN_MESG = 'This was a dry run, so nothing was prepared.'
+
 '''
 Base classes for the synapse "cell" microservice architecture.
 '''
@@ -138,6 +140,27 @@ def from_leader(func):
         return await func(self, *args, **kwargs)
 
     return wrapper
+
+def getV3MesgLine(name, info):
+    '''
+    Return the line to print for a message yielded by Cell.prepareV3().
+    '''
+    if name == 'error':
+        return f'ERROR: {info}'
+
+    if name == 'warning':
+        return f'WARNING: {info}'
+
+    return info
+
+def getV3Summary(subj, ok, dryrun):
+    '''
+    Return the line which sums up the Synapse 3.x readiness of subj, such as "Your Cortex".
+    '''
+    if dryrun:
+        return f'{subj} has no errors blocking Synapse 3.x.' if ok else f'{subj} has errors blocking Synapse 3.x.'
+
+    return f'{subj} is ready for Synapse 3.x.' if ok else f'{subj} is not ready for Synapse 3.x.'
 
 async def _doIterBackup(path, chunksize=1024):
     '''
@@ -5190,7 +5213,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         its own preparation fixes, since a check with errors skips the preparation.
 
         Args:
-            dryrun (bool): Only check the cell, and record nothing.
+            dryrun (bool): Only check the cell. A dry run records nothing, but one with errors clears the result.
 
         Yields:
             (str, str): ('print', mesg) with progress, ('error', mesg) for each problem which blocks the upgrade, and
@@ -5219,7 +5242,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise s_exc.BadState(mesg=mesg)
 
         if self.v3running:
-            raise s_exc.BadState(mesg=f'This {celltype} is already being prepared for Synapse 3.x.')
+            raise s_exc.BadState(mesg=f'This {celltype} is already being prepared for Synapse 3.x.', running=True)
 
         queue = asyncio.Queue()
 
@@ -5244,11 +5267,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 await relay(self._checkV3Ready())
 
                 if dryrun:
+                    # a pass recorded before these errors must not let the migration run
+                    if errors:
+                        await self.delV3Value('preflight', 'result')
                     return
 
                 if errors:
-                    mesg = f'This {celltype} was not prepared for Synapse 3.x, as its check has errors.'
-                    queue.put_nowait(('print', mesg))
+                    if type(self)._prepareV3 is not Cell._prepareV3:
+                        mesg = f'This {celltype} was not prepared for Synapse 3.x, as its check has errors.'
+                        queue.put_nowait(('print', mesg))
                 else:
                     await relay(self._prepareV3())
 

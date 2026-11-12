@@ -1,3 +1,4 @@
+import asyncio
 import collections
 
 import synapse.exc as s_exc
@@ -7,6 +8,7 @@ import synapse.lib.cell as s_cell
 import synapse.lib.time as s_time
 import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
+import synapse.lib.storm as s_storm
 import synapse.lib.spooled as s_spooled
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.nodefuse as s_nodefuse
@@ -27,10 +29,13 @@ class V3ReadyCell(s_cell.Cell):
     async def initServiceStorage(self):
         self.mesgs = []
         self.prepmesgs = []
+        self.delay = 0
 
     async def _checkV3Ready(self):
         async for mesg in self._yieldMesgs(self.mesgs):
             yield mesg
+
+        await asyncio.sleep(self.delay)
 
     async def _prepareV3(self):
         async for mesg in self._yieldMesgs(self.prepmesgs):
@@ -345,6 +350,20 @@ class StormlibModelTest(s_test.SynTest):
                 self.len(1, nodes)
                 self.eq('ou:org', nodes[0].ndef[0])
 
+                # a run with errors records them, and the Cortex has no preparation to skip
+                msgs = await core.stormlist('v3.prepare')
+                self.stormIsInPrint(f'ERROR: Layer {layr} contains deprecated model element ou:org:sic', msgs)
+                self.stormNotInPrint('was not prepared', msgs)
+                self.stormIsInPrint('Your Cortex is not ready for Synapse 3.x.', msgs)
+                self.false((await core.getV3Value('preflight', 'result'))['ok'])
+
+                # only a dry run is safe for readonly use
+                msgs = await core.stormlist('v3.prepare --dry-run', opts={'readonly': True})
+                self.stormIsInPrint('Your Cortex has errors blocking Synapse 3.x.', msgs)
+
+                with self.raises(s_exc.IsReadOnly):
+                    await core.nodes('v3.prepare', opts={'readonly': True})
+
                 lowuser = await core.auth.addUser('lowuser')
                 with self.raises(s_exc.AuthDeny):
                     await core.nodes('v3.prepare --dry-run', opts={'user': lowuser.iden})
@@ -462,7 +481,7 @@ class StormlibModelTest(s_test.SynTest):
                         self.stormNotInPrint('ERROR: ', msgs)
                         self.stormIsInPrint('Your Cortex has no errors blocking Synapse 3.x.', msgs)
                         self.stormNotInPrint('These services have errors', msgs)
-                        self.stormIsInPrint('This was a dry run, so nothing was prepared or recorded.', msgs)
+                        self.stormIsInPrint('This was a dry run, so nothing was prepared.', msgs)
                         self.none(await ready.getV3Value('preflight', 'result', defval=None))
                         self.none(await noready.getV3Value('preflight', 'result', defval=None))
 
@@ -496,6 +515,9 @@ class StormlibModelTest(s_test.SynTest):
                         self.stormIsInPrint('Your Cortex has no errors blocking Synapse 3.x.', msgs)
                         self.stormIsInPrint('These services have errors blocking Synapse 3.x: v3ready.', msgs)
 
+                        # the pass recorded before the errors is cleared
+                        self.none(await ready.getV3Value('preflight', 'result', defval=None))
+
                         msgs = await core.stormlist('v3.prepare')
                         self.stormIsInPrint('ERROR: Not ready at all.', msgs)
                         self.stormIsInPrint('This v3readycell was not prepared for Synapse 3.x, as its check has errors.',
@@ -524,6 +546,41 @@ class StormlibModelTest(s_test.SynTest):
                         self.stormIsInPrint('ERROR: Service v3ready could not be prepared: ', msgs)
 
                         ready.prepmesgs = []
+
+                        ready.mesgs = [s_exc.AuthDeny(mesg='Nope.')]
+                        msgs = await core.stormlist('v3.prepare --dry-run')
+                        self.stormIsInPrint('ERROR: Service v3ready could not be checked: Nope.', msgs)
+
+                        ready.mesgs = []
+
+                        # a dry run gives up on a service whose check hangs
+                        ready.delay = 1
+                        with mock.patch.object(s_storm.V3PrepareCmd, 'svctimeout', 0.01):
+                            msgs = await core.stormlist('v3.prepare --dry-run')
+                        self.stormIsInPrint('ERROR: Service v3ready could not be checked within 0.01 seconds.', msgs)
+                        self.stormIsInPrint('These services have errors blocking Synapse 3.x: v3ready.', msgs)
+                        ready.delay = 0
+
+                        # the service stops the check which the dry run gave up on
+                        async def idle():
+                            while ready.v3running:
+                                await asyncio.sleep(0.01)
+
+                        await s_common.wait_for(idle(), timeout=10)
+
+                        # a service which is already being prepared is busy, not blocked
+                        ready.v3running = True
+                        try:
+                            msgs = await core.stormlist('v3.prepare --dry-run')
+                        finally:
+                            ready.v3running = False
+
+                        self.stormIsInPrint('Service v3ready could not be checked: This v3readycell is already being '
+                                            'prepared for Synapse 3.x.', msgs)
+                        self.stormNotInPrint('ERROR: ', msgs)
+                        self.stormNotInPrint('These services have errors', msgs)
+                        self.stormIsInPrint('These services are already being prepared, so run it again once they '
+                                            'finish: v3ready.', msgs)
 
                         # a service connected to a mirror is not run
                         ready.isactive = False

@@ -3536,11 +3536,20 @@ class CellTest(s_t_utils.SynTest):
                     self.isinstance(info['time'], int)
 
                     # a dry run only checks, and records nothing
+                    async with cell00.getLocalProxy() as prox:
+                        self.eq([
+                            ('print', 'Checking...'),
+                            ('warning', 'Something to know.'),
+                        ], await s_t_utils.alist(prox.prepareV3(dryrun=True)))
+
+                    self.eq(info, await cell00.getV3Value('preflight', 'result'))
+
+                    # but one with errors clears the last result, which no longer holds
                     cell00.v3check = [('error', 'Fix the widgets.')]
                     async with cell00.getLocalProxy() as prox:
                         self.eq([('error', 'Fix the widgets.')], await s_t_utils.alist(prox.prepareV3(dryrun=True)))
 
-                    self.eq(info, await cell00.getV3Value('preflight', 'result'))
+                    self.none(await cell00.getV3Value('preflight', 'result', defval=None))
 
                     # a check with errors skips the preparation
                     self.eq([
@@ -3578,6 +3587,7 @@ class CellTest(s_t_utils.SynTest):
                     with self.raises(s_exc.BadState) as cm:
                         await s_t_utils.alist(cell00.prepareV3(dryrun=True))
                     self.eq('This v3cell is already being prepared for Synapse 3.x.', cm.exception.get('mesg'))
+                    self.true(cm.exception.get('running'))
 
                     await genr.aclose()
                     self.false(cell00.v3running)

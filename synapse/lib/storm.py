@@ -16,6 +16,7 @@ import synapse.datamodel as s_datamodel
 import synapse.lib.ast as s_ast
 import synapse.lib.auth as s_auth
 import synapse.lib.base as s_base
+import synapse.lib.cell as s_cell
 import synapse.lib.chop as s_chop
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
@@ -6040,14 +6041,14 @@ class ColorizeCmd(Cmd):
 
 class V3PrepareCmd(Cmd):
     '''
-    Check the Cortex and its Storm services for readiness to upgrade to Synapse
-    3.x, and prepare each one whose check has no errors.
+    Check the Cortex and its Storm services for Synapse 3.x, and prepare them.
 
-    Prints an error for each deprecated form, property, or type which is still
-    in use in any layer, installed Power-Up which is below the minimum version
-    that supports Synapse 3.x, installed Vertex Power-Up which is not yet
-    available for Synapse 3.x, and layer model migration or Power-Up init which
-    has not completed yet. Then checks and prepares each Storm service, such as
+    Prepares each one whose check has no errors. Prints an error for each
+    deprecated form, property, or type which is still in use in any layer,
+    installed Power-Up which is below the minimum version that supports
+    Synapse 3.x, installed Vertex Power-Up which is not yet available for
+    Synapse 3.x, and layer model migration or Power-Up init which has not
+    completed yet. Then checks and prepares each Storm service, such as
     Optic, in a section of its own, and names those which are not ready.
 
     Errors block the upgrade and must be fixed by hand, so they also skip the
@@ -6056,7 +6057,8 @@ class V3PrepareCmd(Cmd):
 
     Run it on the Cortex leader, with each Storm service added by the AHA name
     of its leader. The Cortex and each service record the result for their
-    Synapse 3.x migration, unless --dry-run is given.
+    Synapse 3.x migration, unless --dry-run is given. A dry run with errors
+    clears the recorded result.
 
     NOTE: This command requires admin privileges.
 
@@ -6070,12 +6072,15 @@ class V3PrepareCmd(Cmd):
     '''
 
     name = 'v3.prepare'
+    readonly = True
+
+    # seconds the 3.x readiness check of a Storm service may take in a dry run
+    svctimeout = 60
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
         pars.add_argument('--dry-run', default=False, action='store_true',
-                          help='Only check the Cortex and its Storm services, without preparing them or recording '
-                               'anything.')
+                          help='Only check the Cortex and its Storm services, without preparing them.')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -6085,8 +6090,15 @@ class V3PrepareCmd(Cmd):
         core = runt.snap.core
         dryrun = self.opts.dry_run
 
+        # only a dry run is safe for readonly use, which is not known until the args are parsed
+        if runt.readonly and not dryrun:
+            raise s_exc.IsReadOnly(mesg='The v3.prepare command is only safe for readonly use with --dry-run.')
+
         ready = await self._printMesgs(runt, core.prepareV3(dryrun=dryrun))
 
+        verb = 'checked' if dryrun else 'prepared'
+
+        busy = []
         notready = []
         for ssvc in sorted(core.getStormSvcs(), key=lambda s: s.name):
 
@@ -6101,33 +6113,41 @@ class V3PrepareCmd(Cmd):
                 await runt.printf(f'Checking and preparing service {ssvc.name}...')
 
             try:
-                if not await self._printMesgs(runt, proxy.prepareV3(dryrun=dryrun)):
+                coro = self._printMesgs(runt, proxy.prepareV3(dryrun=dryrun))
+                if dryrun:
+                    coro = s_common.wait_for(coro, timeout=self.svctimeout)
+
+                if not await coro:
                     notready.append(ssvc.name)
+
+            except TimeoutError:
+                await runt.printf(f'ERROR: Service {ssvc.name} could not be checked within {self.svctimeout} seconds.')
+                notready.append(ssvc.name)
 
             except Exception as e:
                 mesg = e.get('mesg') if isinstance(e, s_exc.SynErr) else str(e)
-                await runt.printf(f'ERROR: Service {ssvc.name} could not be prepared: {mesg or e.__class__.__name__}')
+                if isinstance(e, s_exc.SynErr) and e.get('running'):
+                    await runt.printf(f'Service {ssvc.name} could not be {verb}: {mesg}')
+                    busy.append(ssvc.name)
+                    continue
+
+                await runt.printf(f'ERROR: Service {ssvc.name} could not be {verb}: {mesg or e.__class__.__name__}')
                 notready.append(ssvc.name)
 
-        if dryrun:
-            if ready:
-                await runt.printf('Your Cortex has no errors blocking Synapse 3.x.')
-            else:
-                await runt.printf('Your Cortex has errors blocking Synapse 3.x.')
+        await runt.printf(s_cell.getV3Summary('Your Cortex', ready, dryrun))
 
-            if notready:
+        if notready:
+            if dryrun:
                 await runt.printf(f'These services have errors blocking Synapse 3.x: {", ".join(notready)}.')
-
-            await runt.printf('This was a dry run, so nothing was prepared or recorded.')
-
-        else:
-            if ready:
-                await runt.printf('Your Cortex is ready for Synapse 3.x.')
             else:
-                await runt.printf('Your Cortex is not ready for Synapse 3.x.')
-
-            if notready:
                 await runt.printf(f'These services are not ready for Synapse 3.x: {", ".join(notready)}.')
+
+        if busy:
+            names = ', '.join(busy)
+            await runt.printf(f'These services are already being prepared, so run it again once they finish: {names}.')
+
+        if dryrun:
+            await runt.printf(s_cell.V3_DRYRUN_MESG)
 
         async for item in genr:
             yield item
@@ -6170,15 +6190,7 @@ class V3PrepareCmd(Cmd):
         '''
         ok = True
         async for name, info in genr:
-
-            if name == 'print':
-                await runt.printf(info)
-
-            elif name == 'error':
-                ok = False
-                await runt.printf(f'ERROR: {info}')
-
-            elif name == 'warning':
-                await runt.printf(f'WARNING: {info}')
+            ok = ok and name != 'error'
+            await runt.printf(s_cell.getV3MesgLine(name, info))
 
         return ok

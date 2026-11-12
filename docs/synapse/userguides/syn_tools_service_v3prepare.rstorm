@@ -8,7 +8,7 @@ service.v3prepare
 The Synapse ``service.v3prepare`` tool checks a Synapse service for readiness to upgrade to Synapse 3.x and, if the
 check has no errors, prepares it. It runs the same check and preparation as the :ref:`storm-v3-prepare` Storm
 command, for one service, and exits with a non-zero status when the service is not ready. Use ``--dry-run`` to only
-check the service, without preparing it or recording anything. Run it against the leader of the service.
+check the service, without preparing it. A dry run which finds errors clears the result recorded before them. Run it against the leader of the service.
 
 Syntax
 ------

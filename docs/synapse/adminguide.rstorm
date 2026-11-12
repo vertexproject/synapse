@@ -1521,7 +1521,8 @@ To prepare your Cortex to upgrade to Synapse 3.x, use the :ref:`storm-v3-prepare
 #. Fix each error. Errors block the upgrade, and warnings do not.
 #. Run ``v3.prepare``, which checks the Cortex and each service again and prepares each one with no errors, then
    records the result for its Synapse 3.x migration.
-#. Run ``v3.prepare --dry-run`` again just before migrating, to see anything which has changed since.
+#. Run ``v3.prepare`` again just before migrating, so the result it records is current. A result recorded by an
+   earlier Synapse version does not allow the migration.
 
 Run the command on the Cortex leader, with each Storm service added by the AHA name of its leader, since only a
 leader is checked and prepared. A leader which is demoted discards its result, so run it again on the new leader.
