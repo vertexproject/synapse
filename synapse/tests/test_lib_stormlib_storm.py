@@ -180,6 +180,18 @@ class LibStormTest(s_test.SynTest):
 
             self.eq('Z', cm.exception.get('name'))
 
+            with self.raises(s_exc.BadArg) as cm:
+                await lint('$x = ([])', includes='S010')
+
+            self.eq('includes must be a list of rule IDs or ID prefixes.', cm.exception.get('mesg'))
+            self.eq('includes', cm.exception.get('name'))
+
+            with self.raises(s_exc.BadArg) as cm:
+                await lint('$x = ([])', excludes='S005')
+
+            self.eq('excludes must be a list of rule IDs or ID prefixes.', cm.exception.get('mesg'))
+            self.eq('excludes', cm.exception.get('name'))
+
             # S012 only reports a prop which is in the Cortex data model
             await core.callStorm('''
                 $lib.model.ext.addForm(_foo:bar, str, ({}), ({}))
