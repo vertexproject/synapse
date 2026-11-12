@@ -6038,16 +6038,54 @@ class ColorizeCmd(Cmd):
 
             yield (node, path)
 
-class V3Cmd(Cmd):
+class V3PrepareCmd(Cmd):
     '''
-    A base class for the commands which check or prepare the Cortex and its Storm services for Synapse 3.x.
+    Check the Cortex and its Storm services for readiness to upgrade to Synapse
+    3.x, and prepare each one whose check has no errors.
+
+    Prints an error for each deprecated form, property, or type which is still
+    in use in any layer, installed Power-Up which is below the minimum version
+    that supports Synapse 3.x, installed Vertex Power-Up which is not yet
+    available for Synapse 3.x, and layer model migration or Power-Up init which
+    has not completed yet. Then checks and prepares each Storm service, such as
+    Optic, in a section of its own, and names those which are not ready.
+
+    Errors block the upgrade and must be fixed by hand, so they also skip the
+    preparation of the Cortex or service which has them. Warnings do not. Use
+    --dry-run first to see what to fix, and run it again once it is fixed.
+
+    Run it on the Cortex leader, with each Storm service added by the AHA name
+    of its leader. The Cortex and each service record the result for their
+    Synapse 3.x migration, unless --dry-run is given.
+
+    NOTE: This command requires admin privileges.
+
+    Examples:
+
+        // Check the Cortex and its Storm services, without preparing them or recording anything.
+        v3.prepare --dry-run
+
+        // Check the Cortex and its Storm services, and prepare those with no errors.
+        v3.prepare
     '''
 
-    async def _checkV3Ready(self, runt):
+    name = 'v3.prepare'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('--dry-run', default=False, action='store_true',
+                          help='Only check the Cortex and its Storm services, without preparing them or recording '
+                               'anything.')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        runt.reqAdmin(mesg='The v3.prepare command requires admin privileges.')
 
         core = runt.snap.core
+        dryrun = self.opts.dry_run
 
-        ready = await self._printMesgs(runt, core.checkV3Ready())
+        ready = await self._printMesgs(runt, core.prepareV3(dryrun=dryrun))
 
         notready = []
         for ssvc in sorted(core.getStormSvcs(), key=lambda s: s.name):
@@ -6057,32 +6095,46 @@ class V3Cmd(Cmd):
                 notready.append(ssvc.name)
                 continue
 
-            await runt.printf(f'Checking service {ssvc.name}...')
+            if dryrun:
+                await runt.printf(f'Checking service {ssvc.name}...')
+            else:
+                await runt.printf(f'Checking and preparing service {ssvc.name}...')
+
             try:
-                coro = self._printMesgs(runt, proxy.checkV3Ready())
-                if not await s_common.wait_for(coro, timeout=V3CheckReadyCmd.svctimeout):
+                if not await self._printMesgs(runt, proxy.prepareV3(dryrun=dryrun)):
                     notready.append(ssvc.name)
 
-            except TimeoutError:
-                await runt.printf(f'ERROR: Service {ssvc.name} could not be checked within {V3CheckReadyCmd.svctimeout} seconds.')
-                notready.append(ssvc.name)
-
             except Exception as e:
-                await self._printSvcExc(runt, ssvc, e, 'checked')
+                mesg = e.get('mesg') if isinstance(e, s_exc.SynErr) else str(e)
+                await runt.printf(f'ERROR: Service {ssvc.name} could not be prepared: {mesg or e.__class__.__name__}')
                 notready.append(ssvc.name)
 
-        if ready:
-            await runt.printf('Your Cortex is ready for Synapse 3.x.')
-        else:
-            await runt.printf('Your Cortex is not ready for Synapse 3.x.')
+        if dryrun:
+            if ready:
+                await runt.printf('Your Cortex has no errors blocking Synapse 3.x.')
+            else:
+                await runt.printf('Your Cortex has errors blocking Synapse 3.x.')
 
-        if notready:
-            await runt.printf(f'These services are not ready for Synapse 3.x: {", ".join(notready)}.')
+            if notready:
+                await runt.printf(f'These services have errors blocking Synapse 3.x: {", ".join(notready)}.')
+
+            await runt.printf('This was a dry run, so nothing was prepared or recorded.')
+
+        else:
+            if ready:
+                await runt.printf('Your Cortex is ready for Synapse 3.x.')
+            else:
+                await runt.printf('Your Cortex is not ready for Synapse 3.x.')
+
+            if notready:
+                await runt.printf(f'These services are not ready for Synapse 3.x: {", ".join(notready)}.')
+
+        async for item in genr:
+            yield item
 
     async def _getSvcProxy(self, runt, ssvc):
         '''
-        Return the proxy of a Storm service which can be checked or prepared for Synapse 3.x, or print an error and
-        return None.
+        Return the proxy of a Storm service which can be prepared for Synapse 3.x, or print an error and return None.
         '''
         proxy = None
         info = None
@@ -6100,7 +6152,8 @@ class V3Cmd(Cmd):
             return None
 
         if info is None:
-            await runt.printf(f'ERROR: Service {ssvc.name} must be upgraded to a Synapse 2.x release which can check it for Synapse 3.x.')
+            await runt.printf(f'ERROR: Service {ssvc.name} must be upgraded to a Synapse 2.x release which can '
+                              'prepare it for Synapse 3.x.')
             return None
 
         # the Cortex reaches the leader by its AHA leader name, a mirror only if added by its own
@@ -6111,14 +6164,9 @@ class V3Cmd(Cmd):
 
         return proxy
 
-    async def _printSvcExc(self, runt, ssvc, exc, verb):
-        mesg = exc.get('mesg') if isinstance(exc, s_exc.SynErr) else str(exc)
-        await runt.printf(f'ERROR: Service {ssvc.name} could not be {verb}: {mesg or exc.__class__.__name__}')
-
     async def _printMesgs(self, runt, genr):
         '''
-        Print the messages of a Synapse 3.x readiness check or preparation as they arrive, returning whether it had
-        no errors.
+        Print the messages of a Synapse 3.x preparation as they arrive, returning whether it had no errors.
         '''
         ok = True
         async for name, info in genr:
@@ -6134,108 +6182,3 @@ class V3Cmd(Cmd):
                 await runt.printf(f'WARNING: {info}')
 
         return ok
-
-class V3CheckReadyCmd(V3Cmd):
-    '''
-    Check the Cortex and its Storm services for readiness to upgrade to Synapse 3.x.
-
-    Prints an error for each deprecated form, property, or type which is still
-    in use in any layer, installed Power-Up which is below the minimum version
-    that supports Synapse 3.x, installed Vertex Power-Up which is not yet
-    available for Synapse 3.x, and layer model migration or Power-Up init which
-    has not completed yet. Then runs the 3.x readiness check of each Storm
-    service in a section of its own, and names those which are not ready.
-    Errors block the upgrade, and warnings do not.
-
-    Run it on the Cortex leader, with each Storm service added by the AHA name
-    of its leader. The result of each check is recorded by the Cortex or
-    service, for its Synapse 3.x migration.
-
-    NOTE: This command requires admin privileges.
-
-    Examples:
-
-        // Check the Cortex for Synapse 3.x readiness.
-        v3.checkready
-    '''
-
-    name = 'v3.checkready'
-    readonly = True
-
-    # seconds the 3.x readiness check of a Storm service may take
-    svctimeout = 60
-
-    async def execStormCmd(self, runt, genr):
-
-        runt.reqAdmin(mesg='The v3.checkready command requires admin privileges.')
-
-        await self._checkV3Ready(runt)
-
-        async for item in genr:
-            yield item
-
-class V3PrepareCmd(V3Cmd):
-    '''
-    Prepare the Cortex and its Storm services to upgrade to Synapse 3.x.
-
-    Runs the Synapse 3.x preparation of the Cortex and each Storm service, such
-    as Optic, in a section of its own, and names those which could not be
-    prepared. Then runs v3.checkready, unless --check false is given.
-
-    Run it on the Cortex leader, with each Storm service added by the AHA name
-    of its leader.
-
-    NOTE: This command requires admin privileges.
-
-    Examples:
-
-        // Prepare the Cortex and its Storm services for Synapse 3.x, then check them.
-        v3.prepare
-
-        // Prepare them without checking them.
-        v3.prepare --check false
-    '''
-
-    name = 'v3.prepare'
-
-    def getArgParser(self):
-        pars = Cmd.getArgParser(self)
-        pars.add_argument('--check', type='bool', default=True,
-                          help='Run v3.checkready after preparing.')
-        return pars
-
-    async def execStormCmd(self, runt, genr):
-
-        runt.reqAdmin(mesg='The v3.prepare command requires admin privileges.')
-
-        core = runt.snap.core
-
-        await self._printMesgs(runt, core.prepareV3())
-
-        failed = []
-        for ssvc in sorted(core.getStormSvcs(), key=lambda s: s.name):
-
-            proxy = await self._getSvcProxy(runt, ssvc)
-            if proxy is None:
-                failed.append(ssvc.name)
-                continue
-
-            await runt.printf(f'Preparing service {ssvc.name}...')
-            try:
-                if not await self._printMesgs(runt, proxy.prepareV3()):
-                    failed.append(ssvc.name)
-
-            except Exception as e:
-                await self._printSvcExc(runt, ssvc, e, 'prepared')
-                failed.append(ssvc.name)
-
-        if failed:
-            await runt.printf(f'These services could not be prepared for Synapse 3.x: {", ".join(failed)}.')
-
-        if self.opts.check:
-            await self._checkV3Ready(runt)
-        else:
-            await runt.printf('Run v3.checkready to check whether the Cortex is ready for Synapse 3.x.')
-
-        async for item in genr:
-            yield item

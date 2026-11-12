@@ -123,7 +123,6 @@ Help for a specific Storm command can be displayed with ``<command> --help``.
 - `trigger`_
 - `uniq`_
 - `uptime`_
-- `v3.checkready`_
 - `v3.prepare`_
 - `vault`_
 - `version`_
@@ -2780,44 +2779,26 @@ The ``uptime`` command displays the uptime for the Cortex or specified service.
 .. storm-cli:: uptime --help
 
 
-.. _storm-v3-checkready:
-
-v3.checkready
--------------
-
-The ``v3.checkready`` command checks the Cortex for readiness to upgrade to Synapse 3.x. It prints an
-``ERROR:`` line for each layer which contains deprecated model elements, for each installed Power-Up which
-is below the minimum version that supports Synapse 3.x, for each installed Vertex Power-Up which is
-not yet available for Synapse 3.x, and for each layer model migration or Power-Up init which has not
-completed yet. Each Storm service, such as Optic, is then checked in a section of its own. A service which is not
-connected, runs a Synapse version without a 3.x readiness check, or is connected to a mirror gets an ``ERROR:``
-line. Errors block the upgrade, and warnings do not. The command then prints whether the Cortex is ready
-for Synapse 3.x, and names each service with errors, or whose check failed or took longer than a minute, as not
-ready. The Cortex and each service record the result of their check for their Synapse 3.x migration. This command
-does not check the lock status of deprecated model elements (see :ref:`storm-model-deprecated-check`).
-
-Run the command on the Cortex leader, with each Storm service added by the AHA name of its leader.
-
-.. NOTE::
-
-  The ``v3.checkready`` command requires admin privileges.
-
-**Syntax:**
-
-.. storm-cli:: v3.checkready --help
-
-
 .. _storm-v3-prepare:
 
 v3.prepare
 ----------
 
-The ``v3.prepare`` command prepares the Cortex and its Storm services, such as Optic, to upgrade to Synapse 3.x.
-Each service is prepared in a section of its own, and the command waits for each to finish, which may take several
-hours. A service which is not connected, runs a Synapse version without 3.x preparation, or is connected to a
-mirror gets an ``ERROR:`` line, and the command names each service which could not be prepared. It then runs
-:ref:`storm-v3-checkready`, unless ``--check false`` is given. Each service records the result of its
-preparation for its Synapse 3.x migration. A service with nothing to prepare says so, and is not an error.
+The ``v3.prepare`` command checks the Cortex and its Storm services, such as Optic, for readiness to upgrade to
+Synapse 3.x, and prepares each one whose check has no errors. The check of the Cortex prints an ``ERROR:`` line for
+each layer which contains deprecated model elements, for each installed Power-Up which is below the minimum version
+that supports Synapse 3.x, for each installed Vertex Power-Up which is not yet available for Synapse 3.x, and for
+each layer model migration or Power-Up init which has not completed yet. Each Storm service is then checked and
+prepared in a section of its own. A service which is not connected, runs a Synapse version which cannot prepare it
+for Synapse 3.x, or is connected to a mirror gets an ``ERROR:`` line. The command waits for each service to finish,
+which may take several hours.
+
+Errors block the upgrade and must be fixed by hand, so they also skip the preparation of the Cortex or service which
+has them. Warnings do not block the upgrade. The command prints whether the Cortex is ready for Synapse 3.x, and
+names each service which is not. The Cortex and each service record the result for their Synapse 3.x migration.
+This command does not check the lock status of deprecated model elements (see :ref:`storm-model-deprecated-check`).
+
+Use ``--dry-run`` to only check the Cortex and its Storm services, without preparing them or recording anything.
 
 Run the command on the Cortex leader, with each Storm service added by the AHA name of its leader.
 
