@@ -1,0 +1,6 @@
+---
+desc: Added ``$lib.storm.lint()`` to lint Storm code from Storm.
+desc:literal: false
+prs: []
+type: feat
+...

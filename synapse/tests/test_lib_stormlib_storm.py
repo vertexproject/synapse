@@ -130,6 +130,91 @@ class LibStormTest(s_test.SynTest):
             ''')
             self.stormIsInPrint('mesg=hello', msgs)
 
+            # lint
+            lintq = '''
+                $retn = ([])
+                for $finding in $lib.storm.lint($text, includes=$includes, excludes=$excludes, v3ready=$v3ready) {
+                    $retn.append($finding)
+                }
+                return($retn)
+            '''
+
+            async def lint(text, includes=None, excludes=None, v3ready=False):
+                opts = {'readonly': True,
+                        'vars': {'text': text, 'includes': includes, 'excludes': excludes, 'v3ready': v3ready}}
+                return await core.callStorm(lintq, opts=opts)
+
+            findings = await lint('$x = $lib.list()')
+            self.eq(findings, [{'rule': 'S005', 'severity': 'low', 'line': 1, 'column': 6,
+                                'mesg': 'Use a list literal such as ([]) instead of $lib.list().'}])
+
+            self.eq([], await lint('$x = ([])'))
+
+            findings = await lint('$x = (')
+            self.len(1, findings)
+            self.eq('E001', findings[0]['rule'])
+            self.eq('high', findings[0]['severity'])
+            self.eq((1, 6), (findings[0]['line'], findings[0]['column']))
+
+            text = 'inet:fqdn | if $x { [ :zone=$x ] }'
+            self.eq([], await lint(text))
+            self.eq(['S010'], [f['rule'] for f in await lint(text, includes=('S010',))])
+            self.eq(['S010'], [f['rule'] for f in await lint(text, includes=('S01',))])
+
+            text = '$x = $lib.list() return($lib.null)'
+            self.eq(['S005', 'S004'], [f['rule'] for f in await lint(text)])
+            self.eq(['S004'], [f['rule'] for f in await lint(text, excludes=('S005',))])
+            self.eq([], await lint(text, excludes=('S',)))
+
+            with self.raises(s_exc.BadArg) as cm:
+                await lint('$x = ([])', includes=('Z999',))
+
+            self.eq("Unknown lint rule or prefix: 'Z999'", cm.exception.get('mesg'))
+            self.eq('Z999', cm.exception.get('name'))
+
+            with self.raises(s_exc.BadArg) as cm:
+                await lint('$x = ([])', excludes=('Z',))
+
+            self.eq('Z', cm.exception.get('name'))
+
+            with self.raises(s_exc.BadArg) as cm:
+                await lint('$x = ([])', includes='S010')
+
+            self.eq('includes must be a list of rule IDs or ID prefixes.', cm.exception.get('mesg'))
+            self.eq('includes', cm.exception.get('name'))
+
+            with self.raises(s_exc.BadArg) as cm:
+                await lint('$x = ([])', excludes='S005')
+
+            self.eq('excludes must be a list of rule IDs or ID prefixes.', cm.exception.get('mesg'))
+            self.eq('excludes', cm.exception.get('name'))
+
+            with self.raises(s_exc.BadArg) as cm:
+                await lint('$x = ([])', includes=('S010', 1))
+
+            self.eq('includes must be a list of rule IDs or ID prefixes.', cm.exception.get('mesg'))
+            self.eq('includes', cm.exception.get('name'))
+
+            with self.raises(s_exc.BadArg) as cm:
+                await lint('$x = ([])', excludes=(1,))
+
+            self.eq('excludes must be a list of rule IDs or ID prefixes.', cm.exception.get('mesg'))
+            self.eq('excludes', cm.exception.get('name'))
+
+            # S012 only reports a prop which is in the Cortex data model
+            await core.callStorm('''
+                $lib.model.ext.addForm(_foo:bar, str, ({}), ({}))
+                $lib.model.ext.addFormProp(_foo:bar, baz, (str, ({})), ({}))
+            ''')
+            self.eq(['S012'], [f['rule'] for f in await lint('_foo:bar +:baz=woot')])
+            self.eq([], await lint('_foo:newp +:baz=woot'))
+
+            self.eq([], await lint('inet:ipv4'))
+            findings = await lint('inet:ipv4', v3ready=True)
+            self.eq(findings, [{'rule': 'M001', 'severity': 'high', 'line': 1, 'column': 1,
+                                'mesg': 'inet:ipv4 is renamed to inet:ip in 3.x.'}])
+            self.eq([], await lint('inet:ipv4', excludes=('M',), v3ready=True))
+
     async def test_lib_stormlib_storm_logging(self):
 
         # storm.exec is gated on storm:log just like every other query path, at
