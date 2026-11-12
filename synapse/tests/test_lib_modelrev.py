@@ -2685,6 +2685,35 @@ class ModelRevTest(s_tests.SynTest):
             msgs = await core.stormlist('$lib.model.migration.s.model_0_2_38.repairNode((0), newp)')
             self.stormIsInPrint('Queue model_0_2_38:nodes not found, no nodes to repair.', msgs)
 
+            # A value whose first :// is not preceded by a valid scheme belongs to a URL
+            # embedded in the path or query, so the empty authority after it does not make
+            # the value unrepairable. The pre-2.258.0 normalizer with asserts stripped stored
+            # such a local file URL as-is, with everything before the :// as its :proto.
+            layr = core.getLayer()
+            meta = {'time': s_common.now(), 'user': core.auth.rootuser.iden}
+
+            form = core.model.form('inet:url')
+            valu = 'file:/x?u=http:////y'
+
+            await layr.storNodeEdits([(s_common.buid(('inet:url', valu)), 'inet:url', [
+                (s_layer.EDIT_NODE_ADD, (valu, form.type.stortype), ()),
+                (s_layer.EDIT_PROP_SET, ('proto', 'file:/x?u=http', None, form.props['proto'].type.stortype), ()),
+            ])], meta)
+
+            migr = await s_modelrev.ModelMigration_0_2_38.anit(core, [layr])
+
+            self.eq(('move', 'file:///x?u=http:////y'), migr._getVerdict(form, valu, {})[:2])
+            self.eq(('remove', None, None), migr._getVerdict(form, 'foo?u=http:////y', {}))
+            self.eq(('remove', None, None), migr._getVerdict(form, 'c:////foo.com/x', {}))
+
+            await migr.revModel_0_2_38()
+
+            nodes = await core.nodes('inet:url')
+            self.eq(['file:///x?u=http:////y'], [node.ndef[1] for node in nodes])
+            self.eq('file', nodes[0].get('proto'))
+
+            self.false(core.multiqueue.exists('model_0_2_38:nodes'))
+
     async def test_modelrev_0_2_38_comp_refs(self):
 
         # A read-only comp which embeds two URLs that are both removed is reached
