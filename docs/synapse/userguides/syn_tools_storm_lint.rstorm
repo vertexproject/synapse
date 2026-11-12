@@ -445,3 +445,28 @@ The Cortex MCP server's ``storm_lint`` tool lints a query this way against the C
 
 ``StormLinter`` raises ``BadArg`` for an unknown rule ID or prefix. ``lint()`` honors ``noqa`` comments; the
 ``[tool.stormlint]`` table is only read by the ``storm.lint`` tool.
+
+Linting from Storm
+------------------
+
+The ``$lib.storm.lint()`` Storm API lints Storm code against the Cortex's own data model, including its extended
+model forms and properties. It yields a dictionary for each finding, with the keys ``rule``, ``severity``,
+``line``, ``column`` and ``mesg``, sorted by line, column and rule:
+
+.. code-block:: text
+
+    for $finding in $lib.storm.lint($text) {
+        $lib.print(`{$finding.line}:{$finding.column} {$finding.rule} {$finding.mesg}`)
+    }
+
+The ``includes`` option adds rules to the default rule set, like ``--enable`` rather than ``--select``, so the
+default rules still run. The ``excludes`` option matches ``--ignore``, and the ``v3ready`` option matches
+``--v3-ready``:
+
+.. code-block:: text
+
+    for $finding in $lib.storm.lint($text, includes=(S010, S015), excludes=(S002,), v3ready=(true)) {
+        $lib.print(`{$finding.line}:{$finding.column} {$finding.rule} {$finding.mesg}`)
+    }
+
+``$lib.storm.lint()`` raises ``BadArg`` for an unknown rule ID or prefix, and honors ``noqa`` comments.

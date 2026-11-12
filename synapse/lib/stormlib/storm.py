@@ -2,7 +2,9 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.storm as s_storm
+import synapse.lib.stormlint as s_stormlint
 import synapse.lib.stormtypes as s_stormtypes
+import synapse.lib.processpool as s_processpool
 
 evaldesc = '''\
 Evaluate a Storm runtime value and optionally cast/coerce it.
@@ -18,6 +20,27 @@ Run a Storm query and yield the messages output by the Storm interpreter.
 Note:
     If Storm logging is enabled, the query being run will be logged separately.
 '''
+
+lintdesc = '''
+Lint Storm code and yield a dictionary for each finding.
+
+Each finding has the keys rule, severity, line, column and mesg, and the
+findings are sorted by line, column and rule. A syntax error yields an E001
+finding. Form and property names are checked against the Cortex data model,
+including extended model elements.
+
+Example:
+    Print the findings for a Storm query::
+
+        for $finding in $lib.storm.lint($text) {
+            $lib.print(`{$finding.line}:{$finding.column} {$finding.rule} {$finding.mesg}`)
+        }
+'''
+
+def _lintStorm(text, includes, excludes, names, v3ready):
+    linter = s_stormlint.StormLinter(enable=includes, ignore=excludes, v3ready=v3ready)
+    linter.names = names
+    return [f._asdict() for f in linter.lint(text)]
 
 class StormExecCmd(s_storm.Cmd):
     '''
@@ -116,6 +139,22 @@ class LibStorm(s_stormtypes.Lib):
                       {'name': 'opts', 'type': 'dict', 'desc': 'Storm options dictionary.', 'default': None},
                   ),
                   'returns': {'name': 'yields', 'type': 'list', 'desc': 'The output messages from the Storm runtime.'}}},
+        {'name': 'lint', 'desc': lintdesc,
+         'type': {'type': 'function', '_funcname': '_lintStorm',
+                  'args': (
+                      {'name': 'text', 'type': 'str', 'desc': 'The Storm code to lint.'},
+                      {'name': 'includes', 'type': 'list', 'default': None,
+                       'desc': 'Rule IDs or ID prefixes to add to the default rule set, including rules which are '
+                               'off by default such as S010 and S015. The default rules still run.'},
+                      {'name': 'excludes', 'type': 'list', 'default': None,
+                       'desc': 'Rule IDs or ID prefixes to remove from the rule set. '
+                               'Applied last, after includes and v3ready.'},
+                      {'name': 'v3ready', 'type': 'boolean', 'default': False,
+                       'desc': 'Add every rule which reports Storm that must change for Synapse 3.x, '
+                               'the same as storm.lint --v3-ready.'},
+                  ),
+                  'returns': {'name': 'yields', 'type': 'dict',
+                              'desc': 'A dictionary for each finding, with the keys rule, severity, line, column and mesg.'}}},
     )
     _storm_lib_path = ('storm',)
 
@@ -123,6 +162,7 @@ class LibStorm(s_stormtypes.Lib):
         return {
             'run': self._runStorm,
             'eval': self._evalStorm,
+            'lint': self._lintStorm,
         }
 
     async def _runStorm(self, query, opts=None):
@@ -174,3 +214,23 @@ class LibStorm(s_stormtypes.Lib):
             valu, _ = casttype.norm(valu)
 
         return valu
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _lintStorm(self, text, includes=None, excludes=None, v3ready=False):
+
+        text = await s_stormtypes.tostr(text)
+        v3ready = await s_stormtypes.tobool(v3ready)
+
+        includes = await s_stormtypes.toprim(includes)
+        if includes is None:
+            includes = ()
+
+        excludes = await s_stormtypes.toprim(excludes)
+        if excludes is None:
+            excludes = ()
+
+        names = s_stormlint._getModelNames(self.runt.model.getModelDict())
+
+        findings = await s_processpool.semafork(_lintStorm, text, includes, excludes, names, v3ready)
+        for finding in findings:
+            yield finding
