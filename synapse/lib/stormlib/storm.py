@@ -4,7 +4,6 @@ import synapse.common as s_common
 import synapse.lib.storm as s_storm
 import synapse.lib.stormlint as s_stormlint
 import synapse.lib.stormtypes as s_stormtypes
-import synapse.lib.processpool as s_processpool
 
 evaldesc = '''\
 Evaluate a Storm runtime value and optionally cast/coerce it.
@@ -35,11 +34,6 @@ Examples:
             $lib.print(`{$finding.line}:{$finding.column} {$finding.rule} {$finding.mesg}`)
         }
 '''
-
-def _lintStorm(text, includes, excludes, names, v3ready):
-    linter = s_stormlint.StormLinter(enable=includes, ignore=excludes, v3ready=v3ready)
-    linter.names = names
-    return [f._asdict() for f in linter.lint(text)]
 
 class StormExecCmd(s_storm.Cmd):
     '''
@@ -232,7 +226,8 @@ class LibStorm(s_stormtypes.Lib):
         if not isinstance(excludes, (list, tuple)) or not all(isinstance(i, str) for i in excludes):
             raise s_exc.BadArg(mesg='excludes must be a list of rule IDs or ID prefixes.', name='excludes')
 
-        names = s_stormlint._getModelNames(self.runt.model.getModelDict())
+        mdef = self.runt.model.getModelDict()
+        linter = s_stormlint.StormLinter(enable=includes, ignore=excludes, model=mdef, v3ready=v3ready)
 
-        for finding in await s_processpool.semafork(_lintStorm, text, includes, excludes, names, v3ready):
-            yield finding
+        for finding in linter.lint(text):
+            yield finding._asdict()

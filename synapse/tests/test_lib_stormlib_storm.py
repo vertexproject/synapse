@@ -2,9 +2,6 @@ import asyncio
 
 import synapse.exc as s_exc
 import synapse.lib.parser as s_parser
-import synapse.lib.stormlint as s_stormlint
-
-import synapse.lib.stormlib.storm as s_stormlib_storm
 
 import synapse.tests.utils as s_test
 
@@ -217,10 +214,6 @@ class LibStormTest(s_test.SynTest):
             self.eq(findings, [{'rule': 'M001', 'severity': 'high', 'line': 1, 'column': 1,
                                 'mesg': 'inet:ipv4 is renamed to inet:ip in 3.x.'}])
             self.eq([], await lint('inet:ipv4', excludes=('M',), v3ready=True))
-
-            names = s_stormlint._getModelNames(core.model.getModelDict())
-            findings = s_stormlib_storm._lintStorm('inet:ipv4', ('S',), ('S005',), names, True)
-            self.eq(['M001'], [f['rule'] for f in findings])
 
     async def test_lib_stormlib_storm_logging(self):
 
