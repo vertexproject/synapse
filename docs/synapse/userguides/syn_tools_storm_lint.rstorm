@@ -453,6 +453,18 @@ The Cortex MCP server's ``storm_lint`` tool lints a query this way against the C
 Linting from Storm
 ------------------
 
+The ``storm.lint`` command lints Storm code, or an embedded query, and prints each finding as
+``<line>:<column>: <rule> <message>``, followed by the same summary line as the command line tool. Its
+``--select``, ``--enable`` and ``--ignore`` options each take a comma-separated list of rule IDs or ID prefixes,
+``--v3-ready`` adds the 3.x rules, and ``--show-rules`` prints the rules. The nodes in the pipeline are passed
+through unchanged, and when the text is not runtsafe it is linted once for each node:
+
+.. code-block:: text
+
+    storm.lint $text --enable S010
+    storm.lint ${ $x = $lib.list() }
+    storm.lint $text --v3-ready
+
 The ``$lib.storm.lint()`` function lints Storm code against the Cortex's data model, including its extended model
 elements, and yields a dictionary for each finding with the ``rule``, ``severity``, ``line``, ``column`` and
 ``mesg`` keys, sorted by line, column and rule:
@@ -473,18 +485,6 @@ is applied.
 
 The code to lint may also be an embedded query, such as ``${ $x = $lib.list() }``. The line and column of each
 finding are relative to the text of the embedded query.
-
-The ``storm.lint`` command lints Storm code, or an embedded query, and prints each finding as
-``<line>:<column>: <rule> <message>``, followed by the same summary line as the command line tool. Its
-``--select``, ``--enable`` and ``--ignore`` options each take a comma-separated list of rule IDs or ID prefixes,
-``--v3-ready`` adds the 3.x rules, and ``--show-rules`` prints the rules. The nodes in the pipeline are passed
-through unchanged, and when the text is not runtsafe it is linted once for each node:
-
-.. code-block:: text
-
-    storm.lint $text --enable S010
-    storm.lint ${ $x = $lib.list() }
-    storm.lint $text --v3-ready
 
 The ``$lib.storm.lintRules()`` function returns a dictionary for each rule with the ``rule``, ``name``,
 ``severity``, ``default``, ``v3`` and ``desc`` keys, in rule ID order. ``v3`` is ``true`` for a rule which is
