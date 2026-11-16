@@ -295,6 +295,20 @@ class LibStormTest(s_test.SynTest):
             msgs = await core.stormlist('storm.lint')
             self.stormIsInErr('storm.lint requires text to lint unless --show-rules is given.', msgs)
 
+            # a node without the text prop raises the same error wherever it is in the stream
+            await core.nodes('[ test:str=lint0 :hehe="$x = ([])" test:str=lint1 :hehe="$y = ([])" test:str=lint2 ]')
+            with self.raises(s_exc.BadArg) as cm:
+                await core.nodes('test:str^=lint storm.lint :hehe')
+
+            self.eq('storm.lint requires text to lint unless --show-rules is given.', cm.exception.get('mesg'))
+            self.eq('text', cm.exception.get('name'))
+
+            with self.raises(s_exc.BadArg) as cm:
+                await core.callStorm('for $f in $lib.storm.lint($lib.null) { }', opts={'readonly': True})
+
+            self.eq('$lib.storm.lint() requires text to lint.', cm.exception.get('mesg'))
+            self.eq('text', cm.exception.get('name'))
+
             msgs = await core.stormlist('storm.lint ${ $x = (1) }', opts={'readonly': True})
             self.stormIsInPrint('All checks passed!', msgs)
 

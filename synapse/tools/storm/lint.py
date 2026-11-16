@@ -78,9 +78,6 @@ def _checkConf(path, conf):
     except s_exc.SchemaViolation as e:
         raise s_exc.BadConfValu(mesg=f'{path}: [tool.stormlint] {e.get("mesg")}') from None
 
-def _splitRulesString(valu):
-    return [v.strip() for v in valu.split(',') if v.strip()]
-
 def _isExcluded(path, confdir, globs):
 
     if not globs:
@@ -145,10 +142,10 @@ async def main(argv, outp=s_output.stdout):
 
     pars = s_cmd.Parser(prog='synapse.tools.storm.lint', outp=outp, description=desc)
     pars.add_argument('paths', nargs='*', help='Files or directories to lint (use - for stdin).')
-    pars.add_argument('--select', type=_splitRulesString,
+    pars.add_argument('--select', type=s_stormlint.splitRules,
                       help='Comma-separated rule IDs or prefixes to run in place of the default rules.')
-    pars.add_argument('--ignore', type=_splitRulesString, help='Comma-separated rule IDs or prefixes to disable.')
-    pars.add_argument('--enable', type=_splitRulesString,
+    pars.add_argument('--ignore', type=s_stormlint.splitRules, help='Comma-separated rule IDs or prefixes to disable.')
+    pars.add_argument('--enable', type=s_stormlint.splitRules,
                       help='Comma-separated rule IDs or prefixes to add to the selected rules, '
                            'such as rules which are off by default.')
     pars.add_argument('--v3-ready', action=argparse.BooleanOptionalAction, default=None,

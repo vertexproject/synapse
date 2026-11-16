@@ -437,19 +437,27 @@ def rule(iden, name, severity, default=True, v3=False):
 
     return wrap
 
+def getRules():
+    '''
+    Return a new list of dicts describing the registered rules, in ID order.
+
+    A rule is on by default when default is True, which is never the case for a v3 rule.
+    '''
+    return [{'rule': r.iden, 'name': r.name, 'severity': r.severity, 'default': r.default and not r.v3,
+             'v3': r.v3, 'desc': r.doc} for r in rules.values()]
+
 def getRuleTable():
     '''
     Return the lines of a table of the registered rules, with the first line of each description.
     '''
     rows = [('ID', 'SEVERITY', 'DEFAULT', 'NAME', 'DESCRIPTION')]
-    for r in rules.values():
-        doc = r.doc.split('\n', 1)[0]
-        if r.v3:
+    for rdef in getRules():
+        if rdef['v3']:
             default = 'v3'
         else:
-            default = 'yes' if r.default else 'no'
+            default = 'yes' if rdef['default'] else 'no'
 
-        rows.append((r.iden, r.severity, default, r.name, doc))
+        rows.append((rdef['rule'], rdef['severity'], default, rdef['name'], rdef['desc'].split('\n', 1)[0]))
 
     sizes = [max(len(row[i]) for row in rows) for i in range(4)]
 
@@ -459,6 +467,12 @@ def getRuleTable():
         lines.append('  '.join(cols + [row[4]]).rstrip())
 
     return lines
+
+def splitRules(valu):
+    '''
+    Split a comma-separated string of rule IDs or ID prefixes into a list, dropping empty entries.
+    '''
+    return [v.strip() for v in valu.split(',') if v.strip()]
 
 class LintContext:
     '''
@@ -1615,7 +1629,7 @@ class StormLinter:
     def __init__(self, select=None, ignore=(), enable=(), model=None, v3ready=False):
 
         if select is None:
-            idens = {r.iden for r in rules.values() if r.default and not r.v3}
+            idens = {rdef['rule'] for rdef in getRules() if rdef['default']}
         else:
             idens = self._resolve(select)
 
@@ -1681,8 +1695,9 @@ class StormLinter:
 
         return any(finding.rule.startswith(c) for c in re.split(r'[\s,]+', codes))
 
-def _lintStorm(text, select, ignore, enable, names, v3ready):
-    linter = StormLinter(select=select, ignore=ignore, enable=enable, v3ready=v3ready)
+def _lintStorm(text, idens, names):
+    linter = StormLinter(select=())
+    linter.rules = [rules[iden] for iden in idens]
     linter.names = names
     return [f._asdict() for f in linter.lint(text)]
 
@@ -1692,6 +1707,7 @@ async def lintAsync(text, select=None, ignore=(), enable=(), model=None, v3ready
 
     The arguments are those of StormLinter, and an unknown rule ID or prefix raises BadArg before forking.
     '''
-    StormLinter(select=select, ignore=ignore, enable=enable, v3ready=v3ready)
+    linter = StormLinter(select=select, ignore=ignore, enable=enable, v3ready=v3ready)
+    idens = [r.iden for r in linter.rules]
     names = _getModelNames(model)
-    return await s_processpool.semafork(_lintStorm, text, select, ignore, enable, names, v3ready)
+    return await s_processpool.semafork(_lintStorm, text, idens, names)

@@ -18,6 +18,21 @@ class StormLintTest(s_t_utils.SynTest):
         self.eq(e001.severity, 'high')
         self.true(e001.doc.startswith('The Storm code failed to parse.'))
 
+        rdefs = s_stormlint.getRules()
+        self.eq([r['rule'] for r in rdefs], list(s_stormlint.rules))
+        byid = {r['rule']: r for r in rdefs}
+        self.eq(byid['E001'], {'rule': 'E001', 'name': 'parse-failure', 'severity': 'high', 'default': True,
+                               'v3': False, 'desc': e001.doc})
+        self.false(byid['M001']['default'])
+        self.true(byid['M001']['v3'])
+        self.true(byid['S005']['default'])
+        self.false(byid['S005']['v3'])
+        self.false(byid['S010']['default'])
+        self.false(rdefs is s_stormlint.getRules())
+
+        self.eq(s_stormlint.splitRules(' S010 , ,S00 '), ['S010', 'S00'])
+        self.eq(s_stormlint.splitRules(''), [])
+
         self.eq(s_stormlint.severities, ('high', 'medium', 'low'))
         with self.raises(s_exc.BadArg):
             s_stormlint.rule('X999', 'bad', 'info')
@@ -900,14 +915,15 @@ class StormLintTest(s_t_utils.SynTest):
 
         # the fork pool worker lints with the given model names
         names = s_stormlint._getModelNames()
-        self.eq(s_stormlint._lintStorm('$x = $lib.list()\ninet:ipv4', None, ('S004',), (), names, True), [
+        self.eq(s_stormlint._lintStorm('$x = $lib.list()\ninet:ipv4', ('S005', 'M001'), names), [
             {'rule': 'S005', 'severity': 'low', 'line': 1, 'column': 6,
              'mesg': 'Use a list literal such as ([]) instead of $lib.list().'},
             {'rule': 'M001', 'severity': 'high', 'line': 2, 'column': 1, 'mesg': 'inet:ipv4 is renamed to inet:ip in 3.x.'},
         ])
 
-        self.eq(['S012'], [f['rule'] for f in s_stormlint._lintStorm('inet:fqdn +:zone=foo', None, (), (), names, False)])
-        self.eq([], s_stormlint._lintStorm('inet:fqdn +:zone=foo', None, (), (), (frozenset(), frozenset()), False))
+        self.eq(['S012'], [f['rule'] for f in s_stormlint._lintStorm('inet:fqdn +:zone=foo', ('S012',), names)])
+        self.eq([], s_stormlint._lintStorm('inet:fqdn +:zone=foo', ('S012',), (frozenset(), frozenset())))
+        self.eq([], s_stormlint._lintStorm('$x = $lib.list()', (), names))
 
         # every v3model name is in the 2.x model
         forms, props = s_stormlint._getModelNames()

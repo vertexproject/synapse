@@ -214,7 +214,7 @@ class StormLintCmd(s_storm.Cmd):
         if valu is None:
             return None
 
-        return [v.strip() for v in valu.split(',') if v.strip()]
+        return s_stormlint.splitRules(valu)
 
     async def _lintText(self, runt):
 
@@ -222,7 +222,10 @@ class StormLintCmd(s_storm.Cmd):
         ignore = await self._getRules(self.opts.ignore) or ()
         enable = await self._getRules(self.opts.enable) or ()
 
-        text = await s_stormtypes.tostr(self.opts.text)
+        text = await s_stormtypes.tostr(self.opts.text, noneok=True)
+        if text is None:
+            raise s_exc.BadArg(mesg='storm.lint requires text to lint unless --show-rules is given.', name='text')
+
         findings = await _getLintFindings(runt, text, select, ignore, enable, self.opts.v3_ready)
 
         for f in findings:
@@ -241,9 +244,6 @@ class StormLintCmd(s_storm.Cmd):
 
             for line in s_stormlint.getRuleTable():
                 await runt.printf(line)
-
-        elif self.opts.text is None:
-            raise s_exc.BadArg(mesg='storm.lint requires text to lint unless --show-rules is given.', name='text')
 
         elif self.runtsafe:
             await self._lintText(runt)
@@ -362,7 +362,10 @@ class LibStorm(s_stormtypes.Lib):
     @s_stormtypes.stormfunc(readonly=True)
     async def _lintStorm(self, text, select=None, ignore=None, enable=None, v3_ready=False):
 
-        text = await s_stormtypes.tostr(text)
+        text = await s_stormtypes.tostr(text, noneok=True)
+        if text is None:
+            raise s_exc.BadArg(mesg='$lib.storm.lint() requires text to lint.', name='text')
+
         select = await s_stormtypes.toprim(select)
         ignore = await s_stormtypes.toprim(ignore)
         enable = await s_stormtypes.toprim(enable)
@@ -379,5 +382,4 @@ class LibStorm(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _lintRules(self):
-        return [{'rule': r.iden, 'name': r.name, 'severity': r.severity, 'default': r.default and not r.v3,
-                 'v3': r.v3, 'desc': r.doc} for r in s_stormlint.rules.values()]
+        return s_stormlint.getRules()
