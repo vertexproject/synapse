@@ -7215,7 +7215,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_cortex_v3_carve_out(self):
 
-        # the procedure in the admin guide to move an embedded Axon and JSONStor to standalone services
+        # the procedure in the devops guide to move an embedded Axon and JSONStor to standalone services
         with self.getTestDir() as dirn:
 
             coredirn = s_common.gendir(dirn, 'core')
