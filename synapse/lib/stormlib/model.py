@@ -1349,7 +1349,7 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
             this migration is run.
 
             The inet:whois:email node is not deleted and may be removed once the
-            migration has been verified. The v3.checkready command reports any
+            migration has been verified. The v3.prepare command reports any
             inet:whois:email nodes which remain.
         ''',
         'type': {'type': 'function', '_funcname': '_storm_query',
