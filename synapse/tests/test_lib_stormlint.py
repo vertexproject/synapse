@@ -898,6 +898,17 @@ class StormLintTest(s_t_utils.SynTest):
             (33, 51, mesg.format('r3', 'r3', 'r3')),
         ))
 
+        # S016 follows many binds, and a chain of calls defined in reverse order
+        text = '\n'.join(f'$x{i} = $lib.inet.http.get($u) $lib.print($x{i}) $x{i} = (1) $lib.print($x{i})' for i in range(1000))
+        findings = lint('S016', text)
+        self.len(1000, findings)
+        self.eq(findings[0], (1, 41, mesg.format('x0', 'x0', 'x0')))
+        self.eq(findings[-1], (1000, 43, mesg.format('x999', 'x999', 'x999')))
+
+        text = '\n'.join(f'function f{i}(r) {{ $f{i + 1}($r) }}' for i in range(200))
+        text = f'$f0($lib.inet.http.get($u))\nfunction f200(r) {{ $lib.print($r) }}\n{text}'
+        self.eq(lint('S016', text), ((2, 31, mesg.format('r', 'r', 'r')),))
+
         # every v3model name is in the 2.x model
         forms, props = s_stormlint._getModelNames()
         for name in s_stormlint.v3model['forms']:
