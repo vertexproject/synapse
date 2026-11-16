@@ -1,7 +1,0 @@
----
-desc: Fixed the storm.lint S016 rule taking time quadratic in the size of the Storm
-  code.
-desc:literal: false
-prs: []
-type: bug
-...

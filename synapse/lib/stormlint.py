@@ -1343,11 +1343,11 @@ def _ruleReturnImport(ctx):
                 ctx.report(node, 'Never return a module from $lib.import(), in a privsep module it inherits root '
                                  'privileges even when bound as $__name.')
 
-def _getLeaks(ctx, node, names, islive):
+def _getLeaks(ctx, node, names):
     '''
-    Yield (node, name) for each part of a print argument which exposes the request headers: a live
-    variable in names, used whole or through its request, request_headers or history member, or a
-    direct call to one of the httpcalls, for which name is None. islive is from _getLive().
+    Yield (node, name) for each part of a print argument which exposes the request headers: a variable
+    in names, used whole or through its request, request_headers or history member, or a direct call
+    to one of the httpcalls, for which name is None.
     '''
     if isinstance(node, s_ast.FuncCall):
         if ctx.callPath(node) in httpcalls:
@@ -1358,7 +1358,7 @@ def _getLeaks(ctx, node, names, islive):
     for valu in ctx.walk(s_ast.VarValue, node=node, skip=(s_ast.Function, s_ast.FuncCall)):
 
         name = valu.kids[0].valu
-        if name not in names or not islive(name):
+        if name not in names:
             continue
 
         # the whole object, or a member which holds the request headers
@@ -1371,6 +1371,14 @@ def _getLeaks(ctx, node, names, islive):
 
         yield valu, name
 
+def _getAncestors(ctx, node, scope):
+    '''
+    Yield the node and each of its parents up to, but not including, the scope.
+    '''
+    while node is not scope:
+        yield node
+        node = ctx.parent(node)
+
 def _isBranch(ctx, node):
     '''
     Return True if the node is a block which may not run: an if clause or else query, a try body or
@@ -1381,37 +1389,9 @@ def _isBranch(ctx, node):
 
     return isinstance(ctx.parent(node), (s_ast.IfStmt, s_ast.TryCatch, s_ast.SwitchCase))
 
-def _walkScope(ctx, scope):
+def _getLive(ctx, scope, names, paths, call):
     '''
-    Return a pre-order list of (node, loop) for the nodes in a scope outside of functions, where loop
-    is the outermost loop in the scope which contains the node, or None. A (None, node) entry follows
-    the last descendant of each branch.
-    '''
-    loops = (s_ast.ForLoop, s_ast.WhileLoop)
-
-    nodes = []
-    todo = [(kid, None) for kid in reversed(scope.kids) if not isinstance(kid, s_ast.Function)]
-    while todo:
-
-        node, loop = todo.pop()
-        nodes.append((node, loop))
-        if node is None:
-            continue
-
-        if _isBranch(ctx, node):
-            todo.append((None, node))
-
-        if loop is None and isinstance(node, loops):
-            loop = node
-
-        todo.extend((kid, loop) for kid in reversed(node.kids) if not isinstance(kid, s_ast.Function))
-
-    return nodes
-
-def _getLive(ctx, scope, paths):
-    '''
-    Yield (call, islive) for each call in the scope, where islive(name) returns True if the name holds
-    the result of a call to one of the paths at the call. islive is only valid until the next call.
+    Return the names which hold the result of a call to one of the paths at the call.
 
     A name is live when its latest assignment in the scope before the call is from one of the paths,
     or when the scope does not assign it before the call (a module bind). A later assignment from
@@ -1419,105 +1399,65 @@ def _getLive(ctx, scope, paths):
     A bind after the call is live too when it is in a loop which contains the call, since the next
     iteration reaches the call with it.
     '''
-    opers = (s_ast.SetVarOper, s_ast.VarListSetOper, s_ast.ForLoop)
-    nodes = _walkScope(ctx, scope)
-
-    # the bound name at each position, and the last bind position of each name in each outermost loop
-    binds = [None] * len(nodes)
-    tails = {}
-    for pos, (node, loop) in enumerate(nodes):
-        if isinstance(node, s_ast.SetVarOper) and ctx.callPath(node.kids[1]) in paths:
-
-            binds[pos] = node.kids[0].valu
-            if loop is not None:
-                tails[(id(loop), binds[pos])] = pos
-
-    # the latest bind of each name, and the latest other assignment which is not in an ended branch,
-    # with a log per open branch of the assignments it replaced
     last = {}
-    sets = {}
-    undo = [[]]
-    for pos, (node, loop) in enumerate(nodes):
+    carried = set()
+    off = call.astinfo.soff
+    inside = {id(node) for node in _getAncestors(ctx, call, scope)}
+    for oper in ctx.walk((s_ast.SetVarOper, s_ast.VarListSetOper, s_ast.ForLoop), node=scope, skip=s_ast.Function):
 
-        if node is None:
-            for name, prev in reversed(undo.pop()):
-                if prev is None:
-                    sets.pop(name)
-                else:
-                    sets[name] = prev
+        soff = oper.astinfo.soff
+        dest = oper.kids[0]
+        isbind = isinstance(oper, s_ast.SetVarOper) and ctx.callPath(oper.kids[1]) in paths
+
+        if soff >= off:
+            loops = (s_ast.ForLoop, s_ast.WhileLoop)
+            if isbind and any(isinstance(node, loops) and id(node) in inside for node in _getAncestors(ctx, oper, scope)):
+                carried.add(dest.valu)
 
             continue
 
-        if _isBranch(ctx, node):
-            undo.append([])
+        if not isbind and any(_isBranch(ctx, node) and id(node) not in inside for node in _getAncestors(ctx, oper, scope)):
+            continue
 
-        if binds[pos] is not None:
-            last[binds[pos]] = pos
+        for name in (dest.valu if isinstance(dest, s_ast.VarList) else (dest.valu,)):
+            if name in names and soff >= last.get(name, (-1,))[0]:
+                last[name] = (soff, isbind)
 
-        elif isinstance(node, opers):
-            dest = node.kids[0]
-            for name in (dest.valu if isinstance(dest, s_ast.VarList) else (dest.valu,)):
-                undo[-1].append((name, sets.get(name)))
-                sets[name] = pos
-
-        elif isinstance(node, s_ast.FuncCall):
-
-            def islive(name, pos=pos, loop=loop):
-
-                if loop is not None and tails.get((id(loop), name), -1) > pos:
-                    return True
-
-                return name not in sets or last.get(name, -1) > sets[name]
-
-            yield node, islive
+    return {name for name in names if name in carried or last.get(name, (0, True))[1]}
 
 def _followCalls(ctx, scopes):
     '''
     Add the parameters of the functions defined in the query which are passed a response to the
-    binds of the function scopes.
+    binds of the function scopes, until no more are added.
 
     A parameter is added when any call to the function passes a live response or a direct call to
     one of the httpcalls in that position, whichever call it is. scopes is the result of _getScopes().
     '''
     funcs = {}
-    for indx, func in enumerate(ctx.walk(s_ast.Function), start=1):
-        funcs[(func.kids[0].valu,)] = ([_argName(arg) for arg in func.kids[1].kids], indx)
+    for func, (_, binds) in zip(ctx.walk(s_ast.Function), scopes[1:]):
+        funcs[(func.kids[0].valu,)] = ([_argName(arg) for arg in func.kids[1].kids], binds)
 
-    # (scope, name) -> the (scope, param) of each parameter which is passed the name at a live call
-    todo = []
-    edges = collections.defaultdict(list)
-    for indx, (scope, binds) in enumerate(scopes):
-        for call, islive in _getLive(ctx, scope, httpcalls):
+    changed = True
+    while changed:
+        changed = False
 
-            func = funcs.get(ctx.callPath(call))
-            if func is None:
-                continue
+        for scope, binds in scopes:
+            for call in ctx.walk(s_ast.FuncCall, node=scope, skip=s_ast.Function):
 
-            params, fndx = func
-
-            args = [*zip(params, call.kids[1].kids), *((kwarg.kids[0].valu, kwarg.kids[1]) for kwarg in call.kids[2].kids)]
-            for name, arg in args:
-
-                if name not in params:
+                func = funcs.get(ctx.callPath(call))
+                if func is None:
                     continue
 
-                if ctx.callPath(arg) in httpcalls:
-                    todo.append((fndx, name))
-                    continue
+                params, fbinds = func
+                live = _getLive(ctx, scope, binds, httpcalls, call)
 
-                if isinstance(arg, s_ast.VarValue) and islive(arg.kids[0].valu):
-                    edges[(indx, arg.kids[0].valu)].append((fndx, name))
+                args = [*zip(params, call.kids[1].kids), *((kwarg.kids[0].valu, kwarg.kids[1]) for kwarg in call.kids[2].kids)]
+                for name, arg in args:
 
-    todo.extend(dest for (indx, name), dests in edges.items() if name in scopes[indx][1] for dest in dests)
-    while todo:
-
-        indx, name = todo.pop()
-        binds = scopes[indx][1]
-        if name in binds:
-            continue
-
-        binds.add(name)
-        todo.extend(edges.get((indx, name), ()))
+                    isvar = isinstance(arg, s_ast.VarValue) and arg.kids[0].valu in live
+                    if name in params and name not in fbinds and (isvar or ctx.callPath(arg) in httpcalls):
+                        fbinds.add(name)
+                        changed = True
 
 @rule('S016', 'print-http-resp', 'medium', default=False)
 def _rulePrintHttpResp(ctx):
@@ -1539,14 +1479,16 @@ def _rulePrintHttpResp(ctx):
     _followCalls(ctx, scopes)
 
     for scope, resps in scopes:
-        for call, islive in _getLive(ctx, scope, httpcalls):
+        for call in ctx.walk(s_ast.FuncCall, node=scope, skip=s_ast.Function):
 
             if ctx.callPath(call) not in printcalls:
                 continue
 
+            live = _getLive(ctx, scope, resps, httpcalls, call)
+
             args = [*call.kids[1].kids, *(kwarg.kids[1] for kwarg in call.kids[2].kids)]
             for arg in args:
-                for node, name in _getLeaks(ctx, arg, resps, islive):
+                for node, name in _getLeaks(ctx, arg, live):
 
                     if name is None:
                         ctx.report(node, 'The result of this call includes the request headers, such as API '
