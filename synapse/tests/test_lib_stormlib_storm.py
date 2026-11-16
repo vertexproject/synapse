@@ -335,7 +335,7 @@ class LibStormTest(s_test.SynTest):
             prints = [m[1]['mesg'] for m in msgs if m[0] == 'print']
             self.eq(prints[0], 'ID    SEVERITY  DEFAULT  NAME                 DESCRIPTION')
             self.true(prints[1].startswith('E001  high      yes      parse-failure        The Storm code failed'))
-            self.isin('S010  low       no       guarded-prop-set     ' \
+            self.isin('S010  low       no       guarded-prop-set     '
                       'An if statement which only sets a property to the variable it tests. Use ?= which skips a',
                       prints)
             self.true(any(p.startswith('M001  high      v3       renamed-form ') for p in prints))
