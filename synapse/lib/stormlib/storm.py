@@ -67,7 +67,7 @@ Examples:
         }
 '''
 
-def _getStormLinter(runt, select, ignore, enable, v3ready):
+async def _getLintFindings(runt, text, select, ignore, enable, v3ready):
 
     for name, valu in (('select', select), ('ignore', ignore), ('enable', enable)):
 
@@ -78,7 +78,7 @@ def _getStormLinter(runt, select, ignore, enable, v3ready):
             raise s_exc.BadArg(mesg=f'{name} must be a list of rule IDs or ID prefixes.', name=name)
 
     mdef = runt.model.getModelDict()
-    return s_stormlint.StormLinter(select=select, ignore=ignore, enable=enable, model=mdef, v3ready=v3ready)
+    return await s_stormlint.lintAsync(text, select=select, ignore=ignore, enable=enable, model=mdef, v3ready=v3ready)
 
 class StormExecCmd(s_storm.Cmd):
     '''
@@ -222,13 +222,11 @@ class StormLintCmd(s_storm.Cmd):
         ignore = await self._getRules(self.opts.ignore) or ()
         enable = await self._getRules(self.opts.enable) or ()
 
-        linter = _getStormLinter(runt, select, ignore, enable, self.opts.v3_ready)
-
         text = await s_stormtypes.tostr(self.opts.text)
-        findings = linter.lint(text)
+        findings = await _getLintFindings(runt, text, select, ignore, enable, self.opts.v3_ready)
 
         for f in findings:
-            await runt.printf(f'{f.line}:{f.column}: {f.rule} {f.mesg}')
+            await runt.printf(f"{f['line']}:{f['column']}: {f['rule']} {f['mesg']}")
 
         if findings:
             noun = 'error' if len(findings) == 1 else 'errors'
@@ -376,10 +374,8 @@ class LibStorm(s_stormtypes.Lib):
         if enable is None:
             enable = ()
 
-        linter = _getStormLinter(self.runt, select, ignore, enable, v3_ready)
-
-        for finding in linter.lint(text):
-            yield finding._asdict()
+        for finding in await _getLintFindings(self.runt, text, select, ignore, enable, v3_ready):
+            yield finding
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _lintRules(self):

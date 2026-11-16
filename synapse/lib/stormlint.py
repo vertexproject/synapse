@@ -14,6 +14,7 @@ import synapse.lib.ast as s_ast
 import synapse.lib.parser as s_parser
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.modules as s_modules
+import synapse.lib.processpool as s_processpool
 
 severities = ('high', 'medium', 'low')
 
@@ -1737,3 +1738,18 @@ class StormLinter:
             return True
 
         return any(finding.rule.startswith(c) for c in re.split(r'[\s,]+', codes))
+
+def _lintStorm(text, select, ignore, enable, names, v3ready):
+    linter = StormLinter(select=select, ignore=ignore, enable=enable, v3ready=v3ready)
+    linter.names = names
+    return [f._asdict() for f in linter.lint(text)]
+
+async def lintAsync(text, select=None, ignore=(), enable=(), model=None, v3ready=False):
+    '''
+    Lint Storm text in the fork pool and return a dict for each finding.
+
+    The arguments are those of StormLinter, and an unknown rule ID or prefix raises BadArg before forking.
+    '''
+    StormLinter(select=select, ignore=ignore, enable=enable, v3ready=v3ready)
+    names = _getModelNames(model)
+    return await s_processpool.semafork(_lintStorm, text, select, ignore, enable, names, v3ready)

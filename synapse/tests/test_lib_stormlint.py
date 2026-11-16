@@ -909,6 +909,17 @@ class StormLintTest(s_t_utils.SynTest):
         text = f'$f0($lib.inet.http.get($u))\nfunction f200(r) {{ $lib.print($r) }}\n{text}'
         self.eq(lint('S016', text), ((2, 31, mesg.format('r', 'r', 'r')),))
 
+        # the fork pool worker lints with the given model names
+        names = s_stormlint._getModelNames()
+        self.eq(s_stormlint._lintStorm('$x = $lib.list()\ninet:ipv4', None, ('S004',), (), names, True), [
+            {'rule': 'S005', 'severity': 'low', 'line': 1, 'column': 6,
+             'mesg': 'Use a list literal such as ([]) instead of $lib.list().'},
+            {'rule': 'M001', 'severity': 'high', 'line': 2, 'column': 1, 'mesg': 'inet:ipv4 is renamed to inet:ip in 3.x.'},
+        ])
+
+        self.eq(['S012'], [f['rule'] for f in s_stormlint._lintStorm('inet:fqdn +:zone=foo', None, (), (), names, False)])
+        self.eq([], s_stormlint._lintStorm('inet:fqdn +:zone=foo', None, (), (), (frozenset(), frozenset()), False))
+
         # every v3model name is in the 2.x model
         forms, props = s_stormlint._getModelNames()
         for name in s_stormlint.v3model['forms']:
