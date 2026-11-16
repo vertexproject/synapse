@@ -1695,6 +1695,7 @@ class StormLinter:
 
         return any(finding.rule.startswith(c) for c in re.split(r'[\s,]+', codes))
 
+# fork pool target: its arguments and return value must be pickleable
 def _lintStorm(text, idens, names):
     linter = StormLinter(select=())
     linter.rules = [rules[iden] for iden in idens]
