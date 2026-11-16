@@ -484,3 +484,22 @@ embedded query:
     }
 
 ``$lib.storm.lint()`` raises ``BadArg`` for an unknown rule ID or prefix, and honors ``noqa`` comments.
+
+The ``storm.lint`` Storm command lints Storm code the same way and prints each finding as
+``<line>:<column>: <rule> <message>``, followed by the same summary line as the tool. Its ``--select``,
+``--enable`` and ``--ignore`` options each take a comma-separated list of rule IDs or ID prefixes, and its
+``--v3-ready`` and ``--show-rules`` options match those of the tool. Inbound nodes are passed through unchanged:
+
+.. code-block:: text
+
+    storm.lint $text --enable S010,S015 --ignore S002 --v3-ready
+
+The ``$lib.storm.lintRules()`` Storm API returns a dictionary for each lint rule, in rule ID order, with the keys
+``rule``, ``name``, ``severity``, ``default``, ``v3`` and ``desc``. ``default`` is ``true`` for a rule which is
+on by default, and ``v3`` is ``true`` for a rule which is added by ``v3_ready``:
+
+.. code-block:: text
+
+    for $rule in $lib.storm.lintRules() {
+        $lib.print(`{$rule.rule} {$rule.name} {$rule.severity}`)
+    }

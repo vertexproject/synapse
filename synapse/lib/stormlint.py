@@ -436,6 +436,28 @@ def rule(iden, name, severity, default=True, v3=False):
 
     return wrap
 
+def getRuleLines():
+    '''
+    Return the lines of a table of the registered rules, with the first line of each rule description.
+    '''
+    rows = [('ID', 'SEVERITY', 'DEFAULT', 'NAME', 'DESCRIPTION')]
+    for r in rules.values():
+        doc = r.doc.split('\n', 1)[0]
+        if r.v3:
+            default = 'v3'
+        else:
+            default = 'yes' if r.default else 'no'
+
+        rows.append((r.iden, r.severity, default, r.name, doc))
+
+    sizes = [max(len(row[i]) for row in rows) for i in range(4)]
+    lines = []
+    for row in rows:
+        cols = [valu.ljust(size) for valu, size in zip(row, sizes)]
+        lines.append('  '.join(cols + [row[4]]).rstrip())
+
+    return lines
+
 class LintContext:
     '''
     The state passed to each rule callback for one parsed query.

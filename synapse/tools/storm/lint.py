@@ -136,20 +136,8 @@ def _readText(path):
 
 def _showRules(outp):
 
-    rows = [('ID', 'SEVERITY', 'DEFAULT', 'NAME', 'DESCRIPTION')]
-    for r in s_stormlint.rules.values():
-        doc = r.doc.split('\n', 1)[0]
-        if r.v3:
-            default = 'v3'
-        else:
-            default = 'yes' if r.default else 'no'
-
-        rows.append((r.iden, r.severity, default, r.name, doc))
-
-    sizes = [max(len(row[i]) for row in rows) for i in range(4)]
-    for row in rows:
-        cols = [valu.ljust(size) for valu, size in zip(row, sizes)]
-        outp.printf('  '.join(cols + [row[4]]).rstrip())
+    for line in s_stormlint.getRuleLines():
+        outp.printf(line)
 
     return 0
 

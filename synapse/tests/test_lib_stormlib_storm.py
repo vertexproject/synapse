@@ -244,6 +244,126 @@ class LibStormTest(s_test.SynTest):
             self.eq([], await lint('inet:ipv4', ignore=('M',), v3_ready=True))
             self.eq(['M001'], [f['rule'] for f in await lint('inet:ipv4', select=('M001',))])
 
+            # storm.lint command
+            msgs = await core.stormlist('storm.lint "$x = $lib.list() return($lib.null)"', opts={'readonly': True})
+            self.stormHasNoWarnErr(msgs)
+            prints = [m[1]['mesg'] for m in msgs if m[0] == 'print']
+            self.eq(prints, [
+                '1:6: S005 Use a list literal such as ([]) instead of $lib.list().',
+                '1:18: S004 Use return() to return (null).',
+                'Found 2 errors.',
+            ])
+
+            msgs = await core.stormlist('storm.lint "$x = $lib.list()"')
+            self.eq(['1:6: S005 Use a list literal such as ([]) instead of $lib.list().', 'Found 1 error.'],
+                    [m[1]['mesg'] for m in msgs if m[0] == 'print'])
+
+            msgs = await core.stormlist('storm.lint "$x = ([])"')
+            self.eq(['All checks passed!'], [m[1]['mesg'] for m in msgs if m[0] == 'print'])
+
+            msgs = await core.stormlist('storm.lint "$x = ("')
+            prints = [m[1]['mesg'] for m in msgs if m[0] == 'print']
+            self.len(2, prints)
+            self.true(prints[0].startswith('1:6: E001 '))
+            self.eq('Found 1 error.', prints[1])
+
+            text = '$x = $lib.list() return($lib.null) inet:fqdn | if $x { [ :zone=$x ] }'
+            opts = {'vars': {'text': text}}
+
+            msgs = await core.stormlist('storm.lint $text --enable " S010 , S00 "', opts=opts)
+            self.eq(['S005', 'S004', 'S010'], [m[1]['mesg'].split()[1] for m in msgs if m[0] == 'print'][:-1])
+            self.stormIsInPrint('Found 3 errors.', msgs)
+
+            msgs = await core.stormlist('storm.lint $text --select S010,S004 --ignore S004', opts=opts)
+            self.eq(['S010'], [m[1]['mesg'].split()[1] for m in msgs if m[0] == 'print'][:-1])
+
+            msgs = await core.stormlist('storm.lint $text --select "" --enable S01', opts=opts)
+            self.eq(['S010'], [m[1]['mesg'].split()[1] for m in msgs if m[0] == 'print'][:-1])
+
+            msgs = await core.stormlist('storm.lint $text --select "" --v3-ready', opts=opts)
+            self.eq(['R001'], [m[1]['mesg'].split()[1] for m in msgs if m[0] == 'print'][:-1])
+
+            msgs = await core.stormlist('storm.lint inet:ipv4 --v3-ready')
+            self.stormIsInPrint('1:1: M001 inet:ipv4 is renamed to inet:ip in 3.x.', msgs)
+
+            msgs = await core.stormlist('storm.lint inet:ipv4 --v3-ready --ignore M')
+            self.stormIsInPrint('All checks passed!', msgs)
+
+            msgs = await core.stormlist('storm.lint "$x = ([])" --enable newp,nada,never')
+            self.stormIsInErr("Unknown lint rule or prefix: 'newp'", msgs)
+
+            msgs = await core.stormlist('storm.lint')
+            self.stormIsInErr('storm.lint requires text to lint unless --show-rules is given.', msgs)
+
+            msgs = await core.stormlist('storm.lint ${ $x = (1) }', opts={'readonly': True})
+            self.stormIsInPrint('All checks passed!', msgs)
+
+            # positions in an embedded query are relative to its text
+            msgs = await core.stormlist('''
+                storm.lint ${
+                    inet:fqdn
+                    $x = $lib.list()
+                }
+            ''')
+            self.stormIsInPrint('3:26: S005 Use a list literal such as ([]) instead of $lib.list().', msgs)
+
+            # runtsafe text is linted once and inbound nodes pass through
+            await core.nodes('[ it:dev:str="$x = $lib.list()" it:dev:str="$y = ([])" ]')
+            msgs = await core.stormlist('it:dev:str storm.lint "$x = $lib.dict()"')
+            self.len(2, [m for m in msgs if m[0] == 'node'])
+            self.eq(['1:6: S005 Use a dict literal such as ({}) instead of $lib.dict().', 'Found 1 error.'],
+                    [m[1]['mesg'] for m in msgs if m[0] == 'print'])
+
+            nodes = await core.nodes('it:dev:str storm.lint "$x = ([])"')
+            self.eq(['$x = $lib.list()', '$y = ([])'], sorted(n.ndef[1] for n in nodes))
+
+            # non-runtsafe text is linted for each inbound node
+            msgs = await core.stormlist('it:dev:str storm.lint $node.value()')
+            self.len(2, [m for m in msgs if m[0] == 'node'])
+            prints = [m[1]['mesg'] for m in msgs if m[0] == 'print']
+            self.isin('1:6: S005 Use a list literal such as ([]) instead of $lib.list().', prints)
+            self.isin('Found 1 error.', prints)
+            self.isin('All checks passed!', prints)
+            self.len(3, prints)
+
+            msgs = await core.stormlist('it:dev:str storm.lint $node.value() --ignore S005')
+            self.eq(['All checks passed!', 'All checks passed!'], [m[1]['mesg'] for m in msgs if m[0] == 'print'])
+
+            # --show-rules prints the rules and lints nothing
+            msgs = await core.stormlist('storm.lint --show-rules')
+            self.stormHasNoWarnErr(msgs)
+            prints = [m[1]['mesg'] for m in msgs if m[0] == 'print']
+            self.eq(prints[0], 'ID    SEVERITY  DEFAULT  NAME                 DESCRIPTION')
+            self.true(prints[1].startswith('E001  high      yes      parse-failure        The Storm code failed'))
+            self.isin('S010  low       no       guarded-prop-set     ' \
+                      'An if statement which only sets a property to the variable it tests. Use ?= which skips a',
+                      prints)
+            self.true(any(p.startswith('M001  high      v3       renamed-form ') for p in prints))
+            self.notin('All checks passed!', prints)
+
+            nodes = await core.nodes('it:dev:str storm.lint --show-rules "$x = $lib.list()"')
+            self.len(2, nodes)
+
+            msgs = await core.stormlist('it:dev:str storm.lint --show-rules')
+            self.len(2, [m for m in msgs if m[0] == 'node'])
+            self.notin('Found 1 error.', [m[1]['mesg'] for m in msgs if m[0] == 'print'])
+
+            # lintRules
+            rules = await core.callStorm('return($lib.storm.lintRules())', opts={'readonly': True})
+            self.eq([r['rule'] for r in rules], sorted(r['rule'] for r in rules))
+            byid = {r['rule']: r for r in rules}
+            self.eq(byid['S005'], {'rule': 'S005', 'name': 'lib-list-dict', 'severity': 'low',
+                                   'default': True, 'v3': False, 'desc': byid['S005']['desc']})
+            self.true(byid['S005']['desc'].startswith('$lib.list() and $lib.dict() should be list and dict literals'))
+            self.false(byid['S010']['default'])
+            self.false(byid['S010']['v3'])
+            self.true(byid['S010']['desc'].endswith('This rule is off by default. Turn it on with enable.'))
+            self.false(byid['M001']['default'])
+            self.true(byid['M001']['v3'])
+            self.true(byid['R004']['default'])
+            self.false(byid['R004']['v3'])
+            self.eq('E001', rules[0]['rule'])
+
     async def test_lib_stormlib_storm_logging(self):
 
         # storm.exec is gated on storm:log just like every other query path, at
