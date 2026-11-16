@@ -133,15 +133,16 @@ class LibStormTest(s_test.SynTest):
             # lint
             lintq = '''
                 $retn = ([])
-                for $finding in $lib.storm.lint($text, includes=$includes, excludes=$excludes, v3ready=$v3ready) {
+                for $finding in $lib.storm.lint($text, select=$select, ignore=$ignore, enable=$enable, v3_ready=$v3_ready) {
                     $retn.append($finding)
                 }
                 return($retn)
             '''
 
-            async def lint(text, includes=None, excludes=None, v3ready=False):
+            async def lint(text, select=None, ignore=None, enable=None, v3_ready=False):
                 opts = {'readonly': True,
-                        'vars': {'text': text, 'includes': includes, 'excludes': excludes, 'v3ready': v3ready}}
+                        'vars': {'text': text, 'select': select, 'ignore': ignore, 'enable': enable,
+                                 'v3_ready': v3_ready}}
                 return await core.callStorm(lintq, opts=opts)
 
             findings = await lint('$x = $lib.list()')
@@ -158,48 +159,75 @@ class LibStormTest(s_test.SynTest):
 
             text = 'inet:fqdn | if $x { [ :zone=$x ] }'
             self.eq([], await lint(text))
-            self.eq(['S010'], [f['rule'] for f in await lint(text, includes=('S010',))])
-            self.eq(['S010'], [f['rule'] for f in await lint(text, includes=('S01',))])
+            self.eq(['S010'], [f['rule'] for f in await lint(text, enable=('S010',))])
+            self.eq(['S010'], [f['rule'] for f in await lint(text, enable=('S01',))])
+
+            # select replaces the default rule set, enable adds to it
+            text = '$x = $lib.list() return($lib.null) inet:fqdn | if $x { [ :zone=$x ] }'
+            self.eq(['S005', 'S004', 'S010'], [f['rule'] for f in await lint(text, enable=('S010',))])
+            self.eq(['S010'], [f['rule'] for f in await lint(text, select=('S010',))])
+            self.eq(['S010'], [f['rule'] for f in await lint(text, select=(), enable=('S010',))])
+            self.eq([], await lint(text, select=()))
+            self.eq(['S004', 'S010'], [f['rule'] for f in await lint(text, select=('S004',), enable=('S010',))])
+
+            findings = await lint(text, select=(), v3_ready=True)
+            self.eq(['R001'], [f['rule'] for f in findings])
 
             text = '$x = $lib.list() return($lib.null)'
             self.eq(['S005', 'S004'], [f['rule'] for f in await lint(text)])
-            self.eq(['S004'], [f['rule'] for f in await lint(text, excludes=('S005',))])
-            self.eq([], await lint(text, excludes=('S',)))
+            self.eq(['S004'], [f['rule'] for f in await lint(text, ignore=('S005',))])
+            self.eq([], await lint(text, ignore=('S',)))
+            self.eq([], await lint(text, select=('S005',), ignore=('S005',)))
 
             with self.raises(s_exc.BadArg) as cm:
-                await lint('$x = ([])', includes=('Z999',))
+                await lint('$x = ([])', enable=('Z999',))
 
             self.eq("Unknown lint rule or prefix: 'Z999'", cm.exception.get('mesg'))
             self.eq('Z999', cm.exception.get('name'))
 
             with self.raises(s_exc.BadArg) as cm:
-                await lint('$x = ([])', excludes=('Z',))
+                await lint('$x = ([])', enable=('newp', 'nada', 'never'))
+
+            self.eq("Unknown lint rule or prefix: 'newp'", cm.exception.get('mesg'))
+            self.eq('newp', cm.exception.get('name'))
+
+            with self.raises(s_exc.BadArg) as cm:
+                await lint('$x = ([])', ignore=('Z',))
 
             self.eq('Z', cm.exception.get('name'))
 
             with self.raises(s_exc.BadArg) as cm:
-                await lint('$x = ([])', includes='S010')
+                await lint('$x = ([])', select=('Z',))
 
-            self.eq('includes must be a list of rule IDs or ID prefixes.', cm.exception.get('mesg'))
-            self.eq('includes', cm.exception.get('name'))
+            self.eq('Z', cm.exception.get('name'))
 
-            with self.raises(s_exc.BadArg) as cm:
-                await lint('$x = ([])', excludes='S005')
+            for name in ('select', 'ignore', 'enable'):
 
-            self.eq('excludes must be a list of rule IDs or ID prefixes.', cm.exception.get('mesg'))
-            self.eq('excludes', cm.exception.get('name'))
+                with self.raises(s_exc.BadArg) as cm:
+                    await lint('$x = ([])', **{name: 'S010'})
 
-            with self.raises(s_exc.BadArg) as cm:
-                await lint('$x = ([])', includes=('S010', 1))
+                self.eq(f'{name} must be a list of rule IDs or ID prefixes.', cm.exception.get('mesg'))
+                self.eq(name, cm.exception.get('name'))
 
-            self.eq('includes must be a list of rule IDs or ID prefixes.', cm.exception.get('mesg'))
-            self.eq('includes', cm.exception.get('name'))
+                with self.raises(s_exc.BadArg) as cm:
+                    await lint('$x = ([])', **{name: ('S010', 1)})
 
-            with self.raises(s_exc.BadArg) as cm:
-                await lint('$x = ([])', excludes=(1,))
+                self.eq(f'{name} must be a list of rule IDs or ID prefixes.', cm.exception.get('mesg'))
+                self.eq(name, cm.exception.get('name'))
 
-            self.eq('excludes must be a list of rule IDs or ID prefixes.', cm.exception.get('mesg'))
-            self.eq('excludes', cm.exception.get('name'))
+            # positions in an embedded query are relative to its text
+            q = '''
+                $query = ${
+                    inet:fqdn
+                    $x = $lib.list()
+                }
+                $retn = ([])
+                for $finding in $lib.storm.lint($query) { $retn.append($finding) }
+                return($retn)
+            '''
+            findings = await core.callStorm(q, opts={'readonly': True})
+            self.eq(findings, [{'rule': 'S005', 'severity': 'low', 'line': 3, 'column': 26,
+                                'mesg': 'Use a list literal such as ([]) instead of $lib.list().'}])
 
             # S012 only reports a prop which is in the Cortex data model
             await core.callStorm('''
@@ -210,10 +238,11 @@ class LibStormTest(s_test.SynTest):
             self.eq([], await lint('_foo:newp +:baz=woot'))
 
             self.eq([], await lint('inet:ipv4'))
-            findings = await lint('inet:ipv4', v3ready=True)
+            findings = await lint('inet:ipv4', v3_ready=True)
             self.eq(findings, [{'rule': 'M001', 'severity': 'high', 'line': 1, 'column': 1,
                                 'mesg': 'inet:ipv4 is renamed to inet:ip in 3.x.'}])
-            self.eq([], await lint('inet:ipv4', excludes=('M',), v3ready=True))
+            self.eq([], await lint('inet:ipv4', ignore=('M',), v3_ready=True))
+            self.eq(['M001'], [f['rule'] for f in await lint('inet:ipv4', select=('M001',))])
 
     async def test_lib_stormlib_storm_logging(self):
 

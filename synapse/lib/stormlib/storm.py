@@ -27,13 +27,56 @@ Findings are checked against the data model of the Cortex, including extended mo
 elements. Each finding is a dictionary with the keys rule, severity, line, column and mesg,
 sorted by line, column and rule. A syntax error yields an E001 finding.
 
+The select, enable, ignore and v3_ready options match the --select, --enable, --ignore and
+--v3-ready options of the storm.lint tool, the keys of its [tool.stormlint] table and the
+options of the MCP storm_lint tool. select replaces the default rule set, so select=([]) runs
+only the rules named by enable, plus the v3 rules when v3_ready is set. ignore is applied last.
+An unknown rule ID or prefix raises a BadArg error.
+
+When text is an embedded query, the line and column of each finding are relative to the
+text of the embedded query.
+
 Examples:
     Print the findings for a query::
 
         for $finding in $lib.storm.lint($text) {
             $lib.print(`{$finding.line}:{$finding.column} {$finding.rule} {$finding.mesg}`)
         }
+
+    Lint an embedded query with the off by default rule S010 and the v3 rules::
+
+        $query = ${
+            inet:fqdn
+            $x = $lib.list()
+        }
+        for $finding in $lib.storm.lint($query, enable=(S010,), v3_ready=(true)) {
+            $lib.print(`{$finding.line}:{$finding.column} {$finding.rule} {$finding.mesg}`)
+        }
 '''
+
+async def _getStormLinter(runt, select=None, ignore=None, enable=None, v3ready=False):
+
+    select = await s_stormtypes.toprim(select)
+    ignore = await s_stormtypes.toprim(ignore)
+    enable = await s_stormtypes.toprim(enable)
+    v3ready = await s_stormtypes.tobool(v3ready)
+
+    if ignore is None:
+        ignore = ()
+
+    if enable is None:
+        enable = ()
+
+    for name, valu in (('select', select), ('ignore', ignore), ('enable', enable)):
+
+        if valu is None:
+            continue
+
+        if not isinstance(valu, (list, tuple)) or not all(isinstance(v, str) for v in valu):
+            raise s_exc.BadArg(mesg=f'{name} must be a list of rule IDs or ID prefixes.', name=name)
+
+    mdef = runt.model.getModelDict()
+    return s_stormlint.StormLinter(select=select, ignore=ignore, enable=enable, model=mdef, v3ready=v3ready)
 
 class StormExecCmd(s_storm.Cmd):
     '''
@@ -135,15 +178,20 @@ class LibStorm(s_stormtypes.Lib):
         {'name': 'lint', 'desc': lintdesc,
          'type': {'type': 'function', '_funcname': '_lintStorm',
                   'args': (
-                      {'name': 'text', 'type': 'str', 'desc': 'The Storm code to lint.'},
-                      {'name': 'includes', 'type': 'list', 'default': None,
-                       'desc': 'Rule IDs or ID prefixes to add to the default rules, including rules which are '
-                               'off by default such as S010 and S015.'},
-                      {'name': 'excludes', 'type': 'list', 'default': None,
-                       'desc': 'Rule IDs or ID prefixes to remove from the rules, applied last, after includes and v3ready.'},
-                      {'name': 'v3ready', 'type': 'boolean', 'default': False,
-                       'desc': 'Add every rule which reports Storm that must change for Synapse 3.x, '
-                               'the same as storm.lint --v3-ready.'},
+                      {'name': 'text', 'type': ['str', 'storm:query'], 'desc': 'The Storm code to lint.'},
+                      {'name': 'select', 'type': 'list', 'default': None,
+                       'desc': 'Rule IDs or ID prefixes which replace the default rule set, so only the selected '
+                               'rules run. Matches the --select option of the storm.lint tool.'},
+                      {'name': 'ignore', 'type': 'list', 'default': None,
+                       'desc': 'Rule IDs or ID prefixes to remove from the rules, applied last, after v3_ready. '
+                               'Matches the --ignore option of the storm.lint tool.'},
+                      {'name': 'enable', 'type': 'list', 'default': None,
+                       'desc': 'Rule IDs or ID prefixes to add to the rules, including rules which are '
+                               'off by default such as S010 and S015. Matches the --enable option of the '
+                               'storm.lint tool.'},
+                      {'name': 'v3_ready', 'type': 'boolean', 'default': False,
+                       'desc': 'Add every rule which reports Storm that must change for Synapse 3.x. '
+                               'Matches the --v3-ready option of the storm.lint tool.'},
                   ),
                   'returns': {'name': 'yields', 'type': 'dict', 'desc': 'A dictionary for each lint finding.'}}},
     )
@@ -207,27 +255,10 @@ class LibStorm(s_stormtypes.Lib):
         return valu
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _lintStorm(self, text, includes=None, excludes=None, v3ready=False):
+    async def _lintStorm(self, text, select=None, ignore=None, enable=None, v3_ready=False):
 
         text = await s_stormtypes.tostr(text)
-        includes = await s_stormtypes.toprim(includes)
-        excludes = await s_stormtypes.toprim(excludes)
-        v3ready = await s_stormtypes.tobool(v3ready)
-
-        if includes is None:
-            includes = ()
-
-        if excludes is None:
-            excludes = ()
-
-        if not isinstance(includes, (list, tuple)) or not all(isinstance(i, str) for i in includes):
-            raise s_exc.BadArg(mesg='includes must be a list of rule IDs or ID prefixes.', name='includes')
-
-        if not isinstance(excludes, (list, tuple)) or not all(isinstance(i, str) for i in excludes):
-            raise s_exc.BadArg(mesg='excludes must be a list of rule IDs or ID prefixes.', name='excludes')
-
-        mdef = self.runt.model.getModelDict()
-        linter = s_stormlint.StormLinter(enable=includes, ignore=excludes, model=mdef, v3ready=v3ready)
+        linter = await _getStormLinter(self.runt, select=select, ignore=ignore, enable=enable, v3ready=v3_ready)
 
         for finding in linter.lint(text):
             yield finding._asdict()

@@ -459,13 +459,27 @@ model forms and properties. It yields a dictionary for each finding, with the ke
         $lib.print(`{$finding.line}:{$finding.column} {$finding.rule} {$finding.mesg}`)
     }
 
-The ``includes`` option adds rules to the default rule set, like ``--enable`` rather than ``--select``, so the
-default rules still run. The ``excludes`` option matches ``--ignore``, and the ``v3ready`` option matches
-``--v3-ready``:
+The ``select``, ``enable`` and ``ignore`` options take a list of rule IDs or ID prefixes, and the ``v3_ready``
+option takes a boolean. They match the ``--select``, ``--enable``, ``--ignore`` and ``--v3-ready`` options, the
+keys of the ``[tool.stormlint]`` table, and the options of the Cortex MCP server's ``storm_lint`` tool. ``select`` replaces the default rule set, so ``select=([])`` runs only the rules named by
+``enable``, plus the 3.x rules when ``v3_ready`` is set. ``ignore`` is applied last:
 
 .. code-block:: text
 
-    for $finding in $lib.storm.lint($text, includes=(S010, S015), excludes=(S002,), v3ready=(true)) {
+    for $finding in $lib.storm.lint($text, enable=(S010, S015), ignore=(S002,), v3_ready=(true)) {
+        $lib.print(`{$finding.line}:{$finding.column} {$finding.rule} {$finding.mesg}`)
+    }
+
+The Storm code may also be an embedded query. The line and column of each finding are relative to the text of the
+embedded query:
+
+.. code-block:: text
+
+    $query = ${
+        inet:fqdn
+        $x = $lib.list()
+    }
+    for $finding in $lib.storm.lint($query) {
         $lib.print(`{$finding.line}:{$finding.column} {$finding.rule} {$finding.mesg}`)
     }
 
