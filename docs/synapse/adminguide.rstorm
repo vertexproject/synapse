@@ -1513,21 +1513,52 @@ ready for future model updates.
 
 To prepare your Cortex to upgrade to Synapse 3.x, use the :ref:`storm-v3-prepare` command:
 
-#. Run ``v3.prepare --dry-run`` to check the Cortex and each Storm service, such as Optic, without changing anything.
-   It prints an error for each deprecated model element still in use in any layer, installed Power-Up which is below
-   the minimum version that supports Synapse 3.x, installed Vertex Power-Up which is not yet available for Synapse
-   3.x, and layer model migration or Power-Up init which has not completed yet, along with the errors of each
-   service.
-#. Fix each error. Errors block the upgrade, and warnings do not.
+#. Run ``v3.prepare --dry-run`` to check the Cortex, each Storm service such as Optic, and the Axon and JSONStor which
+   the Cortex is configured to use, without changing anything. It prints an error for each deprecated model element
+   still in use in any layer, installed Power-Up which is below the minimum version that supports Synapse 3.x,
+   installed Vertex Power-Up which is not yet available for Synapse 3.x, layer model migration or Power-Up init which
+   has not completed yet, and embedded Axon or JSONStor, or one left behind in the Cortex storage, along with the
+   errors of each service.
+#. Fix each error. Errors block the upgrade, and warnings do not. To fix an embedded Axon or JSONStor, see
+   :ref:`admin_v3_carve_out`.
 #. Run ``v3.prepare``, which checks the Cortex and each service again and prepares each one with no errors, then
    records the result for its Synapse 3.x migration.
 #. Run ``v3.prepare`` again just before migrating, so the result it records is current. A result recorded by an
    earlier Synapse version does not allow the migration. A service keeps what it has already prepared, so a later run
    only prepares what changed since; Optic, for example, only renders Story elements which are new or changed.
 
-Run the command on the Cortex leader, with each Storm service added by the AHA name of its leader, since only a
-leader is checked and prepared. A leader which is demoted discards its result, so run it again on the new leader.
-To check or prepare a service which is not a Storm service, use the :ref:`syn-tools-service-v3prepare` tool.
+Run the command on the Cortex leader, with each Storm service added, and the ``axon`` and ``jsonstor`` configuration
+options set, by the AHA name of its leader, since only a leader is checked and prepared. A leader which is demoted
+discards its result, so run it again on the new leader. To check or prepare any other service, use the
+:ref:`syn-tools-service-v3prepare` tool.
+
+.. _admin_v3_carve_out:
+
+Move an Embedded Axon or JSONStor to a Standalone Service
+---------------------------------------------------------
+
+A Cortex which does not have the ``axon`` or ``jsonstor`` configuration option set runs an embedded Axon or JSONStor,
+which stores its data in the ``axon`` or ``jsonstor`` directory of the Cortex storage. The Synapse 3.x migration
+leaves that data behind, so ``v3.prepare`` reports an error until each one is moved to a standalone service. The
+standalone service keeps the data of the embedded one.
+
+These steps use the AHA names and paths of the :ref:`deploymentguide`. For a JSONStor, use ``jsonstor`` in place of
+``axon`` throughout.
+
+#. Stop the Cortex leader and each of its mirrors.
+#. Follow the steps to :ref:`deploy_axon` (or :ref:`deploy_jsonstor`), up to the ``docker compose`` commands which start it. Before starting it,
+   copy the contents of the ``axon`` directory of the Cortex leader storage into the new service storage, and set
+   its owner again::
+
+    cp -a /srv/syn/00.cortex/storage/axon/. /srv/syn/00.axon/storage/
+    chown -R 999 /srv/syn/00.axon/storage
+
+#. Start the Axon.
+#. Set the ``axon`` configuration option of the Cortex leader and each of its mirrors to the AHA name of the Axon
+   leader, such as ``SYN_CORTEX_AXON=aha://axon...``, and remove the ``axon`` directory from each of their storage
+   directories. The Cortex no longer uses that directory, and ``v3.prepare`` reports an error while it remains.
+#. Start the Cortex leader and its mirrors, and run ``v3.prepare --dry-run`` to confirm the error is gone.
+
 
 
 .. _admin_config_mirror:

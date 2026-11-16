@@ -1361,6 +1361,8 @@ Docker Image: ``vertexproject/synapse-axon:v2.x.x``
     For ease of use in simple deployments, the Cortex contains an embedded Axon instance.  For production deployments
     it is **highly** recommended that you install it as a separated service to help distribute load and allow direct
     access by other Advanced Power-Ups.
+    An embedded Axon must be moved to a standalone service before upgrading to Synapse 3.x. See
+    :ref:`admin_v3_carve_out`.
 
 **Configuration**
 
@@ -1402,6 +1404,8 @@ Docker Image: ``vertexproject/synapse-jsonstor:v2.x.x``
     For ease of use in simple deployments, the Cortex contains an embedded JSONStor instance.  For production deployments
     it is **highly** recommended that you install it as a separated service to help distribute load and allow direct
     access by other Advanced Power-Ups.
+    An embedded JSONStor must be moved to a standalone service before upgrading to Synapse 3.x. See
+    :ref:`admin_v3_carve_out`.
 
 **Configuration**
 

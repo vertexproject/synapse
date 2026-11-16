@@ -1,0 +1,7 @@
+---
+desc: Updated the ``v3.prepare`` command to also check and prepare the Axon and JSONStor
+  which the Cortex is configured to use.
+desc:literal: false
+prs: []
+type: feat
+...

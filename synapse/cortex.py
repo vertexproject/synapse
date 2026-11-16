@@ -3753,6 +3753,28 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         async for mesg in self._checkV3Migrations(pkgdefs):
             yield mesg
 
+        async for mesg in self._checkV3SubCells():
+            yield mesg
+
+    async def _checkV3SubCells(self):
+
+        yield ('print', 'Checking for an embedded Axon or JSONStor...')
+
+        for name, title in (('axon', 'Axon'), ('jsonstor', 'JSONStor')):
+
+            path = os.path.join(self.dirn, name)
+            if not os.path.isdir(path):
+                continue
+
+            if self.conf.get(name) is None:
+                mesg = (f'The Cortex has an embedded {title} in {path}. Move it to a standalone {title} service and '
+                        f'set the {name} config option on the Cortex.')
+            else:
+                mesg = (f'The Cortex no longer uses the {title} in {path}, since the {name} config option is set. '
+                        'Remove the directory.')
+
+            yield ('error', mesg)
+
     async def _checkV3Model(self):
 
         yield ('print', 'Checking for deprecated model elements in use...')

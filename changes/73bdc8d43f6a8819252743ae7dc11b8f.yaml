@@ -1,0 +1,6 @@
+---
+desc: Added documentation on moving an embedded Axon or JSONStor to a standalone service.
+desc:literal: false
+prs: []
+type: doc
+...
