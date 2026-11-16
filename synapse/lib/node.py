@@ -652,7 +652,9 @@ class Node:
                     return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname,
                                                           iden=self.iden())
 
-            async for refr in self.snap.nodesByPropTypeValu(formname, formvalu):
+            # formvalu is our already normalized primary value, so search for
+            # references without re-normalizing it.
+            async for refr in self.snap.nodesByPropTypeValu(formname, formvalu, norm=False):
 
                 if refr.buid == self.buid:
                     continue

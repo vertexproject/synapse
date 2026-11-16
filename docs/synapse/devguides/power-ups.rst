@@ -156,6 +156,12 @@ runtime and accessible using the implicit variable ``$modconf``::
         }
     }
 
+``$modconf`` is read-only, including any nested dictionaries and lists, both within the module and for
+anything that imports the module. Attempting to modify it raises an error. Use ``$lib.copy()`` to get a
+mutable copy::
+
+    $chains = $lib.copy($modconf.chains)
+
 Privileged Modules
 -------------------
 

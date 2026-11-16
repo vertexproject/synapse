@@ -1,0 +1,8 @@
+---
+desc: Fixed graceful leadership handoff (`Cell.handoff()`, `synapse.tools.service.promote`)
+  diverging the Nexus logs. A write forwarded by a mirror that is promoted before it
+  completes now raises `LinkErr` instead of hanging.
+desc:literal: false
+prs: []
+type: bug
+...

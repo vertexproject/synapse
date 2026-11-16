@@ -8,8 +8,11 @@ import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
+import synapse.lib.layer as s_layer
 import synapse.lib.spooled as s_spooled
 import synapse.lib.modelrev as s_modelrev
+
+import synapse.models.inet as s_inet
 
 import synapse.tests.utils as s_tests
 
@@ -1865,249 +1868,290 @@ class ModelRevTest(s_tests.SynTest):
             self.eq(servers[2].ndef, server01)
             self.none(servers[2].get('port'))
 
-        async with self.getRegrCore('model-0.2.35') as core:
-            nodes = await core.nodes('.created')
-            self.len(0, nodes)
+        orig = s_spooled.Spooled.__anit__
+        for maxval in (s_spooled.MAX_SPOOL_SIZE, 1):
 
-            views = {view.info.get('name'): view for view in core.listViews()}
-            self.len(3, views)
+            async def __anit__(self, dirn=None, size=s_spooled.MAX_SPOOL_SIZE, cell=None):
+                await orig(self, dirn=dirn, size=maxval, cell=cell)
 
-            fork00 = views.get('fork00').iden
-            infork00 = {'view': fork00}
+            with mock.patch('synapse.lib.spooled.Spooled.__anit__', __anit__):
+                async with self.getRegrCore('model-0.2.35') as core:
 
-            fork01 = views.get('fork01').iden
-            infork01 = {'view': fork01}
+                    # Make sure the mock worked
+                    migration = await s_modelrev.ModelMigration_0_2_35.anit(core, [])
+                    self.eq(migration.nodes.size, maxval)
+                    self.eq(migration.todos.size, maxval)
+                    nodes = await core.nodes('.created')
+                    self.len(0, nodes)
 
-            def fixed(node, nodedata):
-                # .seen times were extended out both directions
-                self.eq(node.get('.seen'), (t2019, t2022))
+                    views = {view.info.get('name'): view for view in core.listViews()}
+                    self.len(3, views)
 
-                # _valid didn't get overwritten
-                self.eq(node.get('_valid'), 1)
+                    fork00 = views.get('fork00').iden
+                    infork00 = {'view': fork00}
 
-                # tag values were merged
-                self.eq(node.get('#test.foo00'), (t2019, t2022))
-                self.eq(node.get('#test.foo01'), (t2019, t2022))
-                self.eq(node.get('#test.foo02'), (t2020, t2026))
-                self.eq(node.get('#test.foo03'), (t2020, t2026))
+                    fork01 = views.get('fork01').iden
+                    infork01 = {'view': fork01}
 
-                # tagprop didn't get overwritten
-                self.eq(node.tagprops, {
-                    'test.tagprop': {'score': 1},
-                    'test.same': {'score': 10},
-                })
+                    def fixed(node, nodedata):
+                        # .seen times were extended out both directions
+                        self.eq(node.get('.seen'), (t2019, t2022))
 
-                # tags merged
-                self.isin('test.valid', node.tags)
-                self.isin('test.invalid', node.tags)
+                        # _valid didn't get overwritten
+                        self.eq(node.get('_valid'), 1)
 
-                # nodedata has stored conflicts
-                self.eq(node.nodedata, {
-                    'addr': 'valid',
-                    'same': 'same',
-                    'only': 'value',
-                    'model_0_2_35': nodedata,
-                })
+                        # tag values were merged
+                        self.eq(node.get('#test.foo00'), (t2019, t2022))
+                        self.eq(node.get('#test.foo01'), (t2019, t2022))
+                        self.eq(node.get('#test.foo02'), (t2020, t2026))
+                        self.eq(node.get('#test.foo03'), (t2020, t2026))
 
-            def control(node):
-                self.eq(node.get('.seen'), (t2020, t2021))
-                self.eq(node.get('_valid'), 1)
-                self.eq(node.tagprops.get('test.tagprop'), {'score': 1})
-                self.isin('test.valid', node.tags)
-                self.notin('test.invalid', node.tags)
-                self.eq(node.get('#test.foo00'), (t2020, t2021))
-                self.eq(node.get('#test.foo01'), (t2019, t2022))
-                self.eq(node.get('#test.foo02'), (t2020, t2026))
-                self.eq(node.get('#test.foo03'), (None, None))
-                self.eq(node.nodedata, {'addr': 'valid', 'same': 'same'})
+                        # tagprop didn't get overwritten
+                        self.eq(node.tagprops, {
+                            'test.tagprop': {'score': 1},
+                            'test.same': {'score': 10},
+                        })
 
-            q = '''
-                .created
-                for ($k, $v) in $node.data.list() {
-                    $node.data.load($k)
-                }
-                | uniq
-            '''
-            nodes = await core.nodes(q, opts=infork00)
-            self.len(23, nodes)
+                        # tags merged
+                        self.isin('test.valid', node.tags)
+                        self.isin('test.invalid', node.tags)
 
-            nodedata = {
-                badclient: {
-                    'nodedata': {'addr': 'invalid'},
-                    'props': {'_valid': 0},
-                    'tagprops': {'test.tagprop': {'score': 0}}
-                }
-            }
-            clients = select(nodes, 'inet:client')
-            self.eq([k.ndef for k in clients], [client00, client01])
-            fixed(clients[0], nodedata)
-            control(clients[1])
-            self.eq(clients[1].get('port'), 80)
+                        # nodedata has stored conflicts
+                        self.eq(node.nodedata, {
+                            'addr': 'valid',
+                            'same': 'same',
+                            'only': 'value',
+                            'model_0_2_35': nodedata,
+                        })
 
-            nodedata = {
-                badserver: {
-                    'nodedata': {'addr': 'invalid'},
-                    'props': {'_valid': 0},
-                    'tagprops': {'test.tagprop': {'score': 0}}
-                }
-            }
-            servers = select(nodes, 'inet:server')
-            self.eq([k.ndef for k in servers], [server00, server01])
-            fixed(servers[0], nodedata)
-            control(servers[1])
-            self.eq(servers[1].get('port'), 80)
+                    def control(node):
+                        self.eq(node.get('.seen'), (t2020, t2021))
+                        self.eq(node.get('_valid'), 1)
+                        self.eq(node.tagprops.get('test.tagprop'), {'score': 1})
+                        self.isin('test.valid', node.tags)
+                        self.notin('test.invalid', node.tags)
+                        self.eq(node.get('#test.foo00'), (t2020, t2021))
+                        self.eq(node.get('#test.foo01'), (t2019, t2022))
+                        self.eq(node.get('#test.foo02'), (t2020, t2026))
+                        self.eq(node.get('#test.foo03'), (None, None))
+                        self.eq(node.nodedata, {'addr': 'valid', 'same': 'same'})
 
-            nodedata = {
-                badurl: {
-                    'nodedata': {'addr': 'invalid'},
-                    'props': {
-                        '_valid': 0,
-                        'base': badurl,
-                    },
-                    'tagprops': {'test.tagprop': {'score': 0}}
-                }
-            }
-            urls = select(nodes, 'inet:url')
-            self.eq([k.ndef for k in urls], [url00, url01])
-            fixed(urls[0], nodedata)
-            control(urls[1])
+                    q = '''
+                        .created
+                        for ($k, $v) in $node.data.list() {
+                            $node.data.load($k)
+                        }
+                        | uniq
+                    '''
+                    nodes = await core.nodes(q, opts=infork00)
+                    self.len(23, nodes)
 
-            nodedata = {
-                badja3: {
-                    'nodedata': {'addr': 'invalid'},
-                    'props': {'_valid': 0},
-                    'tagprops': {'test.tagprop': {'score': 0}}
-                }
-            }
-            ja3s = select(nodes, 'inet:tls:ja3:sample')
-            self.eq([k.ndef for k in ja3s], [ja300, ja301])
-            fixed(ja3s[0], nodedata)
-            control(ja3s[1])
+                    nodedata = {
+                        badclient: {
+                            'nodedata': {'addr': 'invalid'},
+                            'props': {'_valid': 0},
+                            'tagprops': {'test.tagprop': {'score': 0}}
+                        }
+                    }
+                    clients = select(nodes, 'inet:client')
+                    self.eq([k.ndef for k in clients], [client00, client01])
+                    fixed(clients[0], nodedata)
+                    control(clients[1])
+                    self.eq(clients[1].get('port'), 80)
 
-            nodedata = {
-                badja3s: {
-                    'nodedata': {'addr': 'invalid'},
-                    'props': {'_valid': 0},
-                    'tagprops': {'test.tagprop': {'score': 0}}
-                }
-            }
-            ja3ss = select(nodes, 'inet:tls:ja3s:sample')
-            self.eq([k.ndef for k in ja3ss], [ja3s00, ja3s01])
-            fixed(ja3ss[0], nodedata)
-            control(ja3ss[1])
+                    nodedata = {
+                        badserver: {
+                            'nodedata': {'addr': 'invalid'},
+                            'props': {'_valid': 0},
+                            'tagprops': {'test.tagprop': {'score': 0}}
+                        }
+                    }
+                    servers = select(nodes, 'inet:server')
+                    self.eq([k.ndef for k in servers], [server00, server01])
+                    fixed(servers[0], nodedata)
+                    control(servers[1])
+                    self.eq(servers[1].get('port'), 80)
 
-            nodedata = {
-                badurlfile: {
-                    'nodedata': {'addr': 'invalid'},
-                    'props': {'_valid': 0},
-                    'tagprops': {'test.tagprop': {'score': 0}}
-                }
-            }
-            urlfiles = select(nodes, 'inet:urlfile')
-            self.eq([k.ndef for k in urlfiles], [urlfile00, urlfile01])
-            fixed(urlfiles[0], nodedata)
-            control(urlfiles[1])
+                    nodedata = {
+                        badurl: {
+                            'nodedata': {'addr': 'invalid'},
+                            'props': {
+                                '_valid': 0,
+                                'base': badurl,
+                            },
+                            'tagprops': {'test.tagprop': {'score': 0}}
+                        }
+                    }
+                    urls = select(nodes, 'inet:url')
+                    self.eq([k.ndef for k in urls], [url00, url01])
+                    fixed(urls[0], nodedata)
+                    control(urls[1])
 
-            # check edges were moved correctly
-            nodes = await core.nodes('meta:source=(regression, 0.2.35, invalid) -(seen)> *', opts=infork00)
-            self.len(10, nodes)
-            self.sorteq(
-                [k.ndef for k in nodes],
-                [
-                    ('_ext:model:form', 'invalid'),
-                    client00,
-                    flow00, flow01,
-                    server00,
-                    ja300,
-                    ja3s00,
-                    url00,
-                    urlfile00,
-                    vuln00,
-                ]
-            )
+                    nodedata = {
+                        badja3: {
+                            'nodedata': {'addr': 'invalid'},
+                            'props': {'_valid': 0},
+                            'tagprops': {'test.tagprop': {'score': 0}}
+                        }
+                    }
+                    ja3s = select(nodes, 'inet:tls:ja3:sample')
+                    self.eq([k.ndef for k in ja3s], [ja300, ja301])
+                    fixed(ja3s[0], nodedata)
+                    control(ja3s[1])
 
-            # check old edges didn't change
-            nodes = await core.nodes('meta:source=(regression, 0.2.35, valid) -(seen)> *', opts=infork00)
-            self.len(19, nodes)
-            self.sorteq(
-                [k.ndef for k in nodes],
-                [
-                    ('_ext:model:form', 'valid'),
-                    client00, client01,
-                    flow02, flow03, flow04, flow05,
-                    server00, server01,
-                    ja300, ja301,
-                    ja3s00, ja3s01,
-                    url00, url01,
-                    urlfile00, urlfile01,
-                    vuln01, vuln02,
-                ]
-            )
+                    nodedata = {
+                        badja3s: {
+                            'nodedata': {'addr': 'invalid'},
+                            'props': {'_valid': 0},
+                            'tagprops': {'test.tagprop': {'score': 0}}
+                        }
+                    }
+                    ja3ss = select(nodes, 'inet:tls:ja3s:sample')
+                    self.eq([k.ndef for k in ja3ss], [ja3s00, ja3s01])
+                    fixed(ja3ss[0], nodedata)
+                    control(ja3ss[1])
 
-            # property migration check
-            nodes = await core.nodes('_ext:model:form=invalid -> * | uniq', opts=infork00)
-            self.len(6, nodes)
-            self.sorteq(
-                [k.ndef for k in nodes],
-                [
-                    client00,
-                    server00,
-                    ja300,
-                    ja3s00,
-                    url00,
-                    urlfile00,
-                ]
-            )
+                    nodedata = {
+                        badurlfile: {
+                            'nodedata': {'addr': 'invalid'},
+                            'props': {'_valid': 0},
+                            'tagprops': {'test.tagprop': {'score': 0}}
+                        }
+                    }
+                    urlfiles = select(nodes, 'inet:urlfile')
+                    self.eq([k.ndef for k in urlfiles], [urlfile00, urlfile01])
+                    fixed(urlfiles[0], nodedata)
+                    control(urlfiles[1])
 
-            nodes = await core.nodes('_ext:model:form=valid -> * | uniq', opts=infork00)
-            self.len(12, nodes)
-            self.sorteq(
-                [k.ndef for k in nodes],
-                [
-                    client00, client01,
-                    server00, server01,
-                    ja300, ja301,
-                    ja3s00, ja3s01,
-                    url00, url01,
-                    urlfile00, urlfile01,
-                ]
-            )
+                    # check edges were moved correctly
+                    nodes = await core.nodes('meta:source=(regression, 0.2.35, invalid) -(seen)> *', opts=infork00)
+                    self.len(10, nodes)
+                    self.sorteq(
+                        [k.ndef for k in nodes],
+                        [
+                            ('_ext:model:form', 'invalid'),
+                            client00,
+                            flow00, flow01,
+                            server00,
+                            ja300,
+                            ja3s00,
+                            url00,
+                            urlfile00,
+                            vuln00,
+                        ]
+                    )
 
-            q = '''
-                inet:client inet:server
-                for ($k, $v) in $node.data.list() {
-                    $node.data.load($k)
-                }
-                | uniq
-            '''
-            nodes = await core.nodes(q, opts=infork01)
-            self.len(4, nodes)
+                    # check old edges didn't change
+                    nodes = await core.nodes('meta:source=(regression, 0.2.35, valid) -(seen)> *', opts=infork00)
+                    self.len(19, nodes)
+                    self.sorteq(
+                        [k.ndef for k in nodes],
+                        [
+                            ('_ext:model:form', 'valid'),
+                            client00, client01,
+                            flow02, flow03, flow04, flow05,
+                            server00, server01,
+                            ja300, ja301,
+                            ja3s00, ja3s01,
+                            url00, url01,
+                            urlfile00, urlfile01,
+                            vuln01, vuln02,
+                        ]
+                    )
 
-            nodedata = {
-                badclient: {
-                    'nodedata': {'addr': 'invalid'},
-                    'props': {'_valid': 0},
-                    'tagprops': {'test.tagprop': {'score': 0}}
-                }
-            }
-            clients = select(nodes, 'inet:client')
-            self.eq([k.ndef for k in clients], [client00, client01])
-            fixed(clients[0], nodedata)
-            self.none(clients[0].get('port'))
-            control(clients[1])
+                    # property migration check
+                    nodes = await core.nodes('_ext:model:form=invalid -> * | uniq', opts=infork00)
+                    self.len(6, nodes)
+                    self.sorteq(
+                        [k.ndef for k in nodes],
+                        [
+                            client00,
+                            server00,
+                            ja300,
+                            ja3s00,
+                            url00,
+                            urlfile00,
+                        ]
+                    )
 
-            nodedata = {
-                badserver: {
-                    'nodedata': {'addr': 'invalid'},
-                    'props': {'_valid': 0},
-                    'tagprops': {'test.tagprop': {'score': 0}}
-                }
-            }
-            servers = select(nodes, 'inet:server')
-            self.eq([k.ndef for k in servers], [server00, server01])
-            fixed(servers[0], nodedata)
-            self.none(servers[0].get('port'))
-            control(servers[1])
+                    nodes = await core.nodes('_ext:model:form=valid -> * | uniq', opts=infork00)
+                    self.len(12, nodes)
+                    self.sorteq(
+                        [k.ndef for k in nodes],
+                        [
+                            client00, client01,
+                            server00, server01,
+                            ja300, ja301,
+                            ja3s00, ja3s01,
+                            url00, url01,
+                            urlfile00, urlfile01,
+                        ]
+                    )
+
+                    q = '''
+                        inet:client inet:server
+                        for ($k, $v) in $node.data.list() {
+                            $node.data.load($k)
+                        }
+                        | uniq
+                    '''
+                    nodes = await core.nodes(q, opts=infork01)
+                    self.len(4, nodes)
+
+                    nodedata = {
+                        badclient: {
+                            'nodedata': {'addr': 'invalid'},
+                            'props': {'_valid': 0},
+                            'tagprops': {'test.tagprop': {'score': 0}}
+                        }
+                    }
+                    clients = select(nodes, 'inet:client')
+                    self.eq([k.ndef for k in clients], [client00, client01])
+                    fixed(clients[0], nodedata)
+                    self.none(clients[0].get('port'))
+                    control(clients[1])
+
+                    nodedata = {
+                        badserver: {
+                            'nodedata': {'addr': 'invalid'},
+                            'props': {'_valid': 0},
+                            'tagprops': {'test.tagprop': {'score': 0}}
+                        }
+                    }
+                    servers = select(nodes, 'inet:server')
+                    self.eq([k.ndef for k in servers], [server00, server01])
+                    fixed(servers[0], nodedata)
+                    self.none(servers[0].get('port'))
+                    control(servers[1])
+
+                # A node reached by paths of different lengths has its references collected once
+                async with self.getTestCore() as core:
+
+                    async def mkedge(form, n1, n2):
+                        opts = {'vars': {'n1': n1, 'n2': n2}}
+                        return (await core.nodes(f'[{form}=($n1, $n2)]', opts=opts))[0]
+
+                    # q refers to both anode and m, so it is reached again once m's references are collected
+                    anode = (await core.nodes('[it:dev:str=a]'))[0]
+                    m = await mkedge('edge:refs', anode.ndef, ('it:dev:str', 'm'))
+                    q = await mkedge('edge:has', anode.ndef, m.ndef)
+                    s = await mkedge('edge:refs', q.ndef, ('it:dev:str', 's'))
+
+                    layer = core.getLayer()
+                    migration = await s_modelrev.ModelMigration_0_2_35.anit(core, [layer])
+                    self.eq(migration.nodes.size, maxval)
+
+                    await migration.todos.add(('getvalu', (anode.buid, True)))
+                    await migration._collectReferences()
+
+                    def refsof(node):
+                        refs = migration.nodes.get(node.buid)['refs'].get(layer.iden, ())
+                        return sorted(iden for iden, info in refs)
+
+                    self.eq(sorted([m.iden(), q.iden()]), refsof(anode))
+                    self.eq([q.iden()], refsof(m))
+                    self.eq([s.iden()], refsof(q))
+                    self.eq([], refsof(s))
 
     async def test_modelrev_0_2_36(self):
         async with self.getRegrCore('model-0.2.36') as core:
@@ -2152,7 +2196,7 @@ class ModelRevTest(s_tests.SynTest):
 
         async with self.getRegrCore('model-0.2.37') as core:
 
-            self.eq((0, 2, 37), await core.getLayer().getModelVers())
+            self.ge(await core.getLayer().getModelVers(), (0, 2, 37))
 
             views = {view.info.get('name'): view for view in core.listViews()}
             infork = {'view': views.get('fork00').iden}
@@ -2259,6 +2303,32 @@ class ModelRevTest(s_tests.SynTest):
             items = [item async for item in core.coreQueueGets('model_0_2_37:nodes', 0, cull=False, wait=False)]
             self.len(6, items)
 
+        # spilled working sets visit nodes in a different order but remove the same nodes
+        orig = s_spooled.Spooled.__anit__
+
+        async def __anit__(self, dirn=None, size=s_spooled.MAX_SPOOL_SIZE, cell=None):
+            await orig(self, dirn=dirn, size=1, cell=cell)
+
+        with mock.patch('synapse.lib.spooled.Spooled.__anit__', __anit__):
+            async with self.getRegrCore('model-0.2.37') as core:
+                migration = await s_modelrev.ModelMigration_0_2_37.anit(core, [])
+                self.eq(migration.nodes.size, 1)
+                self.eq(migration.todos.size, 1)
+
+                self.ge(await core.getLayer().getModelVers(), (0, 2, 37))
+
+                self.eq([('econ:bank:swift:bic', 'DEUTDEFFXXX')],
+                        [k.ndef for k in await core.nodes('econ:bank:swift:bic')])
+                self.eq([('econ:bank:aba:rtn', '987654321')],
+                        [k.ndef for k in await core.nodes('econ:bank:aba:rtn')])
+                self.eq([('econ:bank:iban', 'VV09WootWoot')],
+                        [k.ndef for k in await core.nodes('econ:bank:iban')])
+
+                items = [item async for item in core.coreQueueGets('model_0_2_37:nodes', 0, cull=False, wait=False)]
+                self.len(7, items)
+                self.sorteq((badbic, badiban, badrtn, forkbic, '123456789junk', 'TRWIBEB1XXXjunk'),
+                            [item.get('formvalu') for _, item in items if item.get('formname') != 'meta:seen'])
+
         # the helpers report cleanly on a Cortex which never had anything to migrate
         async with self.getTestCore() as core:
 
@@ -2300,3 +2370,413 @@ class ModelRevTest(s_tests.SynTest):
             self.eq({'woot': 'hehe', 'forkdata': 'yep'}, nodedata)
             self.eq((('refs', s_common.ehex(s_common.buid(('inet:fqdn', 'vertex.link')))),),
                     list(item.get('n1edges').values())[0])
+
+    async def test_modelrev_0_2_38(self):
+
+        aregex = 'inet:url~="^(?!file:)(?:(?!://).)*:////"'
+
+        collapsed = ('http://foo.com/x', 'https://1.2.3.4:81/x', 'smb://s', 'http://foo.com', 'http://exists.com/y')
+        moved = ('file:///foo?x=http://a', 'file://1.2.3.4@80/t.htm', 'file://host@SSL@443/x',
+                 'file://u@host@80/x', 'file://host@SSL/x')
+        fixprops = ('http://foo.com/r?u=https:////evil.com/x', 'http://foo.com/r?u=https://u@evil.com/x',
+                    'file:///x', 'https://login.example.net#first.last@example.com', 'https://a.example#u:p@b.example')
+        untouched = ('http://u:p@foo.com/x', 'file:////host/share/x', 'file:////host2/share/x',
+                     'https://good.com/x', 'git+ssh://vertex.link/x', 'chrome-extension://vertex.link/x',
+                     'file://user@host.vertex.link/share/x')
+
+        queued = (
+            'c:////spam////eggs',
+            'dvdnav:////dev/sr1',
+            'a:b:////foo.com/x',
+            'x?y:////h/s',
+            'smb:///.//c:////spam////eggs',
+            '//www.example.com/submit?url=https://example.org/x',
+            '/share?u=http://example.net/a',
+            'www.example.com/submit?url=https://example.org/x',
+            'mailto:visi@vertex.link?x=http://example.net',
+            '1http://example.com',
+            'file://user@/x',
+            'http://u:pa#ss@b.example/x',
+        )
+
+        # the cortex was generated by the pre-2.258.0 normalizer with asserts stripped
+        async with self.getRegrCore('model-0.2.38', maxvers=(0, 2, 37)) as core:
+
+            views = {view.info.get('name'): view for view in core.listViews()}
+            self.len(3, views)
+            infork = {'view': views.get('fork00').iden}
+            inro = {'view': views.get('roview').iden}
+
+            self.len(9, await core.nodes(aregex))
+            self.len(10, await core.nodes(aregex, opts=infork))
+            self.len(1, await core.nodes(aregex, opts=inro))
+            self.len(3, await core.nodes('inet:url:proto~="://"'))
+
+            nodes = await core.nodes('inet:url="http://foo.com/r?u=https:////evil.com/x"')
+            self.eq('http://foo.com/r?u=https', nodes[0].get('proto'))
+            self.eq('evil.com', nodes[0].get('fqdn'))
+
+            # the WebDAV port was stored as an IPv4 host, and the real host as :user
+            nodes = await core.nodes('inet:url="file://1.2.3.4@0.0.0.80/t.htm"')
+            self.eq('1.2.3.4', nodes[0].get('user'))
+            self.eq(80, nodes[0].get('ipv4'))
+            self.len(1, await core.nodes('inet:url="file://host@SSL@0.0.1.187/x"'))
+
+            nodes = await core.nodes('inet:url="https://login.example.net#first.last@example.com"')
+            self.eq('login.example.net#first.last', nodes[0].get('user'))
+            self.eq('example.com', nodes[0].get('fqdn'))
+
+            self.true(views.get('roview').layers[0].readonly)
+
+            ctrlcreated = (await core.nodes('inet:url="file://user@host.vertex.link/share/x"'))[0].get('.created')
+            destcreated = (await core.nodes('inet:url=http://exists.com/y'))[0].get('.created')
+            self.nn(ctrlcreated)
+            self.nn(destcreated)
+
+        async with self.getRegrCore('model-0.2.38') as core:
+
+            self.ge(await core.getLayer().getModelVers(), (0, 2, 38))
+
+            views = {view.info.get('name'): view for view in core.listViews()}
+            infork = {'view': views.get('fork00').iden}
+            inro = {'view': views.get('roview').iden}
+
+            # nothing the old normalizers accepted is left in any layer
+            for opts in (None, infork, inro):
+                self.len(0, await core.nodes(aregex, opts=opts))
+                self.len(0, await core.nodes('inet:url:proto~="://"', opts=opts))
+                for node in await core.nodes('inet:url', opts=opts):
+                    valu = node.ndef[1]
+                    self.eq(valu, core.model.type('inet:url').norm(valu)[0])
+                    self.true(s_inet.schemere.fullmatch(node.get('proto')))
+
+                    # .created is read-only but not derived from the value, so a moved or
+                    # re-normalized node must keep it
+                    self.nn(node.get('.created'))
+
+            self.sorteq(collapsed + moved + fixprops + untouched,
+                        [k.ndef[1] for k in await core.nodes('inet:url')])
+
+            self.sorteq(collapsed + moved + fixprops + untouched + ('https://fork.com/x',),
+                        [k.ndef[1] for k in await core.nodes('inet:url', opts=infork)])
+
+            # the read-only layer is migrated, and stays read-only
+            nodes = await core.nodes('inet:url', opts=inro)
+            self.eq(['https://ro.com/x'], [k.ndef[1] for k in nodes])
+            self.nn(nodes[0].getTag('ro.tag'))
+            self.eq('ro.com', nodes[0].get('fqdn'))
+            self.true(views.get('roview').layers[0].readonly)
+
+            # a collapsed node keeps its tags, tag properties, nodedata and edges, and
+            # gets the properties of its new value
+            nodes = await core.nodes('inet:url=http://foo.com/x')
+            self.len(1, nodes)
+            self.nn(nodes[0].getTag('rep.test'))
+            self.eq(10, nodes[0].getTagProp('rep.test', 'score'))
+            self.eq('hehe', await nodes[0].getData('woot'))
+            self.eq('http://foo.com/x', nodes[0].get('base'))
+            self.eq('foo.com', nodes[0].get('fqdn'))
+            self.eq(80, nodes[0].get('port'))
+            self.len(1, await core.nodes('inet:url=http://foo.com/x <(refs)- meta:source'))
+            self.len(1, await core.nodes('inet:url=http://foo.com/x -(refs)> inet:fqdn=vertex.link'))
+
+            # state held only in the fork's own layer follows the node
+            nodes = await core.nodes('inet:url=http://foo.com/x', opts=infork)
+            self.nn(nodes[0].getTag('fork.only'))
+            self.eq('yep', await nodes[0].getData('forkdata'))
+            self.none((await core.nodes('inet:url=http://foo.com/x'))[0].getTag('fork.only'))
+
+            nodes = await core.nodes('inet:url=https://1.2.3.4:81/x')
+            self.eq(0x01020304, nodes[0].get('ipv4'))
+            self.eq(81, nodes[0].get('port'))
+
+            nodes = await core.nodes('inet:url=http://foo.com')
+            self.eq('http://foo.com', nodes[0].get('base'))
+
+            # scalar, array and read-only comp references follow the moved node
+            nodes = await core.nodes('media:news:title="scalar ref"')
+            self.eq('http://foo.com/x', nodes[0].get('url'))
+
+            nodes = await core.nodes('it:sec:cve=CVE-2026-12067')
+            self.sorteq(('http://foo.com/x', 'https://good.com/x'), nodes[0].get('references'))
+
+            # a comp with a field of another type keeps that field
+            nodes = await core.nodes('inet:urlfile')
+            self.len(1, nodes)
+            self.eq('http://foo.com/x', nodes[0].get('url'))
+            self.nn(nodes[0].get('file'))
+            self.eq(nodes[0].ndef[1][1], nodes[0].get('file'))
+
+            # comps are renamed, including one which embeds the same bad URL twice
+            # and one which embeds two different bad URLs
+            self.sorteq((('http://foo.com/x', 'https://good.com/x'),
+                         ('http://foo.com/x', 'http://foo.com/x'),
+                         ('http://foo.com/x', 'smb://s')),
+                        [k.ndef[1] for k in await core.nodes('inet:urlredir')])
+
+            nodes = await core.nodes('inet:urlredir=(http://foo.com/x, https://good.com/x)')
+            self.nn(nodes[0].getTag('redir.one'))
+            self.eq('http://foo.com/x', nodes[0].get('src'))
+            self.eq('foo.com', nodes[0].get('src:fqdn'))
+
+            # a node which collapses onto an existing node is merged into it, the
+            # existing node keeps its own values, and the conflicts are recorded
+            nodes = await core.nodes('inet:url=http://exists.com/y')
+            self.len(1, nodes)
+            self.nn(nodes[0].getTag('existing'))
+            self.eq(7, nodes[0].getTagProp('rep.test', 'score'))
+            self.eq('good', await nodes[0].getData('woot'))
+            self.eq({'http:////exists.com/y': {'tagprops': {'rep.test': {'score': 5}}, 'nodedata': {'woot': 'bad'}}},
+                    await nodes[0].getData('model_0_2_38'))
+
+            # a valid value whose properties came from an embedded URL is re-normalized
+            # in place, including deleting a property the new value does not have
+            for valu in fixprops[:2]:
+                nodes = await core.nodes('inet:url=$valu', opts={'vars': {'valu': valu}})
+                self.eq('http', nodes[0].get('proto'))
+                self.eq('foo.com', nodes[0].get('fqdn'))
+                self.eq('/r', nodes[0].get('path'))
+                self.eq('http://foo.com/r', nodes[0].get('base'))
+                self.eq(80, nodes[0].get('port'))
+                self.none(nodes[0].get('user'))
+
+            nodes = await core.nodes('inet:url="http://u:p@foo.com/x"')
+            self.eq('u', nodes[0].get('user'))
+            self.eq('p', nodes[0].get('passwd'))
+
+            # a # ends the host, so the userinfo it was taken for is dropped
+            nodes = await core.nodes('inet:url="https://login.example.net#first.last@example.com"')
+            self.eq('login.example.net', nodes[0].get('fqdn'))
+            self.none(nodes[0].get('user'))
+
+            nodes = await core.nodes('inet:url="https://a.example#u:p@b.example"')
+            self.eq('a.example', nodes[0].get('fqdn'))
+            self.none(nodes[0].get('user'))
+            self.none(nodes[0].get('passwd'))
+
+            # an empty userinfo no longer sets an empty :user
+            nodes = await core.nodes('inet:url="file:///x"')
+            self.none(nodes[0].get('user'))
+
+            # a WebDAV port stored as an IPv4 host is moved back to a port, and the
+            # host is no longer taken for :user
+            nodes = await core.nodes('inet:url="file://1.2.3.4@80/t.htm"')
+            self.eq(0x01020304, nodes[0].get('ipv4'))
+            self.eq(80, nodes[0].get('port'))
+            self.none(nodes[0].get('user'))
+
+            for valu in ('file://host@SSL@443/x', 'file://host@SSL/x'):
+                nodes = await core.nodes('inet:url=$valu', opts={'vars': {'valu': valu}})
+                self.eq('host', nodes[0].get('fqdn'))
+                self.eq(443, nodes[0].get('port'))
+                self.none(nodes[0].get('user'))
+
+            nodes = await core.nodes('inet:url="file://u@host@80/x"')
+            self.eq('u', nodes[0].get('user'))
+            self.eq('host', nodes[0].get('fqdn'))
+            self.eq(80, nodes[0].get('port'))
+
+            # userinfo with a real host is valid and left alone
+            nodes = await core.nodes('inet:url="file://user@host.vertex.link/share/x"')
+            self.eq('user', nodes[0].get('user'))
+            self.eq('host.vertex.link', nodes[0].get('fqdn'))
+            self.eq(ctrlcreated, nodes[0].get('.created'))
+
+            # the node merged into keeps its own .created
+            nodes = await core.nodes('inet:url=http://exists.com/y')
+            self.eq(destcreated, nodes[0].get('.created'))
+
+            self.len(0, await core.nodes('inet:url:user~="#"'))
+
+            # references to removed nodes are cleared or removed with them
+            nodes = await core.nodes('media:news:title="queued ref"')
+            self.none(nodes[0].get('url'))
+            nodes = await core.nodes('media:news:title="noscheme ref"')
+            self.none(nodes[0].get('url'))
+
+            items = [item async for item in core.coreQueueGets('model_0_2_38:nodes', 0, cull=False, wait=False)]
+            self.len(13, items)
+
+            byvalu = {item.get('formvalu'): (offs, item) for offs, item in items}
+            self.eq(set(queued) | {('c:////spam////eggs', 'https://good.com/x')}, set(byvalu.keys()))
+
+            offs, item = byvalu.get(('c:////spam////eggs', 'https://good.com/x'))
+            self.eq('inet:urlredir', item.get('formname'))
+
+            # the referring nodes are recorded so an operator can repair them
+            offs, item = byvalu.get('c:////spam////eggs')
+            refs = [info[:2] for reflist in item.get('refs').values() for (iden, info) in reflist]
+            self.sorteq((('inet:urlredir', 'src'), ('media:news', 'url')), refs)
+
+            q = '''
+                $ret = ([])
+                for $entry in $lib.model.migration.s.model_0_2_38.listNodes(form=inet:urlredir) {
+                    $ret.append($entry)
+                }
+                return($ret)
+            '''
+            self.eq(((byvalu.get(('c:////spam////eggs', 'https://good.com/x'))[0], 'inet:urlredir',
+                      ('c:////spam////eggs', 'https://good.com/x'), ()),),
+                    await core.callStorm(q))
+
+            offs, item = byvalu.get('c:////spam////eggs')
+            msgs = await core.stormlist(f'$lib.model.migration.s.model_0_2_38.printNode(({offs}))')
+            self.stormIsInPrint("inet:url='c:////spam////eggs'", msgs)
+            self.stormIsInPrint('media:news:url', msgs)
+            self.stormIsInPrint('(read-only, repair separately)', msgs)
+
+            # a quarantined node can be restored under a corrected value
+            offs, item = byvalu.get('/share?u=http://example.net/a')
+            q = f'$lib.model.migration.s.model_0_2_38.repairNode(({offs}), "http://example.net/a", (true))'
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint(f'Repairing node at offset {offs}', msgs)
+
+            nodes = await core.nodes('inet:url=http://example.net/a')
+            self.len(1, nodes)
+            self.eq('example.net', nodes[0].get('fqdn'))
+
+            items = [item async for item in core.coreQueueGets('model_0_2_38:nodes', 0, cull=False, wait=False)]
+            self.len(12, items)
+
+        # spilled working sets hold tuples and visit nodes in a different order, but
+        # migrate the same nodes
+        orig = s_spooled.Spooled.__anit__
+
+        async def __anit__(self, dirn=None, size=s_spooled.MAX_SPOOL_SIZE, cell=None):
+            await orig(self, dirn=dirn, size=1, cell=cell)
+
+        with mock.patch('synapse.lib.spooled.Spooled.__anit__', __anit__):
+            async with self.getRegrCore('model-0.2.38') as core:
+
+                migration = await s_modelrev.ModelMigration_0_2_38.anit(core, [])
+                self.eq(migration.nodes.size, 1)
+                self.eq(migration.todos.size, 1)
+
+                self.sorteq(collapsed + moved + fixprops + untouched,
+                            [k.ndef[1] for k in await core.nodes('inet:url')])
+
+                self.sorteq((('http://foo.com/x', 'https://good.com/x'),
+                             ('http://foo.com/x', 'http://foo.com/x'),
+                             ('http://foo.com/x', 'smb://s')),
+                            [k.ndef[1] for k in await core.nodes('inet:urlredir')])
+
+                nodes = await core.nodes('media:news:title="scalar ref"')
+                self.eq('http://foo.com/x', nodes[0].get('url'))
+
+                nodes = await core.nodes('inet:url=http://exists.com/y')
+                self.eq({'http:////exists.com/y': {'tagprops': {'rep.test': {'score': 5}}, 'nodedata': {'woot': 'bad'}}},
+                        await nodes[0].getData('model_0_2_38'))
+
+                items = [item async for _, item in core.coreQueueGets('model_0_2_38:nodes', 0, cull=False, wait=False)]
+                self.eq(set(queued) | {('c:////spam////eggs', 'https://good.com/x')},
+                        {item.get('formvalu') for item in items})
+
+        # the helpers report cleanly on a Cortex which never had anything to migrate
+        async with self.getTestCore() as core:
+
+            msgs = await core.stormlist('''
+                for $entry in $lib.model.migration.s.model_0_2_38.listNodes() { $lib.print($entry) }
+            ''')
+            self.stormIsInPrint('Queue model_0_2_38:nodes not found, no nodes to list.', msgs)
+
+            msgs = await core.stormlist('$lib.model.migration.s.model_0_2_38.printNode((0))')
+            self.stormIsInPrint('Queue model_0_2_38:nodes not found, no nodes to print.', msgs)
+
+            msgs = await core.stormlist('$lib.model.migration.s.model_0_2_38.repairNode((0), newp)')
+            self.stormIsInPrint('Queue model_0_2_38:nodes not found, no nodes to repair.', msgs)
+
+            # A value whose first :// is not preceded by a valid scheme belongs to a URL
+            # embedded in the path or query, so the empty authority after it does not make
+            # the value unrepairable. The pre-2.258.0 normalizer with asserts stripped stored
+            # such a local file URL as-is, with everything before the :// as its :proto.
+            layr = core.getLayer()
+            meta = {'time': s_common.now(), 'user': core.auth.rootuser.iden}
+
+            form = core.model.form('inet:url')
+            valu = 'file:/x?u=http:////y'
+
+            await layr.storNodeEdits([(s_common.buid(('inet:url', valu)), 'inet:url', [
+                (s_layer.EDIT_NODE_ADD, (valu, form.type.stortype), ()),
+                (s_layer.EDIT_PROP_SET, ('proto', 'file:/x?u=http', None, form.props['proto'].type.stortype), ()),
+            ])], meta)
+
+            migr = await s_modelrev.ModelMigration_0_2_38.anit(core, [layr])
+
+            self.eq(('move', 'file:///x?u=http:////y'), migr._getVerdict(form, valu, {})[:2])
+            self.eq(('remove', None, None), migr._getVerdict(form, 'foo?u=http:////y', {}))
+            self.eq(('remove', None, None), migr._getVerdict(form, 'c:////foo.com/x', {}))
+
+            await migr.revModel_0_2_38()
+
+            nodes = await core.nodes('inet:url')
+            self.eq(['file:///x?u=http:////y'], [node.ndef[1] for node in nodes])
+            self.eq('file', nodes[0].get('proto'))
+
+            self.false(core.multiqueue.exists('model_0_2_38:nodes'))
+
+    async def test_modelrev_0_2_38_comp_refs(self):
+
+        # A read-only comp which embeds two URLs that are both removed is reached
+        # through a reference from each of them, and must only be removed once.
+        async with self.getTestCore() as core:
+
+            layr = core.getLayer()
+            meta = {'time': s_common.now(), 'user': core.auth.rootuser.iden}
+
+            urlstor = core.model.form('inet:url').type.stortype
+            redir = core.model.form('inet:urlredir')
+
+            src, dst = 'c:////spam////eggs', 'dvdnav:////dev/sr1'
+
+            edits = []
+            for valu in (src, dst):
+                buid = s_common.buid(('inet:url', valu))
+                edits.append((buid, 'inet:url', [(s_layer.EDIT_NODE_ADD, (valu, urlstor), ())]))
+
+            redirvalu = (src, dst)
+            edits.append((s_common.buid(('inet:urlredir', redirvalu)), 'inet:urlredir', [
+                (s_layer.EDIT_NODE_ADD, (redirvalu, redir.type.stortype), ()),
+                (s_layer.EDIT_PROP_SET, ('src', src, None, redir.props['src'].type.stortype), ()),
+                (s_layer.EDIT_PROP_SET, ('dst', dst, None, redir.props['dst'].type.stortype), ()),
+            ]))
+
+            await layr.storNodeEdits(edits, meta)
+
+            migr = await s_modelrev.ModelMigration_0_2_38.anit(core, [layr])
+            await migr.revModel_0_2_38()
+
+            self.len(0, await core.nodes('inet:url'))
+            self.len(0, await core.nodes('inet:urlredir'))
+
+            items = [item async for _, item in core.coreQueueGets('model_0_2_38:nodes', 0, cull=False, wait=False)]
+            self.sorteq(('inet:url', 'inet:url', 'inet:urlredir'), [item.get('formname') for item in items])
+
+    async def test_modelrev_migration_queue_libs(self):
+
+        async with self.getTestCore() as core:
+
+            for name in ('model_0_2_31', 'model_0_2_37', 'model_0_2_38'):
+
+                path = f'$lib.model.migration.s.{name}'
+
+                msgs = await core.stormlist(f'for $item in {path}.listNodes() {{ $lib.print($item) }}')
+                self.stormIsInPrint(f'Queue {name}:nodes not found, no nodes to list.', msgs)
+
+                msgs = await core.stormlist(f'{path}.printNode((0))')
+                self.stormIsInPrint(f'Queue {name}:nodes not found, no nodes to print.', msgs)
+
+                msgs = await core.stormlist(f'{path}.repairNode((0), newp)')
+                self.stormIsInPrint(f'Queue {name}:nodes not found, no nodes to repair.', msgs)
+
+                # each library reports its own Storm path, rather than that of the
+                # last library registered with the shared implementation
+                with self.raises(s_exc.StormRuntimeError) as cm:
+                    await core.callStorm(f'{path}.printNode()')
+
+                self.eq(cm.exception.get('mesg'),
+                        f"{path}.printNode() missing 1 required positional argument: 'offset'")
+
+                with self.raises(s_exc.IsReadOnly) as cm:
+                    await core.callStorm(f'return({path}.repairNode((0), newp))', opts={'readonly': True})
+
+                self.eq(cm.exception.get('mesg'), f'{path}.repairNode() is not marked readonly safe.')

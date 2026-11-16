@@ -6,6 +6,69 @@
 Synapse Changelog
 *****************
 
+v2.257.0 - 2026-11-04
+=====================
+
+Features and Enhancements
+-------------------------
+- Added Cortex HTTP APIs (``/api/v1/vault/*``) and Telepath APIs for listing,
+  getting, adding, modifying, and deleting vaults without Storm.
+  (`#5063 <https://github.com/vertexproject/synapse/pull/5063>`_)
+- Added the `S016` `storm.lint` rule, which reports printing an HTTP response
+  or `$lib.axon.wget()` result that includes the request headers.
+  (`#5070 <https://github.com/vertexproject/synapse/pull/5070>`_)
+- Added `$lib.view.hook` APIs to manage Storm hooks that run when views are
+  created, merged, or deleted.
+  (`#5073 <https://github.com/vertexproject/synapse/pull/5073>`_)
+- Added a ``storm_lint`` tool to the Cortex MCP server which lints a Storm
+  query with the configurable Storm linting rules, checking form and property
+  names against the Cortex data model. Its ``v3_ready`` option adds the rules
+  which report Storm that must change for Synapse 3.x.
+  (`#5078 <https://github.com/vertexproject/synapse/pull/5078>`_)
+- Added support for the ``$unsets`` key to Storm guid dictionary syntax to only
+  match nodes which do not have the specified properties set.
+  (`#5083 <https://github.com/vertexproject/synapse/pull/5083>`_)
+
+Bugfixes
+--------
+- Fixed easy permission validation for macros, graph projections, drive items,
+  and vaults to reject permission levels outside 0-3, non-numeric levels, and
+  unknown keys.
+  (`#5063 <https://github.com/vertexproject/synapse/pull/5063>`_)
+- Fixed `inet:fqdn` normalization not lowercasing some non-ASCII letters on
+  Python 3.11.17 and later.
+  (`#5067 <https://github.com/vertexproject/synapse/pull/5067>`_)
+- Fixed ``=`` lifts and ``<=`` lifts and filters using a wildcard time value
+  (e.g. ``:time=2021/05/13*``) also matching the first instant after the
+  wildcard window.
+  (`#5071 <https://github.com/vertexproject/synapse/pull/5071>`_)
+- Fixed an issue which caused garbage collection cycles to delay cleanup during
+  node editing.
+  (`#5075 <https://github.com/vertexproject/synapse/pull/5075>`_)
+- Fixed LMDB slabs reopening with a smaller map than their tracked size, which
+  caused a stall on the first write after a restart and false ``DbOutOfSpace``
+  errors for slabs at their ``maxsize``.
+  (`#5081 <https://github.com/vertexproject/synapse/pull/5081>`_)
+- Fixed Storm guid dictionary syntax overwriting the properties of an existing
+  node that no longer matched the dictionary, rather than creating a new node.
+  (`#5083 <https://github.com/vertexproject/synapse/pull/5083>`_)
+- Fixed ``@=`` filters on time values raising an error when a node had a future
+  (``?``) time. They now match the same nodes as the equivalent lift.
+  (`#5089 <https://github.com/vertexproject/synapse/pull/5089>`_)
+
+Notes
+-----
+- Updated the Docker image to support the latest Python 3.11.18 release.
+- Updated the minimum allowed version of the ``oauthlib`` library to 4.0.0.
+  (`#5091 <https://github.com/vertexproject/synapse/pull/5091>`_)
+
+Deprecations
+------------
+- Deprecated ``SynTest.asyncraises()`` and ``SynTest.agenraises()``; use
+  ``SynTest.raises()`` as a context manager instead. They will be removed on
+  2026-12-31.
+  (`#5074 <https://github.com/vertexproject/synapse/pull/5074>`_)
+
 v2.256.0 - 2026-10-21
 =====================
 

@@ -1311,15 +1311,19 @@ class Ival(Type):
             if item is None:
                 return False
 
-            if item == (None, None):
+            # a stored value is already normalized. norm() would treat a time as an
+            # ival min and raise on a future (?) time, so compare it as the lift does.
+            if isinstance(item, int):
+                return norm[0] <= item < norm[1]
+
+            # a valueless tag is a null ival
+            if item[0] is None:
                 return False
 
-            othr, info = self.norm(item)
-
-            if othr[0] >= norm[1]:
+            if item[0] >= norm[1]:
                 return False
 
-            if othr[1] <= norm[0]:
+            if item[1] <= norm[0]:
                 return False
 
             return True

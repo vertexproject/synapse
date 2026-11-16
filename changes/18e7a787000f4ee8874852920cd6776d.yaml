@@ -1,0 +1,8 @@
+---
+desc: Fixed an issue where a backup could stall while holding the Nexus lock if a
+  spooled set or dictionary was continuously written, such as during a long running
+  model migration.
+desc:literal: false
+prs: []
+type: bug
+...

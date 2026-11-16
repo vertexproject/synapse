@@ -1,0 +1,7 @@
+---
+desc: Fixed the `0.2.35` model migration failing with an `AttributeError` when it
+  tracks 10,000 or more nodes and a node is referenced through more than one path.
+desc:literal: false
+prs: []
+type: bug
+...

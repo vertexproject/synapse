@@ -528,7 +528,7 @@ class View(s_nexus.Pusher):  # type: ignore
             for moddef in await self.core.getStormIfaces(name):
                 try:
                     query = await self.core.getStormQuery(moddef.get('storm'))
-                    modconf = moddef.get('modconf', {})
+                    modconf = s_stormtypes.toReadOnly(moddef.get('modconf', {}))
                     runt = await snap.addStormRuntime(query, opts={'vars': {'modconf': modconf}}, user=root)
 
                     # let it initialize the function
@@ -559,7 +559,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 try:
                     query = await self.core.getStormQuery(moddef.get('storm'))
 
-                    modconf = moddef.get('modconf', {})
+                    modconf = s_stormtypes.toReadOnly(moddef.get('modconf', {}))
 
                     # TODO look at caching the function returned as presume a persistant runtime?
                     async with snap.getStormRuntime(query, opts={'vars': {'modconf': modconf}}, user=root) as runt:
