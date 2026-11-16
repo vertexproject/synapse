@@ -357,12 +357,9 @@ class StormlibModelTest(s_test.SynTest):
                 self.stormIsInPrint('Your Cortex is not ready for Synapse 3.x.', msgs)
                 self.false((await core.getV3Value('preflight', 'result'))['ok'])
 
-                # only a dry run is safe for readonly use
-                msgs = await core.stormlist('v3.prepare --dry-run', opts={'readonly': True})
-                self.stormIsInPrint('Your Cortex has errors blocking Synapse 3.x.', msgs)
-
+                # even a dry run clears the recorded result
                 with self.raises(s_exc.IsReadOnly):
-                    await core.nodes('v3.prepare', opts={'readonly': True})
+                    await core.nodes('v3.prepare --dry-run', opts={'readonly': True})
 
                 lowuser = await core.auth.addUser('lowuser')
                 with self.raises(s_exc.AuthDeny):

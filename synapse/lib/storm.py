@@ -6073,7 +6073,6 @@ class V3PrepareCmd(Cmd):
     '''
 
     name = 'v3.prepare'
-    readonly = True
 
     # seconds the 3.x readiness check of a Storm service may take in a dry run
     svctimeout = 60
@@ -6090,10 +6089,6 @@ class V3PrepareCmd(Cmd):
 
         core = runt.snap.core
         dryrun = self.opts.dry_run
-
-        # only a dry run is safe for readonly use, which is not known until the args are parsed
-        if runt.readonly and not dryrun:
-            raise s_exc.IsReadOnly(mesg='The v3.prepare command is only safe for readonly use with --dry-run.')
 
         ready = await self._printMesgs(runt, core.prepareV3(dryrun=dryrun))
 
