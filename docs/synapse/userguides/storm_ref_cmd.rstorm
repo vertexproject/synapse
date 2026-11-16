@@ -2510,9 +2510,9 @@ Help for individual ``storm.*`` commands can be displayed using:
 storm.lint
 ++++++++++
 
-The ``storm.lint`` command lints Storm code against the data model of the Cortex and prints each finding. Its
-``--select``, ``--enable``, ``--ignore`` and ``--v3-ready`` options match those of the ``storm.lint`` tool (see
-:ref:`syn-tools-storm-lint`), and ``--show-rules`` prints the lint rules.
+The ``storm.lint`` command lints Storm code, or an embedded query, against the Cortex's data model and prints each
+finding followed by a count of the findings. It runs the same rules as the :ref:`syn-tools-storm-lint` command line
+tool and passes the nodes in the pipeline through unchanged. See :ref:`syn-tools-storm-lint-storm`.
 
 **Syntax:**
 

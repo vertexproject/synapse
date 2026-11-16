@@ -136,7 +136,7 @@ def _readText(path):
 
 def _showRules(outp):
 
-    for line in s_stormlint.getRuleLines():
+    for line in s_stormlint.getRuleTable():
         outp.printf(line)
 
     return 0

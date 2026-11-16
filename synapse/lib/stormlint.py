@@ -436,9 +436,9 @@ def rule(iden, name, severity, default=True, v3=False):
 
     return wrap
 
-def getRuleLines():
+def getRuleTable():
     '''
-    Return the lines of a table of the registered rules, with the first line of each rule description.
+    Return the lines of a table of the registered rules, with the first line of each description.
     '''
     rows = [('ID', 'SEVERITY', 'DEFAULT', 'NAME', 'DESCRIPTION')]
     for r in rules.values():
@@ -451,6 +451,7 @@ def getRuleLines():
         rows.append((r.iden, r.severity, default, r.name, doc))
 
     sizes = [max(len(row[i]) for row in rows) for i in range(4)]
+
     lines = []
     for row in rows:
         cols = [valu.ljust(size) for valu, size in zip(row, sizes)]

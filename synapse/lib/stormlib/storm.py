@@ -27,14 +27,13 @@ Findings are checked against the data model of the Cortex, including extended mo
 elements. Each finding is a dictionary with the keys rule, severity, line, column and mesg,
 sorted by line, column and rule. A syntax error yields an E001 finding.
 
-The select, enable, ignore and v3_ready options match the --select, --enable, --ignore and
---v3-ready options of the storm.lint tool, the keys of its [tool.stormlint] table and the
-options of the MCP storm_lint tool. select replaces the default rule set, so select=([]) runs
-only the rules named by enable, plus the v3 rules when v3_ready is set. ignore is applied last.
-An unknown rule ID or prefix raises a BadArg error.
+The select, enable, ignore and v3_ready arguments match the --select, --enable, --ignore and
+--v3-ready options of the storm.lint command line tool, the keys of its [tool.stormlint]
+configuration table and the arguments of the MCP storm_lint tool. Each select, enable and
+ignore entry is a rule ID or an ID prefix, and an unknown rule ID or prefix raises a BadArg error.
 
-When text is an embedded query, the line and column of each finding are relative to the
-text of the embedded query.
+When text is an embedded query, its text is linted, and the line and column of each
+finding are relative to the text of the embedded query.
 
 Examples:
     Print the findings for a query::
@@ -43,50 +42,36 @@ Examples:
             $lib.print(`{$finding.line}:{$finding.column} {$finding.rule} {$finding.mesg}`)
         }
 
-    Lint an embedded query with the off by default rule S010 and the v3 rules::
+    Lint an embedded query with only the R rules and S010, which is off by default::
 
         $query = ${
-            inet:fqdn
-            $x = $lib.list()
+            if $x { [ :name=$x ] }
         }
-        for $finding in $lib.storm.lint($query, enable=(S010,), v3_ready=(true)) {
+        for $finding in $lib.storm.lint($query, select=(R,), enable=(S010,)) {
             $lib.print(`{$finding.line}:{$finding.column} {$finding.rule} {$finding.mesg}`)
         }
 '''
 
 lintrulesdesc = '''
-Get the lint rules used by $lib.storm.lint() and the storm.lint command.
+Get the lint rules used by $lib.storm.lint().
 
-Each rule is a dictionary with the keys rule, name, severity, default, v3 and desc, in rule ID
-order. default is true for a rule which runs by default, v3 is true for a rule which is added
-by v3_ready, and desc is the description of the rule.
+Each rule is a dictionary with the keys rule (the rule ID), name, severity, default
+(true when the rule runs by default), v3 (true when the rule is added by v3_ready) and
+desc (the rule description), in rule ID order.
 
 Examples:
     Print the rules which are off by default::
 
         for $rule in $lib.storm.lintRules() {
-            if (not $rule.default and not $rule.v3) {
-                $lib.print(`{$rule.rule} {$rule.name}`)
-            }
+            if (not $rule.default and not $rule.v3) { $lib.print(`{$rule.rule} {$rule.name}`) }
         }
 '''
 
-async def _getStormLinter(runt, select=None, ignore=None, enable=None, v3ready=False):
-
-    select = await s_stormtypes.toprim(select)
-    ignore = await s_stormtypes.toprim(ignore)
-    enable = await s_stormtypes.toprim(enable)
-    v3ready = await s_stormtypes.tobool(v3ready)
-
-    if ignore is None:
-        ignore = ()
-
-    if enable is None:
-        enable = ()
+def _getStormLinter(runt, select, ignore, enable, v3ready):
 
     for name, valu in (('select', select), ('ignore', ignore), ('enable', enable)):
 
-        if valu is None:
+        if valu is None and name == 'select':
             continue
 
         if not isinstance(valu, (list, tuple)) or not all(isinstance(v, str) for v in valu):
@@ -174,31 +159,33 @@ class StormExecCmd(s_storm.Cmd):
 
 class StormLintCmd(s_storm.Cmd):
     '''
-    Lint Storm code and print each finding.
+    Lint Storm code against the data model of the Cortex and print the findings.
 
-    Findings are checked against the data model of the Cortex, including extended model
-    elements. Each finding is printed as <line>:<column>: <rule> <message>, followed by a
-    count of the findings, or "All checks passed!" when there are none. The text may be an
-    embedded query, in which case the line and column of each finding are relative to the
-    text of the embedded query.
+    Each finding is printed as <line>:<column>: <rule> <message>, followed by a count of
+    the findings, or "All checks passed!" when there are none. When the text is an embedded
+    query, the line and column of each finding are relative to the text of the embedded query.
 
-    The --select, --enable, --ignore and --v3-ready options match those of the storm.lint
-    tool, and each rule option takes a comma-separated list of rule IDs or ID prefixes. An
-    unknown rule ID or prefix raises a BadArg error.
+    The --select, --enable and --ignore options each take a comma-separated list of rule IDs
+    or ID prefixes, and match the options of the storm.lint command line tool. An unknown
+    rule ID or prefix is an error. The --v3-ready option adds the rules which report Storm
+    that must change for Synapse 3.x.
 
-    When the text is the same for every node, it is linted once. Otherwise it is linted for
-    each inbound node. Inbound nodes are passed through unchanged.
+    Nodes in the pipeline are passed through unchanged. When the text is not runtsafe, it is
+    linted once for each node.
 
     Examples:
 
-        // Lint the text in a variable
+        // Lint Storm code in a variable
         storm.lint $text
 
-        // Lint an embedded query with the off by default rule S010 and the v3 rules
-        storm.lint ${ inet:fqdn | if $x { [ :zone=$x ] } } --enable S010 --v3-ready
+        // Lint an embedded query, adding S010 which is off by default
+        storm.lint ${ if $x { [ :name=$x ] } } --enable S010
 
-        // Lint the Storm code stored in each inbound node
-        it:dev:str storm.lint $node.value() --ignore S005
+        // Lint with only the R rules
+        storm.lint $text --select R
+
+        // Lint with the rules for Synapse 3.x
+        storm.lint $text --v3-ready
 
         // Print the lint rules
         storm.lint --show-rules
@@ -208,58 +195,38 @@ class StormLintCmd(s_storm.Cmd):
 
     def getArgParser(self):
         pars = s_storm.Cmd.getArgParser(self)
-        pars.add_argument('text', nargs='?', help='The Storm code to lint.')
-        pars.add_argument('--select', type='str', default=None,
+        pars.add_argument('text', nargs='?', help='The Storm code or embedded query to lint.')
+        pars.add_argument('--select', default=None,
                           help='Comma-separated rule IDs or prefixes to run in place of the default rules.')
-        pars.add_argument('--ignore', type='str', default=None, help='Comma-separated rule IDs or prefixes to disable.')
-        pars.add_argument('--enable', type='str', default=None,
+        pars.add_argument('--ignore', default=None, help='Comma-separated rule IDs or prefixes to disable.')
+        pars.add_argument('--enable', default=None,
                           help='Comma-separated rule IDs or prefixes to add to the selected rules, '
                                'such as rules which are off by default.')
         pars.add_argument('--v3-ready', default=False, action='store_true',
                           help='Add the rules which report Storm that must change for Synapse 3.x.')
         pars.add_argument('--show-rules', default=False, action='store_true',
-                          help='Print the lint rules and lint nothing.')
+                          help='Print the lint rules instead of linting.')
         return pars
 
-    async def execStormCmd(self, runt, genr):
+    async def _getRules(self, valu):
 
-        if self.opts.show_rules:
+        valu = await s_stormtypes.tostr(valu, noneok=True)
+        if valu is None:
+            return None
 
-            for line in s_stormlint.getRuleLines():
-                await runt.printf(line)
+        return [v.strip() for v in valu.split(',') if v.strip()]
 
-            async for item in genr:
-                yield item
+    async def _lintText(self, runt):
 
-            return
+        select = await self._getRules(self.opts.select)
+        ignore = await self._getRules(self.opts.ignore) or ()
+        enable = await self._getRules(self.opts.enable) or ()
 
-        if self.runtsafe:
-
-            await self._lint(runt)
-
-            async for item in genr:
-                yield item
-
-            return
-
-        async for item in genr:
-            await self._lint(runt)
-            yield item
-
-    async def _lint(self, runt):
-
-        if self.opts.text is None:
-            mesg = 'storm.lint requires text to lint unless --show-rules is given.'
-            raise s_exc.BadArg(mesg=mesg, name='text')
+        linter = _getStormLinter(runt, select, ignore, enable, self.opts.v3_ready)
 
         text = await s_stormtypes.tostr(self.opts.text)
-        select = await self._splitRules(self.opts.select)
-        ignore = await self._splitRules(self.opts.ignore)
-        enable = await self._splitRules(self.opts.enable)
-
-        linter = await _getStormLinter(runt, select=select, ignore=ignore, enable=enable, v3ready=self.opts.v3_ready)
-
         findings = linter.lint(text)
+
         for f in findings:
             await runt.printf(f'{f.line}:{f.column}: {f.rule} {f.mesg}')
 
@@ -270,13 +237,28 @@ class StormLintCmd(s_storm.Cmd):
         else:
             await runt.printf('All checks passed!')
 
-    async def _splitRules(self, valu):
+    async def execStormCmd(self, runt, genr):
 
-        valu = await s_stormtypes.tostr(valu, noneok=True)
-        if valu is None:
-            return None
+        if self.opts.show_rules:
 
-        return [v.strip() for v in valu.split(',') if v.strip()]
+            for line in s_stormlint.getRuleTable():
+                await runt.printf(line)
+
+        elif self.opts.text is None:
+            raise s_exc.BadArg(mesg='storm.lint requires text to lint unless --show-rules is given.', name='text')
+
+        elif self.runtsafe:
+            await self._lintText(runt)
+
+        else:
+            async for item in genr:
+                await self._lintText(runt)
+                yield item
+
+            return
+
+        async for item in genr:
+            yield item
 
 @s_stormtypes.registry.registerLib
 class LibStorm(s_stormtypes.Lib):
@@ -301,20 +283,18 @@ class LibStorm(s_stormtypes.Lib):
         {'name': 'lint', 'desc': lintdesc,
          'type': {'type': 'function', '_funcname': '_lintStorm',
                   'args': (
-                      {'name': 'text', 'type': ['str', 'storm:query'], 'desc': 'The Storm code to lint.'},
+                      {'name': 'text', 'type': ['str', 'storm:query'],
+                       'desc': 'The Storm code or embedded query to lint.'},
                       {'name': 'select', 'type': 'list', 'default': None,
-                       'desc': 'Rule IDs or ID prefixes which replace the default rule set, so only the selected '
-                               'rules run. Matches the --select option of the storm.lint tool.'},
+                       'desc': 'Rule IDs or ID prefixes which replace the default rule set. An empty list '
+                               'runs only the enabled rules, plus the v3 rules when v3_ready is set.'},
                       {'name': 'ignore', 'type': 'list', 'default': None,
-                       'desc': 'Rule IDs or ID prefixes to remove from the rules, applied last, after v3_ready. '
-                               'Matches the --ignore option of the storm.lint tool.'},
+                       'desc': 'Rule IDs or ID prefixes to remove from the rule set, applied last.'},
                       {'name': 'enable', 'type': 'list', 'default': None,
-                       'desc': 'Rule IDs or ID prefixes to add to the rules, including rules which are '
-                               'off by default such as S010 and S015. Matches the --enable option of the '
-                               'storm.lint tool.'},
+                       'desc': 'Rule IDs or ID prefixes to add to the rule set, including rules which are '
+                               'off by default such as S010 and S015.'},
                       {'name': 'v3_ready', 'type': 'boolean', 'default': False,
-                       'desc': 'Add every rule which reports Storm that must change for Synapse 3.x. '
-                               'Matches the --v3-ready option of the storm.lint tool.'},
+                       'desc': 'Add the rules which report Storm that must change for Synapse 3.x.'},
                   ),
                   'returns': {'name': 'yields', 'type': 'dict', 'desc': 'A dictionary for each lint finding.'}}},
         {'name': 'lintRules', 'desc': lintrulesdesc,
@@ -385,7 +365,18 @@ class LibStorm(s_stormtypes.Lib):
     async def _lintStorm(self, text, select=None, ignore=None, enable=None, v3_ready=False):
 
         text = await s_stormtypes.tostr(text)
-        linter = await _getStormLinter(self.runt, select=select, ignore=ignore, enable=enable, v3ready=v3_ready)
+        select = await s_stormtypes.toprim(select)
+        ignore = await s_stormtypes.toprim(ignore)
+        enable = await s_stormtypes.toprim(enable)
+        v3_ready = await s_stormtypes.tobool(v3_ready)
+
+        if ignore is None:
+            ignore = ()
+
+        if enable is None:
+            enable = ()
+
+        linter = _getStormLinter(self.runt, select, ignore, enable, v3_ready)
 
         for finding in linter.lint(text):
             yield finding._asdict()
