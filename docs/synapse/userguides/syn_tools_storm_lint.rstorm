@@ -74,6 +74,8 @@ Exit Codes
     * - ``2``
       - A usage error, an invalid configuration, an unknown rule ID, or a file which could not be read.
 
+.. _syn-tools-storm-lint-selecting-rules:
+
 Selecting Rules
 ---------------
 
@@ -444,4 +446,46 @@ The Cortex MCP server's ``storm_lint`` tool lints a query this way against the C
 ``v3_ready`` option matches ``--v3-ready``.
 
 ``StormLinter`` raises ``BadArg`` for an unknown rule ID or prefix. ``lint()`` honors ``noqa`` comments; the
-``[tool.stormlint]`` table is only read by the ``storm.lint`` tool.
+``[tool.stormlint]`` table is only read by the ``storm.lint`` command line tool.
+
+.. _syn-tools-storm-lint-storm:
+
+Linting from Storm
+------------------
+
+The ``storm.lint`` command lints Storm code, or an embedded query, and prints each finding as
+``<line>:<column>: <rule> <message>``, followed by the same summary line as the command line tool. Its
+``--select``, ``--enable`` and ``--ignore`` options each take a comma-separated list of rule IDs or ID prefixes,
+``--v3-ready`` adds the 3.x rules, and ``--show-rules`` prints the rules. The nodes in the pipeline are passed
+through unchanged, and when the text is not runtsafe it is linted once for each node:
+
+.. code-block:: text
+
+    storm.lint $text --enable S010
+    storm.lint ${ $x = $lib.list() }
+    storm.lint $text --v3-ready
+
+The ``$lib.storm.lint.scan()`` function lints Storm code against the Cortex's data model, including its extended
+model elements, and yields a dictionary for each finding with the ``rule``, ``severity``, ``line``, ``column`` and
+``mesg`` keys, sorted by line, column and rule:
+
+.. code-block:: text
+
+    for $finding in $lib.storm.lint.scan($text, enable=(S010,)) {
+        $lib.print(`{$finding.line}:{$finding.column} {$finding.rule} {$finding.mesg}`)
+    }
+
+Its ``select``, ``enable`` and ``ignore`` arguments are lists which work like the ``--select``, ``--enable`` and
+``--ignore`` options described in :ref:`syn-tools-storm-lint-selecting-rules`: ``select`` replaces the default
+rule set, ``enable`` adds rules, including rules which are off by default, and ``ignore`` removes rules and is
+applied last. Each entry is a rule ID or an ID prefix, and an unknown entry raises ``BadArg``. An empty ``select``
+list runs only the rules named by ``enable``. Its ``v3_ready`` argument is a boolean which works like the
+``--v3-ready`` option described in :ref:`syn-tools-storm-lint-v3-ready`, and adds the 3.x rules before ``ignore``
+is applied.
+
+The code to lint may also be an embedded query, such as ``${ $x = $lib.list() }``. The line and column of each
+finding are relative to the text of the embedded query.
+
+The ``$lib.storm.lint.rules()`` function returns a dictionary for each rule with the ``rule``, ``name``,
+``severity``, ``default``, ``v3`` and ``desc`` keys, in rule ID order. ``v3`` is ``true`` for a rule which is
+added by ``v3_ready``.
