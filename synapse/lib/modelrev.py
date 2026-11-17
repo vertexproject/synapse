@@ -2617,9 +2617,11 @@ class ModelMigration_0_2_38(ModelMigrationBase):
             (tuple|None): (verdict, newvalu, newsubs), or None if the node is valid.
         '''
         # The pre-2.258.0 normalizer running with asserts stripped (python -O) stored
-        # values such as <scheme>:////<rest>, where <scheme> contains no ://
+        # values such as <scheme>:////<rest>, where <scheme> contains no ://. A value
+        # whose first :// is not preceded by a valid scheme, such as
+        # file:/x?u=http:////y, is checked below.
         scheme, sep, rest = formvalu.partition('://')
-        if sep and rest.startswith('//') and scheme != 'file':
+        if sep and rest.startswith('//') and scheme != 'file' and s_inet.schemere.fullmatch(scheme):
 
             if scheme not in s_scrape.urilist:
                 return ('remove', None, None)
