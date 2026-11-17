@@ -99,6 +99,7 @@ _LayerPushPullSchema = {
         'time': {'type': 'number'},
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'user': {'type': 'string', 'pattern': s_config.re_iden},
+        'enabled': {'type': 'boolean'},
         'queue:size': {'type': 'integer', 'default': s_const.layer_pdef_qsize,
                        'minimum': 1, 'maximum': s_const.layer_pdef_qsize_max},
         'chunk:size': {'type': 'integer', 'default': s_const.layer_pdef_csize,

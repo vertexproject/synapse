@@ -5739,6 +5739,147 @@ class StormTest(s_t_utils.SynTest):
                 pdef = list(pulls.values())[0]
                 self.lt(10, pdef.get('offs', 0))
 
+                async def waitPushOffs(iden, offs):
+                    '''Wait for a push/pull config to sync through the given offset.'''
+                    while await core.getStormVar(f'push:{iden}', -1) < offs:
+                        await asyncio.sleep(0)
+
+                # disable the push and pull configs
+                pushs = core.getLayer(layr0).layrinfo['pushs']
+                pushiden = [p['iden'] for p in pushs.values() if p['url'].endswith(layr1)][0]
+                pulliden = list(core.getLayer(layr2).layrinfo['pulls'].keys())[0]
+
+                await asyncio.wait_for(waitPushOffs(pushiden, await core.getLayer(layr0).getEditOffs()), timeout=5)
+                await asyncio.wait_for(waitPushOffs(pulliden, await core.getLayer(layr1).getEditOffs()), timeout=5)
+
+                pushoffs = await core.getStormVar(f'push:{pushiden}')
+                pulloffs = await core.getStormVar(f'push:{pulliden}')
+                self.nn(pushoffs)
+                self.nn(pulloffs)
+
+                pushtask = core.activecoros[pushiden].get('task')
+                pulltask = core.activecoros[pulliden].get('task')
+
+                self.none(await core.modLayrPush(layr0, pushiden, {'enabled': False}))
+                self.none(await core.modLayrPull(layr2, pulliden, {'enabled': 0}))
+
+                self.true(pushtask.done())
+                self.true(pulltask.done())
+                self.notin(pushiden, core.activecoros)
+                self.notin(pulliden, core.activecoros)
+
+                async def waitNoTask(name):
+                    '''Wait for the boss to drop the named task.'''
+                    while [t for t in core.boss.ps() if t.name == name]:
+                        await asyncio.sleep(0)
+
+                pushname = f'layer push: {layr0} {pushiden}'
+                pullname = f'layer pull: {layr2} {pulliden}'
+                await asyncio.wait_for(waitNoTask(pushname), timeout=5)
+                await asyncio.wait_for(waitNoTask(pullname), timeout=5)
+
+                tasks = await core.callStorm('return($lib.ps.list())')
+                names = [t.get('name') for t in tasks]
+                self.notin(pushname, names)
+                self.notin(pullname, names)
+
+                ldef = await core.getLayerDef(layr0)
+                self.false(ldef['pushs'][pushiden]['enabled'])
+                self.false(core.layerdefs.get(layr0)['pushs'][pushiden]['enabled'])
+
+                ldef = await core.getLayerDef(layr2)
+                self.false(ldef['pulls'][pulliden]['enabled'])
+                self.false(core.layerdefs.get(layr2)['pulls'][pulliden]['enabled'])
+
+                # setting the unchanged value is a no-op
+                actv = len(core.activecoros)
+                self.none(await core.modLayrPush(layr0, pushiden, {'enabled': False}))
+                self.none(await core.modLayrPull(layr2, pulliden, {'enabled': False}))
+                self.eq(actv, len(core.activecoros))
+                self.notin(pushiden, core.activecoros)
+                self.notin(pulliden, core.activecoros)
+
+                # edits made while disabled are not synced and the offsets are retained
+                await core.nodes('[ ps:contact=* ]', opts={'view': view0})
+                editoffs = await core.getLayer(layr0).getEditOffs()
+
+                await asyncio.sleep(0)
+                self.len(3, await core.nodes('ps:contact', opts={'view': view1}))
+                self.len(3, await core.nodes('ps:contact', opts={'view': view2}))
+                self.eq(pushoffs, await core.getStormVar(f'push:{pushiden}'))
+                self.eq(pulloffs, await core.getStormVar(f'push:{pulliden}'))
+
+                # re-enabling resumes from the retained offsets
+                self.none(await core.modLayrPush(layr0, pushiden, {'enabled': True}))
+                self.isin(pushiden, core.activecoros)
+                self.true(core.getLayer(layr0).layrinfo['pushs'][pushiden]['enabled'])
+
+                await asyncio.wait_for(waitPushOffs(pushiden, editoffs), timeout=5)
+                self.len(4, await core.nodes('ps:contact', opts={'view': view1}))
+                self.len(3, await core.nodes('ps:contact', opts={'view': view2}))
+
+                self.none(await core.modLayrPull(layr2, pulliden, {'enabled': 1}))
+                self.isin(pulliden, core.activecoros)
+                self.true(core.getLayer(layr2).layrinfo['pulls'][pulliden]['enabled'])
+
+                await asyncio.wait_for(waitPushOffs(pulliden, await core.getLayer(layr1).getEditOffs()), timeout=5)
+                self.len(4, await core.nodes('ps:contact', opts={'view': view2}))
+
+                tasks = await core.callStorm('return($lib.ps.list())')
+                names = [t.get('name') for t in tasks]
+                self.isin(pushname, names)
+                self.isin(pullname, names)
+
+                with self.raises(s_exc.NoSuchLayer):
+                    await core.modLayrPush(s_common.guid(), pushiden, {'enabled': False})
+
+                with self.raises(s_exc.NoSuchLayer):
+                    await core.modLayrPull(s_common.guid(), pulliden, {'enabled': False})
+
+                with self.raises(s_exc.NoSuchIden):
+                    await core.modLayrPush(layr0, s_common.guid(), {'enabled': False})
+
+                with self.raises(s_exc.NoSuchIden):
+                    await core.modLayrPull(layr2, pushiden, {'enabled': False})
+
+                # the main layer has no pushs/pulls
+                with self.raises(s_exc.NoSuchIden):
+                    await core.modLayrPush(core.getView().layers[0].iden, pushiden, {'enabled': False})
+
+                with self.raises(s_exc.BadArg):
+                    await core.modLayrPush(layr0, pushiden, {})
+
+                with self.raises(s_exc.BadArg):
+                    await core.modLayrPull(layr2, pulliden, {'enabled': False, 'url': 'tcp://newp'})
+
+                self.true(core.getLayer(layr2).layrinfo['pulls'][pulliden]['enabled'])
+
+                # nexus handlers ignore missing layers and configs
+                self.none(await core._modLayrPush(s_common.guid(), pushiden, {'enabled': False}))
+                self.none(await core._modLayrPull(layr2, s_common.guid(), {'enabled': False}))
+                self.isin(pushiden, core.activecoros)
+                self.isin(pulliden, core.activecoros)
+
+                # configs added disabled are registered but not started
+                url = f'tcp://root:secret@127.0.0.1:{port}/*/layer/{layr0}'
+                dpush = s_common.guid()
+                dpull = s_common.guid()
+                dispush = {'iden': dpush, 'url': url, 'user': core.auth.rootuser.iden,
+                           'time': s_common.now(), 'offs': 0, 'enabled': False}
+                dispull = {'iden': dpull, 'url': url, 'user': core.auth.rootuser.iden,
+                           'time': s_common.now(), 'offs': 0, 'enabled': False}
+
+                actv = len(core.activecoros)
+                self.none(await core.addLayrPush(layr4, dispush))
+                self.none(await core.addLayrPull(layr4, dispull))
+                self.eq(actv, len(core.activecoros))
+                self.notin(dpush, core.activecoros)
+                self.notin(dpull, core.activecoros)
+
+                ldef = await core.getLayerDef(layr4)
+                self.false(ldef['pushs'][dpush]['enabled'])
+                self.false(ldef['pulls'][dpull]['enabled'])
+
                 # remove and ensure no replay on restart
                 await core.nodes('ps:contact | delnode', opts={'view': view2})
                 self.len(0, await core.nodes('ps:contact', opts={'view': view2}))
@@ -5756,6 +5897,18 @@ class StormTest(s_t_utils.SynTest):
 
                 # confirm we dont replay and get the old one back...
                 self.len(3, await core.nodes('ps:contact', opts={'view': view2}))
+
+                # disabled configs stay registered but do not start after a restart
+                self.notin(dpush, core.activecoros)
+                self.notin(dpull, core.activecoros)
+
+                ldef = await core.getLayerDef(layr4)
+                self.false(ldef['pushs'][dpush]['enabled'])
+                self.false(ldef['pulls'][dpull]['enabled'])
+
+                names = [t.name for t in core.boss.ps()]
+                self.notin(f'layer push: {layr4} {dpush}', names)
+                self.notin(f'layer pull: {layr4} {dpull}', names)
 
                 actv = len(core.activecoros)
                 # remove all pushes / pulls
