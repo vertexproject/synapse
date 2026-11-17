@@ -6041,46 +6041,50 @@ class ColorizeCmd(Cmd):
 
 class V3PrepareCmd(Cmd):
     '''
-    Prepare the Cortex and its Storm services for the upgrade to Synapse 3.x.
+    Prepare the Cortex, its Storm services, and its Axon and JSONStor for the
+    upgrade to Synapse 3.x.
 
     Each one is checked first, and only prepared if its check has no errors.
     The check of the Cortex prints an error for each deprecated form,
     property, or type which is still in use in any layer, installed Power-Up
     which is below the minimum version that supports Synapse 3.x, installed
-    Vertex Power-Up which is not yet available for Synapse 3.x, and layer
-    model migration or Power-Up init which has not completed yet. Each Storm
-    service, such as Optic, is then checked and prepared in a section of its
-    own, and those which are not ready are named.
+    Vertex Power-Up which is not yet available for Synapse 3.x, layer model
+    migration or Power-Up init which has not completed yet, and embedded
+    Axon or JSONStor, and a warning for an Axon or JSONStor directory left
+    behind in the Cortex storage. Each Storm
+    service, such as Optic, and then the Axon and JSONStor which the Cortex
+    is configured to use, is checked and prepared in a section of its own,
+    and those which are not ready are named.
 
     Errors block the upgrade and must be fixed by hand, so they also skip the
     preparation of the Cortex or service which has them. Warnings do not. Use
     --dry-run first to see what to fix, and run it again once it is fixed.
 
-    Run it on the Cortex leader, with each Storm service added by the AHA name
-    of its leader. The Cortex and each service record the result for their
-    Synapse 3.x migration, unless --dry-run is given. A dry run with errors
-    clears the recorded result.
+    Run it on the Cortex leader, with each Storm service added, and the axon
+    and jsonstor config options set, by the AHA name of its leader. The Cortex
+    and each service record the result for their Synapse 3.x migration, unless
+    --dry-run is given. A dry run with errors clears the recorded result.
 
     NOTE: This command requires admin privileges.
 
     Examples:
 
-        // Check the Cortex and its Storm services, without preparing them or recording anything.
+        // Check the Cortex and its services, without preparing them or recording anything.
         v3.prepare --dry-run
 
-        // Check the Cortex and its Storm services, and prepare those with no errors.
+        // Check the Cortex and its services, and prepare those with no errors.
         v3.prepare
     '''
 
     name = 'v3.prepare'
 
-    # seconds the 3.x readiness check of a Storm service may take in a dry run
+    # seconds the 3.x readiness check of a service may take in a dry run
     svctimeout = 60
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
         pars.add_argument('--dry-run', default=False, action='store_true',
-                          help='Only check the Cortex and its Storm services, without preparing them.')
+                          help='Only check the Cortex and its services, without preparing them.')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -6092,43 +6096,36 @@ class V3PrepareCmd(Cmd):
 
         ready = await self._printMesgs(runt, core.prepareV3(dryrun=dryrun))
 
-        verb = 'checked' if dryrun else 'prepared'
-
         busy = []
         notready = []
         for ssvc in sorted(core.getStormSvcs(), key=lambda s: s.name):
 
-            proxy = await self._getSvcProxy(runt, ssvc)
-            if proxy is None:
-                notready.append(ssvc.name)
-                continue
+            async def getproxy(ssvc=ssvc):
+                if ssvc.ready.is_set():
+                    return await ssvc.proxy.proxy()
 
-            if dryrun:
-                await runt.printf(f'Checking service {ssvc.name}...')
-            else:
-                await runt.printf(f'Checking and preparing service {ssvc.name}...')
+            url = ssvc.sdef.get('url')
+            fix = "add it by its leader's name"
+            await self._runCell(runt, ssvc.name, f'service {ssvc.name}', getproxy, url, fix, dryrun, notready, busy)
 
-            try:
-                coro = self._printMesgs(runt, proxy.prepareV3(dryrun=dryrun))
-                if dryrun:
-                    coro = s_common.wait_for(coro, timeout=self.svctimeout)
+        # an embedded Axon or JSONStor is an error in the check of the Cortex, and is never prepared itself
+        if (url := core.conf.get('axon')) is not None:
 
-                if not await coro:
-                    notready.append(ssvc.name)
+            async def getproxy():
+                if core.axready.is_set():
+                    return await core.axon.proxy()
 
-            except TimeoutError:
-                await runt.printf(f'ERROR: Service {ssvc.name} could not be checked within {self.svctimeout} seconds.')
-                notready.append(ssvc.name)
+            fix = "set the axon config option to its leader's name"
+            await self._runCell(runt, 'Axon', 'the Axon', getproxy, url, fix, dryrun, notready, busy)
 
-            except Exception as e:
-                mesg = e.get('mesg') if isinstance(e, s_exc.SynErr) else str(e)
-                if isinstance(e, s_exc.SynErr) and e.get('running'):
-                    await runt.printf(f'Service {ssvc.name} could not be {verb}: {mesg}')
-                    busy.append(ssvc.name)
-                    continue
+        if (url := core.conf.get('jsonstor')) is not None:
 
-                await runt.printf(f'ERROR: Service {ssvc.name} could not be {verb}: {mesg or e.__class__.__name__}')
-                notready.append(ssvc.name)
+            async def getproxy():
+                if core.jsonready.is_set():
+                    return await core.jsonstor.proxy()
+
+            fix = "set the jsonstor config option to its leader's name"
+            await self._runCell(runt, 'JSONStor', 'the JSONStor', getproxy, url, fix, dryrun, notready, busy)
 
         await runt.printf(s_cell.getV3Summary('Your Cortex', ready, dryrun))
 
@@ -6148,34 +6145,71 @@ class V3PrepareCmd(Cmd):
         async for item in genr:
             yield item
 
-    async def _getSvcProxy(self, runt, ssvc):
+    async def _runCell(self, runt, name, desc, getproxy, url, fix, dryrun, notready, busy):
         '''
-        Return the proxy of a Storm service which can be prepared for Synapse 3.x, or print an error and return None.
+        Check, and unless dryrun prepare, a cell of the Cortex such as a Storm service, adding its name to notready or
+        busy if it is not ready.
         '''
-        proxy = None
-        info = None
-        if ssvc.ready.is_set():
-            try:
-                proxy = await ssvc.proxy.proxy()
-                if proxy._hasTeleMeth('prepareV3'):
-                    info = await proxy.getCellInfo()
+        title = desc[0].upper() + desc[1:]
 
-            except (TimeoutError, s_exc.IsFini, s_exc.LinkErr):
-                proxy = None
+        proxy = await self._getCellProxy(runt, title, getproxy, url, fix)
+        if proxy is None:
+            notready.append(name)
+            return
+
+        if dryrun:
+            await runt.printf(f'Checking {desc}...')
+        else:
+            await runt.printf(f'Checking and preparing {desc}...')
+
+        try:
+            coro = self._printMesgs(runt, proxy.prepareV3(dryrun=dryrun))
+            if dryrun:
+                coro = s_common.wait_for(coro, timeout=self.svctimeout)
+
+            if not await coro:
+                notready.append(name)
+
+        except TimeoutError:
+            await runt.printf(f'ERROR: {title} could not be checked within {self.svctimeout} seconds.')
+            notready.append(name)
+
+        except Exception as e:
+            verb = 'checked' if dryrun else 'prepared'
+            mesg = e.get('mesg') if isinstance(e, s_exc.SynErr) else str(e)
+            if isinstance(e, s_exc.SynErr) and e.get('running'):
+                await runt.printf(f'{title} could not be {verb}: {mesg}')
+                busy.append(name)
+                return
+
+            await runt.printf(f'ERROR: {title} could not be {verb}: {mesg or e.__class__.__name__}')
+            notready.append(name)
+
+    async def _getCellProxy(self, runt, title, getproxy, url, fix):
+        '''
+        Return the proxy of a cell which can be prepared for Synapse 3.x, or print an error and return None.
+        '''
+        info = None
+        try:
+            proxy = await getproxy()
+            if proxy is not None and proxy._hasTeleMeth('prepareV3'):
+                info = await proxy.getCellInfo()
+
+        except (TimeoutError, s_exc.IsFini, s_exc.LinkErr):
+            proxy = None
 
         if proxy is None:
-            await runt.printf(f'ERROR: Service {ssvc.name} is not connected.')
+            await runt.printf(f'ERROR: {title} is not connected.')
             return None
 
         if info is None:
-            await runt.printf(f'ERROR: Service {ssvc.name} must be upgraded to a Synapse 2.x release which can '
+            await runt.printf(f'ERROR: {title} must be upgraded to a Synapse 2.x release which can '
                               'prepare it for Synapse 3.x.')
             return None
 
-        # the Cortex reaches the leader by its AHA leader name, a mirror only if added by its own
+        # the Cortex reaches the leader by its AHA leader name, a mirror only if configured with its own
         if not info['cell']['active']:
-            url = s_urlhelp.sanitizeUrl(ssvc.sdef.get('url'))
-            await runt.printf(f"ERROR: Service {ssvc.name} is connected to a mirror ({url}); add it by its leader's name.")
+            await runt.printf(f'ERROR: {title} is connected to a mirror ({s_urlhelp.sanitizeUrl(url)}); {fix}.')
             return None
 
         return proxy

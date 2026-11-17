@@ -766,6 +766,35 @@ are provisioned, you may update the URLs they use to connect to the Axon to ``ah
     (e.g. ``aha://cortex...?mirror=true``) to cause AHA to prefer connecting to a service mirror rather than the leader
     (if mirrors are available).
 
+.. _devops-task-v3-carve-out:
+
+Moving an Embedded Axon or JSONStor to a Standalone Service
+-----------------------------------------------------------
+
+A Cortex which does not have the ``axon`` or ``jsonstor`` configuration option set runs an embedded Axon or JSONStor,
+which stores its data in the ``axon`` or ``jsonstor`` directory of the Cortex storage. The Synapse 3.x migration
+drops that data entirely, so ``v3.prepare`` reports an error until each one is moved to a standalone service. The
+standalone service keeps the data of the embedded one.
+
+These steps use the AHA names, paths, owner, and permissions of the :ref:`deploymentguide`. For a JSONStor, use
+``jsonstor`` in place of ``axon`` throughout.
+
+#. Stop the Cortex leader and each of its mirrors.
+#. Follow the steps to :ref:`deploy_axon` (or :ref:`deploy_jsonstor`), up to the ``docker compose`` commands which
+   start it. Before starting it, copy the ``axon`` directory of the Cortex leader storage into the new service storage
+   with the offline backup tool ``synapse.tools.service.backup`` (see :ref:`devops-task-backup`), which makes a
+   compacted copy of its databases, and set its owner again::
+
+    python -m synapse.tools.service.backup /srv/syn/00.cortex/storage/axon /srv/syn/00.axon/storage
+    chown -R 999 /srv/syn/00.axon/storage
+
+#. Start the Axon.
+#. Set the ``axon`` configuration option of the Cortex leader and each of its mirrors to the AHA name of the Axon
+   leader, such as ``SYN_CORTEX_AXON=aha://axon...``, and remove the ``axon`` directory from each of their storage
+   directories. The Cortex no longer uses that directory, and ``v3.prepare`` reports a warning while it remains.
+#. Start the Cortex leader and its mirrors, and run ``v3.prepare --dry-run`` to confirm the error and the warning are
+   gone.
+
 Deployment Options
 ------------------
 
@@ -1361,6 +1390,8 @@ Docker Image: ``vertexproject/synapse-axon:v2.x.x``
     For ease of use in simple deployments, the Cortex contains an embedded Axon instance.  For production deployments
     it is **highly** recommended that you install it as a separated service to help distribute load and allow direct
     access by other Advanced Power-Ups.
+    An embedded Axon must be moved to a standalone service before upgrading to Synapse 3.x. See
+    :ref:`devops-task-v3-carve-out`.
 
 **Configuration**
 
@@ -1402,6 +1433,8 @@ Docker Image: ``vertexproject/synapse-jsonstor:v2.x.x``
     For ease of use in simple deployments, the Cortex contains an embedded JSONStor instance.  For production deployments
     it is **highly** recommended that you install it as a separated service to help distribute load and allow direct
     access by other Advanced Power-Ups.
+    An embedded JSONStor must be moved to a standalone service before upgrading to Synapse 3.x. See
+    :ref:`devops-task-v3-carve-out`.
 
 **Configuration**
 

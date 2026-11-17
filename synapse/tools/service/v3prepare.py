@@ -7,7 +7,8 @@ import synapse.lib.output as s_output
 
 descr = '''
 Check a Synapse service for readiness to upgrade to Synapse 3.x and, if the check has no errors, prepare it. Run it
-against the leader.
+against the leader. Against a Cortex, it covers only the Cortex itself; use the v3.prepare Storm command to also cover
+its Storm services, Axon, and JSONStor.
 
 Examples:
     python -m synapse.tools.service.v3prepare --dry-run

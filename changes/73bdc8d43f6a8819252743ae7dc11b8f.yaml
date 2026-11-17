@@ -1,0 +1,8 @@
+---
+desc: Added documentation on moving an embedded Axon or JSONStor to a standalone service,
+  and on the ``service.v3prepare`` tool covering only the Cortex itself when run against
+  a Cortex.
+desc:literal: false
+prs: []
+type: doc
+...
