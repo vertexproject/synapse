@@ -7107,6 +7107,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             async with self.getTestAxon() as axon:
                 async with self.getTestCore(dirn=dirn, conf={'axon': axon.getLocalUrl()}) as core:
 
+                    await core.axready.wait()
+
                     path = os.path.join(dirn, 'axon')
                     msgs = await core.stormlist('v3.prepare --dry-run')
                     self.stormIsInPrint(f'ERROR: The Cortex no longer uses the Axon in {path}, since the axon config '
@@ -7227,8 +7229,10 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             axdirn = s_common.gendir(dirn, 'axon')
             jsdirn = s_common.gendir(dirn, 'jsonstor')
-            shutil.copytree(os.path.join(coredirn, 'axon'), axdirn, dirs_exist_ok=True)
-            shutil.copytree(os.path.join(coredirn, 'jsonstor'), jsdirn, dirs_exist_ok=True)
+            # the cell recreates its unix socket, which copytree cannot copy
+            nosock = shutil.ignore_patterns('sock')
+            shutil.copytree(os.path.join(coredirn, 'axon'), axdirn, dirs_exist_ok=True, ignore=nosock)
+            shutil.copytree(os.path.join(coredirn, 'jsonstor'), jsdirn, dirs_exist_ok=True, ignore=nosock)
 
             async with self.getTestAha() as aha:
                 async with self.addSvcToAha(aha, '00.axon', s_axon.Axon, dirn=axdirn) as axon:
