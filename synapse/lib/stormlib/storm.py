@@ -195,7 +195,7 @@ class StormLintCmd(s_storm.Cmd):
 
     def getArgParser(self):
         pars = s_storm.Cmd.getArgParser(self)
-        pars.add_argument('text', nargs='?', help='The Storm code or embedded query to lint.')
+        pars.add_argument('text', nargs='?', default=s_common.novalu, help='The Storm code or embedded query to lint.')
         pars.add_argument('--select', default=None,
                           help='Comma-separated rule IDs or prefixes to run in place of the default rules.')
         pars.add_argument('--ignore', default=None, help='Comma-separated rule IDs or prefixes to disable.')
@@ -222,21 +222,19 @@ class StormLintCmd(s_storm.Cmd):
         ignore = await self._getRules(self.opts.ignore) or ()
         enable = await self._getRules(self.opts.enable) or ()
 
+        if self.opts.text is s_common.novalu:
+            raise s_exc.BadArg(mesg='storm.lint requires text to lint unless --show-rules is given.', name='text')
+
         text = await s_stormtypes.tostr(self.opts.text, noneok=True)
         if text is None:
-            raise s_exc.BadArg(mesg='storm.lint requires text to lint unless --show-rules is given.', name='text')
+            raise s_exc.BadArg(mesg='storm.lint text is null.', name='text')
 
         findings = await _getLintFindings(runt, text, select, ignore, enable, self.opts.v3_ready)
 
         for f in findings:
             await runt.printf(f"{f['line']}:{f['column']}: {f['rule']} {f['mesg']}")
 
-        if findings:
-            noun = 'error' if len(findings) == 1 else 'errors'
-            await runt.printf(f'Found {len(findings)} {noun}.')
-
-        else:
-            await runt.printf('All checks passed!')
+        await runt.printf(s_stormlint.getSummary(len(findings)))
 
     async def execStormCmd(self, runt, genr):
 

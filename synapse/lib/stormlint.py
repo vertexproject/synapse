@@ -474,6 +474,16 @@ def splitRules(valu):
     '''
     return [v.strip() for v in valu.split(',') if v.strip()]
 
+def getSummary(count):
+    '''
+    Return the summary line for a count of findings.
+    '''
+    if count == 0:
+        return 'All checks passed!'
+
+    noun = 'error' if count == 1 else 'errors'
+    return f'Found {count} {noun}.'
+
 class LintContext:
     '''
     The state passed to each rule callback for one parsed query.

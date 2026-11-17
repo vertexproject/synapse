@@ -231,14 +231,8 @@ async def main(argv, outp=s_output.stdout):
             else:
                 outp.printf(f'{path}:{f.line}:{f.column}: {f.rule} {f.mesg}')
 
-    if not asjson:
-
-        if count:
-            noun = 'error' if count == 1 else 'errors'
-            outp.printf(f'Found {count} {noun}.')
-
-        elif not failed:
-            outp.printf('All checks passed!')
+    if not asjson and (count or not failed):
+        outp.printf(s_stormlint.getSummary(count))
 
     if failed:
         return 2

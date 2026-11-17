@@ -295,10 +295,19 @@ class LibStormTest(s_test.SynTest):
             msgs = await core.stormlist('storm.lint')
             self.stormIsInErr('storm.lint requires text to lint unless --show-rules is given.', msgs)
 
-            # a node without the text prop raises the same error wherever it is in the stream
+            msgs = await core.stormlist('storm.lint $lib.null')
+            self.stormIsInErr('storm.lint text is null.', msgs)
+
+            # a node without the text prop raises BadArg wherever it is in the stream
             await core.nodes('[ test:str=lint0 :hehe="$x = ([])" test:str=lint1 :hehe="$y = ([])" test:str=lint2 ]')
             with self.raises(s_exc.BadArg) as cm:
                 await core.nodes('test:str^=lint storm.lint :hehe')
+
+            self.eq('storm.lint text is null.', cm.exception.get('mesg'))
+            self.eq('text', cm.exception.get('name'))
+
+            with self.raises(s_exc.BadArg) as cm:
+                await core.nodes('test:str^=lint storm.lint --select $node.value()')
 
             self.eq('storm.lint requires text to lint unless --show-rules is given.', cm.exception.get('mesg'))
             self.eq('text', cm.exception.get('name'))

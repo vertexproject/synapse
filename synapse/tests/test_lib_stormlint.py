@@ -33,6 +33,10 @@ class StormLintTest(s_t_utils.SynTest):
         self.eq(s_stormlint.splitRules(' S010 , ,S00 '), ['S010', 'S00'])
         self.eq(s_stormlint.splitRules(''), [])
 
+        self.eq(s_stormlint.getSummary(0), 'All checks passed!')
+        self.eq(s_stormlint.getSummary(1), 'Found 1 error.')
+        self.eq(s_stormlint.getSummary(2), 'Found 2 errors.')
+
         self.eq(s_stormlint.severities, ('high', 'medium', 'low'))
         with self.raises(s_exc.BadArg):
             s_stormlint.rule('X999', 'bad', 'info')
