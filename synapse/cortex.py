@@ -3846,22 +3846,43 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             mirror = layr.layrinfo.get('mirror')
             if mirror is not None:
-                url = s_urlhelp.sanitizeUrl(mirror)
-                mesg = (f'{desc} mirrors {url}. Synapse 3.x keeps the layer and its data but drops the mirror '
+                urls = self._getV3LayerUrls(mirror)
+                mesg = (f'{desc} mirrors {urls}. Synapse 3.x keeps the layer and its data but drops the mirror '
                         'setting, so it stops syncing. Set up layer push or pull again after migrating.')
                 yield ('warning', mesg)
 
             upstream = layr.layrinfo.get('upstream')
             if upstream is not None:
-
-                if isinstance(upstream, str):
-                    upstream = (upstream,)
-
-                urls = ', '.join(s_urlhelp.sanitizeUrl(u) for u in upstream)
+                urls = self._getV3LayerUrls(upstream)
                 mesg = (f'{desc} pulls from upstream layers {urls}. Synapse 3.x keeps the layer and its data but '
                         'drops the upstream setting, so it stops syncing. Set up layer push or pull again after '
                         'migrating.')
                 yield ('warning', mesg)
+
+    def _getV3LayerUrls(self, valu):
+
+        # layer definitions do not validate these, so render any value without raising or leaking it
+        if not isinstance(valu, (list, tuple)):
+            valu = (valu,)
+
+        urls = []
+        for item in valu:
+
+            if isinstance(item, str):
+                urls.append(s_urlhelp.sanitizeUrl(item))
+                continue
+
+            if isinstance(item, dict):
+                info = dict(item)
+                if info.get('passwd') is not None:
+                    info['passwd'] = '****'
+
+                urls.append(repr(info))
+                continue
+
+            urls.append(f'<{type(item).__name__}>')
+
+        return ', '.join(urls)
 
     def _semvTuple(self, text):
         info = s_version.parseSemver(text)

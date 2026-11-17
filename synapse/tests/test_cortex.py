@@ -506,6 +506,101 @@ class CortexTest(s_t_utils.SynTest):
                 layr = core01.getLayer(layr01iden)
                 await layr.storNodeEdits((), {'user': s_common.guid()})
 
+    async def test_cortex_v3_layers(self):
+
+        async with self.getTestCore() as core:
+
+            def getWarns(msgs):
+                return [m[1]['mesg'] for m in msgs if m[0] == 'print' and m[1]['mesg'].startswith('WARNING: ')]
+
+            tail = ('Synapse 3.x keeps the layer and its data but drops the {} setting, so it stops syncing. Set up'
+                    ' layer push or pull again after migrating.')
+
+            msgs = await core.stormlist('v3.prepare --dry-run')
+            self.stormIsInPrint('Checking for mirror and upstream layers...', msgs)
+            self.stormHasNoWarnErr(msgs)
+
+            url00 = 'tcp://root:secret@127.0.0.1:1/*/layer/mirr'
+            url01 = 'tcp://root:secret@127.0.0.1:1/*/layer/up00'
+            url02 = 'tcp://root:secret@127.0.0.1:1/*/layer/up01'
+
+            mirr = await core.addLayer({'name': 'mirrlayr', 'mirror': url00})
+            mirrs = await core.addLayer({'mirror': [url01, url02]})
+            uplayr = await core.addLayer({'upstream': [url01, url02]})
+            strlayr = await core.addLayer({'upstream': url01})
+
+            urls = 'tcp://root:****@127.0.0.1:1/*/layer/up00, tcp://root:****@127.0.0.1:1/*/layer/up01'
+
+            msgs = await core.stormlist('v3.prepare --dry-run')
+            warns = getWarns(msgs)
+            self.len(4, warns)
+
+            mesg = (f"WARNING: Layer {mirr['iden']} (mirrlayr) mirrors tcp://root:****@127.0.0.1:1/*/layer/mirr. "
+                    + tail.format('mirror'))
+            self.isin(mesg, warns)
+
+            mesg = f"WARNING: Layer {mirrs['iden']} mirrors {urls}. " + tail.format('mirror')
+            self.isin(mesg, warns)
+
+            mesg = f"WARNING: Layer {uplayr['iden']} pulls from upstream layers {urls}. " + tail.format('upstream')
+            self.isin(mesg, warns)
+
+            mesg = (f"WARNING: Layer {strlayr['iden']} pulls from upstream layers"
+                    f" tcp://root:****@127.0.0.1:1/*/layer/up00. " + tail.format('upstream'))
+            self.isin(mesg, warns)
+
+            self.stormNotInPrint(f'Layer {core.getLayer().iden}', msgs)
+            self.stormNotInPrint('secret', msgs)
+            self.stormNotInPrint('ERROR: ', msgs)
+            self.stormIsInPrint('Your Cortex has no errors blocking Synapse 3.x.', msgs)
+
+            for ldef in (mirr, mirrs, uplayr, strlayr):
+                await core.delLayer(ldef['iden'])
+
+            # layer definitions do not validate mirror or upstream, so any stored value must render safely
+            layr = core.getLayer()
+            layr.layrinfo['mirror'] = [
+                {'host': '127.0.0.1', 'port': 1, 'user': 'root', 'passwd': 'secret'},
+                'mirralias',
+                10,
+            ]
+            layr.layrinfo['upstream'] = ('tcp://127.0.0.1:1/', ['nested', 'secret'])
+
+            msgs = await core.stormlist('v3.prepare --dry-run')
+            warns = getWarns(msgs)
+            self.len(2, warns)
+
+            info = "{'host': '127.0.0.1', 'port': 1, 'user': 'root', 'passwd': '****'}"
+            mesg = f'WARNING: Layer {layr.iden} (default) mirrors {info}, mirralias, <int>. ' + tail.format('mirror')
+            self.isin(mesg, warns)
+
+            mesg = (f'WARNING: Layer {layr.iden} (default) pulls from upstream layers tcp://127.0.0.1:1/, <list>. '
+                    + tail.format('upstream'))
+            self.isin(mesg, warns)
+
+            self.stormNotInPrint('secret', msgs)
+            self.stormIsInPrint('Your Cortex has no errors blocking Synapse 3.x.', msgs)
+
+            layr.layrinfo['mirror'] = {'host': '127.0.0.1', 'port': 1}
+            layr.layrinfo['upstream'] = 10
+
+            msgs = await core.stormlist('v3.prepare --dry-run')
+            warns = getWarns(msgs)
+            self.len(2, warns)
+
+            info = "{'host': '127.0.0.1', 'port': 1}"
+            mesg = f'WARNING: Layer {layr.iden} (default) mirrors {info}. ' + tail.format('mirror')
+            self.isin(mesg, warns)
+
+            mesg = f'WARNING: Layer {layr.iden} (default) pulls from upstream layers <int>. ' + tail.format('upstream')
+            self.isin(mesg, warns)
+
+            layr.layrinfo.pop('mirror')
+            layr.layrinfo.pop('upstream')
+
+            msgs = await core.stormlist('v3.prepare --dry-run')
+            self.stormHasNoWarnErr(msgs)
+
     async def test_cortex_must_upgrade(self):
 
         with self.getTestDir() as dirn:
