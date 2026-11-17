@@ -465,13 +465,13 @@ through unchanged, and when the text is not runtsafe it is linted once for each 
     storm.lint ${ $x = $lib.list() }
     storm.lint $text --v3-ready
 
-The ``$lib.storm.lint()`` function lints Storm code against the Cortex's data model, including its extended model
-elements, and yields a dictionary for each finding with the ``rule``, ``severity``, ``line``, ``column`` and
+The ``$lib.storm.lint.scan()`` function lints Storm code against the Cortex's data model, including its extended
+model elements, and yields a dictionary for each finding with the ``rule``, ``severity``, ``line``, ``column`` and
 ``mesg`` keys, sorted by line, column and rule:
 
 .. code-block:: text
 
-    for $finding in $lib.storm.lint($text, enable=(S010,)) {
+    for $finding in $lib.storm.lint.scan($text, enable=(S010,)) {
         $lib.print(`{$finding.line}:{$finding.column} {$finding.rule} {$finding.mesg}`)
     }
 
@@ -486,6 +486,6 @@ is applied.
 The code to lint may also be an embedded query, such as ``${ $x = $lib.list() }``. The line and column of each
 finding are relative to the text of the embedded query.
 
-The ``$lib.storm.lintRules()`` function returns a dictionary for each rule with the ``rule``, ``name``,
+The ``$lib.storm.lint.rules()`` function returns a dictionary for each rule with the ``rule``, ``name``,
 ``severity``, ``default``, ``v3`` and ``desc`` keys, in rule ID order. ``v3`` is ``true`` for a rule which is
 added by ``v3_ready``.

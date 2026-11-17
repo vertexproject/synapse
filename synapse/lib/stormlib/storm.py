@@ -20,7 +20,7 @@ Note:
     If Storm logging is enabled, the query being run will be logged separately.
 '''
 
-lintdesc = '''
+scandesc = '''
 Lint Storm code and yield a dictionary for each finding.
 
 Findings are checked against the data model of the Cortex, including extended model
@@ -38,7 +38,7 @@ finding are relative to the text of the embedded query.
 Examples:
     Print the findings for a query::
 
-        for $finding in $lib.storm.lint($text) {
+        for $finding in $lib.storm.lint.scan($text) {
             $lib.print(`{$finding.line}:{$finding.column} {$finding.rule} {$finding.mesg}`)
         }
 
@@ -47,13 +47,13 @@ Examples:
         $query = ${
             if $x { [ :name=$x ] }
         }
-        for $finding in $lib.storm.lint($query, select=(R,), enable=(S010,)) {
+        for $finding in $lib.storm.lint.scan($query, select=(R,), enable=(S010,)) {
             $lib.print(`{$finding.line}:{$finding.column} {$finding.rule} {$finding.mesg}`)
         }
 '''
 
-lintrulesdesc = '''
-Get the lint rules used by $lib.storm.lint().
+rulesdesc = '''
+Get the lint rules used by $lib.storm.lint.scan().
 
 Each rule is a dictionary with the keys rule (the rule ID), name, severity, default
 (true when the rule runs by default), v3 (true when the rule is added by v3_ready) and
@@ -62,7 +62,7 @@ desc (the rule description), in rule ID order.
 Examples:
     Print the rules which are off by default::
 
-        for $rule in $lib.storm.lintRules() {
+        for $rule in $lib.storm.lint.rules() {
             if (not $rule.default and not $rule.v3) { $lib.print(`{$rule.rule} {$rule.name}`) }
         }
 '''
@@ -276,26 +276,6 @@ class LibStorm(s_stormtypes.Lib):
                       {'name': 'opts', 'type': 'dict', 'desc': 'Storm options dictionary.', 'default': None},
                   ),
                   'returns': {'name': 'yields', 'type': 'list', 'desc': 'The output messages from the Storm runtime.'}}},
-        {'name': 'lint', 'desc': lintdesc,
-         'type': {'type': 'function', '_funcname': '_lintStorm',
-                  'args': (
-                      {'name': 'text', 'type': ['str', 'storm:query'],
-                       'desc': 'The Storm code or embedded query to lint.'},
-                      {'name': 'select', 'type': 'list', 'default': None,
-                       'desc': 'Rule IDs or ID prefixes which replace the default rule set. An empty list '
-                               'runs only the enabled rules, plus the v3 rules when v3_ready is set.'},
-                      {'name': 'ignore', 'type': 'list', 'default': None,
-                       'desc': 'Rule IDs or ID prefixes to remove from the rule set, applied last.'},
-                      {'name': 'enable', 'type': 'list', 'default': None,
-                       'desc': 'Rule IDs or ID prefixes to add to the rule set, including rules which are '
-                               'off by default such as S010 and S015.'},
-                      {'name': 'v3_ready', 'type': 'boolean', 'default': False,
-                       'desc': 'Add the rules which report Storm that must change for Synapse 3.x.'},
-                  ),
-                  'returns': {'name': 'yields', 'type': 'dict', 'desc': 'A dictionary for each lint finding.'}}},
-        {'name': 'lintRules', 'desc': lintrulesdesc,
-         'type': {'type': 'function', '_funcname': '_lintRules',
-                  'returns': {'type': 'list', 'desc': 'A dictionary for each lint rule.'}}},
     )
     _storm_lib_path = ('storm',)
 
@@ -303,8 +283,6 @@ class LibStorm(s_stormtypes.Lib):
         return {
             'run': self._runStorm,
             'eval': self._evalStorm,
-            'lint': self._lintStorm,
-            'lintRules': self._lintRules,
         }
 
     async def _runStorm(self, query, opts=None):
@@ -357,12 +335,47 @@ class LibStorm(s_stormtypes.Lib):
 
         return valu
 
+@s_stormtypes.registry.registerLib
+class LibStormLint(s_stormtypes.Lib):
+    '''
+    A Storm library for linting Storm code.
+    '''
+    _storm_locals = (
+        {'name': 'scan', 'desc': scandesc,
+         'type': {'type': 'function', '_funcname': '_scan',
+                  'args': (
+                      {'name': 'text', 'type': ['str', 'storm:query'],
+                       'desc': 'The Storm code or embedded query to lint.'},
+                      {'name': 'select', 'type': 'list', 'default': None,
+                       'desc': 'Rule IDs or ID prefixes which replace the default rule set. An empty list '
+                               'runs only the enabled rules, plus the v3 rules when v3_ready is set.'},
+                      {'name': 'ignore', 'type': 'list', 'default': None,
+                       'desc': 'Rule IDs or ID prefixes to remove from the rule set, applied last.'},
+                      {'name': 'enable', 'type': 'list', 'default': None,
+                       'desc': 'Rule IDs or ID prefixes to add to the rule set, including rules which are '
+                               'off by default such as S010 and S015.'},
+                      {'name': 'v3_ready', 'type': 'boolean', 'default': False,
+                       'desc': 'Add the rules which report Storm that must change for Synapse 3.x.'},
+                  ),
+                  'returns': {'name': 'yields', 'type': 'dict', 'desc': 'A dictionary for each lint finding.'}}},
+        {'name': 'rules', 'desc': rulesdesc,
+         'type': {'type': 'function', '_funcname': '_rules',
+                  'returns': {'type': 'list', 'desc': 'A dictionary for each lint rule.'}}},
+    )
+    _storm_lib_path = ('storm', 'lint')
+
+    def getObjLocals(self):
+        return {
+            'scan': self._scan,
+            'rules': self._rules,
+        }
+
     @s_stormtypes.stormfunc(readonly=True)
-    async def _lintStorm(self, text, select=None, ignore=None, enable=None, v3_ready=False):
+    async def _scan(self, text, select=None, ignore=None, enable=None, v3_ready=False):
 
         text = await s_stormtypes.tostr(text, noneok=True)
         if text is None:
-            raise s_exc.BadArg(mesg='$lib.storm.lint() requires text to lint.', name='text')
+            raise s_exc.BadArg(mesg='$lib.storm.lint.scan() requires text to lint.', name='text')
 
         select = await s_stormtypes.toprim(select)
         ignore = await s_stormtypes.toprim(ignore)
@@ -379,5 +392,5 @@ class LibStorm(s_stormtypes.Lib):
             yield finding
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _lintRules(self):
+    async def _rules(self):
         return s_stormlint.getRules()

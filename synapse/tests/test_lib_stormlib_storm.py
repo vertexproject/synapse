@@ -133,7 +133,7 @@ class LibStormTest(s_test.SynTest):
             # lint
             lintq = '''
                 $retn = ([])
-                for $finding in $lib.storm.lint($text, select=$select, ignore=$ignore, enable=$enable, v3_ready=$v3_ready) {
+                for $finding in $lib.storm.lint.scan($text, select=$select, ignore=$ignore, enable=$enable, v3_ready=$v3_ready) {
                     $retn.append($finding)
                 }
                 return($retn)
@@ -222,7 +222,7 @@ class LibStormTest(s_test.SynTest):
                     $x = $lib.list()
                 }
                 $retn = ([])
-                for $finding in $lib.storm.lint($query) { $retn.append($finding) }
+                for $finding in $lib.storm.lint.scan($query) { $retn.append($finding) }
                 return($retn)
             '''
             findings = await core.callStorm(q, opts={'readonly': True})
@@ -313,9 +313,9 @@ class LibStormTest(s_test.SynTest):
             self.eq('text', cm.exception.get('name'))
 
             with self.raises(s_exc.BadArg) as cm:
-                await core.callStorm('for $f in $lib.storm.lint($lib.null) { }', opts={'readonly': True})
+                await core.callStorm('for $f in $lib.storm.lint.scan($lib.null) { }', opts={'readonly': True})
 
-            self.eq('$lib.storm.lint() requires text to lint.', cm.exception.get('mesg'))
+            self.eq('$lib.storm.lint.scan() requires text to lint.', cm.exception.get('mesg'))
             self.eq('text', cm.exception.get('name'))
 
             msgs = await core.stormlist('storm.lint ${ $x = (1) }', opts={'readonly': True})
@@ -371,8 +371,8 @@ class LibStormTest(s_test.SynTest):
             self.len(2, [m for m in msgs if m[0] == 'node'])
             self.notin('Found 1 error.', [m[1]['mesg'] for m in msgs if m[0] == 'print'])
 
-            # lintRules
-            rules = await core.callStorm('return($lib.storm.lintRules())', opts={'readonly': True})
+            # $lib.storm.lint.rules()
+            rules = await core.callStorm('return($lib.storm.lint.rules())', opts={'readonly': True})
             self.eq([r['rule'] for r in rules], sorted(r['rule'] for r in rules))
             byid = {r['rule']: r for r in rules}
             self.eq(byid['S005'], {'rule': 'S005', 'name': 'lib-list-dict', 'severity': 'low',
