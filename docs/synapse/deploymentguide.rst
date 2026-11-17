@@ -159,8 +159,6 @@ directory on the *host*. This will be necessary for some of the additional provi
 
     docker compose exec 00.aha /bin/bash
 
-.. _deploy_axon:
-
 Deploy AHA Mirrors (optional)
 =============================
 
@@ -217,6 +215,8 @@ Start the container::
 
     docker compose --file /srv/syn/01.aha/docker-compose.yaml pull
     docker compose --file /srv/syn/01.aha/docker-compose.yaml up -d
+
+.. _deploy_axon:
 
 Deploy Axon Service
 ===================
@@ -279,6 +279,8 @@ Start the container::
 
     docker compose --file /srv/syn/00.axon/docker-compose.yaml pull
     docker compose --file /srv/syn/00.axon/docker-compose.yaml up -d
+
+.. _deploy_jsonstor:
 
 Deploy JSONStor Service
 =======================

@@ -2,6 +2,7 @@ import os
 import copy
 import http
 import time
+import shutil
 import asyncio
 import hashlib
 import inspect
@@ -13,6 +14,7 @@ import regex
 from unittest.mock import patch
 
 import synapse.exc as s_exc
+import synapse.axon as s_axon
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
@@ -28,6 +30,7 @@ import synapse.lib.storm as s_storm
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
+import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.tools.service.backup as s_tools_backup
@@ -37,6 +40,13 @@ import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
 logger = logging.getLogger(__name__)
+
+class OldV3Cell:
+    '''
+    An Axon or JSONStor on a release which can not be prepared for Synapse 3.x.
+    '''
+    async def getCellInfo(self):
+        return {'cell': {}}
 
 class CortexTest(s_t_utils.SynTest):
     '''
@@ -347,10 +357,81 @@ class CortexTest(s_t_utils.SynTest):
             conf = {'jsonstor': jsonstor.getLocalUrl()}
             async with self.getTestCore(conf=conf) as core:
                 await testCoreJson(core)
+                self.true(core.jsonready.is_set())
+
+                # the JSONStor is checked and prepared through the Cortex
+                msgs = await core.stormlist('v3.prepare --dry-run')
+                self.stormIsInPrint('Checking the JSONStor...', msgs)
+                self.stormIsInPrint('This jsonstorcell has no Synapse 3.x readiness checks.', msgs)
+                self.stormNotInPrint('These services', msgs)
+                self.none(await jsonstor.getV3Value('preflight', 'result', defval=None))
+
+                msgs = await core.stormlist('v3.prepare')
+                self.stormIsInPrint('Checking and preparing the JSONStor...', msgs)
+                self.stormIsInPrint('This jsonstorcell has nothing to prepare for Synapse 3.x.', msgs)
+                self.stormNotInPrint('These services', msgs)
+                self.true((await jsonstor.getV3Value('preflight', 'result'))['ok'])
+
+                with patch.object(core.jsonstor, 'proxy', side_effect=TimeoutError()):
+                    msgs = await core.stormlist('v3.prepare --dry-run')
+                self.stormIsInPrint('ERROR: The JSONStor is not connected.', msgs)
+                self.stormIsInPrint('These services have errors blocking Synapse 3.x: JSONStor.', msgs)
+
+            self.false(core.jsonready.is_set())
+
+        # a JSONStor which is down is not connected, without waiting out the telepath timeout
+        async with self.getTestCore(conf={'jsonstor': 'tcp://127.0.0.1:1/newp'}) as core:
+            msgs = await asyncio.wait_for(core.stormlist('v3.prepare --dry-run'), timeout=5)
+            self.stormIsInPrint('ERROR: The JSONStor is not connected.', msgs)
+            self.stormIsInPrint('These services have errors blocking Synapse 3.x: JSONStor.', msgs)
+
+        # an Axon or JSONStor on a release which can not be prepared for 3.x is not ready
+        async with self.getTestDmon() as dmon:
+            dmon.share('oldcell', OldV3Cell())
+            url = f'tcp://127.0.0.1:{dmon.addr[1]}/oldcell'
+            async with self.getTestCore(conf={'axon': url, 'jsonstor': url}) as core:
+                await core.axready.wait()
+                await core.jsonready.wait()
+
+                msgs = await core.stormlist('v3.prepare --dry-run')
+                self.stormIsInPrint('ERROR: The Axon must be upgraded to a Synapse 2.x release which can prepare it '
+                                    'for Synapse 3.x.', msgs)
+                self.stormIsInPrint('ERROR: The JSONStor must be upgraded to a Synapse 2.x release which can prepare '
+                                    'it for Synapse 3.x.', msgs)
+                self.stormIsInPrint('These services have errors blocking Synapse 3.x: Axon, JSONStor.', msgs)
 
         # test a local jsonstor
         async with self.getTestCore() as core:
             await testCoreJson(core)
+            self.true(core.jsonready.is_set())
+
+            # an embedded JSONStor blocks the 3.x upgrade, and is never prepared itself
+            path = os.path.join(core.dirn, 'jsonstor')
+            msgs = await core.stormlist('v3.prepare --dry-run')
+            self.stormIsInPrint(f'ERROR: The Cortex has an embedded JSONStor in {path}. Move it to a standalone '
+                                'JSONStor service and set the jsonstor config option on the Cortex.', msgs)
+            self.stormIsInPrint('Your Cortex has errors blocking Synapse 3.x.', msgs)
+            self.stormNotInPrint('Checking the JSONStor...', msgs)
+
+        # a JSONStor directory left behind once the Cortex uses a standalone JSONStor is a warning
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+                pass
+
+            async with self.getTestJsonStor() as jsonstor:
+                async with self.getTestCore(dirn=dirn, conf={'jsonstor': jsonstor.getLocalUrl()}) as core:
+
+                    path = os.path.join(dirn, 'jsonstor')
+                    msgs = await core.stormlist('v3.prepare --dry-run')
+                    self.stormIsInPrint(f'WARNING: The Cortex no longer uses the JSONStor in {path}, since the '
+                                        'jsonstor config option is set. Remove the directory.', msgs)
+                    self.stormNotInPrint('ERROR: The Cortex no longer uses', msgs)
+
+                    shutil.rmtree(path)
+
+                    msgs = await core.stormlist('v3.prepare --dry-run')
+                    self.stormNotInPrint(' JSONStor in ', msgs)
 
         # test a local jsonstor and mirror writeback
         with self.getTestDir() as dirn:
@@ -508,98 +589,105 @@ class CortexTest(s_t_utils.SynTest):
 
     async def test_cortex_v3_layers(self):
 
-        async with self.getTestCore() as core:
+        async with self.getTestAxon() as axon, self.getTestJsonStor() as jsonstor:
 
-            def getWarns(msgs):
-                return [m[1]['mesg'] for m in msgs if m[0] == 'print' and m[1]['mesg'].startswith('WARNING: ')]
+            conf = {'axon': axon.getLocalUrl(), 'jsonstor': jsonstor.getLocalUrl()}
 
-            tail = ('Synapse 3.x keeps the layer and its data but drops the {} setting, so it stops syncing. Set up'
-                    ' layer push or pull again after migrating.')
+            async with self.getTestCore(conf=conf) as core:
 
-            msgs = await core.stormlist('v3.prepare --dry-run')
-            self.stormIsInPrint('Checking for mirror and upstream layers...', msgs)
-            self.stormHasNoWarnErr(msgs)
+                def getWarns(msgs):
+                    return [m[1]['mesg'] for m in msgs
+                            if m[0] == 'print' and m[1]['mesg'].startswith('WARNING: ')]
 
-            url00 = 'tcp://root:secret@127.0.0.1:1/*/layer/mirr'
-            url01 = 'tcp://root:secret@127.0.0.1:1/*/layer/up00'
-            url02 = 'tcp://root:secret@127.0.0.1:1/*/layer/up01'
+                tail = ('Synapse 3.x keeps the layer and its data but drops the {} setting, so it stops syncing. Set up'
+                        ' layer push or pull again after migrating.')
 
-            mirr = await core.addLayer({'name': 'mirrlayr', 'mirror': url00})
-            mirrs = await core.addLayer({'mirror': [url01, url02]})
-            uplayr = await core.addLayer({'upstream': [url01, url02]})
-            strlayr = await core.addLayer({'upstream': url01})
+                msgs = await core.stormlist('v3.prepare --dry-run')
+                self.stormIsInPrint('Checking for mirror and upstream layers...', msgs)
+                self.stormHasNoWarnErr(msgs)
 
-            urls = 'tcp://root:****@127.0.0.1:1/*/layer/up00, tcp://root:****@127.0.0.1:1/*/layer/up01'
+                url00 = 'tcp://root:secret@127.0.0.1:1/*/layer/mirr'
+                url01 = 'tcp://root:secret@127.0.0.1:1/*/layer/up00'
+                url02 = 'tcp://root:secret@127.0.0.1:1/*/layer/up01'
 
-            msgs = await core.stormlist('v3.prepare --dry-run')
-            warns = getWarns(msgs)
-            self.len(4, warns)
+                mirr = await core.addLayer({'name': 'mirrlayr', 'mirror': url00})
+                mirrs = await core.addLayer({'mirror': [url01, url02]})
+                uplayr = await core.addLayer({'upstream': [url01, url02]})
+                strlayr = await core.addLayer({'upstream': url01})
 
-            mesg = (f"WARNING: Layer {mirr['iden']} (mirrlayr) mirrors tcp://root:****@127.0.0.1:1/*/layer/mirr. "
-                    + tail.format('mirror'))
-            self.isin(mesg, warns)
+                urls = 'tcp://root:****@127.0.0.1:1/*/layer/up00, tcp://root:****@127.0.0.1:1/*/layer/up01'
 
-            mesg = f"WARNING: Layer {mirrs['iden']} mirrors {urls}. " + tail.format('mirror')
-            self.isin(mesg, warns)
+                msgs = await core.stormlist('v3.prepare --dry-run')
+                warns = getWarns(msgs)
+                self.len(4, warns)
 
-            mesg = f"WARNING: Layer {uplayr['iden']} pulls from upstream layers {urls}. " + tail.format('upstream')
-            self.isin(mesg, warns)
+                mesg = (f"WARNING: Layer {mirr['iden']} (mirrlayr) mirrors tcp://root:****@127.0.0.1:1/*/layer/mirr. "
+                        + tail.format('mirror'))
+                self.isin(mesg, warns)
 
-            mesg = (f"WARNING: Layer {strlayr['iden']} pulls from upstream layers"
-                    f" tcp://root:****@127.0.0.1:1/*/layer/up00. " + tail.format('upstream'))
-            self.isin(mesg, warns)
+                mesg = f"WARNING: Layer {mirrs['iden']} mirrors {urls}. " + tail.format('mirror')
+                self.isin(mesg, warns)
 
-            self.stormNotInPrint(f'Layer {core.getLayer().iden}', msgs)
-            self.stormNotInPrint('secret', msgs)
-            self.stormNotInPrint('ERROR: ', msgs)
-            self.stormIsInPrint('Your Cortex has no errors blocking Synapse 3.x.', msgs)
+                mesg = f"WARNING: Layer {uplayr['iden']} pulls from upstream layers {urls}. " + tail.format('upstream')
+                self.isin(mesg, warns)
 
-            for ldef in (mirr, mirrs, uplayr, strlayr):
-                await core.delLayer(ldef['iden'])
+                mesg = (f"WARNING: Layer {strlayr['iden']} pulls from upstream layers"
+                        f" tcp://root:****@127.0.0.1:1/*/layer/up00. " + tail.format('upstream'))
+                self.isin(mesg, warns)
 
-            # layer definitions do not validate mirror or upstream, so any stored value must render safely
-            layr = core.getLayer()
-            layr.layrinfo['mirror'] = [
-                {'host': '127.0.0.1', 'port': 1, 'user': 'root', 'passwd': 'secret'},
-                'mirralias',
-                10,
-            ]
-            layr.layrinfo['upstream'] = ('tcp://127.0.0.1:1/', ['nested', 'secret'])
+                self.stormNotInPrint(f'Layer {core.getLayer().iden}', msgs)
+                self.stormNotInPrint('secret', msgs)
+                self.stormNotInPrint('ERROR: ', msgs)
+                self.stormIsInPrint('Your Cortex has no errors blocking Synapse 3.x.', msgs)
 
-            msgs = await core.stormlist('v3.prepare --dry-run')
-            warns = getWarns(msgs)
-            self.len(2, warns)
+                for ldef in (mirr, mirrs, uplayr, strlayr):
+                    await core.delLayer(ldef['iden'])
 
-            info = "{'host': '127.0.0.1', 'port': 1, 'user': 'root', 'passwd': '****'}"
-            mesg = f'WARNING: Layer {layr.iden} (default) mirrors {info}, mirralias, <int>. ' + tail.format('mirror')
-            self.isin(mesg, warns)
+                # layer definitions do not validate mirror or upstream, so any stored value must render safely
+                layr = core.getLayer()
+                layr.layrinfo['mirror'] = [
+                    {'host': '127.0.0.1', 'port': 1, 'user': 'root', 'passwd': 'secret'},
+                    'mirralias',
+                    10,
+                ]
+                layr.layrinfo['upstream'] = ('tcp://127.0.0.1:1/', ['nested', 'secret'])
 
-            mesg = (f'WARNING: Layer {layr.iden} (default) pulls from upstream layers tcp://127.0.0.1:1/, <list>. '
-                    + tail.format('upstream'))
-            self.isin(mesg, warns)
+                msgs = await core.stormlist('v3.prepare --dry-run')
+                warns = getWarns(msgs)
+                self.len(2, warns)
 
-            self.stormNotInPrint('secret', msgs)
-            self.stormIsInPrint('Your Cortex has no errors blocking Synapse 3.x.', msgs)
+                info = "{'host': '127.0.0.1', 'port': 1, 'user': 'root', 'passwd': '****'}"
+                mesg = (f'WARNING: Layer {layr.iden} (default) mirrors {info}, mirralias, <int>. '
+                        + tail.format('mirror'))
+                self.isin(mesg, warns)
 
-            layr.layrinfo['mirror'] = {'host': '127.0.0.1', 'port': 1}
-            layr.layrinfo['upstream'] = 10
+                mesg = (f'WARNING: Layer {layr.iden} (default) pulls from upstream layers tcp://127.0.0.1:1/, <list>. '
+                        + tail.format('upstream'))
+                self.isin(mesg, warns)
 
-            msgs = await core.stormlist('v3.prepare --dry-run')
-            warns = getWarns(msgs)
-            self.len(2, warns)
+                self.stormNotInPrint('secret', msgs)
+                self.stormIsInPrint('Your Cortex has no errors blocking Synapse 3.x.', msgs)
 
-            info = "{'host': '127.0.0.1', 'port': 1}"
-            mesg = f'WARNING: Layer {layr.iden} (default) mirrors {info}. ' + tail.format('mirror')
-            self.isin(mesg, warns)
+                layr.layrinfo['mirror'] = {'host': '127.0.0.1', 'port': 1}
+                layr.layrinfo['upstream'] = 10
 
-            mesg = f'WARNING: Layer {layr.iden} (default) pulls from upstream layers <int>. ' + tail.format('upstream')
-            self.isin(mesg, warns)
+                msgs = await core.stormlist('v3.prepare --dry-run')
+                warns = getWarns(msgs)
+                self.len(2, warns)
 
-            layr.layrinfo.pop('mirror')
-            layr.layrinfo.pop('upstream')
+                info = "{'host': '127.0.0.1', 'port': 1}"
+                mesg = f'WARNING: Layer {layr.iden} (default) mirrors {info}. ' + tail.format('mirror')
+                self.isin(mesg, warns)
 
-            msgs = await core.stormlist('v3.prepare --dry-run')
-            self.stormHasNoWarnErr(msgs)
+                mesg = (f'WARNING: Layer {layr.iden} (default) pulls from upstream layers <int>. '
+                        + tail.format('upstream'))
+                self.isin(mesg, warns)
+
+                layr.layrinfo.pop('mirror')
+                layr.layrinfo.pop('upstream')
+
+                msgs = await core.stormlist('v3.prepare --dry-run')
+                self.stormHasNoWarnErr(msgs)
 
     async def test_cortex_must_upgrade(self):
 
@@ -7204,8 +7292,44 @@ class CortexBasicTest(s_t_utils.SynTest):
             info = await core.getCellInfo()
             self.true(info['cell']['axon:ready'])
             self.notin('axon:version', info['cell'])
+
+            # an embedded Axon blocks the 3.x upgrade, and is never prepared itself
+            path = os.path.join(core.dirn, 'axon')
+            msgs = await core.stormlist('v3.prepare --dry-run')
+            self.stormIsInPrint('Checking for an embedded Axon or JSONStor...', msgs)
+            self.stormIsInPrint(f'ERROR: The Cortex has an embedded Axon in {path}. Move it to a standalone Axon '
+                                'service and set the axon config option on the Cortex.', msgs)
+            self.stormIsInPrint('Your Cortex has errors blocking Synapse 3.x.', msgs)
+            self.stormNotInPrint('Checking the Axon...', msgs)
+
+            await core.stormlist('v3.prepare')
+            self.false((await core.getV3Value('preflight', 'result'))['ok'])
+
         self.true(core.axon.isfini)
         self.false(core.axready.is_set())
+
+        # an Axon directory left behind once the Cortex uses a standalone Axon is a warning
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+                pass
+
+            async with self.getTestAxon() as axon:
+                async with self.getTestCore(dirn=dirn, conf={'axon': axon.getLocalUrl()}) as core:
+
+                    await core.axready.wait()
+
+                    path = os.path.join(dirn, 'axon')
+                    msgs = await core.stormlist('v3.prepare --dry-run')
+                    self.stormIsInPrint(f'WARNING: The Cortex no longer uses the Axon in {path}, since the axon config '
+                                        'option is set. Remove the directory.', msgs)
+                    self.stormNotInPrint('ERROR: The Cortex no longer uses', msgs)
+                    self.stormIsInPrint('Checking the Axon...', msgs)
+
+                    shutil.rmtree(path)
+
+                    msgs = await core.stormlist('v3.prepare --dry-run')
+                    self.stormNotInPrint(' Axon in ', msgs)
 
         with self.getTestDir() as dirn:
 
@@ -7226,6 +7350,67 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.true(await core.callStorm('return( $lib.axon.has($hash) )',
                                                    {'vars': {'hash': asdfhash_h}}))
 
+                    # the Axon is checked and prepared through the Cortex
+                    msgs = await core.stormlist('v3.prepare --dry-run')
+                    self.stormIsInPrint('Checking the Axon...', msgs)
+                    self.stormIsInPrint('This axon has no Synapse 3.x readiness checks.', msgs)
+                    self.stormNotInPrint('These services', msgs)
+                    self.none(await axon.getV3Value('preflight', 'result', defval=None))
+
+                    msgs = await core.stormlist('v3.prepare')
+                    self.stormIsInPrint('Checking and preparing the Axon...', msgs)
+                    self.stormIsInPrint('This axon has nothing to prepare for Synapse 3.x.', msgs)
+                    self.stormNotInPrint('These services', msgs)
+                    self.true((await axon.getV3Value('preflight', 'result'))['ok'])
+
+                    axon.isactive = False
+                    msgs = await core.stormlist('v3.prepare --dry-run')
+                    axon.isactive = True
+                    self.stormIsInPrint('ERROR: The Axon is connected to a mirror (cell://', msgs)
+                    self.stormIsInPrint("set the axon config option to its leader's name.", msgs)
+                    self.stormNotInPrint('Checking the Axon...', msgs)
+                    self.stormIsInPrint('These services have errors blocking Synapse 3.x: Axon.', msgs)
+
+                    with patch.object(core.axon, 'proxy', side_effect=TimeoutError()):
+                        msgs = await core.stormlist('v3.prepare --dry-run')
+                    self.stormIsInPrint('ERROR: The Axon is not connected.', msgs)
+
+                    axon.v3running = True
+                    try:
+                        msgs = await core.stormlist('v3.prepare --dry-run')
+                    finally:
+                        axon.v3running = False
+
+                    self.stormIsInPrint('The Axon could not be checked: This axon is already being prepared for '
+                                        'Synapse 3.x.', msgs)
+                    self.stormIsInPrint('These services are already being prepared, so run it again once they '
+                                        'finish: Axon.', msgs)
+
+                    async def nope():
+                        raise s_exc.BadArg(mesg='Nope.')
+                        yield None  # pragma: no cover
+
+                    with patch.object(axon, '_checkV3Ready', nope):
+                        msgs = await core.stormlist('v3.prepare')
+                    self.stormIsInPrint('ERROR: The Axon could not be prepared: Nope.', msgs)
+                    self.stormIsInPrint('These services are not ready for Synapse 3.x: Axon.', msgs)
+
+                    async def hang():
+                        yield ('print', 'Hanging...')
+                        await asyncio.sleep(1)
+
+                    with patch.object(axon, '_checkV3Ready', hang):
+                        with patch.object(s_storm.V3PrepareCmd, 'svctimeout', 0.01):
+                            msgs = await core.stormlist('v3.prepare --dry-run')
+
+                        self.stormIsInPrint('ERROR: The Axon could not be checked within 0.01 seconds.', msgs)
+
+                        async def idle():
+                            while axon.v3running:
+                                await asyncio.sleep(0.01)
+
+                        await s_common.wait_for(idle(), timeout=10)
+
                 unset = False
                 for _ in range(20):
                     aset = core.axready.is_set()
@@ -7240,6 +7425,53 @@ class CortexBasicTest(s_t_utils.SynTest):
                     # ensure we can use the proxy
                     self.eq(await axon.metrics(),
                             await core.axon.metrics())
+
+    async def test_cortex_v3_carve_out(self):
+
+        # the procedure in the devops guide to move an embedded Axon and JSONStor to standalone services
+        with self.getTestDir() as dirn:
+
+            coredirn = s_common.gendir(dirn, 'core')
+            async with self.getTestCore(dirn=coredirn) as core:
+                size, sha256 = await core.axon.put(b'visi')
+                await core.setJsonObj('foo/bar', {'hehe': 'haha'})
+                axiden = core.axon.iden
+                jsiden = core.jsonstor.iden
+
+            axdirn = s_common.gendir(dirn, 'axon')
+            jsdirn = s_common.gendir(dirn, 'jsonstor')
+            s_tools_backup.backup(os.path.join(coredirn, 'axon'), axdirn)
+            s_tools_backup.backup(os.path.join(coredirn, 'jsonstor'), jsdirn)
+
+            async with self.getTestAha() as aha:
+                async with self.addSvcToAha(aha, '00.axon', s_axon.Axon, dirn=axdirn) as axon:
+                    async with self.addSvcToAha(aha, '00.jsonstor', s_jsonstor.JsonStorCell, dirn=jsdirn) as jsonstor:
+
+                        self.eq(axiden, axon.iden)
+                        self.eq(jsiden, jsonstor.iden)
+
+                        shutil.rmtree(os.path.join(coredirn, 'axon'))
+                        shutil.rmtree(os.path.join(coredirn, 'jsonstor'))
+
+                        conf = {'axon': 'aha://axon...', 'jsonstor': 'aha://jsonstor...'}
+                        async with self.addSvcToAha(aha, '00.cortex', s_cortex.Cortex, dirn=coredirn,
+                                                    conf=conf) as core:
+
+                            await core.axready.wait()
+                            self.true(await core.axon.has(sha256))
+                            self.eq(b'visi', b''.join([byts async for byts in core.axon.get(sha256)]))
+                            self.eq({'hehe': 'haha'}, await core.getJsonObj('foo/bar'))
+
+                            msgs = await core.stormlist('v3.prepare')
+                            self.stormNotInPrint('ERROR: ', msgs)
+                            self.stormIsInPrint('Checking and preparing the Axon...', msgs)
+                            self.stormIsInPrint('Checking and preparing the JSONStor...', msgs)
+                            self.stormIsInPrint('Your Cortex is ready for Synapse 3.x.', msgs)
+                            self.stormNotInPrint('These services', msgs)
+
+                            self.true((await core.getV3Value('preflight', 'result'))['ok'])
+                            self.true((await axon.getV3Value('preflight', 'result'))['ok'])
+                            self.true((await jsonstor.getV3Value('preflight', 'result'))['ok'])
 
     async def test_cortex_axon_ready_timeout(self):
 
