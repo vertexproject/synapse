@@ -773,7 +773,7 @@ Moving an Embedded Axon or JSONStor to a Standalone Service
 
 A Cortex which does not have the ``axon`` or ``jsonstor`` configuration option set runs an embedded Axon or JSONStor,
 which stores its data in the ``axon`` or ``jsonstor`` directory of the Cortex storage. The Synapse 3.x migration
-leaves that data behind, so ``v3.prepare`` reports an error until each one is moved to a standalone service. The
+drops that data entirely, so ``v3.prepare`` reports an error until each one is moved to a standalone service. The
 standalone service keeps the data of the embedded one.
 
 These steps use the AHA names, paths, owner, and permissions of the :ref:`deploymentguide`. For a JSONStor, use

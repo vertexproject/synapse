@@ -3771,7 +3771,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                                 f'service and set the {name} config option on the Cortex.')
                 continue
 
-            # the Synapse 3.x migration skips an unused directory
+            # the Synapse 3.x migration drops an unused directory
             yield ('warning', f'The Cortex no longer uses the {title} in {path}, since the {name} config option is '
                               'set. Remove the directory.')
 

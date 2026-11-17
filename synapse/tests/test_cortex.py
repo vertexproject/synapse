@@ -325,7 +325,7 @@ class CortexTest(s_t_utils.SynTest):
             self.stormIsInPrint('Your Cortex has errors blocking Synapse 3.x.', msgs)
             self.stormNotInPrint('Checking the JSONStor...', msgs)
 
-        # a JSONStor directory left behind once the Cortex uses a standalone JSONStor blocks the 3.x upgrade
+        # a JSONStor directory left behind once the Cortex uses a standalone JSONStor is a warning
         with self.getTestDir() as dirn:
 
             async with self.getTestCore(dirn=dirn) as core:
@@ -7099,7 +7099,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         self.true(core.axon.isfini)
         self.false(core.axready.is_set())
 
-        # an Axon directory left behind once the Cortex uses a standalone Axon blocks the 3.x upgrade
+        # an Axon directory left behind once the Cortex uses a standalone Axon is a warning
         with self.getTestDir() as dirn:
 
             async with self.getTestCore(dirn=dirn) as core:
