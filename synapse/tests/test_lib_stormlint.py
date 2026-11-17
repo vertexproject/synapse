@@ -923,7 +923,16 @@ class StormLintTest(s_t_utils.SynTest):
             {'rule': 'S012', 'severity': 'low', 'line': 1, 'column': 1,
              'mesg': 'Lift by _test:lint:_name=foo instead of filtering.'},
         ])
-        self.eq([], s_stormlint._lintStorm('_test:lint +:_name=foo', ['S012'], s_stormlint._getModelNames()))
+        builtin = s_stormlint._getModelNames()
+        self.eq([], s_stormlint._lintStorm('_test:lint +:_name=foo', ['S012'], builtin))
+
+        # the worker runs v3 rules by ID, and runs nothing with no rules
+        self.eq(s_stormlint._lintStorm('$x = $lib.list()\ninet:ipv4', ('S005', 'M001'), builtin), [
+            {'rule': 'S005', 'severity': 'low', 'line': 1, 'column': 6,
+             'mesg': 'Use a list literal such as ([]) instead of $lib.list().'},
+            {'rule': 'M001', 'severity': 'high', 'line': 2, 'column': 1, 'mesg': 'inet:ipv4 is renamed to inet:ip in 3.x.'},
+        ])
+        self.eq([], s_stormlint._lintStorm('$x = $lib.list()', (), builtin))
 
         # every v3model name is in the 2.x model
         forms, props = s_stormlint._getModelNames()
