@@ -6121,7 +6121,8 @@ class V3PrepareCmd(Cmd):
         if (url := core.conf.get('jsonstor')) is not None:
 
             async def getproxy():
-                return await core.jsonstor.proxy()
+                if core.jsonstor._t_ready.is_set():
+                    return await core.jsonstor.proxy()
 
             fix = "set the jsonstor config option to its leader's name"
             await self._runCell(runt, 'JSONStor', 'the JSONStor', getproxy, url, fix, dryrun, notready, busy)

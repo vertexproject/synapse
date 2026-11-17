@@ -299,6 +299,12 @@ class CortexTest(s_t_utils.SynTest):
                 self.stormIsInPrint('ERROR: The JSONStor is not connected.', msgs)
                 self.stormIsInPrint('These services have errors blocking Synapse 3.x: JSONStor.', msgs)
 
+        # a JSONStor which is down is not connected, without waiting out the telepath timeout
+        async with self.getTestCore(conf={'jsonstor': 'tcp://127.0.0.1:1/newp'}) as core:
+            msgs = await asyncio.wait_for(core.stormlist('v3.prepare --dry-run'), timeout=5)
+            self.stormIsInPrint('ERROR: The JSONStor is not connected.', msgs)
+            self.stormIsInPrint('These services have errors blocking Synapse 3.x: JSONStor.', msgs)
+
         # an Axon or JSONStor on a release which can not be prepared for 3.x is not ready
         async with self.getTestDmon() as dmon:
             dmon.share('oldcell', OldV3Cell())
