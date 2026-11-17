@@ -948,6 +948,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
         Test for a regression where putmulti's across a grow could corrupt the database
 
         Test for a regression where a generator being passed into a putmulti would result in a partial write
+
+        Test for a regression where a caller reusing its putmulti list lost rows when a grow replayed it
         '''
         with self.getTestDir() as dirn:
 
@@ -970,6 +972,17 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq(retn, (1000, 1000))
                 after_mapsize2 = slab.mapsize
                 self.gt(after_mapsize2, after_mapsize1)
+
+                # A grow within one transaction of putmulti's which reuse the same list
+                rows = []
+                for x in data:
+                    rows.append((b'reuse' + x, x * 64))
+                    slab._putmulti(rows)
+                    rows.clear()
+
+                self.gt(slab.mapsize, after_mapsize2)
+                for x in data:
+                    self.eq(x * 64, slab.get(b'reuse' + x))
 
     async def test_lmdbslab_iternext_repeat_regression(self):
         '''

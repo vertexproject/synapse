@@ -1,0 +1,8 @@
+---
+desc: Fixed a bug where rows written with ``Slab.putmulti()`` could be lost when the
+  map grew mid-transaction and the caller had modified and reused the list it passed
+  in.
+desc:literal: false
+prs: []
+type: bug
+...
