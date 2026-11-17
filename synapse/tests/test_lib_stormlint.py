@@ -18,6 +18,25 @@ class StormLintTest(s_t_utils.SynTest):
         self.eq(e001.severity, 'high')
         self.true(e001.doc.startswith('The Storm code failed to parse.'))
 
+        rdefs = s_stormlint.getRules()
+        self.eq([r['rule'] for r in rdefs], list(s_stormlint.rules))
+        byid = {r['rule']: r for r in rdefs}
+        self.eq(byid['E001'], {'rule': 'E001', 'name': 'parse-failure', 'severity': 'high', 'default': True,
+                               'v3': False, 'desc': e001.doc})
+        self.false(byid['M001']['default'])
+        self.true(byid['M001']['v3'])
+        self.true(byid['S005']['default'])
+        self.false(byid['S005']['v3'])
+        self.false(byid['S010']['default'])
+        self.false(rdefs is s_stormlint.getRules())
+
+        self.eq(s_stormlint.splitRules(' S010 , ,S00 '), ['S010', 'S00'])
+        self.eq(s_stormlint.splitRules(''), [])
+
+        self.eq(s_stormlint.getSummary(0), 'All checks passed!')
+        self.eq(s_stormlint.getSummary(1), 'Found 1 error.')
+        self.eq(s_stormlint.getSummary(2), 'Found 2 errors.')
+
         self.eq(s_stormlint.severities, ('high', 'medium', 'low'))
         with self.raises(s_exc.BadArg):
             s_stormlint.rule('X999', 'bad', 'info')
@@ -897,6 +916,23 @@ class StormLintTest(s_t_utils.SynTest):
             (32, 42, mesg.format('r2', 'r2', 'r2')),
             (33, 51, mesg.format('r3', 'r3', 'r3')),
         ))
+
+        # the fork pool worker lints with the model names it is given
+        names = s_stormlint._getModelNames({'forms': {'_test:lint': {'props': {'_name': {'full': '_test:lint:_name'}}}}})
+        self.eq(s_stormlint._lintStorm('_test:lint +:_name=foo', ['S012'], names), [
+            {'rule': 'S012', 'severity': 'low', 'line': 1, 'column': 1,
+             'mesg': 'Lift by _test:lint:_name=foo instead of filtering.'},
+        ])
+        builtin = s_stormlint._getModelNames()
+        self.eq([], s_stormlint._lintStorm('_test:lint +:_name=foo', ['S012'], builtin))
+
+        # the worker runs v3 rules by ID, and runs nothing with no rules
+        self.eq(s_stormlint._lintStorm('$x = $lib.list()\ninet:ipv4', ('S005', 'M001'), builtin), [
+            {'rule': 'S005', 'severity': 'low', 'line': 1, 'column': 6,
+             'mesg': 'Use a list literal such as ([]) instead of $lib.list().'},
+            {'rule': 'M001', 'severity': 'high', 'line': 2, 'column': 1, 'mesg': 'inet:ipv4 is renamed to inet:ip in 3.x.'},
+        ])
+        self.eq([], s_stormlint._lintStorm('$x = $lib.list()', (), builtin))
 
         # every v3model name is in the 2.x model
         forms, props = s_stormlint._getModelNames()

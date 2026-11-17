@@ -78,9 +78,6 @@ def _checkConf(path, conf):
     except s_exc.SchemaViolation as e:
         raise s_exc.BadConfValu(mesg=f'{path}: [tool.stormlint] {e.get("mesg")}') from None
 
-def _splitRulesString(valu):
-    return [v.strip() for v in valu.split(',') if v.strip()]
-
 def _isExcluded(path, confdir, globs):
 
     if not globs:
@@ -136,20 +133,8 @@ def _readText(path):
 
 def _showRules(outp):
 
-    rows = [('ID', 'SEVERITY', 'DEFAULT', 'NAME', 'DESCRIPTION')]
-    for r in s_stormlint.rules.values():
-        doc = r.doc.split('\n', 1)[0]
-        if r.v3:
-            default = 'v3'
-        else:
-            default = 'yes' if r.default else 'no'
-
-        rows.append((r.iden, r.severity, default, r.name, doc))
-
-    sizes = [max(len(row[i]) for row in rows) for i in range(4)]
-    for row in rows:
-        cols = [valu.ljust(size) for valu, size in zip(row, sizes)]
-        outp.printf('  '.join(cols + [row[4]]).rstrip())
+    for line in s_stormlint.getRuleTable():
+        outp.printf(line)
 
     return 0
 
@@ -157,10 +142,10 @@ async def main(argv, outp=s_output.stdout):
 
     pars = s_cmd.Parser(prog='synapse.tools.storm.lint', outp=outp, description=desc)
     pars.add_argument('paths', nargs='*', help='Files or directories to lint (use - for stdin).')
-    pars.add_argument('--select', type=_splitRulesString,
+    pars.add_argument('--select', type=s_stormlint.splitRules,
                       help='Comma-separated rule IDs or prefixes to run in place of the default rules.')
-    pars.add_argument('--ignore', type=_splitRulesString, help='Comma-separated rule IDs or prefixes to disable.')
-    pars.add_argument('--enable', type=_splitRulesString,
+    pars.add_argument('--ignore', type=s_stormlint.splitRules, help='Comma-separated rule IDs or prefixes to disable.')
+    pars.add_argument('--enable', type=s_stormlint.splitRules,
                       help='Comma-separated rule IDs or prefixes to add to the selected rules, '
                            'such as rules which are off by default.')
     pars.add_argument('--v3-ready', action=argparse.BooleanOptionalAction, default=None,
@@ -246,14 +231,8 @@ async def main(argv, outp=s_output.stdout):
             else:
                 outp.printf(f'{path}:{f.line}:{f.column}: {f.rule} {f.mesg}')
 
-    if not asjson:
-
-        if count:
-            noun = 'error' if count == 1 else 'errors'
-            outp.printf(f'Found {count} {noun}.')
-
-        elif not failed:
-            outp.printf('All checks passed!')
+    if not asjson and (count or not failed):
+        outp.printf(s_stormlint.getSummary(count))
 
     if failed:
         return 2

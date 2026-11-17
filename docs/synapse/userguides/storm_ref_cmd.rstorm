@@ -117,6 +117,7 @@ Help for a specific Storm command can be displayed with ``<command> --help``.
 - `sleep`_
 - `spin`_
 - `stats`_
+- `storm`_
 - `tag`_
 - `tee`_
 - `tree`_
@@ -2490,6 +2491,44 @@ The ``stats.countby`` command allows you to query and display a bar chart of tal
 **Syntax:**
 
 .. storm-cli:: stats.countby --help
+
+
+.. _storm-storm:
+
+storm
+-----
+
+Storm includes ``storm.*`` commands that allow you to work with Storm code.
+
+- `storm.lint`_
+
+Help for individual ``storm.*`` commands can be displayed using:
+
+  ``<command> --help``
+
+.. _storm-storm-lint:
+
+storm.lint
+++++++++++
+
+The ``storm.lint`` command lints Storm code, or an embedded query, against the Cortex's data model and prints each
+finding followed by a count of the findings. It runs the same rules as the :ref:`syn-tools-storm-lint` command line
+tool and passes the nodes in the pipeline through unchanged. See :ref:`syn-tools-storm-lint-storm`.
+
+**Syntax:**
+
+.. storm-cli:: storm.lint --help
+
+**Examples:**
+
+- Lint Storm code:
+
+.. storm-cli:: storm.lint "$x = $lib.list() return($lib.null)"
+
+
+- Print the lint rules:
+
+.. storm-cli:: storm.lint --show-rules
 
 
 .. _storm-tag:
