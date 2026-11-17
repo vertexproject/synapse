@@ -439,7 +439,7 @@ def rule(iden, name, severity, default=True, v3=False):
 
 def getRules():
     '''
-    Return a new list of dicts describing the registered rules, in ID order.
+    Return a dict for each registered rule, in rule ID order.
 
     A rule is on by default when default is True, which is never the case for a v3 rule.
     '''
