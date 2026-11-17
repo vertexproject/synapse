@@ -781,10 +781,11 @@ These steps use the AHA names, paths, owner, and permissions of the :ref:`deploy
 
 #. Stop the Cortex leader and each of its mirrors.
 #. Follow the steps to :ref:`deploy_axon` (or :ref:`deploy_jsonstor`), up to the ``docker compose`` commands which
-   start it. Before starting it, copy the contents of the ``axon`` directory of the Cortex leader storage into the new
-   service storage, and set its owner again::
+   start it. Before starting it, copy the ``axon`` directory of the Cortex leader storage into the new service storage
+   with the offline backup tool ``synapse.tools.service.backup`` (see :ref:`devops-task-backup`), which makes a
+   compacted copy of its databases, and set its owner again::
 
-    cp -a /srv/syn/00.cortex/storage/axon/. /srv/syn/00.axon/storage/
+    python -m synapse.tools.service.backup /srv/syn/00.cortex/storage/axon /srv/syn/00.axon/storage
     chown -R 999 /srv/syn/00.axon/storage
 
 #. Start the Axon.

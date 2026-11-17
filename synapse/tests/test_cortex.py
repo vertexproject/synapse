@@ -7231,10 +7231,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             axdirn = s_common.gendir(dirn, 'axon')
             jsdirn = s_common.gendir(dirn, 'jsonstor')
-            # the cell recreates its unix socket, which copytree cannot copy
-            nosock = shutil.ignore_patterns('sock')
-            shutil.copytree(os.path.join(coredirn, 'axon'), axdirn, dirs_exist_ok=True, ignore=nosock)
-            shutil.copytree(os.path.join(coredirn, 'jsonstor'), jsdirn, dirs_exist_ok=True, ignore=nosock)
+            s_tools_backup.backup(os.path.join(coredirn, 'axon'), axdirn)
+            s_tools_backup.backup(os.path.join(coredirn, 'jsonstor'), jsdirn)
 
             async with self.getTestAha() as aha:
                 async with self.addSvcToAha(aha, '00.axon', s_axon.Axon, dirn=axdirn) as axon:
