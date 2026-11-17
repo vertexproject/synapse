@@ -776,8 +776,8 @@ which stores its data in the ``axon`` or ``jsonstor`` directory of the Cortex st
 leaves that data behind, so ``v3.prepare`` reports an error until each one is moved to a standalone service. The
 standalone service keeps the data of the embedded one.
 
-These steps use the AHA names and paths of the :ref:`deploymentguide`. For a JSONStor, use ``jsonstor`` in place of
-``axon`` throughout.
+These steps use the AHA names, paths, owner, and permissions of the :ref:`deploymentguide`. For a JSONStor, use
+``jsonstor`` in place of ``axon`` throughout.
 
 #. Stop the Cortex leader and each of its mirrors.
 #. Follow the steps to :ref:`deploy_axon` (or :ref:`deploy_jsonstor`), up to the ``docker compose`` commands which
