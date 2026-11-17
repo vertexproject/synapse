@@ -5,6 +5,7 @@ import synapse.common as s_common
 
 import synapse.lib.json as s_json
 import synapse.lib.node as s_node
+import synapse.lib.layer as s_layer
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -551,6 +552,66 @@ class NodeTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('test:str=delfoo')
             self.len(0, nodes)
+
+    async def test_node_delete_unnormable(self):
+
+        # A node whose stored primary value no longer passes the current normalizer
+        # (e.g. one written by an older or buggy normalizer) must still be deletable,
+        # while references to it must still block the delete.
+        async with self.getTestCore() as core:
+
+            layr = core.getLayer()
+            meta = {'time': s_common.now(), 'user': core.auth.rootuser.iden}
+
+            badurl = 'http:////foo.com/x'
+            with self.raises(s_exc.BadTypeValu):
+                core.model.type('inet:url').norm(badurl)
+
+            urltype = core.model.form('inet:url').type
+
+            async def addBadUrl():
+                buid = s_common.buid(('inet:url', badurl))
+                edits = [(s_layer.EDIT_NODE_ADD, (badurl, urltype.stortype), ())]
+                await layr.storNodeEdits([(buid, 'inet:url', edits)], meta)
+                self.len(1, await core.nodes('inet:url^="http:////"'))
+
+            async def setBadProp(node, name):
+                prop = node.form.prop(name)
+                valu = badurl
+                if prop.type.isarray:
+                    valu = (badurl,)
+
+                edits = [(s_layer.EDIT_PROP_SET, (name, valu, None, prop.type.stortype), ())]
+                await layr.storNodeEdits([(node.buid, node.form.name, edits)], meta)
+
+            # no references
+            await addBadUrl()
+            await core.nodes('inet:url^="http:////" | delnode')
+            self.len(0, await core.nodes('inet:url^="http:////"'))
+
+            # referenced by a scalar prop
+            await addBadUrl()
+            news = (await core.nodes('[ media:news=* ]'))[0]
+            await setBadProp(news, 'url')
+
+            with self.raises(s_exc.CantDelNode):
+                await core.nodes('inet:url^="http:////" | delnode')
+
+            await core.nodes('media:news | delnode')
+            await core.nodes('inet:url^="http:////" | delnode')
+            self.len(0, await core.nodes('inet:url^="http:////"'))
+
+            # referenced by an array prop
+            await addBadUrl()
+            cve = (await core.nodes('[ it:sec:cve=cve-2024-1234 ]'))[0]
+            await setBadProp(cve, 'references')
+
+            with self.raises(s_exc.CantDelNode):
+                await core.nodes('inet:url^="http:////" | delnode')
+
+            await core.nodes('it:sec:cve | delnode')
+            await core.nodes('inet:url^="http:////" | delnode')
+            self.len(0, await core.nodes('inet:url^="http:////"'))
 
     async def test_node_remove_missing_basetag(self):
 

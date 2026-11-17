@@ -181,6 +181,8 @@ where the variable may contain unexpected values. For example:
 
 See the :ref:`type-syn-tag` section of the :ref:`storm-ref-type-specific` for additional detail on tags / ``syn:tag`` forms.
 
+.. _edit-conditional:
+
 Conditional Edit Operators
 ++++++++++++++++++++++++++
 

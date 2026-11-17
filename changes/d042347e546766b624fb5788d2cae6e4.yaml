@@ -1,0 +1,7 @@
+---
+desc: Fixed an issue where hour-only offsets, `UTC`/`GMT` prefixed offsets, and parenthesized
+  time zone abbreviations in `time` values were ignored instead of being applied.
+desc:literal: false
+prs: []
+type: bug
+...
