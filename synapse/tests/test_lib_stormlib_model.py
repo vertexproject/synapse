@@ -456,6 +456,45 @@ class StormlibModelTest(s_test.SynTest):
                     self.stormIsInPrint('Your Cortex has no errors blocking Synapse 3.x.', msgs)
 
                     self.stormNotInPrint('These services have errors', msgs)
+                    self.stormIsInPrint('Checking for mirror and upstream layers...', msgs)
+
+                    # mirror and upstream layers only warn
+                    url00 = 'tcp://root:secret@127.0.0.1:1/*/layer/mirr'
+                    url01 = 'tcp://root:secret@127.0.0.1:1/*/layer/up00'
+                    url02 = 'tcp://root:secret@127.0.0.1:1/*/layer/up01'
+
+                    mirr = await core.addLayer({'name': 'mirrlayr', 'mirror': url00})
+                    uplayr = await core.addLayer({'upstream': [url01, url02]})
+                    strlayr = await core.addLayer({'upstream': url01})
+
+                    msgs = await core.stormlist('v3.prepare --dry-run')
+                    mirriden = mirr['iden']
+                    mesg = (f'WARNING: Layer {mirriden} (mirrlayr) mirrors tcp://root:****@127.0.0.1:1/*/layer/mirr.'
+                            ' Synapse 3.x keeps the layer and its data but drops the mirror setting, so it stops'
+                            ' syncing. Set up layer push or pull again after migrating.')
+                    self.stormIsInPrint(mesg, msgs)
+
+                    urls = 'tcp://root:****@127.0.0.1:1/*/layer/up00, tcp://root:****@127.0.0.1:1/*/layer/up01'
+                    mesg = (f"WARNING: Layer {uplayr['iden']} pulls from upstream layers {urls}. Synapse 3.x keeps"
+                            ' the layer and its data but drops the upstream setting, so it stops syncing. Set up'
+                            ' layer push or pull again after migrating.')
+                    self.stormIsInPrint(mesg, msgs)
+
+                    mesg = (f"WARNING: Layer {strlayr['iden']} pulls from upstream layers"
+                            ' tcp://root:****@127.0.0.1:1/*/layer/up00. Synapse')
+                    self.stormIsInPrint(mesg, msgs)
+
+                    self.len(3, [m for m in msgs if m[0] == 'print' and m[1]['mesg'].startswith('WARNING: ')])
+                    self.stormNotInPrint(f'Layer {layr} ', msgs)
+                    self.stormNotInPrint('secret', msgs)
+                    self.stormNotInPrint('ERROR: ', msgs)
+                    self.stormIsInPrint('Your Cortex has no errors blocking Synapse 3.x.', msgs)
+
+                    for ldef in (mirr, uplayr, strlayr):
+                        await core.delLayer(ldef['iden'])
+
+                    msgs = await core.stormlist('v3.prepare --dry-run')
+                    self.stormHasNoWarnErr(msgs)
 
                     # each Storm service is checked and prepared in a section of its own
                     async with self.getTestCell(V3ReadyCell) as ready, self.getTestCell(NoV3ReadyCell) as noready:

@@ -2794,6 +2794,10 @@ The check of the Cortex prints an ``ERROR:`` line for each:
 - installed Vertex Power-Up which is not yet available for Synapse 3.x
 - layer model migration or Power-Up init which has not completed yet
 
+It also prints a ``WARNING:`` line for each layer with a ``mirror`` or ``upstream`` setting. Synapse 3.x keeps the
+layer and its data but drops the setting, so the layer stops syncing. Layer push or pull can be set up again after
+migrating.
+
 Each Storm service is then checked and prepared in a section of its own, printing its own errors and warnings. The
 command prints an ``ERROR:`` line for a service which:
 

@@ -3753,6 +3753,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         async for mesg in self._checkV3Migrations(pkgdefs):
             yield mesg
 
+        async for mesg in self._checkV3Layers():
+            yield mesg
+
     async def _checkV3Model(self):
 
         yield ('print', 'Checking for deprecated model elements in use...')
@@ -3828,6 +3831,37 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if curv < maxv:
                 mesg = f'Power-Up {name} has not completed its inits yet (version {curv}, expected {maxv}).'
                 yield ('error', mesg)
+
+    async def _checkV3Layers(self):
+
+        yield ('print', 'Checking for mirror and upstream layers...')
+
+        for layr in self.layers.values():
+
+            desc = f'Layer {layr.iden}'
+
+            name = layr.layrinfo.get('name')
+            if name is not None:
+                desc = f'{desc} ({name})'
+
+            mirror = layr.layrinfo.get('mirror')
+            if mirror is not None:
+                url = s_urlhelp.sanitizeUrl(mirror)
+                mesg = (f'{desc} mirrors {url}. Synapse 3.x keeps the layer and its data but drops the mirror '
+                        'setting, so it stops syncing. Set up layer push or pull again after migrating.')
+                yield ('warning', mesg)
+
+            upstream = layr.layrinfo.get('upstream')
+            if upstream is not None:
+
+                if isinstance(upstream, str):
+                    upstream = (upstream,)
+
+                urls = ', '.join(s_urlhelp.sanitizeUrl(u) for u in upstream)
+                mesg = (f'{desc} pulls from upstream layers {urls}. Synapse 3.x keeps the layer and its data but '
+                        'drops the upstream setting, so it stops syncing. Set up layer push or pull again after '
+                        'migrating.')
+                yield ('warning', mesg)
 
     def _semvTuple(self, text):
         info = s_version.parseSemver(text)

@@ -1,0 +1,7 @@
+---
+desc: Updated the ``v3.prepare`` command to warn about layers with a ``mirror`` or ``upstream``
+  setting, which Synapse 3.x drops.
+desc:literal: false
+prs: []
+type: feat
+...
