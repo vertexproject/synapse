@@ -280,6 +280,7 @@ class CortexTest(s_t_utils.SynTest):
             conf = {'jsonstor': jsonstor.getLocalUrl()}
             async with self.getTestCore(conf=conf) as core:
                 await testCoreJson(core)
+                self.true(core.jsonready.is_set())
 
                 # the JSONStor is checked and prepared through the Cortex
                 msgs = await core.stormlist('v3.prepare --dry-run')
@@ -299,6 +300,8 @@ class CortexTest(s_t_utils.SynTest):
                 self.stormIsInPrint('ERROR: The JSONStor is not connected.', msgs)
                 self.stormIsInPrint('These services have errors blocking Synapse 3.x: JSONStor.', msgs)
 
+            self.false(core.jsonready.is_set())
+
         # a JSONStor which is down is not connected, without waiting out the telepath timeout
         async with self.getTestCore(conf={'jsonstor': 'tcp://127.0.0.1:1/newp'}) as core:
             msgs = await asyncio.wait_for(core.stormlist('v3.prepare --dry-run'), timeout=5)
@@ -311,6 +314,7 @@ class CortexTest(s_t_utils.SynTest):
             url = f'tcp://127.0.0.1:{dmon.addr[1]}/oldcell'
             async with self.getTestCore(conf={'axon': url, 'jsonstor': url}) as core:
                 await core.axready.wait()
+                await core.jsonready.wait()
 
                 msgs = await core.stormlist('v3.prepare --dry-run')
                 self.stormIsInPrint('ERROR: The Axon must be upgraded to a Synapse 2.x release which can prepare it '
@@ -322,6 +326,7 @@ class CortexTest(s_t_utils.SynTest):
         # test a local jsonstor
         async with self.getTestCore() as core:
             await testCoreJson(core)
+            self.true(core.jsonready.is_set())
 
             # an embedded JSONStor blocks the 3.x upgrade, and is never prepared itself
             path = os.path.join(core.dirn, 'jsonstor')

@@ -1214,6 +1214,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.axon = None  # type: s_axon.AxonApi
         self.jsonstor = None  # type: s_jsonstor.JsonStorApi
         self.axready = asyncio.Event()
+        self.jsonready = asyncio.Event()
         self.axoninfo = {}
 
         self.nodeeditwindows = set()
@@ -5012,6 +5013,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             async def onlink(proxy: s_telepath.Proxy):
                 logger.debug(f'Connected to remote jsonstor {s_urlhelp.sanitizeUrl(self.jsonurl)}')
 
+                async def fini():
+                    self.jsonready.clear()
+
+                proxy.onfini(fini)
+                self.jsonready.set()
+
             self.jsonstor = await s_telepath.Client.anit(self.jsonurl, onlink=onlink)
         else:
             path = os.path.join(self.dirn, 'jsonstor')
@@ -5032,6 +5039,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             # Disable sysctl checks for embedded jsonstor server
             conf = {'cell:guid': jsoniden, 'health:sysctl:checks': False}
             self.jsonstor = await s_jsonstor.JsonStorCell.anit(path, conf=conf, parent=self)
+            self.jsonstor.onfini(self.jsonready.clear)
+            self.jsonready.set()
 
     async def getJsonObj(self, path):
         if self.jsonurl is not None:
