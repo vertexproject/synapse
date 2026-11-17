@@ -1,7 +1,7 @@
 ---
 desc: Updated the ``v3.prepare`` command to report an error when the Cortex has an
-  embedded Axon or JSONStor, or an ``axon`` or ``jsonstor`` directory left in its
-  storage once the ``axon`` or ``jsonstor`` configuration option is set.
+  embedded Axon or JSONStor, and a warning when an ``axon`` or ``jsonstor`` directory
+  is left in its storage once the ``axon`` or ``jsonstor`` configuration option is set.
 desc:literal: false
 prs: []
 type: feat

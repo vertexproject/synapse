@@ -2794,8 +2794,10 @@ The check of the Cortex prints an ``ERROR:`` line for each:
 - installed Power-Up which is below the minimum version that supports Synapse 3.x
 - installed Vertex Power-Up which is not yet available for Synapse 3.x
 - layer model migration or Power-Up init which has not completed yet
-- embedded Axon or JSONStor, or ``axon`` or ``jsonstor`` directory left in the Cortex storage once the ``axon`` or
-  ``jsonstor`` configuration option is set (see :ref:`devops-task-v3-carve-out`)
+- embedded Axon or JSONStor (see :ref:`devops-task-v3-carve-out`)
+
+It prints a ``WARNING:`` line for an ``axon`` or ``jsonstor`` directory left in the Cortex storage once the ``axon`` or
+``jsonstor`` configuration option is set.
 
 Each Storm service, and then the Axon and JSONStor which the Cortex is configured to use, is checked and prepared in a
 section of its own, printing its own errors and warnings. An embedded Axon or JSONStor is not checked or prepared

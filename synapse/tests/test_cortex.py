@@ -336,8 +336,9 @@ class CortexTest(s_t_utils.SynTest):
 
                     path = os.path.join(dirn, 'jsonstor')
                     msgs = await core.stormlist('v3.prepare --dry-run')
-                    self.stormIsInPrint(f'ERROR: The Cortex no longer uses the JSONStor in {path}, since the jsonstor '
-                                        'config option is set. Remove the directory.', msgs)
+                    self.stormIsInPrint(f'WARNING: The Cortex no longer uses the JSONStor in {path}, since the '
+                                        'jsonstor config option is set. Remove the directory.', msgs)
+                    self.stormNotInPrint('ERROR: The Cortex no longer uses', msgs)
 
                     shutil.rmtree(path)
 
@@ -7111,8 +7112,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     path = os.path.join(dirn, 'axon')
                     msgs = await core.stormlist('v3.prepare --dry-run')
-                    self.stormIsInPrint(f'ERROR: The Cortex no longer uses the Axon in {path}, since the axon config '
+                    self.stormIsInPrint(f'WARNING: The Cortex no longer uses the Axon in {path}, since the axon config '
                                         'option is set. Remove the directory.', msgs)
+                    self.stormNotInPrint('ERROR: The Cortex no longer uses', msgs)
                     self.stormIsInPrint('Checking the Axon...', msgs)
 
                     shutil.rmtree(path)

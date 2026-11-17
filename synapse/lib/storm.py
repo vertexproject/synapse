@@ -6050,7 +6050,8 @@ class V3PrepareCmd(Cmd):
     which is below the minimum version that supports Synapse 3.x, installed
     Vertex Power-Up which is not yet available for Synapse 3.x, layer model
     migration or Power-Up init which has not completed yet, and embedded
-    Axon or JSONStor, or one left behind in the Cortex storage. Each Storm
+    Axon or JSONStor, and a warning for an Axon or JSONStor directory left
+    behind in the Cortex storage. Each Storm
     service, such as Optic, and then the Axon and JSONStor which the Cortex
     is configured to use, is checked and prepared in a section of its own,
     and those which are not ready are named.

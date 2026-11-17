@@ -790,8 +790,9 @@ These steps use the AHA names and paths of the :ref:`deploymentguide`. For a JSO
 #. Start the Axon.
 #. Set the ``axon`` configuration option of the Cortex leader and each of its mirrors to the AHA name of the Axon
    leader, such as ``SYN_CORTEX_AXON=aha://axon...``, and remove the ``axon`` directory from each of their storage
-   directories. The Cortex no longer uses that directory, and ``v3.prepare`` reports an error while it remains.
-#. Start the Cortex leader and its mirrors, and run ``v3.prepare --dry-run`` to confirm the error is gone.
+   directories. The Cortex no longer uses that directory, and ``v3.prepare`` reports a warning while it remains.
+#. Start the Cortex leader and its mirrors, and run ``v3.prepare --dry-run`` to confirm the error and the warning are
+   gone.
 
 Deployment Options
 ------------------

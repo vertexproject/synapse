@@ -3767,13 +3767,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 continue
 
             if self.conf.get(name) is None:
-                mesg = (f'The Cortex has an embedded {title} in {path}. Move it to a standalone {title} service and '
-                        f'set the {name} config option on the Cortex.')
-            else:
-                mesg = (f'The Cortex no longer uses the {title} in {path}, since the {name} config option is set. '
-                        'Remove the directory.')
+                yield ('error', f'The Cortex has an embedded {title} in {path}. Move it to a standalone {title} '
+                                f'service and set the {name} config option on the Cortex.')
+                continue
 
-            yield ('error', mesg)
+            # the Synapse 3.x migration skips an unused directory
+            yield ('warning', f'The Cortex no longer uses the {title} in {path}, since the {name} config option is '
+                              'set. Remove the directory.')
 
     async def _checkV3Model(self):
 

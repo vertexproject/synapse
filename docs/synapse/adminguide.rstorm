@@ -1517,8 +1517,8 @@ To prepare your Cortex to upgrade to Synapse 3.x, use the :ref:`storm-v3-prepare
    the Cortex is configured to use, without changing anything. It prints an error for each deprecated model element
    still in use in any layer, installed Power-Up which is below the minimum version that supports Synapse 3.x,
    installed Vertex Power-Up which is not yet available for Synapse 3.x, layer model migration or Power-Up init which
-   has not completed yet, and embedded Axon or JSONStor, or one left behind in the Cortex storage, along with the
-   errors of each service.
+   has not completed yet, and embedded Axon or JSONStor, along with the errors of each service. It prints a warning
+   for an Axon or JSONStor directory left behind in the Cortex storage.
 #. Fix each error. Errors block the upgrade, and warnings do not. Moving an embedded Axon or JSONStor to a standalone
    service is a devops task; see :ref:`devops-task-v3-carve-out`.
 #. Run ``v3.prepare``, which checks the Cortex and each service again and prepares each one with no errors, then
