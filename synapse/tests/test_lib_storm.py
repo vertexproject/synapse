@@ -5725,12 +5725,21 @@ class StormTest(s_t_utils.SynTest):
                 self.stormIsInPrint(f'{eoffs}', msgs)
 
                 # Pull from layr0 using a custom offset (skip first node)
-                await core.callStorm(f'$lib.layer.get($layr0).addPush("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr4}", offs={offs})', opts=opts)
+                q = f'return($lib.layer.get($layr0).addPush("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr4}", offs={offs}).iden)'
+                push4 = await core.callStorm(q, opts=opts)
                 await core.layers.get(layr4).waitEditOffs(offs, timeout=3)
                 self.len(2, await core.nodes('ps:contact', opts={'view': view4}))
 
+                # the start offset is kept alongside the current offset
+                opts['vars']['push4'] = push4
+                self.eq(offs, core.getLayer(layr0).layrinfo['pushs'][push4]['soffs'])
+                self.eq(offs, await core.callStorm('return($lib.layer.get($layr0).pushs.$push4.soffs)', opts=opts))
+                self.eq(offs, await core.callStorm('return($lib.layer.get($layr0).get(pushs).$push4.soffs)', opts=opts))
+                self.eq(offs, await core.callStorm('return($lib.layer.get($layr0).pack().pushs.$push4.soffs)', opts=opts))
+
                 # Clean up
-                self.none(await core.callStorm('$lib.layer.get($layr0).delPush($layr4)', opts=opts))
+                self.none(await core.callStorm(f'$lib.layer.get($layr0).delPush({push4})', opts=opts))
+                self.len(1, core.getLayer(layr0).layrinfo['pushs'])
 
                 q = '$layer=$lib.layer.get($layr2) return ($layer.pack())'
                 layrinfo = await core.callStorm(q, opts=opts)
@@ -5756,6 +5765,32 @@ class StormTest(s_t_utils.SynTest):
                 pulloffs = await core.getStormVar(f'push:{pulliden}')
                 self.nn(pushoffs)
                 self.nn(pulloffs)
+                self.lt(10, pulloffs)
+
+                # get() and pack() report the start and current offsets of pushs and pulls
+                opts['vars']['pushiden'] = pushiden
+                opts['vars']['pulliden'] = pulliden
+                for q in ('return($lib.layer.get($layr2).get(pulls).$pulliden)',
+                          'return($lib.layer.get($layr2).pack().pulls.$pulliden)'):
+                    pdef = await core.callStorm(q, opts=opts)
+                    self.eq(0, pdef['soffs'])
+                    self.eq(pulloffs, pdef['offs'])
+
+                for q in ('return($lib.layer.get($layr0).get(pushs).$pushiden)',
+                          'return($lib.layer.get($layr0).pack().pushs.$pushiden)'):
+                    pdef = await core.callStorm(q, opts=opts)
+                    self.eq(0, pdef['soffs'])
+                    self.eq(pushoffs, pdef['offs'])
+
+                msgs = await core.stormlist('layer.pull.list $layr2', opts=opts)
+                self.stormIsInPrint('| Start Offset |     Offset | Enabled |', msgs)
+                line = [m[1]['mesg'] for m in msgs if m[0] == 'print' and m[1]['mesg'].startswith(pulliden)][0]
+                self.isin(f' |            0 | {pulloffs:>10} | true    | tcp://root:****@127.0.0.1', line)
+
+                msgs = await core.stormlist('layer.push.list $layr0', opts=opts)
+                self.stormIsInPrint('| Start Offset |     Offset | Enabled |', msgs)
+                line = [m[1]['mesg'] for m in msgs if m[0] == 'print' and m[1]['mesg'].startswith(pushiden)][0]
+                self.isin(f' |            0 | {pushoffs:>10} | true    | tcp://root:****@127.0.0.1', line)
 
                 pushtask = core.activecoros[pushiden].get('task')
                 pulltask = core.activecoros[pulliden].get('task')
@@ -5860,14 +5895,134 @@ class StormTest(s_t_utils.SynTest):
                 self.isin(pushiden, core.activecoros)
                 self.isin(pulliden, core.activecoros)
 
+                # Storm layer push and pull objects
+                pushdef = core.getLayer(layr0).layrinfo['pushs'][pushiden]
+
+                q = '''
+                    $retn = ({})
+                    for ($iden, $push) in $lib.layer.get($layr0).pushs {
+                        $retn.$iden = ({
+                            "iden": $push.iden,
+                            "url": $push.url,
+                            "soffs": $push.soffs,
+                            "offs": $push.offs,
+                            "enabled": $push.enabled,
+                            "creator": $push.creator,
+                            "created": $push.created,
+                        })
+                    }
+                    return($retn)
+                '''
+                retn = await core.callStorm(q, opts=opts)
+                self.eq(retn, {pushiden: {
+                    'iden': pushiden,
+                    'url': f'tcp://root:****@127.0.0.1:{port}/*/layer/{layr1}',
+                    'soffs': 0,
+                    'offs': await core.getStormVar(f'push:{pushiden}', -1),
+                    'enabled': True,
+                    'creator': core.auth.rootuser.iden,
+                    'created': pushdef['time'],
+                }})
+
+                self.eq(1, await core.callStorm('return($lib.len($lib.layer.get($layr0).pushs))', opts=opts))
+                self.eq(1, await core.callStorm('return($lib.len($lib.layer.get($layr2).pulls))', opts=opts))
+                self.eq(0, await core.callStorm('return($lib.len($lib.layer.get($layr1).pulls))', opts=opts))
+                self.true(await core.callStorm('if $lib.layer.get($layr2).pulls { return((true)) } return((false))', opts=opts))
+                self.false(await core.callStorm('if $lib.layer.get($layr1).pushs { return((true)) } return((false))', opts=opts))
+
+                url = await core.callStorm('return($lib.layer.get($layr2).pulls.$pulliden.url)', opts=opts)
+                self.eq(url, f'tcp://root:****@127.0.0.1:{port}/*/layer/{layr1}')
+
+                pdef = await core.callStorm('return($lib.layer.get($layr2).pulls.$pulliden)', opts=opts)
+                self.eq(pdef['iden'], pulliden)
+                self.eq(pdef['url'], url)
+                self.eq(pdef['soffs'], 0)
+                self.true(pdef['enabled'])
+                self.eq(pdef['offs'], await core.getStormVar(f'push:{pulliden}', -1))
+                self.lt(10, pdef['offs'])
+
+                pulls = await core.callStorm('return($lib.layer.get($layr2).pulls)', opts=opts)
+                self.eq(pulls, {pulliden: pdef})
+
+                msgs = await core.stormlist('$lib.print($lib.layer.get($layr2).pulls.$pulliden)', opts=opts)
+                self.stormIsInPrint(f'layer:pull: {pulliden} (tcp://root:****@127.0.0.1', msgs)
+
+                msgs = await core.stormlist('$lib.print($lib.layer.get($layr0).pushs)', opts=opts)
+                self.stormIsInPrint(f"layer:pushs: {{'{pushiden}': {{", msgs)
+                self.stormNotInPrint('secret', msgs)
+
+                q = '''
+                    $layer = $lib.layer.get($layr0)
+                    $set = $lib.set()
+                    $set.add($layer.pushs, $layer.pushs, $layer.pushs.$pushiden, $layer.pushs.$pushiden)
+                    return($lib.len($set))
+                '''
+                self.eq(2, await core.callStorm(q, opts=opts))
+
+                with self.raises(s_exc.NoSuchIden):
+                    await core.callStorm('$newp = $lib.guid() return($lib.layer.get($layr0).pushs.$newp)', opts=opts)
+
+                with self.raises(s_exc.NoSuchIden):
+                    await core.callStorm('return($lib.layer.get($layr2).pulls.$pushiden)', opts=opts)
+
+                # disable and enable from Storm
+                await core.callStorm('$lib.layer.get($layr2).pulls.$pulliden.enabled = (false)', opts=opts)
+                self.notin(pulliden, core.activecoros)
+                self.false(core.getLayer(layr2).layrinfo['pulls'][pulliden]['enabled'])
+                self.false(await core.callStorm('return($lib.layer.get($layr2).pulls.$pulliden.enabled)', opts=opts))
+
+                msgs = await core.stormlist('layer.pull.list $layr2', opts=opts)
+                line = [m[1]['mesg'] for m in msgs if m[0] == 'print' and m[1]['mesg'].startswith(pulliden)][0]
+                self.isin(' | false   | ', line)
+
+                await core.callStorm('$lib.layer.get($layr2).pulls.$pulliden.enabled = (true)', opts=opts)
+                self.isin(pulliden, core.activecoros)
+                self.true(core.getLayer(layr2).layrinfo['pulls'][pulliden]['enabled'])
+
+                msgs = await core.stormlist('layer.pull.list $layr2', opts=opts)
+                line = [m[1]['mesg'] for m in msgs if m[0] == 'print' and m[1]['mesg'].startswith(pulliden)][0]
+                self.isin(' | true    | ', line)
+
+                q = '''
+                    $push = $lib.layer.get($layr0).pushs.$pushiden
+                    $push.enabled = (false)
+                    $retn = ($push.enabled,)
+                    $push.enabled = (true)
+                    $retn.append($push.enabled)
+                    return($retn)
+                '''
+                self.eq((False, True), await core.callStorm(q, opts=opts))
+                self.isin(pushiden, core.activecoros)
+
+                # readonly runtimes may read but not set enabled
+                roopts = {'readonly': True, 'vars': opts['vars']}
+                self.true(await core.callStorm('return($lib.layer.get($layr0).pushs.$pushiden.enabled)', opts=roopts))
+                with self.raises(s_exc.IsReadOnly):
+                    await core.callStorm('$lib.layer.get($layr0).pushs.$pushiden.enabled = (false)', opts=roopts)
+
+                self.isin(pushiden, core.activecoros)
+
+                # non-admin users may read but not set enabled
+                vopts = {'vars': opts['vars']}
+                async with core.getLocalProxy(user='visi') as asvisi:
+                    self.true(await asvisi.callStorm('return($lib.layer.get($layr2).pulls.$pulliden.enabled)', opts=vopts))
+                    with self.raises(s_exc.AuthDeny):
+                        await asvisi.callStorm('$lib.layer.get($layr2).pulls.$pulliden.enabled = (false)', opts=vopts)
+
+                    with self.raises(s_exc.AuthDeny):
+                        await asvisi.callStorm('$lib.layer.get($layr0).pushs.$pushiden.enabled = (false)', opts=vopts)
+
+                self.isin(pushiden, core.activecoros)
+                self.isin(pulliden, core.activecoros)
+
                 # configs added disabled are registered but not started
                 url = f'tcp://root:secret@127.0.0.1:{port}/*/layer/{layr0}'
                 dpush = s_common.guid()
                 dpull = s_common.guid()
                 dispush = {'iden': dpush, 'url': url, 'user': core.auth.rootuser.iden,
-                           'time': s_common.now(), 'offs': 0, 'enabled': False}
+                           'time': s_common.now(), 'offs': 5, 'enabled': False}
                 dispull = {'iden': dpull, 'url': url, 'user': core.auth.rootuser.iden,
-                           'time': s_common.now(), 'offs': 0, 'enabled': False}
+                           'time': s_common.now(), 'offs': 7, 'enabled': False}
 
                 actv = len(core.activecoros)
                 self.none(await core.addLayrPush(layr4, dispush))
@@ -5879,6 +6034,32 @@ class StormTest(s_t_utils.SynTest):
                 ldef = await core.getLayerDef(layr4)
                 self.false(ldef['pushs'][dpush]['enabled'])
                 self.false(ldef['pulls'][dpull]['enabled'])
+
+                # configs without a start offset report their original offset as the start offset
+                self.notin('soffs', ldef['pushs'][dpush])
+                self.notin('soffs', ldef['pulls'][dpull])
+
+                dopts = {'vars': {'layr4': layr4, 'dpush': dpush, 'dpull': dpull}}
+                self.eq(5, await core.callStorm('return($lib.layer.get($layr4).pushs.$dpush.soffs)', opts=dopts))
+                self.eq(7, await core.callStorm('return($lib.layer.get($layr4).pulls.$dpull.soffs)', opts=dopts))
+                self.eq(-1, await core.callStorm('return($lib.layer.get($layr4).pulls.$dpull.offs)', opts=dopts))
+
+                pdef = await core.callStorm('return($lib.layer.get($layr4).pushs.$dpush)', opts=dopts)
+                self.eq((5, -1, False), (pdef['soffs'], pdef['offs'], pdef['enabled']))
+
+                pdef = await core.callStorm('return($lib.layer.get($layr4).get(pulls).$dpull)', opts=dopts)
+                self.eq((7, 0), (pdef['soffs'], pdef['offs']))
+
+                pdef = await core.callStorm('return($lib.layer.get($layr4).pack().pushs.$dpush)', opts=dopts)
+                self.eq((5, -1), (pdef['soffs'], pdef['offs']))
+
+                msgs = await core.stormlist('layer.push.list $layr4', opts=dopts)
+                line = [m[1]['mesg'] for m in msgs if m[0] == 'print' and m[1]['mesg'].startswith(dpush)][0]
+                self.isin(' |            5 |          0 | false   | tcp://root:****@127.0.0.1', line)
+
+                msgs = await core.stormlist('layer.pull.list $layr4', opts=dopts)
+                line = [m[1]['mesg'] for m in msgs if m[0] == 'print' and m[1]['mesg'].startswith(dpull)][0]
+                self.isin(' |            7 |          0 | false   | tcp://root:****@127.0.0.1', line)
 
                 # remove and ensure no replay on restart
                 await core.nodes('ps:contact | delnode', opts={'view': view2})
@@ -5910,6 +6091,16 @@ class StormTest(s_t_utils.SynTest):
                 self.notin(f'layer push: {layr4} {dpush}', names)
                 self.notin(f'layer pull: {layr4} {dpull}', names)
 
+                # an item for a deleted config raises NoSuchIden
+                q = '''
+                    $layer = $lib.layer.get($layr4)
+                    $push = $layer.pushs.$dpush
+                    $layer.delPush($dpush)
+                    return($push.enabled)
+                '''
+                with self.raises(s_exc.NoSuchIden):
+                    await core.callStorm(q, opts={'vars': {'layr4': layr4, 'dpush': dpush}})
+
                 actv = len(core.activecoros)
                 # remove all pushes / pulls
                 await core.callStorm('''
@@ -5924,7 +6115,7 @@ class StormTest(s_t_utils.SynTest):
                         }
                     }
                 ''')
-                self.eq(actv - 3, len(core.activecoros))
+                self.eq(actv - 2, len(core.activecoros))
                 tasks = await core.callStorm('return($lib.ps.list())')
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer push:')])
@@ -5994,7 +6185,7 @@ class StormTest(s_t_utils.SynTest):
                 tasks = await core.callStorm('return($lib.ps.list())')
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer push:')])
-                self.eq(actv - 1, len(core.activecoros))
+                self.eq(actv, len(core.activecoros))
 
                 pushpulls = set()
                 for ldef in await core.getLayerDefs():
@@ -6007,7 +6198,11 @@ class StormTest(s_t_utils.SynTest):
                 await core.callStorm('$lib.view.del($view1)', opts=opts)
                 await core.callStorm('$lib.view.del($view2)', opts=opts)
                 await core.callStorm('$lib.view.del($view3)', opts=opts)
-                await core.callStorm('$lib.layer.del($layr0)', opts=opts)
+                # a container for a deleted layer raises NoSuchLayer
+                with self.raises(s_exc.NoSuchLayer):
+                    await core.callStorm('$pushs = $lib.layer.get($layr0).pushs $lib.layer.del($layr0) for $push in $pushs {}', opts=opts)
+
+                self.none(core.getLayer(layr0))
                 await core.callStorm('$lib.layer.del($layr1)', opts=opts)
                 await core.callStorm('$lib.layer.del($layr2)', opts=opts)
                 await core.callStorm('$lib.layer.del($layr3)', opts=opts)
@@ -6019,7 +6214,7 @@ class StormTest(s_t_utils.SynTest):
                 tasks = await core.callStorm('return($lib.ps.list())')
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer push:')])
-                self.eq(actv - 3, len(core.activecoros))
+                self.eq(actv - 2, len(core.activecoros))
 
                 with self.raises(s_exc.SchemaViolation):
                     await core.addLayrPush('newp', {})

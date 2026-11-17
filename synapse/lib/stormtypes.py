@@ -7245,6 +7245,28 @@ class Layer(Prim):
                        'default': s_const.layer_pdef_csize}
                   ),
                   'returns': {'type': 'dict', 'desc': 'Dictionary containing the pull definition.', }}},
+        {'name': 'pushs', 'desc': '''
+            The push configurations of the layer.
+
+            Example:
+                Disable a push configuration of the layer::
+
+                    $layer = $lib.layer.get($iden)
+                    $layer.pushs.$pushiden.enabled = (false)
+            ''',
+         'type': {'type': 'gtor', '_gtorfunc': '_gtorPushs',
+                  'returns': {'type': 'layer:pushs', 'desc': 'The push configurations of the layer.', }}},
+        {'name': 'pulls', 'desc': '''
+            The pull configurations of the layer.
+
+            Example:
+                Disable a pull configuration of the layer::
+
+                    $layer = $lib.layer.get($iden)
+                    $layer.pulls.$pulliden.enabled = (false)
+            ''',
+         'type': {'type': 'gtor', '_gtorfunc': '_gtorPulls',
+                  'returns': {'type': 'layer:pulls', 'desc': 'The pull configurations of the layer.', }}},
         {'name': 'delPull', 'desc': 'Remove a pull config from the layer.',
          'type': {'type': 'function', '_funcname': '_delPull',
                   'args': (
@@ -7610,6 +7632,11 @@ class Layer(Prim):
         self.locls['iden'] = self.valu.get('iden')
         self.locls['name'] = self.valu.get('name')
 
+        self.gtors.update({
+            'pushs': self._gtorPushs,
+            'pulls': self._gtorPulls,
+        })
+
     def __hash__(self):
         return hash((self._storm_typename, self.locls['iden']))
 
@@ -7817,6 +7844,7 @@ class Layer(Prim):
         pdef = {
             'url': url,
             'offs': offs,
+            'soffs': offs,
             'user': useriden,
             'time': s_common.now(),
             'iden': s_common.guid(),
@@ -7862,6 +7890,7 @@ class Layer(Prim):
         pdef = {
             'url': url,
             'offs': offs,
+            'soffs': offs,
             'user': useriden,
             'time': s_common.now(),
             'iden': s_common.guid(),
@@ -8150,13 +8179,15 @@ class Layer(Prim):
                 pushs = copy.deepcopy(self.valu.get('pushs', {}))
                 for iden, pdef in pushs.items():
                     gvar = f'push:{iden}'
+                    pdef['soffs'] = pdef.get('soffs', pdef.get('offs'))
                     pdef['offs'] = await self.runt.snap.core.getStormVar(gvar, 0)
                 return pushs
 
             case 'pulls':
                 pulls = copy.deepcopy(self.valu.get('pulls', {}))
                 for iden, pdef in pulls.items():
-                    gvar = f'pull:{iden}'
+                    gvar = f'push:{iden}'
+                    pdef['soffs'] = pdef.get('soffs', pdef.get('offs'))
                     pdef['offs'] = await self.runt.snap.core.getStormVar(gvar, 0)
                 return pulls
 
@@ -8204,12 +8235,14 @@ class Layer(Prim):
         if pushs is not None:
             for iden, pdef in pushs.items():
                 gvar = f'push:{iden}'
+                pdef['soffs'] = pdef.get('soffs', pdef.get('offs'))
                 pdef['offs'] = await self.runt.snap.core.getStormVar(gvar, -1)
 
         pulls = ldef.get('pulls')
         if pulls is not None:
             for iden, pdef in pulls.items():
                 gvar = f'push:{iden}'
+                pdef['soffs'] = pdef.get('soffs', pdef.get('offs'))
                 pdef['offs'] = await self.runt.snap.core.getStormVar(gvar, -1)
 
         return ldef
@@ -8230,6 +8263,217 @@ class Layer(Prim):
         layr = self.runt.snap.core.getLayer(iden)
         async for mesg in layr.verify(config=config):
             yield mesg
+
+    async def _gtorPushs(self):
+        return LayerPushs(self.runt, self.valu.get('iden'))
+
+    async def _gtorPulls(self):
+        return LayerPulls(self.runt, self.valu.get('iden'))
+
+def _reqLayrPdefs(runt, layriden, name):
+    layr = runt.snap.core.reqLayer(layriden)
+    return layr.layrinfo.get(name, {})
+
+class LayerPushPull(Prim):
+    '''
+    The shared implementation of the layer push and pull configuration types.
+    '''
+    _ismutable = False
+    _layr_field_name = None
+
+    def __init__(self, runt, layriden, iden, path=None):
+        Prim.__init__(self, iden, path=path)
+        self.runt = runt
+        self.layriden = layriden
+
+        self.locls['iden'] = iden
+
+        self.gtors.update({
+            'url': self._gtorUrl,
+            'offs': self._gtorOffs,
+            'soffs': self._gtorSoffs,
+            'enabled': self._gtorEnabled,
+            'creator': self._gtorCreator,
+            'created': self._gtorCreated,
+        })
+
+        self.stors['enabled'] = self._storEnabled
+
+    def __hash__(self):
+        return hash((self._storm_typename, self.layriden, self.valu))
+
+    def _reqPdef(self):
+        pdef = _reqLayrPdefs(self.runt, self.layriden, self._layr_field_name).get(self.valu)
+        if pdef is None:
+            mesg = f'No {self._storm_typename} configuration with iden: {self.valu}'
+            raise s_exc.NoSuchIden(mesg=mesg, iden=self.valu)
+
+        return pdef
+
+    async def _getCurOffs(self):
+        # push and pull configurations both store their current offset in push:<iden>
+        return await self.runt.snap.core.getStormVar(f'push:{self.valu}', -1)
+
+    async def _gtorUrl(self):
+        return s_urlhelp.sanitizeUrl(self._reqPdef().get('url'))
+
+    async def _gtorOffs(self):
+        self._reqPdef()
+        return await self._getCurOffs()
+
+    async def _gtorSoffs(self):
+        pdef = self._reqPdef()
+        return pdef.get('soffs', pdef.get('offs'))
+
+    async def _gtorEnabled(self):
+        return self._reqPdef().get('enabled', True)
+
+    async def _gtorCreator(self):
+        return self._reqPdef().get('user')
+
+    async def _gtorCreated(self):
+        return self._reqPdef().get('time')
+
+    async def _storEnabled(self, enabled):
+        if not self.runt.isAdmin(gateiden=self.layriden):
+            mesg = f'Setting enabled on a {self._storm_typename} requires admin privs on the layer.'
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+
+        info = {'enabled': await tobool(enabled)}
+        if self._layr_field_name == 'pushs':
+            await self.runt.snap.core.modLayrPush(self.layriden, self.valu, info)
+        else:
+            await self.runt.snap.core.modLayrPull(self.layriden, self.valu, info)
+
+    async def value(self):
+        pdef = copy.deepcopy(self._reqPdef())
+        pdef['url'] = s_urlhelp.sanitizeUrl(pdef.get('url'))
+        pdef['soffs'] = pdef.get('soffs', pdef.get('offs'))
+        pdef['offs'] = await self._getCurOffs()
+        return pdef
+
+    async def stormrepr(self):
+        url = await self._gtorUrl()
+        return f'{self._storm_typename}: {self.valu} ({url})'
+
+_layer_pushpull_locals = (
+    {'name': 'iden', 'desc': 'The iden of the configuration.', 'type': 'str'},
+    {'name': 'url', 'desc': 'The telepath URL of the remote layer or feed, with any password hidden.',
+     'type': {'type': 'gtor', '_gtorfunc': '_gtorUrl', 'returns': {'type': 'str'}}},
+    {'name': 'soffs', 'desc': 'The layer offset the configuration started from.',
+     'type': {'type': 'gtor', '_gtorfunc': '_gtorSoffs', 'returns': {'type': 'int'}}},
+    {'name': 'offs', 'desc': 'The current offset of the configuration, or -1 if nothing has been synced.',
+     'type': {'type': 'gtor', '_gtorfunc': '_gtorOffs', 'returns': {'type': 'int'}}},
+    {'name': 'enabled', 'desc': '''
+        Set to true if the configuration is enabled.
+
+        Setting this to false stops the configuration, and setting it to true starts it again
+        from its current offset. Setting it requires admin privileges on the layer.
+        ''',
+     'type': {'type': ['gtor', 'stor'], '_gtorfunc': '_gtorEnabled', '_storfunc': '_storEnabled',
+              'returns': {'type': 'boolean'}}},
+    {'name': 'creator', 'desc': 'The iden of the user who added the configuration.',
+     'type': {'type': 'gtor', '_gtorfunc': '_gtorCreator', 'returns': {'type': 'str'}}},
+    {'name': 'created', 'desc': 'The time the configuration was created.',
+     'type': {'type': 'gtor', '_gtorfunc': '_gtorCreated', 'returns': {'type': 'time'}}},
+)
+
+@registry.registerType
+class LayerPush(LayerPushPull):
+    '''
+    Implements the Storm API for a layer push configuration.
+    '''
+    _storm_typename = 'layer:push'
+    _storm_locals = _layer_pushpull_locals
+    _layr_field_name = 'pushs'
+
+@registry.registerType
+class LayerPull(LayerPushPull):
+    '''
+    Implements the Storm API for a layer pull configuration.
+    '''
+    _storm_typename = 'layer:pull'
+    _storm_locals = _layer_pushpull_locals
+    _layr_field_name = 'pulls'
+
+class LayerPushPulls(Prim):
+    '''
+    The shared implementation of the layer push and pull configuration container types.
+    '''
+    _ismutable = False
+    _layr_field_name = None
+    _layr_item_ctor = None
+
+    def __init__(self, runt, layriden, path=None):
+        Prim.__init__(self, layriden, path=path)
+        self.runt = runt
+
+    def __hash__(self):
+        return hash((self._storm_typename, self.valu))
+
+    def __len__(self):
+        return len(_reqLayrPdefs(self.runt, self.valu, self._layr_field_name))
+
+    async def bool(self):
+        return bool(len(self))
+
+    async def deref(self, name):
+        iden = await tostr(name)
+        if _reqLayrPdefs(self.runt, self.valu, self._layr_field_name).get(iden) is None:
+            mesg = f'No {self._layr_item_ctor._storm_typename} configuration with iden: {iden}'
+            raise s_exc.NoSuchIden(mesg=mesg, iden=iden)
+
+        return self._layr_item_ctor(self.runt, self.valu, iden)
+
+    async def iter(self):
+        for iden in list(_reqLayrPdefs(self.runt, self.valu, self._layr_field_name).keys()):
+            yield iden, self._layr_item_ctor(self.runt, self.valu, iden)
+
+    async def value(self):
+        retn = {}
+        for iden in list(_reqLayrPdefs(self.runt, self.valu, self._layr_field_name).keys()):
+            retn[iden] = await self._layr_item_ctor(self.runt, self.valu, iden).value()
+
+        return retn
+
+    async def stormrepr(self):
+        return f'{self._storm_typename}: {await self.value()}'
+
+@registry.registerType
+class LayerPushs(LayerPushPulls):
+    '''
+    Implements the Storm API for the push configurations of a layer.
+
+    Iterating yields (iden, ``layer:push``) tuples, and a ``layer:push`` may be
+    dereferenced by its iden. A missing iden raises ``NoSuchIden``.
+
+    Example:
+        Disable every push configuration of a layer::
+
+            for ($iden, $push) in $lib.layer.get($iden).pushs {
+                $push.enabled = (false)
+            }
+    '''
+    _storm_typename = 'layer:pushs'
+    _layr_field_name = 'pushs'
+    _layr_item_ctor = LayerPush
+
+@registry.registerType
+class LayerPulls(LayerPushPulls):
+    '''
+    Implements the Storm API for the pull configurations of a layer.
+
+    Iterating yields (iden, ``layer:pull``) tuples, and a ``layer:pull`` may be
+    dereferenced by its iden. A missing iden raises ``NoSuchIden``.
+
+    Example:
+        Disable a pull configuration of a layer::
+
+            $lib.layer.get($iden).pulls.$pulliden.enabled = (false)
+    '''
+    _storm_typename = 'layer:pulls'
+    _layr_field_name = 'pulls'
+    _layr_item_ctor = LayerPull
 
 @registry.registerLib
 class LibView(Lib):

@@ -415,16 +415,23 @@ stormcmds = (
 
             $pulls = $layr.get(pulls)
             if $pulls {
-                $lib.print('Pull Iden                        | User                 | Time                |     Offset | URL')
-                $lib.print('------------------------------------------------------------------------------------------------------------------------------------------')
+                $lib.print('Pull Iden                        | User                 | Time                | Start Offset |     Offset | Enabled | URL')
+                $lib.print('-------------------------------------------------------------------------------------------------------------------------------------------------------------------')
                 for ($iden, $pdef) in $pulls {
                     $user = $lib.auth.users.get($pdef.user)
                     if $user { $user = $user.name.ljust(20) }
                     else { $user = $pdef.user }
 
                     $tstr = $lib.time.format($pdef.time, '%Y-%m-%d %H:%M:%S')
+                    $sstr = $lib.cast(str, $pdef.soffs).rjust(12)
                     $ostr = $lib.cast(str, $pdef.offs).rjust(10)
-                    $lib.print("{iden} | {user} | {time} | {offs} | {url}", iden=$iden, time=$tstr, user=$user, offs=$ostr, url=$pdef.url)
+
+                    $enabled = true
+                    if ($pdef.enabled = (false)) { $enabled = false }
+                    $estr = $enabled.ljust(7)
+
+                    $lib.print("{iden} | {user} | {time} | {soffs} | {offs} | {enabled} | {url}",
+                               iden=$iden, time=$tstr, user=$user, soffs=$sstr, offs=$ostr, enabled=$estr, url=$pdef.url)
                 }
             } else {
                 $lib.print('No pulls configured.')
@@ -474,16 +481,23 @@ stormcmds = (
 
             $pushs = $layr.get(pushs)
             if $pushs {
-                $lib.print('Push Iden                        | User                 | Time                |     Offset | URL')
-                $lib.print('------------------------------------------------------------------------------------------------------------------------------------------')
+                $lib.print('Push Iden                        | User                 | Time                | Start Offset |     Offset | Enabled | URL')
+                $lib.print('-------------------------------------------------------------------------------------------------------------------------------------------------------------------')
                 for ($iden, $pdef) in $pushs {
                     $user = $lib.auth.users.get($pdef.user)
                     if $user { $user = $user.name.ljust(20) }
                     else { $user = $pdef.user }
 
                     $tstr = $lib.time.format($pdef.time, '%Y-%m-%d %H:%M:%S')
+                    $sstr = $lib.cast(str, $pdef.soffs).rjust(12)
                     $ostr = $lib.cast(str, $pdef.offs).rjust(10)
-                    $lib.print("{iden} | {user} | {time} | {offs} | {url}", iden=$iden, time=$tstr, user=$user, offs=$ostr, url=$pdef.url)
+
+                    $enabled = true
+                    if ($pdef.enabled = (false)) { $enabled = false }
+                    $estr = $enabled.ljust(7)
+
+                    $lib.print("{iden} | {user} | {time} | {soffs} | {offs} | {enabled} | {url}",
+                               iden=$iden, time=$tstr, user=$user, soffs=$sstr, offs=$ostr, enabled=$estr, url=$pdef.url)
                 }
             } else {
                 $lib.print('No pushes configured.')
