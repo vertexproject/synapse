@@ -917,17 +917,13 @@ class StormLintTest(s_t_utils.SynTest):
             (33, 51, mesg.format('r3', 'r3', 'r3')),
         ))
 
-        # the fork pool worker lints with the given model names
-        names = s_stormlint._getModelNames()
-        self.eq(s_stormlint._lintStorm('$x = $lib.list()\ninet:ipv4', ('S005', 'M001'), names), [
-            {'rule': 'S005', 'severity': 'low', 'line': 1, 'column': 6,
-             'mesg': 'Use a list literal such as ([]) instead of $lib.list().'},
-            {'rule': 'M001', 'severity': 'high', 'line': 2, 'column': 1, 'mesg': 'inet:ipv4 is renamed to inet:ip in 3.x.'},
+        # the fork pool worker lints with the model names it is given
+        names = s_stormlint._getModelNames({'forms': {'_test:lint': {'props': {'_name': {'full': '_test:lint:_name'}}}}})
+        self.eq(s_stormlint._lintStorm('_test:lint +:_name=foo', ['S012'], names), [
+            {'rule': 'S012', 'severity': 'low', 'line': 1, 'column': 1,
+             'mesg': 'Lift by _test:lint:_name=foo instead of filtering.'},
         ])
-
-        self.eq(['S012'], [f['rule'] for f in s_stormlint._lintStorm('inet:fqdn +:zone=foo', ('S012',), names)])
-        self.eq([], s_stormlint._lintStorm('inet:fqdn +:zone=foo', ('S012',), (frozenset(), frozenset())))
-        self.eq([], s_stormlint._lintStorm('$x = $lib.list()', (), names))
+        self.eq([], s_stormlint._lintStorm('_test:lint +:_name=foo', ['S012'], s_stormlint._getModelNames()))
 
         # every v3model name is in the 2.x model
         forms, props = s_stormlint._getModelNames()
