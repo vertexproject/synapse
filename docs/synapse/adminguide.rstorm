@@ -1530,7 +1530,8 @@ To prepare your Cortex to upgrade to Synapse 3.x, use the :ref:`storm-v3-prepare
 Run the command on the Cortex leader, with each Storm service added, and the ``axon`` and ``jsonstor`` configuration
 options set, by the AHA name of its leader, since only a leader is checked and prepared. A leader which is demoted
 discards its result, so run it again on the new leader. To check or prepare any other service, use the
-:ref:`syn-tools-service-v3prepare` tool.
+:ref:`syn-tools-service-v3prepare` tool. Run against a Cortex, that tool covers only the Cortex itself, not its Storm
+services, Axon, or JSONStor.
 
 .. _admin_config_mirror:
 
