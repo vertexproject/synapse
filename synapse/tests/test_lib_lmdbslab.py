@@ -949,7 +949,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
         Test for a regression where a generator being passed into a putmulti would result in a partial write
 
-        Test for a regression where a caller reusing its putmulti list lost rows when a grow replayed it
+        Test that a grow replays the rows each putmulti wrote, even when the caller reuses its list
         '''
         with self.getTestDir() as dirn:
 
