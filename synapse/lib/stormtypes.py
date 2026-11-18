@@ -8188,17 +8188,13 @@ class Layer(Prim):
             case 'pushs':
                 pushs = copy.deepcopy(self.valu.get('pushs', {}))
                 for iden, pdef in pushs.items():
-                    gvar = f'push:{iden}'
-                    pdef['soffs'] = pdef.get('soffs', pdef.get('offs'))
-                    pdef['offs'] = await self.runt.snap.core.getStormVar(gvar, 0)
+                    await _fillLayrPdef(self.runt, iden, pdef, 0)
                 return pushs
 
             case 'pulls':
                 pulls = copy.deepcopy(self.valu.get('pulls', {}))
                 for iden, pdef in pulls.items():
-                    gvar = f'push:{iden}'
-                    pdef['soffs'] = pdef.get('soffs', pdef.get('offs'))
-                    pdef['offs'] = await self.runt.snap.core.getStormVar(gvar, 0)
+                    await _fillLayrPdef(self.runt, iden, pdef, 0)
                 return pulls
 
             case _:
@@ -8244,16 +8240,12 @@ class Layer(Prim):
         pushs = ldef.get('pushs')
         if pushs is not None:
             for iden, pdef in pushs.items():
-                gvar = f'push:{iden}'
-                pdef['soffs'] = pdef.get('soffs', pdef.get('offs'))
-                pdef['offs'] = await self.runt.snap.core.getStormVar(gvar, -1)
+                await _fillLayrPdef(self.runt, iden, pdef, -1)
 
         pulls = ldef.get('pulls')
         if pulls is not None:
             for iden, pdef in pulls.items():
-                gvar = f'push:{iden}'
-                pdef['soffs'] = pdef.get('soffs', pdef.get('offs'))
-                pdef['offs'] = await self.runt.snap.core.getStormVar(gvar, -1)
+                await _fillLayrPdef(self.runt, iden, pdef, -1)
 
         return ldef
 
@@ -8283,6 +8275,13 @@ class Layer(Prim):
 def _reqLayrPdefs(runt, layriden, name):
     layr = runt.snap.core.reqLayer(layriden)
     return layr.layrinfo.get(name, {})
+
+async def _fillLayrPdef(runt, iden, pdef, defoffs):
+    '''Fill in the start and current offsets of a layer push or pull config.'''
+    pdef['soffs'] = pdef.get('soffs', pdef.get('offs'))
+    # push and pull configs both store their current offset in push:<iden>
+    pdef['offs'] = await runt.snap.core.getStormVar(f'push:{iden}', defoffs)
+    return pdef
 
 class LayerPushPull(Prim):
     '''
@@ -8320,20 +8319,19 @@ class LayerPushPull(Prim):
 
         return pdef
 
-    async def _getCurOffs(self):
-        # push and pull configurations both store their current offset in push:<iden>
-        return await self.runt.snap.core.getStormVar(f'push:{self.valu}', -1)
-
     async def _gtorUrl(self):
         return s_urlhelp.sanitizeUrl(self._reqPdef().get('url'))
 
+    async def _getPdef(self):
+        return await _fillLayrPdef(self.runt, self.valu, dict(self._reqPdef()), -1)
+
     async def _gtorOffs(self):
-        self._reqPdef()
-        return await self._getCurOffs()
+        pdef = await self._getPdef()
+        return pdef['offs']
 
     async def _gtorSoffs(self):
-        pdef = self._reqPdef()
-        return pdef.get('soffs', pdef.get('offs'))
+        pdef = await self._getPdef()
+        return pdef['soffs']
 
     async def _gtorEnabled(self):
         return self._reqPdef().get('enabled', True)
@@ -8362,11 +8360,9 @@ class LayerPushPull(Prim):
             await self.runt.snap.core.modLayrPull(self.layriden, self.valu, info)
 
     async def value(self):
-        pdef = copy.deepcopy(self._reqPdef())
+        pdef = await _fillLayrPdef(self.runt, self.valu, copy.deepcopy(self._reqPdef()), -1)
         pdef['url'] = s_urlhelp.sanitizeUrl(pdef.get('url'))
-        pdef['soffs'] = pdef.get('soffs', pdef.get('offs'))
         pdef['enabled'] = pdef.get('enabled', True)
-        pdef['offs'] = await self._getCurOffs()
         return pdef
 
     async def stormrepr(self):
