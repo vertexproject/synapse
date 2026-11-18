@@ -8349,7 +8349,13 @@ class LayerPushPull(Prim):
             mesg = f'Setting enabled on a {self._storm_typename} requires admin privs on the layer.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
-        info = {'enabled': await tobool(enabled)}
+        enabled = await tobool(enabled)
+        if enabled:
+            scheme = self._reqPdef().get('url').split('://')[0]
+            if not self.runt.allowed(('lib', 'telepath', 'open', scheme)):
+                self.runt.confirm(('storm', 'lib', 'telepath', 'open', scheme))
+
+        info = {'enabled': enabled}
         if self._layr_field_name == 'pushs':
             await self.runt.snap.core.modLayrPush(self.layriden, self.valu, info)
         else:
@@ -8379,7 +8385,8 @@ _layer_pushpull_locals = (
         Set to true if the configuration is enabled.
 
         Setting this to false stops the configuration, and setting it to true starts it again
-        from its current offset. Setting it requires admin privileges on the layer.
+        from its current offset. Setting it requires admin privileges on the layer, and setting
+        it to true also requires the ``storm.lib.telepath.open.<scheme>`` permission.
         ''',
      'type': {'type': ['gtor', 'stor'], '_gtorfunc': '_gtorEnabled', '_storfunc': '_storEnabled',
               'returns': {'type': 'boolean'}}},

@@ -6015,6 +6015,25 @@ class StormTest(s_t_utils.SynTest):
                 self.isin(pushiden, core.activecoros)
                 self.isin(pulliden, core.activecoros)
 
+                # layer admins need the telepath open perm to enable but not to disable
+                lowuser = await core.auth.addUser('lowuser')
+                await lowuser.setAdmin(True, gateiden=layr2)
+
+                async with core.getLocalProxy(user='lowuser') as aslow:
+                    await aslow.callStorm('$lib.layer.get($layr2).pulls.$pulliden.enabled = (false)', opts=vopts)
+                    self.notin(pulliden, core.activecoros)
+
+                    with self.raises(s_exc.AuthDeny):
+                        await aslow.callStorm('$lib.layer.get($layr2).pulls.$pulliden.enabled = (true)', opts=vopts)
+
+                    self.notin(pulliden, core.activecoros)
+                    self.false(core.getLayer(layr2).layrinfo['pulls'][pulliden]['enabled'])
+
+                    await lowuser.addRule((True, ('storm', 'lib', 'telepath', 'open', 'tcp')))
+                    await aslow.callStorm('$lib.layer.get($layr2).pulls.$pulliden.enabled = (true)', opts=vopts)
+                    self.isin(pulliden, core.activecoros)
+                    self.true(core.getLayer(layr2).layrinfo['pulls'][pulliden]['enabled'])
+
                 # configs added disabled are registered but not started
                 url = f'tcp://root:secret@127.0.0.1:{port}/*/layer/{layr0}'
                 dpush = s_common.guid()
