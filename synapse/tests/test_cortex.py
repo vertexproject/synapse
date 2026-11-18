@@ -725,6 +725,7 @@ class CortexTest(s_t_utils.SynTest):
                     'pivots': ['-> inet:dns:a'],
                     'forms': {'inet:fqdn': {'filters': ['+#bar'], 'pivots': ['-> *']}},
                 })
+                await core.addStormGraph({'name': 'baregraph'})
 
                 msgs = await core.stormlist('v3.prepare --dry-run')
                 self.stormIsInPrint('Checking stored Storm for changes Synapse 3.x requires...', msgs)

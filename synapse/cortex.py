@@ -3839,13 +3839,26 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             desc = f'Graph projection {gdef["iden"]} ({gdef["name"]})'
 
             for name in ('filters', 'pivots'):
-                for i, text in enumerate(gdef.get(name) or ()):
+
+                texts = gdef.get(name)
+                if texts is None:
+                    continue
+
+                for i, text in enumerate(texts):
                     todo.append((f'{desc} {name[:-1]} {i}', text))
 
-            for form, rule in gdef.get('forms', {}).items():
-                for name in ('filters', 'pivots'):
-                    for i, text in enumerate(rule.get(name) or ()):
-                        todo.append((f'{desc} form {form} {name[:-1]} {i}', text))
+            forms = gdef.get('forms')
+            if forms is not None:
+
+                for form, rule in forms.items():
+                    for name in ('filters', 'pivots'):
+
+                        texts = rule.get(name)
+                        if texts is None:
+                            continue
+
+                        for i, text in enumerate(texts):
+                            todo.append((f'{desc} form {form} {name[:-1]} {i}', text))
 
         for desc, text in todo:
             for info in await s_stormlint.lintAsync(text, model=mdef, v3ready=True):
