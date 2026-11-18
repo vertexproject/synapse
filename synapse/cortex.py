@@ -6386,7 +6386,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if layr is None:
             raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
-        if layr.layrinfo.get(name, {}).get(iden) is None:
+        pdefs = layr.layrinfo.get(name)
+        if pdefs is None or pdefs.get(iden) is None:
             raise s_exc.NoSuchIden(mesg=f'No layer {name} config for {iden=}', iden=iden)
 
         if not info:
@@ -6404,7 +6405,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if layr is None:
             return
 
-        pdef = layr.layrinfo.get(name, {}).get(iden)
+        pdefs = layr.layrinfo.get(name)
+        if pdefs is None:
+            return
+
+        pdef = pdefs.get(iden)
         if pdef is None:
             return
 

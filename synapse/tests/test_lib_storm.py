@@ -5892,6 +5892,7 @@ class StormTest(s_t_utils.SynTest):
                 # nexus handlers ignore missing layers and configs
                 self.none(await core._modLayrPush(s_common.guid(), pushiden, {'enabled': False}))
                 self.none(await core._modLayrPull(layr2, s_common.guid(), {'enabled': False}))
+                self.none(await core._modLayrPush(core.getView().layers[0].iden, pushiden, {'enabled': False}))
                 self.isin(pushiden, core.activecoros)
                 self.isin(pulliden, core.activecoros)
 
