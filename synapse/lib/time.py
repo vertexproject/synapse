@@ -69,8 +69,8 @@ digitspace_re = regex.compile(r'(?<=\d) +(?=\d)')
 
 # after timezone removal, only digits and separators may remain, and every separator must fall on a
 # year, month, day, hour, minute or second boundary. only the day and hour may be a single digit: the
-# day only when a separator and a time follow it, and the hour only when a separator precedes it and
-# minutes follow it. only a trailing fraction may follow the seconds.
+# day only when a separator and a time follow it, and the hour only when a separator comes before it
+# and minutes follow it. only a trailing fraction may follow the seconds.
 timefields_re = regex.compile(r'''
     \d{15,}                                   # separator free digits beyond seconds precision
     |
