@@ -606,6 +606,7 @@ class CortexTest(s_t_utils.SynTest):
                 msgs = await core.stormlist('v3.prepare --dry-run')
                 self.stormIsInPrint('Checking for mirror and upstream layers...', msgs)
                 self.len(0, getWarns(msgs))
+                self.stormHasNoWarnErr(msgs)
 
                 url00 = 'tcp://root:secret@127.0.0.1:1/*/layer/mirr'
                 url01 = 'tcp://root:secret@127.0.0.1:1/*/layer/up00'
@@ -689,6 +690,7 @@ class CortexTest(s_t_utils.SynTest):
 
                 msgs = await core.stormlist('v3.prepare --dry-run')
                 self.len(0, getWarns(msgs))
+                self.stormHasNoWarnErr(msgs)
 
     async def test_cortex_v3_storm(self):
 
@@ -706,6 +708,7 @@ class CortexTest(s_t_utils.SynTest):
                 msgs = await core.stormlist('v3.prepare --dry-run')
                 self.stormIsInPrint('Checking stored Storm for changes Synapse 3.x requires...', msgs)
                 self.len(0, getWarns(msgs))
+                self.stormHasNoWarnErr(msgs)
 
                 fork = await core.callStorm('return($lib.view.get().fork().iden)')
 
@@ -730,6 +733,7 @@ class CortexTest(s_t_utils.SynTest):
                 msgs = await core.stormlist('v3.prepare --dry-run')
                 self.stormIsInPrint('Checking stored Storm for changes Synapse 3.x requires...', msgs)
                 self.len(0, getWarns(msgs))
+                self.stormHasNoWarnErr(msgs)
 
                 bad = '$y = (1)\n  $x = $lib.true'
                 opts = {'vars': {'q': bad}}
