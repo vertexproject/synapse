@@ -1,7 +1,7 @@
 ---
-desc: Fixed an issue where `time` values containing unrecognized text, such as `AM`/`PM`,
-  a time zone name like `America/New_York`, or an unpadded date, were stored with
-  a wrong value. These now raise a `BadTypeValu` error.
+desc: Fixed `time` values containing unrecognized text, such as `AM`/`PM` or a time zone name
+  like `America/New_York`, being stored with a wrong value; these now raise a `BadTypeValu`
+  error. A single digit day or hour before a time is now zero padded.
 desc:literal: false
 prs: []
 type: bug

@@ -1,8 +1,0 @@
----
-desc: Fixed `time` values with a single digit hour, such as `2015/11/02 5:55:00`,
-  raising a `BadTypeValu` error, and values with a single digit day followed by a
-  time being stored with the wrong day.
-desc:literal: false
-prs: []
-type: bug
-...
