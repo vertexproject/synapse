@@ -41,6 +41,38 @@ class TimeTest(s_t_utils.SynTest):
             s_time.parse('2020 jun 10 12:14:34')
         self.isin('unexpected text in time value', cm.exception.get('mesg'))
 
+        # a single digit hour is zero padded when followed by minutes
+        self.eq(s_time.parse('2015/11/02 5:55:00.000'), 1446443700000)
+        self.eq(s_time.parse('2015/11/02 5:55:07.123'), 1446443707123)
+        self.eq(s_time.parse('2015/11/02 9:05:30.500'), 1446455130500)
+        self.eq(s_time.parse('2015/11/02 5:55:00,000'), 1446443700000)
+        self.eq(s_time.parse('2015/11/02 5:55:00'), 1446443700000)
+        self.eq(s_time.parse('2015-11-02T5:55:00Z'), 1446443700000)
+        self.eq(s_time.parse('20151102 5:55:00'), 1446443700000)
+        self.eq(s_time.parse('2015/11/02 5:55:00 -0500'), 1446461700000)
+        self.eq(s_time.parse('2015-11-02t5:55'), 1446443700000)
+        self.eq(s_time.parse('2015/11/02 05:55:00.000'), 1446443700000)
+        self.eq(s_time.parse('2015/11/02 15:55:00'), 1446479700000)
+        self.eq(s_time.parse('2015'), 1420070400000)
+        self.eq(s_time.parse('2015-11'), 1446336000000)
+        self.eq(s_time.parse('2015-11-02'), 1446422400000)
+        self.eq(s_time.parse('2021-06-07T02:*'), 1623031200000)
+
+        with self.raises(s_exc.BadTypeValu) as cm:
+            s_time.parse('2015/1/2')
+
+        self.isin('unexpected text in time value', cm.exception.get('mesg'))
+
+        with self.raises(s_exc.BadTypeValu) as cm:
+            s_time.parse('2015/11/02 5:5:00')
+
+        self.isin('unexpected text in time value', cm.exception.get('mesg'))
+
+        with self.raises(s_exc.BadTypeValu) as cm:
+            s_time.parse('2015/11/02 5')
+
+        self.isin('unexpected text in time value', cm.exception.get('mesg'))
+
         # rfc822
         self.eq(s_time.parse('Sat, 17 Dec 2050 03:04:32'), 2554859072000)
         self.eq(s_time.parse('Sat, 03 Dec 2050 03:04:32'), 2554859072000 - 14 * s_time.oneday)

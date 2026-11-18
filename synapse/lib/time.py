@@ -64,16 +64,20 @@ tzhour_re = regex.compile(
 )
 
 # after timezone removal, only digits and separators may remain, and every separator must fall on a
-# year, month, day, hour, minute or second boundary. only a trailing fraction may follow the seconds.
+# year, month, day, hour, minute or second boundary. a single digit hour must be followed by minutes,
+# and only a trailing fraction may follow the seconds.
 timefields_re = regex.compile(r'''
-    \d{15,}                             # separator free digits beyond seconds precision
+    \d{15,}                                   # separator free digits beyond seconds precision
     |
-    \d{4}                               # year
+    \d{4}(?:%(s)s?\d{2}){0,2}                 # a date, from year up to day
+    |
+    \d{4}(?:%(s)s?\d{2}){2}                   # a date
+    %(s)s?(?P<hour>\d{2}|\d(?=:))             # a single digit hour must be followed by minutes
     (?:
-        (?:%(s)s?\d{2}){5}              # month, day, hour, minute and second
-        (?:[\.,]\d+)?                   # only a full seconds time may carry a fraction
+        (?:%(s)s?\d{2}){2}                    # minute and second
+        (?:[\.,]\d+)?                         # only a full seconds time may carry a fraction
         |
-        (?:%(s)s?\d{2}){0,4}            # a partial time, from year up to minutes
+        (?:%(s)s?\d{2})?                      # minute
     )
 ''' % {'s': r'[\-/\._:t@]'}, flags=regex.VERBOSE)
 
@@ -98,9 +102,15 @@ def _getTimeDigits(text, otext):
     if not any(c.isdigit() for c in text):
         return ''
 
-    if timefields_re.fullmatch(text) is None:
+    match = timefields_re.fullmatch(text)
+    if match is None:
         mesg = f'Error parsing time "{otext}"; unexpected text in time value'
         raise s_exc.BadTypeValu(mesg=mesg, valu=otext, name='time')
+
+    hour = match.group('hour')
+    if hour is not None and len(hour) == 1:
+        offs = match.start('hour')
+        text = text[:offs] + '0' + text[offs:]
 
     return ''.join([c for c in text if c.isdigit()])
 

@@ -1,0 +1,7 @@
+---
+desc: Fixed `time` values with a single digit hour, such as `2015/11/02 5:55:00`,
+  raising a `BadTypeValu` error.
+desc:literal: false
+prs: []
+type: bug
+...
