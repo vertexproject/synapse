@@ -7248,22 +7248,32 @@ class Layer(Prim):
         {'name': 'pushs', 'desc': '''
             The push configurations of the layer.
 
-            Example:
-                Disable a push configuration of the layer::
+            Examples:
+                Disable every push configuration of the layer::
 
-                    $layer = $lib.layer.get($iden)
-                    $layer.pushs.$pushiden.enabled = (false)
+                    for ($iden, $push) in $layer.pushs {
+                        $push.enabled = (false)
+                    }
+
+                Enable a push configuration of the layer::
+
+                    $layer.pushs.$pushiden.enabled = (true)
             ''',
          'type': {'type': 'gtor', '_gtorfunc': '_gtorPushs',
                   'returns': {'type': 'layer:pushs', 'desc': 'The push configurations of the layer.', }}},
         {'name': 'pulls', 'desc': '''
             The pull configurations of the layer.
 
-            Example:
-                Disable a pull configuration of the layer::
+            Examples:
+                Disable every pull configuration of the layer::
 
-                    $layer = $lib.layer.get($iden)
-                    $layer.pulls.$pulliden.enabled = (false)
+                    for ($iden, $pull) in $layer.pulls {
+                        $pull.enabled = (false)
+                    }
+
+                Enable a pull configuration of the layer::
+
+                    $layer.pulls.$pulliden.enabled = (true)
             ''',
          'type': {'type': 'gtor', '_gtorfunc': '_gtorPulls',
                   'returns': {'type': 'layer:pulls', 'desc': 'The pull configurations of the layer.', }}},
@@ -8446,13 +8456,6 @@ class LayerPushs(LayerPushPulls):
 
     Iterating yields (iden, ``layer:push``) tuples, and a ``layer:push`` may be
     dereferenced by its iden. A missing iden raises ``NoSuchIden``.
-
-    Example:
-        Disable every push configuration of a layer::
-
-            for ($iden, $push) in $lib.layer.get($iden).pushs {
-                $push.enabled = (false)
-            }
     '''
     _storm_typename = 'layer:pushs'
     _layr_field_name = 'pushs'
@@ -8465,11 +8468,6 @@ class LayerPulls(LayerPushPulls):
 
     Iterating yields (iden, ``layer:pull``) tuples, and a ``layer:pull`` may be
     dereferenced by its iden. A missing iden raises ``NoSuchIden``.
-
-    Example:
-        Disable a pull configuration of a layer::
-
-            $lib.layer.get($iden).pulls.$pulliden.enabled = (false)
     '''
     _storm_typename = 'layer:pulls'
     _layr_field_name = 'pulls'
