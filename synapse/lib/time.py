@@ -64,22 +64,24 @@ tzhour_re = regex.compile(
 )
 
 # after timezone removal, only digits and separators may remain, and every separator must fall on a
-# year, month, day, hour, minute or second boundary. a single digit hour must be followed by minutes,
-# and only a trailing fraction may follow the seconds.
+# year, month, day, hour, minute or second boundary. a space between digits is kept as a separator.
+# a single digit day must be separated from the month and a following time, a single digit hour must
+# be followed by minutes, and only a trailing fraction may follow the seconds.
 timefields_re = regex.compile(r'''
-    \d{15,}                                   # separator free digits beyond seconds precision
+    \d{15,}                                      # separator free digits beyond seconds precision
     |
-    \d{4}(?:%(s)s?\d{2}){0,2}                 # a date, from year up to day
+    \d{4}(?:%(s)s?\d{2}){0,2}                    # a date, from year up to day
     |
-    \d{4}(?:%(s)s?\d{2}){2}                   # a date
-    %(s)s?(?P<hour>\d{2}|\d(?=:))             # a single digit hour must be followed by minutes
+    \d{4}%(s)s?\d{2}                             # year and month
+    (?:%(s)s(?P<day>\d)(?=%(s)s)|%(s)s?\d{2})    # day
+    %(s)s?(?:(?P<hour>\d)(?=:)|\d{2})            # hour
     (?:
-        (?:%(s)s?\d{2}){2}                    # minute and second
-        (?:[\.,]\d+)?                         # only a full seconds time may carry a fraction
+        (?:%(s)s?\d{2}){2}                       # minute and second
+        (?:[\.,]\d+)?                            # only a full seconds time may carry a fraction
         |
-        (?:%(s)s?\d{2})?                      # minute
+        (?:%(s)s?\d{2})?                         # minute
     )
-''' % {'s': r'[\-/\._:t@]'}, flags=regex.VERBOSE)
+''' % {'s': r'[\-/\._:t@\x20]'}, flags=regex.VERBOSE)
 
 daycat = '|'.join(calendar.day_abbr[i].lower() for i in range(7))
 monthcat = '|'.join(calendar.month_abbr[i].lower() for i in range(1, 13))
@@ -103,20 +105,38 @@ def _getTimeDigits(text, otext):
         return ''
 
     match = timefields_re.fullmatch(text)
+    if match is None and ' ' in text:
+        # spaces off a field boundary are ignored when no field needs padding
+        text = text.replace(' ', '')
+        match = timefields_re.fullmatch(text)
+        if match is not None and (match.start('day') != -1 or match.start('hour') != -1):
+            match = None
+
     if match is None:
         mesg = f'Error parsing time "{otext}"; unexpected text in time value'
         raise s_exc.BadTypeValu(mesg=mesg, valu=otext, name='time')
 
-    hour = match.group('hour')
-    if hour is not None and len(hour) == 1:
-        offs = match.start('hour')
-        text = text[:offs] + '0' + text[offs:]
+    for name in ('hour', 'day'):
+        offs = match.start(name)
+        if offs != -1:
+            text = text[:offs] + '0' + text[offs:]
 
     return ''.join([c for c in text if c.isdigit()])
 
 def _rawparse(text, base=None, chop=False):
     otext = text
-    text = text.strip().lower().replace(' ', '')
+    parts = [p for p in text.strip().lower().split(' ') if p]
+    text = ''.join(parts)
+
+    # offsets of the spaces between digits, such as between a date and a time
+    bounds = []
+    offs = 0
+    for prev, part in zip(parts, parts[1:]):
+        offs += len(prev)
+        if prev[-1].isdigit() and part[0].isdigit():
+            bounds.append(offs)
+
+    nospace = text
 
     parsed_tz = False
     if base is None:
@@ -138,6 +158,11 @@ def _rawparse(text, base=None, chop=False):
             return dt, base, len(text)
         except ValueError as e:
             raise s_exc.BadTypeValu(mesg=f'Error parsing time as RFC822 "{otext}"; {str(e)}', valu=otext)
+
+    if nospace.startswith(text):
+        for offs in reversed(bounds):
+            if offs < len(text):
+                text = f'{text[:offs]} {text[offs:]}'
 
     text = _getTimeDigits(text, otext)
 

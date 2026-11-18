@@ -73,6 +73,20 @@ class TimeTest(s_t_utils.SynTest):
 
         self.isin('unexpected text in time value', cm.exception.get('mesg'))
 
+        # a single digit day is zero padded when a time follows it
+        self.eq(s_time.parse('2015/11/2 1:05:00'), 1446426300000)
+        self.eq(s_time.parse('2015/11/2 11:05:00'), 1446462300000)
+        self.eq(s_time.parse('2015-11-2T1:05:00'), 1446426300000)
+        self.eq(s_time.parse('2015-11-2 01:05:00.123'), 1446426300123)
+        self.eq(s_time.parse('2015/11/21:05:00'), 1448082000000)
+        self.eq(s_time.parse('20151102 055500123'), 1446443700123)
+
+        for valu in ('2015/11/2', '2015/1/2 01:05:00', '2015/1/02 01:05:00', '2015/11/2 1:5:00'):
+            with self.raises(s_exc.BadTypeValu) as cm:
+                s_time.parse(valu)
+
+            self.isin('unexpected text in time value', cm.exception.get('mesg'))
+
         # rfc822
         self.eq(s_time.parse('Sat, 17 Dec 2050 03:04:32'), 2554859072000)
         self.eq(s_time.parse('Sat, 03 Dec 2050 03:04:32'), 2554859072000 - 14 * s_time.oneday)
