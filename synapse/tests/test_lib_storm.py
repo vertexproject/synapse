@@ -6145,6 +6145,30 @@ class StormTest(s_t_utils.SynTest):
                 msgs = await core.stormlist('layer.pull.list $layr2', opts=opts)
                 self.stormIsInPrint('tcp://root:****@127.0.0.1', msgs)
 
+                # never toggled configs report enabled and soffs in their values
+                pushiden = await core.callStorm('for ($iden, $pdef) in $lib.layer.get($layr0).get(pushs) { return($iden) }', opts=opts)
+                pulliden = await core.callStorm('for ($iden, $pdef) in $lib.layer.get($layr2).get(pulls) { return($iden) }', opts=opts)
+                opts['vars']['pushiden'] = pushiden
+                opts['vars']['pulliden'] = pulliden
+                self.notin('enabled', core.getLayer(layr0).layrinfo['pushs'][pushiden])
+                self.notin('enabled', core.getLayer(layr2).layrinfo['pulls'][pulliden])
+
+                pdef = await core.callStorm('return($lib.layer.get($layr0).pushs.$pushiden)', opts=opts)
+                self.true(pdef['enabled'])
+                self.eq(0, pdef['soffs'])
+
+                pdef = await core.callStorm('return($lib.layer.get($layr2).pulls.$pulliden)', opts=opts)
+                self.true(pdef['enabled'])
+                self.eq(0, pdef['soffs'])
+
+                pushs = await core.callStorm('$layer = $lib.layer.get($layr0) return($layer.pushs)', opts=opts)
+                self.true(pushs[pushiden]['enabled'])
+                self.eq(0, pushs[pushiden]['soffs'])
+
+                pulls = await core.callStorm('$layer = $lib.layer.get($layr2) return($layer.pulls)', opts=opts)
+                self.true(pulls[pulliden]['enabled'])
+                self.eq(0, pulls[pulliden]['soffs'])
+
                 pidn = await core.callStorm('for ($iden, $pdef) in $lib.layer.get($layr0).get(pushs) { return($iden) }', opts=opts)
                 msgs = await core.stormlist(f'layer.push.del $layr0 {pidn}', opts=opts)
                 self.stormIsInPrint('Layer push deleted', msgs)

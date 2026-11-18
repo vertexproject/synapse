@@ -8359,6 +8359,7 @@ class LayerPushPull(Prim):
         pdef = copy.deepcopy(self._reqPdef())
         pdef['url'] = s_urlhelp.sanitizeUrl(pdef.get('url'))
         pdef['soffs'] = pdef.get('soffs', pdef.get('offs'))
+        pdef['enabled'] = pdef.get('enabled', True)
         pdef['offs'] = await self._getCurOffs()
         return pdef
 
