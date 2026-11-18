@@ -51,6 +51,7 @@ import synapse.lib.modelrev as s_modelrev
 import synapse.lib.nodefuse as s_nodefuse
 import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.lmdbslab as s_lmdbslab
+import synapse.lib.stormlint as s_stormlint
 
 import synapse.lib.crypto.rsa as s_rsa
 
@@ -3759,6 +3760,100 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         async for mesg in self._checkV3Layers():
             yield mesg
+
+        async for mesg in self._checkV3Storm(pkgdefs):
+            yield mesg
+
+    async def _checkV3Storm(self, pkgdefs):
+
+        yield ('print', 'Checking stored Storm for changes Synapse 3.x requires...')
+
+        mdef = self.model.getModelDict()
+
+        for iden, appt in list(self.agenda.list()):
+
+            desc = f'Cron job {iden}'
+            if appt.name:
+                desc = f'{desc} ({appt.name})'
+
+            async for mesg in self._lintV3Storm(desc, appt.query, mdef):
+                yield mesg
+
+            await asyncio.sleep(0)
+
+        for view in list(self.views.values()):
+
+            for iden, trig in list(view.triggers.list()):
+
+                desc = f'Trigger {iden}'
+
+                name = trig.tdef.get('name')
+                if name:
+                    desc = f'{desc} ({name})'
+
+                desc = f'{desc} in view {view.iden}'
+
+                async for mesg in self._lintV3Storm(desc, trig.tdef['storm'], mdef):
+                    yield mesg
+
+                await asyncio.sleep(0)
+
+        for _, byts in list(self.slab.scanByFull(db=self.macrodb)):
+
+            info = s_msgpack.un(byts)
+
+            async for mesg in self._lintV3Storm(f'Macro {info["name"]}', info['storm'], mdef):
+                yield mesg
+
+            await asyncio.sleep(0)
+
+        # Power-Ups add these dmons on load, and their Storm is linted from the Power-Up source
+        pkgdmons = {d.get('iden') for p in pkgdefs for d in p.get('dmons', ())}
+
+        for iden, ddef in list(self.stormdmondefs.items()):
+
+            if iden in pkgdmons:
+                continue
+
+            desc = f'Dmon {iden}'
+
+            name = ddef.get('name')
+            if name:
+                desc = f'{desc} ({name})'
+
+            async for mesg in self._lintV3Storm(desc, ddef['storm'], mdef):
+                yield mesg
+
+            await asyncio.sleep(0)
+
+        for adef in list(self._exthttpapis.values()):
+
+            for verb, storm in list(adef['methods'].items()):
+
+                desc = f'Extended HTTP API {adef["iden"]} ({adef["path"]}) {verb.upper()} method'
+
+                async for mesg in self._lintV3Storm(desc, storm, mdef):
+                    yield mesg
+
+                await asyncio.sleep(0)
+
+        for hdef in list(self.viewhooks.values()):
+
+            desc = f'View hook {hdef["iden"]}'
+
+            name = hdef.get('name')
+            if name:
+                desc = f'{desc} ({name})'
+
+            async for mesg in self._lintV3Storm(desc, hdef['storm'], mdef):
+                yield mesg
+
+            await asyncio.sleep(0)
+
+    async def _lintV3Storm(self, desc, text, mdef):
+
+        for info in await s_stormlint.lintAsync(text, model=mdef, v3ready=True):
+            yield ('warning', f'{desc} line {info["line"]}, column {info["column"]}: {info["rule"]} {info["mesg"]}')
 
     async def _checkV3SubCells(self):
 
