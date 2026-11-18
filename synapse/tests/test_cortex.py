@@ -689,6 +689,133 @@ class CortexTest(s_t_utils.SynTest):
                 msgs = await core.stormlist('v3.prepare --dry-run')
                 self.stormHasNoWarnErr(msgs)
 
+    async def test_cortex_v3_storm(self):
+
+        # standalone services so the result is ok when the only findings are warnings
+        async with self.getTestAxon() as axon, self.getTestJsonStor() as jsonstor:
+
+            conf = {'axon': axon.getLocalUrl(), 'jsonstor': jsonstor.getLocalUrl()}
+
+            async with self.getTestCore(conf=conf) as core:
+
+                def getWarns(msgs):
+                    return [m[1]['mesg'] for m in msgs
+                            if m[0] == 'print' and m[1]['mesg'].startswith('WARNING: ')]
+
+                msgs = await core.stormlist('v3.prepare --dry-run')
+                self.stormIsInPrint('Checking stored Storm for changes Synapse 3.x requires...', msgs)
+                self.stormHasNoWarnErr(msgs)
+
+                fork = await core.callStorm('return($lib.view.get().fork().iden)')
+
+                good = '$x = (true)'
+                opts = {'vars': {'q': good}}
+
+                await core.callStorm('cron.add --name goodcron --minute 30 { $x = (true) }')
+                await core.callStorm('$lib.trigger.add(({"cond": "node:add", "form": "inet:ipv4", "storm": $q}))',
+                                     opts={'view': fork, 'vars': {'q': good}})
+                await core.callStorm('$lib.macro.set(goodmacro, $q)', opts=opts)
+                await core.callStorm('$lib.dmon.add($q, name=gooddmon)', opts=opts)
+                await core.callStorm('$api = $lib.cortex.httpapi.add(good) $api.methods.get = $q', opts=opts)
+                await core.callStorm('$lib.view.hook.add(goodhook, created, $q)', opts=opts)
+
+                msgs = await core.stormlist('v3.prepare --dry-run')
+                self.stormIsInPrint('Checking stored Storm for changes Synapse 3.x requires...', msgs)
+                self.stormHasNoWarnErr(msgs)
+
+                bad = '$y = (1)\n  $x = $lib.true'
+                opts = {'vars': {'q': bad}}
+
+                await core.callStorm('cron.add --name mycron --minute 30 { $x = $lib.true }')
+                await core.callStorm('cron.add --minute 30 { $y = (1)\n  $x = $lib.true }')
+                crons = {appt.name: iden for iden, appt in core.agenda.list()}
+
+                trig00 = await core.callStorm('''
+                    $tdef = ({"cond": "node:add", "form": "inet:ipv4", "storm": $q, "name": "mytrig"})
+                    return($lib.trigger.add($tdef).iden)
+                ''', opts={'view': fork, 'vars': {'q': bad}})
+                trig01 = await core.callStorm('''
+                    return($lib.trigger.add(({"cond": "node:add", "form": "inet:ipv4", "storm": $q})).iden)
+                ''', opts=opts)
+
+                await core.callStorm('$lib.macro.set(mymacro, $q)', opts=opts)
+                await core.addStormMacro({'name': 'badmacro', 'storm': '$x = (('})
+
+                dmon00 = await core.callStorm('return($lib.dmon.add($q, name=mydmon).iden)', opts=opts)
+                dmon01 = await core.callStorm('return($lib.dmon.add($q).iden)', opts=opts)
+
+                http = await core.callStorm('''
+                    $api = $lib.cortex.httpapi.add(mypath)
+                    $api.methods.get = $q
+                    return($api.iden)
+                ''', opts=opts)
+
+                hook = await core.callStorm('return($lib.view.hook.add(myhook, created, $q).iden)', opts=opts)
+
+                # noqa lines are skipped
+                noqa = {'vars': {'q': '$x = $lib.true // noqa'}}
+                await core.callStorm('$lib.macro.set(noqamacro, $q)', opts=noqa)
+
+                # Power-Up dmons are linted from the Power-Up source
+                pkgdmon = s_common.guid()
+                await core.addStormPkg({
+                    'name': 'v3dmonpkg',
+                    'version': '0.0.1',
+                    'dmons': [{'iden': pkgdmon, 'name': 'pkgdmon', 'storm': '$x = $lib.true'}],
+                })
+                q = '$lib.dmon.add(${ $x = $lib.true }, ddef=({"iden": $iden, "name": "pkgdmon"}))'
+                await core.callStorm(q, opts={'vars': {'iden': pkgdmon}})
+                self.nn(core.stormdmondefs.get(pkgdmon))
+
+                tail = 'line 2, column 8: R001 $lib.true was removed, use (true).'
+
+                msgs = await core.stormlist('v3.prepare --dry-run')
+                self.stormIsInPrint('Your Cortex has no errors blocking Synapse 3.x.', msgs)
+
+                warns = getWarns(msgs)
+                self.len(10, warns)
+
+                mycron = crons['mycron']
+                mesg = f'WARNING: Cron job {mycron} (mycron) line 1, column 6: R001 $lib.true was removed, use (true).'
+                self.isin(mesg, warns)
+
+                self.isin(f'WARNING: Cron job {crons[""]} {tail}', warns)
+                self.isin(f'WARNING: Trigger {trig00} (mytrig) in view {fork} {tail}', warns)
+                self.isin(f'WARNING: Trigger {trig01} in view {core.view.iden} {tail}', warns)
+                self.isin(f'WARNING: Macro mymacro {tail}', warns)
+                self.isin(f'WARNING: Dmon {dmon00} (mydmon) {tail}', warns)
+                self.isin(f'WARNING: Dmon {dmon01} (noname) {tail}', warns)
+                self.isin(f'WARNING: Extended HTTP API {http} (mypath) GET method {tail}', warns)
+                self.isin(f'WARNING: View hook {hook} (myhook) {tail}', warns)
+
+                mesg = "WARNING: Macro badmacro line 1, column 7: E001 Unexpected token 'end of input' at line 1"
+                self.len(1, [w for w in warns if w.startswith(mesg)])
+
+                self.stormNotInPrint('noqamacro', msgs)
+                self.stormNotInPrint(pkgdmon, msgs)
+                self.stormNotInPrint('good', msgs)
+
+                # stored Storm without a name omits it from the warning
+                core.viewhooks[hook].pop('name')
+                ddef = core.stormdmondefs.get(dmon01)
+                ddef.pop('name')
+                core.stormdmondefs.set(dmon01, ddef)
+
+                msgs = await core.stormlist('v3.prepare --dry-run')
+                warns = getWarns(msgs)
+                self.isin(f'WARNING: Dmon {dmon01} {tail}', warns)
+                self.isin(f'WARNING: View hook {hook} {tail}', warns)
+
+                # warnings alone still record an ok result
+                msgs = await core.stormlist('v3.prepare')
+                self.stormIsInPrint('Checking stored Storm for changes Synapse 3.x requires...', msgs)
+
+                info = await core.getV3Value('preflight', 'result')
+                self.true(info['ok'])
+                self.len(0, info['errors'])
+                self.len(10, info['warnings'])
+                self.isin(f'Macro mymacro {tail}', info['warnings'])
+
     async def test_cortex_must_upgrade(self):
 
         with self.getTestDir() as dirn:
