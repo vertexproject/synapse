@@ -877,6 +877,31 @@ class CortexTest(s_t_utils.SynTest):
                 msgs = await core.stormlist('v3.prepare --dry-run')
                 self.len(13, getWarns(msgs))
 
+                # an item that fails to lint is reported and the rest are still linted
+                async def lintOrFail(text, **kwargs):
+                    if text == bad:
+                        raise RecursionError('lint failed')
+
+                    return await lint(text, **kwargs)
+
+                with patch('synapse.lib.stormlint.lintAsync', lintOrFail):
+                    with self.getLoggerStream('synapse.cortex') as stream:
+                        msgs = await core.stormlist('v3.prepare --dry-run')
+
+                stream.seek(0)
+                self.isin('Error linting stored Storm for v3.prepare: Macro mymacro', stream.read())
+
+                self.stormHasNoErr(msgs)
+                self.stormIsInPrint('Your Cortex has no errors blocking Synapse 3.x.', msgs)
+
+                warns = getWarns(msgs)
+                self.len(13, warns)
+                self.isin('WARNING: Macro mymacro could not be linted: lint failed', warns)
+                self.isin(f'WARNING: Cron job {crons[""]} could not be linted: lint failed', warns)
+                self.isin(f'WARNING: Cron job {mycron} (mycron) line 1, column 6: R001 $lib.true was removed, use (true).',
+                          warns)
+                self.isin(f'WARNING: Graph projection {graph} (mygraph) pivot 0 {gtail}', warns)
+
     async def test_cortex_must_upgrade(self):
 
         with self.getTestDir() as dirn:

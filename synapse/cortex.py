@@ -3861,7 +3861,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                             todo.append((f'{desc} form {form} {name[:-1]} {i}', text))
 
         for desc, text in todo:
-            for info in await s_stormlint.lintAsync(text, model=mdef, v3ready=True):
+
+            try:
+                infos = await s_stormlint.lintAsync(text, model=mdef, v3ready=True)
+
+            except asyncio.CancelledError:  # pragma: no cover
+                raise
+
+            except Exception as e:
+                logger.exception(f'Error linting stored Storm for v3.prepare: {desc}')
+                yield ('warning', f'{desc} could not be linted: {e}')
+                continue
+
+            for info in infos:
                 yield ('warning', f'{desc} line {info["line"]}, column {info["column"]}: {info["rule"]} {info["mesg"]}')
 
     async def _checkV3SubCells(self):
