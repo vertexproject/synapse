@@ -6,6 +6,90 @@
 Synapse Changelog
 *****************
 
+v2.258.0 - 2026-11-18
+=====================
+
+Automatic Migrations
+--------------------
+- Migrated ``inet:url`` nodes stored with an invalid value or incorrect
+  properties by earlier versions of Synapse. Nodes which cannot be repaired are
+  removed and recorded in the ``model_0_2_38:nodes`` queue.
+  (`#5096 <https://github.com/vertexproject/synapse/pull/5096>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Features and Enhancements
+-------------------------
+- Added the ``$lib.model.migration.s.inetWhoisEmailToRefs()`` Storm API to
+  migrate ``inet:whois:email`` nodes to ``inet:whois:rec -(refs)> inet:email``
+  edges.
+  (`#5093 <https://github.com/vertexproject/synapse/pull/5093>`_)
+- Added the ``$lib.model.migration.s.model_0_2_38`` Storm library to list,
+  print, and repair nodes quarantined by the 0.2.38 model migration.
+  (`#5096 <https://github.com/vertexproject/synapse/pull/5096>`_)
+- Added the ``$lib.storm.lint`` library and the ``storm.lint`` command to lint
+  Storm code from Storm.
+  (`#5105 <https://github.com/vertexproject/synapse/pull/5105>`_)
+
+Bugfixes
+--------
+- Fixed an issue where hour-only offsets, `UTC`/`GMT` prefixed offsets, and
+  parenthesized time zone abbreviations in `time` values were ignored instead
+  of being applied.
+  (`#5084 <https://github.com/vertexproject/synapse/pull/5084>`_)
+- Fixed an issue where `time` values containing unrecognized text, such as
+  `AM`/`PM`, a time zone name like `America/New_York`, or an unpadded date,
+  were stored with a wrong value. These now raise a `BadTypeValu` error.
+  (`#5084 <https://github.com/vertexproject/synapse/pull/5084>`_)
+- Fixed the `0.2.35` model migration deleting renamed `inet:client`,
+  `inet:server`, and `inet:url` nodes with bare IPv6 values on a Cortex with
+  10,000 or more `inet:client` and `inet:server` nodes.
+  (`#5094 <https://github.com/vertexproject/synapse/pull/5094>`_)
+- Fixed the `0.2.35` model migration failing with an `AttributeError` when it
+  tracks 10,000 or more nodes and a node is referenced through more than one
+  path.
+  (`#5095 <https://github.com/vertexproject/synapse/pull/5095>`_)
+- Fixed ``inet:url`` normalization accepting malformed URLs such as
+  ``http://///foo.com/x``.
+  (`#5096 <https://github.com/vertexproject/synapse/pull/5096>`_)
+- Fixed an issue where ``delnode`` failed with a ``BadTypeValu`` error on nodes
+  whose stored value is no longer accepted by the current data model
+  normalization.
+  (`#5098 <https://github.com/vertexproject/synapse/pull/5098>`_)
+- Fixed an issue where ``inet:url`` accepted values without a valid scheme,
+  such as ``//www.example.com/a?u=https://example.org``, and took the
+  ``:proto`` and host from a URL embedded in the path or query.
+  (`#5099 <https://github.com/vertexproject/synapse/pull/5099>`_)
+- Fixed an issue where a backup could stall while holding the Nexus lock if a
+  spooled set or dictionary was continuously written, such as during a long
+  running model migration.
+  (`#5100 <https://github.com/vertexproject/synapse/pull/5100>`_)
+- Changed the `$modconf` of an imported Storm module to be read-only, including
+  nested dictionaries and lists. Attempting to modify it now raises a
+  `StormRuntimeError`. Use `$lib.copy()` to get a mutable copy.
+  (`#5101 <https://github.com/vertexproject/synapse/pull/5101>`_)
+- Fixed an issue where ``inet:url`` accepted URLs with a username or password
+  but no host, such as ``file://user@/x``.
+  (`#5102 <https://github.com/vertexproject/synapse/pull/5102>`_)
+- Fixed an issue where ``inet:url`` dropped the UNC slashes from ``file`` URLs
+  that include a username or password.
+  (`#5102 <https://github.com/vertexproject/synapse/pull/5102>`_)
+- Fixed an issue where ``inet:url`` stored the host of Windows WebDAV ``file``
+  URLs such as ``file://1.2.3.4@80/x`` or ``file://host@SSL@443/x`` as
+  ``:user``.
+  (`#5102 <https://github.com/vertexproject/synapse/pull/5102>`_)
+- Fixed an issue where ``inet:url`` did not end the host at a ``#``, so an
+  ``@`` in the fragment set the wrong ``:fqdn`` and ``:user``.
+  (`#5102 <https://github.com/vertexproject/synapse/pull/5102>`_)
+- Fixed graceful leadership handoff (`Cell.handoff()`,
+  `synapse.tools.service.promote`) diverging the Nexus logs. A write forwarded
+  by a mirror that is promoted before it completes now raises `LinkErr` instead
+  of hanging.
+  (`#5104 <https://github.com/vertexproject/synapse/pull/5104>`_)
+- Fixed a bug where growing the LMDB map part way through a transaction could
+  silently lose rows from earlier batched writes, when the code that made them
+  reused its list of rows for a later batch.
+  (`#5113 <https://github.com/vertexproject/synapse/pull/5113>`_)
+
 v2.257.0 - 2026-11-04
 =====================
 
