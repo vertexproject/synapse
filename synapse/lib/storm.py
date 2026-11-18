@@ -6052,9 +6052,9 @@ class V3PrepareCmd(Cmd):
     migration or Power-Up init which has not completed yet, and embedded
     Axon or JSONStor, and a warning for an Axon or JSONStor directory left
     behind in the Cortex storage, and for each lint finding in stored Storm
-    (cron jobs, triggers, macros, dmons, Extended HTTP APIs, and view hooks)
-    which must change for Synapse 3.x. Power-Up Storm is linted from source
-    with storm.lint --v3-ready instead. Each Storm
+    (cron jobs, triggers, macros, dmons, Extended HTTP APIs, view hooks, and
+    graph projections) which must change for Synapse 3.x. Power-Up Storm is
+    linted from source with storm.lint --v3-ready instead. Each Storm
     service, such as Optic, and then the Axon and JSONStor which the Cortex
     is configured to use, is checked and prepared in a section of its own,
     and those which are not ready are named.

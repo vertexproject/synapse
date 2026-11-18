@@ -3833,6 +3833,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             todo.append((desc, hdef['storm']))
 
+        # Power-Up graphs are in pkggraphs and come from the Power-Up, so only user graphs are checked
+        for _, gdef in self.graphs.items():
+
+            desc = f'Graph projection {gdef["iden"]} ({gdef["name"]})'
+
+            for name in ('filters', 'pivots'):
+                for i, text in enumerate(gdef.get(name) or ()):
+                    todo.append((f'{desc} {name[:-1]} {i}', text))
+
+            for form, rule in gdef.get('forms', {}).items():
+                for name in ('filters', 'pivots'):
+                    for i, text in enumerate(rule.get(name) or ()):
+                        todo.append((f'{desc} form {form} {name[:-1]} {i}', text))
+
         for desc, text in todo:
             for info in await s_stormlint.lintAsync(text, model=mdef, v3ready=True):
                 yield ('warning', f'{desc} line {info["line"]}, column {info["column"]}: {info["rule"]} {info["mesg"]}')

@@ -719,6 +719,12 @@ class CortexTest(s_t_utils.SynTest):
                 await core.callStorm('$lib.dmon.add($q, name=gooddmon)', opts=opts)
                 await core.callStorm('$api = $lib.cortex.httpapi.add(good) $api.methods.get = $q', opts=opts)
                 await core.callStorm('$lib.view.hook.add(goodhook, created, $q)', opts=opts)
+                await core.addStormGraph({
+                    'name': 'goodgraph',
+                    'filters': ['+#foo'],
+                    'pivots': ['-> inet:dns:a'],
+                    'forms': {'inet:fqdn': {'filters': ['+#bar'], 'pivots': ['-> *']}},
+                })
 
                 msgs = await core.stormlist('v3.prepare --dry-run')
                 self.stormIsInPrint('Checking stored Storm for changes Synapse 3.x requires...', msgs)
@@ -753,6 +759,17 @@ class CortexTest(s_t_utils.SynTest):
 
                 hook = await core.callStorm('return($lib.view.hook.add(myhook, created, $q).iden)', opts=opts)
 
+                gdef = await core.addStormGraph({
+                    'name': 'mygraph',
+                    'filters': ['+#foo', '+inet:fqdn:zone=$lib.true'],
+                    'pivots': ['-> inet:ipv4'],
+                    'forms': {
+                        '*': {'pivots': ['-> inet:ipv4']},
+                        'inet:fqdn': {'filters': ['+:zone=$lib.true'], 'pivots': ['-> inet:dns:a', '-> inet:ipv4']},
+                    },
+                })
+                graph = gdef['iden']
+
                 # noqa lines are skipped
                 noqa = {'vars': {'q': '$x = $lib.true // noqa'}}
                 await core.callStorm('$lib.macro.set(noqamacro, $q)', opts=noqa)
@@ -763,10 +780,14 @@ class CortexTest(s_t_utils.SynTest):
                     'name': 'v3dmonpkg',
                     'version': '0.0.1',
                     'dmons': [{'iden': pkgdmon, 'name': 'pkgdmon', 'storm': '$x = $lib.true'}],
+                    'graphs': [{'name': 'pkggraph', 'pivots': ['-> inet:ipv4']}],
                 })
                 q = '$lib.dmon.add(${ $x = $lib.true }, ddef=({"iden": $iden, "name": "pkgdmon"}))'
                 await core.callStorm(q, opts={'vars': {'iden': pkgdmon}})
                 self.nn(core.stormdmondefs.get(pkgdmon))
+
+                pkggraph = s_common.guid(('v3dmonpkg', 'pkggraph'))
+                self.nn(core.pkggraphs.get(pkggraph))
 
                 tail = 'line 2, column 8: R001 $lib.true was removed, use (true).'
 
@@ -774,7 +795,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.stormIsInPrint('Your Cortex has no errors blocking Synapse 3.x.', msgs)
 
                 warns = getWarns(msgs)
-                self.len(10, warns)
+                self.len(15, warns)
 
                 mycron = crons['mycron']
                 mesg = f'WARNING: Cron job {mycron} (mycron) line 1, column 6: R001 $lib.true was removed, use (true).'
@@ -789,11 +810,25 @@ class CortexTest(s_t_utils.SynTest):
                 self.isin(f'WARNING: Extended HTTP API {http} (mypath) GET method {tail}', warns)
                 self.isin(f'WARNING: View hook {hook} (myhook) {tail}', warns)
 
+                gtail = 'line 1, column 4: M001 inet:ipv4 is renamed to inet:ip in 3.x.'
+                self.isin(f'WARNING: Graph projection {graph} (mygraph) pivot 0 {gtail}', warns)
+                self.isin(f'WARNING: Graph projection {graph} (mygraph) form * pivot 0 {gtail}', warns)
+                self.isin(f'WARNING: Graph projection {graph} (mygraph) form inet:fqdn pivot 1 {gtail}', warns)
+
+                mesg = (f'WARNING: Graph projection {graph} (mygraph) filter 1 line 1, column 17: R001 $lib.true was'
+                        ' removed, use (true).')
+                self.isin(mesg, warns)
+
+                mesg = (f'WARNING: Graph projection {graph} (mygraph) form inet:fqdn filter 0 line 1, column 8: R001'
+                        ' $lib.true was removed, use (true).')
+                self.isin(mesg, warns)
+
                 mesg = "WARNING: Macro badmacro line 1, column 7: E001 Unexpected token 'end of input' at line 1"
                 self.len(1, [w for w in warns if w.startswith(mesg)])
 
                 self.stormNotInPrint('noqamacro', msgs)
                 self.stormNotInPrint(pkgdmon, msgs)
+                self.stormNotInPrint(pkggraph, msgs)
                 self.stormNotInPrint('good', msgs)
 
                 # stored Storm without a name omits it from the warning
@@ -814,7 +849,7 @@ class CortexTest(s_t_utils.SynTest):
                 info = await core.getV3Value('preflight', 'result')
                 self.true(info['ok'])
                 self.len(0, info['errors'])
-                self.len(10, info['warnings'])
+                self.len(15, info['warnings'])
                 self.isin(f'Macro mymacro {tail}', info['warnings'])
 
                 # stored Storm is collected before it is linted
@@ -832,14 +867,14 @@ class CortexTest(s_t_utils.SynTest):
                     msgs = await core.stormlist('v3.prepare --dry-run')
 
                 warns = getWarns(msgs)
-                self.len(10, warns)
+                self.len(15, warns)
                 self.isin(f'WARNING: Trigger {trig00} (mytrig) in view {fork} {tail}', warns)
                 self.isin(f'WARNING: Trigger {trig01} in view {core.view.iden} {tail}', warns)
 
                 self.none(core.view.triggers.get(trig01))
 
                 msgs = await core.stormlist('v3.prepare --dry-run')
-                self.len(8, getWarns(msgs))
+                self.len(13, getWarns(msgs))
 
     async def test_cortex_must_upgrade(self):
 
