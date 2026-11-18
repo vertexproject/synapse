@@ -1558,27 +1558,6 @@ layer.  During this process, the layer will be readable but writes will hang due
 to be fully caught up to guarantee that edits are immediately observable like a normal layer.  During that process,
 you may track progress by calling the ``getMirrorStatus()`` API on the ``layer`` object within the Storm runtime.
 
-.. _admin_layer_pushpull_enabled:
-
-Disable a Layer Push or Pull
-============================
-
-The ``pushs`` and ``pulls`` properties of a ``layer`` object contain the push and pull configurations of the layer,
-keyed by iden. Setting the ``enabled`` property of a configuration to ``false`` stops it, and setting it to ``true``
-starts it again from its current offset. The :ref:`storm-layer-push-list` and :ref:`storm-layer-pull-list` commands
-show the start offset, the current offset, and whether each configuration is enabled. Changing ``enabled`` requires
-admin privileges on the layer.
-
-Disable a push configuration::
-
-    $layer = $lib.layer.get($layriden)
-    $layer.pushs.$pushiden.enabled = (false)
-
-Enable a pull configuration::
-
-    $layer = $lib.layer.get($layriden)
-    $layer.pulls.$pulliden.enabled = (true)
-
 
 
 .. _synapse.tools: https://synapse.docs.vertex.link/en/latest/synapse/autodocs/synapse.tools.html
