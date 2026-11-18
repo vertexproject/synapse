@@ -3779,8 +3779,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             async for mesg in self._lintV3Storm(desc, appt.query, mdef):
                 yield mesg
 
-            await asyncio.sleep(0)
-
         for view in list(self.views.values()):
 
             for iden, trig in list(view.triggers.list()):
@@ -3796,16 +3794,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 async for mesg in self._lintV3Storm(desc, trig.tdef['storm'], mdef):
                     yield mesg
 
-                await asyncio.sleep(0)
-
         for _, byts in list(self.slab.scanByFull(db=self.macrodb)):
 
             info = s_msgpack.un(byts)
 
             async for mesg in self._lintV3Storm(f'Macro {info["name"]}', info['storm'], mdef):
                 yield mesg
-
-            await asyncio.sleep(0)
 
         # Power-Ups add these dmons on load, and their Storm is linted from the Power-Up source
         pkgdmons = {d.get('iden') for p in pkgdefs for d in p.get('dmons', ())}
@@ -3824,8 +3818,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             async for mesg in self._lintV3Storm(desc, ddef['storm'], mdef):
                 yield mesg
 
-            await asyncio.sleep(0)
-
         for adef in list(self._exthttpapis.values()):
 
             for verb, storm in list(adef['methods'].items()):
@@ -3834,8 +3826,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 async for mesg in self._lintV3Storm(desc, storm, mdef):
                     yield mesg
-
-                await asyncio.sleep(0)
 
         for hdef in list(self.viewhooks.values()):
 
@@ -3847,8 +3837,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             async for mesg in self._lintV3Storm(desc, hdef['storm'], mdef):
                 yield mesg
-
-            await asyncio.sleep(0)
 
     async def _lintV3Storm(self, desc, text, mdef):
 
