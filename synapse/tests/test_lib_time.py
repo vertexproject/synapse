@@ -41,49 +41,43 @@ class TimeTest(s_t_utils.SynTest):
             s_time.parse('2020 jun 10 12:14:34')
         self.isin('unexpected text in time value', cm.exception.get('mesg'))
 
-        # a single digit hour is zero padded when followed by minutes
-        self.eq(s_time.parse('2015/11/02 5:55:00.000'), 1446443700000)
+        # a single digit hour followed by minutes is zero padded
+        tick = s_time.parse('2015/11/02 05:55:00.000')
+        self.eq(tick, 1446443700000)
+        self.eq(s_time.parse('2015/11/02 5:55:00.000'), tick)
+        self.eq(s_time.parse('2015/11/02 5:55:00'), tick)
+        self.eq(s_time.parse('2015-11-02T5:55:00Z'), tick)
+        self.eq(s_time.parse('20151102 5:55:00'), tick)
+        self.eq(s_time.parse('2015-11-02t5:55'), tick)
+        self.eq(s_time.parse('2015/11/02 5:55:00 -0500'), tick + 5 * s_time.onehour)
         self.eq(s_time.parse('2015/11/02 5:55:07.123'), 1446443707123)
-        self.eq(s_time.parse('2015/11/02 9:05:30.500'), 1446455130500)
-        self.eq(s_time.parse('2015/11/02 5:55:00,000'), 1446443700000)
-        self.eq(s_time.parse('2015/11/02 5:55:00'), 1446443700000)
-        self.eq(s_time.parse('2015-11-02T5:55:00Z'), 1446443700000)
-        self.eq(s_time.parse('20151102 5:55:00'), 1446443700000)
-        self.eq(s_time.parse('2015/11/02 5:55:00 -0500'), 1446461700000)
-        self.eq(s_time.parse('2015-11-02t5:55'), 1446443700000)
-        self.eq(s_time.parse('2015/11/02 05:55:00.000'), 1446443700000)
+        self.eq(s_time.parse('2015/11/02 9:05:30.5'), 1446455130500)
+
         self.eq(s_time.parse('2015/11/02 15:55:00'), 1446479700000)
         self.eq(s_time.parse('2015'), 1420070400000)
         self.eq(s_time.parse('2015-11'), 1446336000000)
         self.eq(s_time.parse('2015-11-02'), 1446422400000)
         self.eq(s_time.parse('2021-06-07T02:*'), 1623031200000)
 
-        with self.raises(s_exc.BadTypeValu) as cm:
-            s_time.parse('2015/1/2')
-
-        self.isin('unexpected text in time value', cm.exception.get('mesg'))
-
-        with self.raises(s_exc.BadTypeValu) as cm:
-            s_time.parse('2015/11/02 5:5:00')
-
-        self.isin('unexpected text in time value', cm.exception.get('mesg'))
-
-        with self.raises(s_exc.BadTypeValu) as cm:
-            s_time.parse('2015/11/02 5')
-
-        self.isin('unexpected text in time value', cm.exception.get('mesg'))
-
-        # a single digit day is zero padded when a time follows it
-        self.eq(s_time.parse('2015/11/2 1:05:00'), 1446426300000)
+        # a single digit day followed by a time is zero padded
+        tick = s_time.parse('2015/11/2 1:05:00')
+        self.eq(tick, 1446426300000)
+        self.eq(s_time.parse('2015-11-2T1:05:00'), tick)
+        self.eq(s_time.parse('2015/11/2 1:05:00 -0500'), tick + 5 * s_time.onehour)
         self.eq(s_time.parse('2015/11/2 11:05:00'), 1446462300000)
-        self.eq(s_time.parse('2015-11-2T1:05:00'), 1446426300000)
-        self.eq(s_time.parse('2015-11-2 01:05:00.123'), 1446426300123)
-        self.eq(s_time.parse('2015/11/21:05:00'), 1448082000000)
-        self.eq(s_time.parse('20151102 055500123'), 1446443700123)
+        self.eq(s_time.parse('2015-11-2 01:05:00.123'), tick + 123)
 
-        for valu in ('2015/11/2', '2015/1/2 01:05:00', '2015/1/02 01:05:00', '2015/11/2 1:5:00'):
+        # without a space, the day and hour run together
+        self.eq(s_time.parse('2015/11/21:05:00'), 1448082000000)
+
+        # spaces that split separator free digits are ignored
+        self.eq(s_time.parse('20151102 055500123'), 1446443700123)
+        self.eq(s_time.parse('20 15'), 1420070400000)
+
+        for text in ('2015/1/2', '2015/11/02 5:5:00', '2015/11/02 5', '2015/11/2', '2015/1/02 01:05:00',
+                     '2015/11/2 5', '2015/11/2:05:00', '2015/11/2/05:00'):
             with self.raises(s_exc.BadTypeValu) as cm:
-                s_time.parse(valu)
+                s_time.parse(text)
 
             self.isin('unexpected text in time value', cm.exception.get('mesg'))
 
