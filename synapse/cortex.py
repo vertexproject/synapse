@@ -3757,6 +3757,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         async for mesg in self._checkV3SubCells():
             yield mesg
 
+        async for mesg in self._checkV3Layers():
+            yield mesg
+
     async def _checkV3SubCells(self):
 
         yield ('print', 'Checking for an embedded Axon or JSONStor...')
@@ -3851,6 +3854,58 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if curv < maxv:
                 mesg = f'Power-Up {name} has not completed its inits yet (version {curv}, expected {maxv}).'
                 yield ('error', mesg)
+
+    async def _checkV3Layers(self):
+
+        yield ('print', 'Checking for mirror and upstream layers...')
+
+        for layr in self.layers.values():
+
+            desc = f'Layer {layr.iden}'
+
+            name = layr.layrinfo.get('name')
+            if name is not None:
+                desc = f'{desc} ({name})'
+
+            mirror = layr.layrinfo.get('mirror')
+            if mirror is not None:
+                urls = self._getV3LayerUrls(mirror)
+                mesg = (f'{desc} mirrors {urls}. Synapse 3.x keeps the layer and its data but drops the mirror '
+                        'setting, so it stops syncing. Set up layer push or pull again after migrating.')
+                yield ('warning', mesg)
+
+            upstream = layr.layrinfo.get('upstream')
+            if upstream is not None:
+                urls = self._getV3LayerUrls(upstream)
+                mesg = (f'{desc} pulls from upstream layers {urls}. Synapse 3.x keeps the layer and its data but '
+                        'drops the upstream setting, so it stops syncing. Set up layer push or pull again after '
+                        'migrating.')
+                yield ('warning', mesg)
+
+    def _getV3LayerUrls(self, valu):
+
+        # layer definitions do not validate these, so render any value without raising or leaking it
+        if not isinstance(valu, (list, tuple)):
+            valu = (valu,)
+
+        urls = []
+        for item in valu:
+
+            if isinstance(item, str):
+                urls.append(s_urlhelp.sanitizeUrl(item))
+                continue
+
+            if isinstance(item, dict):
+                info = dict(item)
+                if info.get('passwd') is not None:
+                    info['passwd'] = '****'
+
+                urls.append(repr(info))
+                continue
+
+            urls.append(f'<{type(item).__name__}>')
+
+        return ', '.join(urls)
 
     def _semvTuple(self, text):
         info = s_version.parseSemver(text)
