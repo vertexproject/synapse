@@ -5796,7 +5796,7 @@ class StormTest(s_t_utils.SynTest):
                 pulltask = core.activecoros[pulliden].get('task')
 
                 self.none(await core.modLayrPush(layr0, pushiden, {'enabled': False}))
-                self.none(await core.modLayrPull(layr2, pulliden, {'enabled': 0}))
+                self.none(await core.modLayrPull(layr2, pulliden, {'enabled': False}))
 
                 self.true(pushtask.done())
                 self.true(pulltask.done())
@@ -5853,7 +5853,7 @@ class StormTest(s_t_utils.SynTest):
                 self.len(4, await core.nodes('ps:contact', opts={'view': view1}))
                 self.len(3, await core.nodes('ps:contact', opts={'view': view2}))
 
-                self.none(await core.modLayrPull(layr2, pulliden, {'enabled': 1}))
+                self.none(await core.modLayrPull(layr2, pulliden, {'enabled': True}))
                 self.isin(pulliden, core.activecoros)
                 self.true(core.getLayer(layr2).layrinfo['pulls'][pulliden]['enabled'])
 
@@ -5886,6 +5886,12 @@ class StormTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.BadArg):
                     await core.modLayrPull(layr2, pulliden, {'enabled': False, 'url': 'tcp://newp'})
+
+                with self.raises(s_exc.BadArg):
+                    await core.modLayrPush(layr0, pushiden, {'enabled': 'false'})
+
+                with self.raises(s_exc.BadArg):
+                    await core.modLayrPull(layr2, pulliden, {'enabled': 0})
 
                 self.true(core.getLayer(layr2).layrinfo['pulls'][pulliden]['enabled'])
 
@@ -6080,6 +6086,36 @@ class StormTest(s_t_utils.SynTest):
                 msgs = await core.stormlist('layer.pull.list $layr4', opts=dopts)
                 line = [m[1]['mesg'] for m in msgs if m[0] == 'print' and m[1]['mesg'].startswith(dpull)][0]
                 self.isin(' |            7 |          0 | false   | tcp://root:****@127.0.0.1', line)
+
+                # configs stored without offs report a start offset of 0
+                npush = s_common.guid()
+                npull = s_common.guid()
+                nooffs = {'url': url, 'user': core.auth.rootuser.iden, 'time': s_common.now(), 'enabled': False}
+                self.none(await core.addLayrPush(layr4, {**nooffs, 'iden': npush}))
+                self.none(await core.addLayrPull(layr4, {**nooffs, 'iden': npull}))
+
+                nopts = {'vars': {'layr4': layr4, 'npush': npush, 'npull': npull}}
+                q = '$layr = $lib.layer.get($layr4) return(($layr.pushs.$npush.soffs, $layr.pulls.$npull.soffs))'
+                self.eq((0, 0), await core.callStorm(q, opts=nopts))
+
+                pdef = await core.callStorm('return($lib.layer.get($layr4).pushs.$npush)', opts=nopts)
+                self.eq(0, pdef['soffs'])
+
+                pdef = await core.callStorm('return($lib.layer.get($layr4).pulls.$npull)', opts=nopts)
+                self.eq(0, pdef['soffs'])
+
+                msgs = await core.stormlist('layer.push.list $layr4', opts=nopts)
+                self.stormHasNoWarnErr(msgs)
+                line = [m[1]['mesg'] for m in msgs if m[0] == 'print' and m[1]['mesg'].startswith(npush)][0]
+                self.isin(' |            0 |          0 | false   | tcp://root:****@127.0.0.1', line)
+
+                msgs = await core.stormlist('layer.pull.list $layr4', opts=nopts)
+                self.stormHasNoWarnErr(msgs)
+                line = [m[1]['mesg'] for m in msgs if m[0] == 'print' and m[1]['mesg'].startswith(npull)][0]
+                self.isin(' |            0 |          0 | false   | tcp://root:****@127.0.0.1', line)
+
+                with self.raises(s_exc.SchemaViolation):
+                    await core.addLayrPush(layr4, {**nooffs, 'iden': s_common.guid(), 'soffs': 1.5})
 
                 # remove and ensure no replay on restart
                 await core.nodes('ps:contact | delnode', opts={'view': view2})

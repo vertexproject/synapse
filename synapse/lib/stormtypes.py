@@ -8278,7 +8278,7 @@ def _reqLayrPdefs(runt, layriden, name):
 
 async def _fillLayrPdef(runt, iden, pdef, defoffs):
     '''Fill in the start and current offsets of a layer push or pull config.'''
-    pdef['soffs'] = pdef.get('soffs', pdef.get('offs'))
+    pdef['soffs'] = pdef.get('soffs', pdef.get('offs', 0))
     # push and pull configs both store their current offset in push:<iden>
     pdef['offs'] = await runt.snap.core.getStormVar(f'push:{iden}', defoffs)
     return pdef

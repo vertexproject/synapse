@@ -97,7 +97,7 @@ _LayerPushPullSchema = {
     'properties': {
         'url': {'type': 'string'},
         'time': {'type': 'number'},
-        'soffs': {'type': 'number'},
+        'soffs': {'type': 'integer', 'minimum': 0},
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'user': {'type': 'string', 'pattern': s_config.re_iden},
         'enabled': {'type': 'boolean'},

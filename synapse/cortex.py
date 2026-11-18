@@ -6397,7 +6397,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if key != 'enabled':
                 raise s_exc.BadArg(mesg=f'Cannot set {key=} on layer {name} config', name=key)
 
-        return {'enabled': bool(info['enabled'])}
+        valu = info['enabled']
+        if not isinstance(valu, bool):
+            raise s_exc.BadArg(mesg=f'Layer {name} config enabled must be a bool, not {valu!r}', name='enabled')
+
+        return {'enabled': valu}
 
     async def _modLayrPushPull(self, layriden, name, iden, info, runfunc):
 
