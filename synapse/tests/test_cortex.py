@@ -32,6 +32,7 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.stormsvc as s_stormsvc
+import synapse.lib.stormlint as s_stormlint
 
 import synapse.tools.service.backup as s_tools_backup
 import synapse.tools.service.promote as s_tools_promote
@@ -815,6 +816,30 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(0, info['errors'])
                 self.len(10, info['warnings'])
                 self.isin(f'Macro mymacro {tail}', info['warnings'])
+
+                # stored Storm is collected before it is linted
+                lint = s_stormlint.lintAsync
+                trig = core.getView(fork).triggers.get(trig00)
+
+                async def lintAndEdit(text, **kwargs):
+                    if trig.get('storm') != good:
+                        await trig.set('storm', good)
+                        await core.view.delTrigger(trig01)
+
+                    return await lint(text, **kwargs)
+
+                with patch('synapse.lib.stormlint.lintAsync', lintAndEdit):
+                    msgs = await core.stormlist('v3.prepare --dry-run')
+
+                warns = getWarns(msgs)
+                self.len(10, warns)
+                self.isin(f'WARNING: Trigger {trig00} (mytrig) in view {fork} {tail}', warns)
+                self.isin(f'WARNING: Trigger {trig01} in view {core.view.iden} {tail}', warns)
+
+                self.none(core.view.triggers.get(trig01))
+
+                msgs = await core.stormlist('v3.prepare --dry-run')
+                self.len(8, getWarns(msgs))
 
     async def test_cortex_must_upgrade(self):
 

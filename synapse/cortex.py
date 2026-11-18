@@ -3770,18 +3770,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         mdef = self.model.getModelDict()
 
-        for iden, appt in list(self.agenda.list()):
+        # collect the defs before linting since they can change while it awaits
+        todo = []
+
+        for iden, appt in self.agenda.list():
 
             desc = f'Cron job {iden}'
             if appt.name:
                 desc = f'{desc} ({appt.name})'
 
-            async for mesg in self._lintV3Storm(desc, appt.query, mdef):
-                yield mesg
+            todo.append((desc, appt.query))
 
-        for view in list(self.views.values()):
+        for view in self.views.values():
 
-            for iden, trig in list(view.triggers.list()):
+            for iden, trig in view.triggers.list():
 
                 desc = f'Trigger {iden}'
 
@@ -3791,20 +3793,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 desc = f'{desc} in view {view.iden}'
 
-                async for mesg in self._lintV3Storm(desc, trig.tdef['storm'], mdef):
-                    yield mesg
+                todo.append((desc, trig.tdef['storm']))
 
-        for _, byts in list(self.slab.scanByFull(db=self.macrodb)):
+        for _, byts in self.slab.scanByFull(db=self.macrodb):
 
             info = s_msgpack.un(byts)
-
-            async for mesg in self._lintV3Storm(f'Macro {info["name"]}', info['storm'], mdef):
-                yield mesg
+            todo.append((f'Macro {info["name"]}', info['storm']))
 
         # Power-Ups add these dmons on load, and their Storm is linted from the Power-Up source
         pkgdmons = {d.get('iden') for p in pkgdefs for d in p.get('dmons', ())}
 
-        for iden, ddef in list(self.stormdmondefs.items()):
+        for iden, ddef in self.stormdmondefs.items():
 
             if iden in pkgdmons:
                 continue
@@ -3815,19 +3814,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if name:
                 desc = f'{desc} ({name})'
 
-            async for mesg in self._lintV3Storm(desc, ddef['storm'], mdef):
-                yield mesg
+            todo.append((desc, ddef['storm']))
 
-        for adef in list(self._exthttpapis.values()):
+        for adef in self._exthttpapis.values():
 
-            for verb, storm in list(adef['methods'].items()):
+            for verb, storm in adef['methods'].items():
 
                 desc = f'Extended HTTP API {adef["iden"]} ({adef["path"]}) {verb.upper()} method'
+                todo.append((desc, storm))
 
-                async for mesg in self._lintV3Storm(desc, storm, mdef):
-                    yield mesg
-
-        for hdef in list(self.viewhooks.values()):
+        for hdef in self.viewhooks.values():
 
             desc = f'View hook {hdef["iden"]}'
 
@@ -3835,13 +3831,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if name:
                 desc = f'{desc} ({name})'
 
-            async for mesg in self._lintV3Storm(desc, hdef['storm'], mdef):
-                yield mesg
+            todo.append((desc, hdef['storm']))
 
-    async def _lintV3Storm(self, desc, text, mdef):
-
-        for info in await s_stormlint.lintAsync(text, model=mdef, v3ready=True):
-            yield ('warning', f'{desc} line {info["line"]}, column {info["column"]}: {info["rule"]} {info["mesg"]}')
+        for desc, text in todo:
+            for info in await s_stormlint.lintAsync(text, model=mdef, v3ready=True):
+                yield ('warning', f'{desc} line {info["line"]}, column {info["column"]}: {info["rule"]} {info["mesg"]}')
 
     async def _checkV3SubCells(self):
 
