@@ -1,7 +1,0 @@
----
-desc: Updated the ``v3.prepare`` command to warn about stored Storm which must change for Synapse
-  3.x, in cron jobs, triggers, macros, dmons, Extended HTTP APIs, and view hooks.
-desc:literal: false
-prs: []
-type: feat
-...
