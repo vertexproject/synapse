@@ -69,13 +69,15 @@ class TimeTest(s_t_utils.SynTest):
 
         # without a space, the day and hour run together
         self.eq(s_time.parse('2015/11/21:05:00'), 1448082000000)
+        self.eq(s_time.parse('2015/11/21 5:55'), 1448085300000)
 
         # spaces that split separator free digits are ignored
         self.eq(s_time.parse('20151102 055500123'), 1446443700123)
         self.eq(s_time.parse('20 15'), 1420070400000)
 
         for text in ('2015/1/2', '2015/11/02 5:5:00', '2015/11/02 5', '2015/11/2', '2015/1/02 01:05:00',
-                     '2015/11/2 5', '2015/11/2:05:00', '2015/11/2/05:00'):
+                     '2015/11/2 5', '2015/11/2:05:00', '2015/11/2/05:00', '2015/11/215:55', '2015/11/215:55:00',
+                     '201511215:55'):
             with self.raises(s_exc.BadTypeValu) as cm:
                 s_time.parse(text)
 
