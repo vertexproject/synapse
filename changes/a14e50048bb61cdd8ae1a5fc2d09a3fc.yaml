@@ -1,0 +1,8 @@
+---
+desc: Fixed a bug where growing the LMDB map part way through a transaction could
+  silently lose rows from earlier batched writes, when the code that made them
+  reused its list of rows for a later batch.
+desc:literal: false
+prs: []
+type: bug
+...
