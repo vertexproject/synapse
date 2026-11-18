@@ -1831,7 +1831,7 @@ Parsing
 
   - Human-readable with other time zone formats. Synapse also accepts a time zone abbreviation (such as ``EST`` or
     ``UTC``), optionally in parentheses, a ``UTC`` or ``GMT`` prefixed offset, an hour-only offset following a time
-    with seconds, and an offset followed by an abbreviation:
+    with minutes or seconds, and an offset followed by an abbreviation:
 
     ``"2018-12-16 09:37:52 EST"``
 
@@ -1846,8 +1846,10 @@ Parsing
     .. NOTE::
 
       Each date and time field after the year must be two digits (for example, ``2018-01-02`` rather than
-      ``2018-1-2``). Text that is not part of a supported format, such as ``AM`` / ``PM`` or a time zone name like
-      ``America/New_York``, causes a ``BadTypeValu`` error instead of being ignored.
+      ``2018-1-2``), except that a single digit day followed by a time, or a single digit hour followed by minutes,
+      is zero padded (for example, ``2018-01-2 9:37`` is read as ``2018-01-02 09:37``). Text that is not part of a
+      supported format, such as ``AM`` / ``PM`` or a time zone name like ``America/New_York``, causes a
+      ``BadTypeValu`` error instead of being ignored.
 
   - No formatting (YYYYMMDDhhmmssmmm):
     

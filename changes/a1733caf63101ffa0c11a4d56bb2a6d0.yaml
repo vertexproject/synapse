@@ -1,7 +1,8 @@
 ---
-desc: Fixed `time` values containing unrecognized text, such as `AM`/`PM` or a time zone name
-  like `America/New_York`, being stored with a wrong value; these now raise a `BadTypeValu`
-  error. A single digit day or hour before a time is now zero padded.
+desc: Fixed `time` values containing unrecognized text, such as `AM`/`PM` or a time zone name,
+  being stored with a wrong value; these now raise a `BadTypeValu` error. Added zero padding
+  of a single digit day or hour before a time. Fixed timezone offsets after an `HH:MM` time,
+  such as `03:04-07`, being read as seconds or removed from the wrong position.
 desc:literal: false
 prs: []
 type: bug

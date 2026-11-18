@@ -45,32 +45,31 @@ unitcat = '|'.join(sorted(timeunits.keys(), key=lambda x: len(x), reverse=True))
 tz_re = regex.compile(
     r'\d(?P<tzstr>\s?(?:'
     # go style numeric offset followed by a redundant abbreviation ( -0500 EST ); the offset wins
-    r'(?:(?P<tzrel>\-|\+)(?P<tzhr>\d{2})(?P<tzmin>\d{2})\s?(?:%s))|'
+    r'(?:(?P<tzrel>\-|\+)(?P<tzhr>\d{2})\s?(?P<tzmin>\d{2})\s?(?:%s))|'
     # utc / gmt prefixed offsets ( GMT+5, UTC-05:30 )
-    r'(?:(?:utc|gmt|ut)(?P<tzrel>\-|\+)(?P<tzhr>\d{1,2})(?::?(?P<tzmin>\d{2}))?)|'
+    r'(?:(?:utc|gmt|ut)(?P<tzrel>\-|\+)(?P<tzhr>\d{1,2})(?:[:\s]?(?P<tzmin>\d{2}))?)|'
     # parenthesized timezone names ( (EST) )
     r'(?:\((?P<tzname>%s)\))|'
     r'(?P<tzname>%s)|'
-    r'(?:(?P<tzrel>\-|\+)(?P<tzhr>\d{1,2}):?(?P<tzmin>\d{2})))'
+    r'(?:(?P<tzrel>\-|\+)(?:(?P<tzhr>\d{1,2}):?|(?P<tzhr>\d{2})\s)(?P<tzmin>\d{2})))'
     r')(?:[\-|\+]\d+(?:%s))?$' % (tzcat, tzcat, tzcat, unitcat),
     flags=regex.IGNORECASE
 )
 
-# a bare ISO 8601 +/-hh offset is only unambiguous following a full seconds precision time
+# a bare ISO 8601 +/-hh offset is only unambiguous following a time of at least minutes precision.
+# the search runs in reverse so the end anchor fails fast.
 tzhour_re = regex.compile(
-    r'(?:\d{2}:\d{2}:\d{2}(?:[\.,]\d+)?|^\d{14,})'
+    r'(?:\d{1,2}:\d{2}(?::\d{2}(?:[\.,]\d+)?)?|^(?:\d\s?){13,}\d)'
     r'(?P<tzstr>\s?(?P<tzrel>\-|\+)(?P<tzhr>\d{2}))'
     r'(?:[\-|\+]\d+(?:%s))?$' % (unitcat,),
+    flags=regex.REVERSE
 )
 
-# a space between two digits marks a field boundary, such as between a date and a time, unless the digits
-# only parse without the spaces
-digitspace_re = regex.compile(r'(?<=\d) +(?=\d)')
-
 # after timezone removal, only digits and separators may remain, and every separator must fall on a
-# year, month, day, hour, minute or second boundary. only the day and hour may be a single digit: the
-# day only when a separator and a time follow it, and the hour only when a separator comes before it
-# and minutes follow it. only a trailing fraction may follow the seconds.
+# year, month, day, hour, minute or second boundary. a space separates the seconds only when one also
+# separates the minutes, so a bare number after hh:mm is not read as seconds. only the day and hour may
+# be a single digit: the day only when a separator and a time follow it, and the hour only when a
+# separator comes before it and minutes follow it. only a trailing fraction may follow the seconds.
 timefields_re = regex.compile(r'''
     \d{15,}                                   # separator free digits beyond seconds precision
     |
@@ -80,16 +79,16 @@ timefields_re = regex.compile(r'''
     (?:%(s)s?(?P<day>\d{2})|%(s)s(?P<day>\d)(?=[t@ ]))  # a single digit day must sit between separators
     (?:%(s)s?(?P<hour>\d{2})|%(s)s(?P<hour>\d)(?=:))    # a single digit hour must sit between a separator and minutes
     (?:
-        (?:%(s)s?\d{2}){2}                    # minute and second
-        (?:[\.,]\d+)?                         # only a full seconds time may carry a fraction
+        (?:[ ]\d{2}[ ]\d{2}|%(s)s?\d{2}%(n)s?\d{2})  # minute and second
+        (?:[\.,]\d+(?:[ ]\d+)*)?              # only a full seconds time may carry a fraction
         |
         (?:%(s)s?\d{2})?                      # minute
     )
-''' % {'s': r'[\-/\._:t@ ]'}, flags=regex.VERBOSE)
+''' % {'s': r'[\-/\._:t@ ]', 'n': r'[\-/\._:t@]'}, flags=regex.VERBOSE)
 
 daycat = '|'.join(calendar.day_abbr[i].lower() for i in range(7))
 monthcat = '|'.join(calendar.month_abbr[i].lower() for i in range(1, 13))
-rfc822_re = regex.compile(r'((?:%s),)?\d{1,2}(?:%s)\d{4}\d{2}:\d{2}:\d{2}' % (daycat, monthcat))
+rfc822_re = regex.compile(r'((?:%s),)?\d{1,2}(?:%s)\d{4} ?\d{2}:\d{2}:\d{2}' % (daycat, monthcat))
 rfc822_fmt = '%d%b%Y%H:%M:%S'
 
 def _getTimeDigits(text, otext):
@@ -109,7 +108,7 @@ def _getTimeDigits(text, otext):
         return ''
 
     match = timefields_re.fullmatch(text)
-    if match is None:
+    if match is None and ' ' in text:
         # spaces that split separator free digits are not field boundaries
         text = text.replace(' ', '')
         if text.isdigit():
@@ -120,11 +119,14 @@ def _getTimeDigits(text, otext):
         raise s_exc.BadTypeValu(mesg=mesg, valu=otext, name='time')
 
     # pad the hour before the day so the day offset still holds
-    for name in ('hour', 'day'):
-        valu = match.group(name)
-        if valu is not None and len(valu) == 1:
-            offs = match.start(name)
-            text = text[:offs] + '0' + text[offs:]
+    day, hour = match.groups()
+    if hour is not None and len(hour) == 1:
+        offs = match.start('hour')
+        text = text[:offs] + '0' + text[offs:]
+
+    if day is not None and len(day) == 1:
+        offs = match.start('day')
+        text = text[:offs] + '0' + text[offs:]
 
     return ''.join([c for c in text if c.isdigit()])
 
@@ -132,10 +134,15 @@ def _rawparse(text, base=None, chop=False):
     otext = text
     text = text.strip().lower()
 
-    # space free offsets of the field boundaries marked by a space between digits
-    bounds = [m.start() - text.count(' ', 0, m.start()) for m in digitspace_re.finditer(text)]
+    # only a single space between two digits is kept, as a field boundary
+    if ' ' in text:
+        parts = text.split()
+        text = parts[0]
+        for part in parts[1:]:
+            if text[-1].isdigit() and part[0].isdigit():
+                text += ' '
 
-    text = nospace = text.replace(' ', '')
+            text += part
 
     parsed_tz = False
     if base is None:
@@ -148,6 +155,9 @@ def _rawparse(text, base=None, chop=False):
     rfc822_match = rfc822_re.match(text)
     if rfc822_match is not None:
 
+        # strptime takes the rfc822 text without spaces
+        text = text.replace(' ', '')
+
         # remove leading day since it is not used in strptime
         if grp := rfc822_match.groups()[0]:
             text = text.replace(grp, '', 1)
@@ -157,12 +167,6 @@ def _rawparse(text, base=None, chop=False):
             return dt, base, len(text)
         except ValueError as e:
             raise s_exc.BadTypeValu(mesg=f'Error parsing time as RFC822 "{otext}"; {str(e)}', valu=otext)
-
-    # restore the field boundaries, unless timezone removal changed the text before them
-    if bounds and nospace.startswith(text):
-        for offs in reversed(bounds):
-            if offs < len(text):
-                text = text[:offs] + ' ' + text[offs:]
 
     text = _getTimeDigits(text, otext)
 
@@ -272,6 +276,9 @@ def parsetz(text):
     if match is None:
         return text, 0
 
+    offs, ends = match.span('tzstr')
+    rest = text[:offs] + text[ends:]
+
     tzrel = match['tzrel']
     if tzrel is not None:
 
@@ -285,7 +292,7 @@ def parsetz(text):
             raise s_exc.BadTypeValu(mesg=f'Timezone offset must be between +/- 24 hours for {text}',
                                     valu=text, name='time')
 
-        return text.replace(match['tzstr'], '', 1), base
+        return rest, base
 
     offset, _ = s_l_timezones.getTzOffset(match['tzname'])
     if offset is None:  # pragma: no cover
@@ -293,7 +300,7 @@ def parsetz(text):
 
     base = offset * -1
 
-    return text.replace(match['tzstr'], '', 1), base
+    return rest, base
 
 def repr(tick, pack=False):
     '''
