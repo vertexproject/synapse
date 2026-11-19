@@ -42,9 +42,9 @@ timeunits = {
 
 tzcat = '|'.join(sorted(s_l_timezones.getTzNames(), key=lambda x: len(x), reverse=True))
 unitcat = '|'.join(sorted(timeunits.keys(), key=lambda x: len(x), reverse=True))
-# a space separated offset ( -05 00 ) may not start right after the year and month, where it is the end of a
-# date ( 2021-06-07 02 )
-tzspaced = r'(?<!^\d{4}[\-/\._:]?\d{2}\s?[\-\+]\d{2}\s\d{2})'
+# a space separated offset ( -05 00 ) may not start right after the year, or the year and month, where it is
+# the end of a date ( 2015-11 02, 2021-06-07 02 )
+tzspaced = r'(?<!^\d{4}(?:[\-/\._:\s]?\d{2})?\s?[\-\+]\d{2}\s\d{2})'
 tz_re = regex.compile(
     r'\d(?P<tzstr>\s?(?:'
     # go style numeric offset followed by a redundant abbreviation ( -0500 EST ); the offset wins

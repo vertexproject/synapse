@@ -1445,6 +1445,13 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(t.repr(t.norm('2021-06-07 02 EST')[0]), '2021/06/07 07:00:00.000')
             self.eq(t.repr(t.norm('2021-06-27 02')[0]), '2021/06/27 02:00:00.000')
             self.eq(t.repr(t.norm('2015/11/02 05:55:00 -05 00')[0]), '2015/11/02 10:55:00.000')
+            self.eq(t.repr(t.norm('2015/11/02 05:25:00 UTC-05 30')[0]), '2015/11/02 10:55:00.000')
+            self.eq(t.norm('2015-11 02'), (1446422400000, {}))
+            self.eq(t.norm('2015-11 25'), (1448409600000, {}))
+            self.eq(t.norm('2015 11-02 05'), (1446440400000, {}))
+            self.eq(core.model.type('ival').norm('2015-11 02'), ((1446422400000, 1446422400001), {}))
+            with self.raises(s_exc.BadTypeValu):
+                t.norm('2015 -05 00')
 
             # a parenthesized comment after a numeric offset is dropped and the offset applies
             self.eq(t.repr(t.norm('2021-06-07 -0500 (EST)')[0]), '2021/06/07 05:00:00.000')

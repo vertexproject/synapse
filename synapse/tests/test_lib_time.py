@@ -232,6 +232,17 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parsetz('2015/11/02 05:55:00.123 456 -05 00'),
                 ('2015/11/02 05:55:00.123 456', 5 * s_time.onehour))
         self.eq(s_time.parsetz('2015/11/02 05:55 -05 00 est'), ('2015/11/02 05:55', 5 * s_time.onehour))
+
+        # ... nor right after the year, or a space separated year and month
+        for text, tick in (('2015-11 02', 1446422400000), ('2015-11 25', 1448409600000),
+                           ('2015 11-02 05', 1446440400000)):
+            self.eq(s_time.parsetz(text), (text, 0))
+            self.eq(s_time.parse(text), tick)
+            self.eq(s_time.parse(text, base=0, chop=True), tick)
+
+        self.eq(s_time.parsetz('2015 -05 00'), ('2015 -05 00', 0))
+        self.eq(s_time.parsetz('2015 11 02 -05 00'), ('2015 11 02', 5 * s_time.onehour))
+
         with self.raises(s_exc.BadTypeValu):
             s_time.parse('2021-06-07 02 EST')
 
