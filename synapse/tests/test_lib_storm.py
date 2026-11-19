@@ -6074,10 +6074,10 @@ class StormTest(s_t_utils.SynTest):
                 self.eq((5, -1, False), (pdef['soffs'], pdef['offs'], pdef['enabled']))
 
                 pdef = await core.callStorm('return($lib.layer.get($layr4).get(pulls).$dpull)', opts=dopts)
-                self.eq((7, 0), (pdef['soffs'], pdef['offs']))
+                self.eq((7, 0, False), (pdef['soffs'], pdef['offs'], pdef['enabled']))
 
                 pdef = await core.callStorm('return($lib.layer.get($layr4).pack().pushs.$dpush)', opts=dopts)
-                self.eq((5, -1), (pdef['soffs'], pdef['offs']))
+                self.eq((5, -1, False), (pdef['soffs'], pdef['offs'], pdef['enabled']))
 
                 msgs = await core.stormlist('layer.push.list $layr4', opts=dopts)
                 line = [m[1]['mesg'] for m in msgs if m[0] == 'print' and m[1]['mesg'].startswith(dpush)][0]
@@ -6230,6 +6230,22 @@ class StormTest(s_t_utils.SynTest):
                 pulls = await core.callStorm('$layer = $lib.layer.get($layr2) return($layer.pulls)', opts=opts)
                 self.true(pulls[pulliden]['enabled'])
                 self.eq(0, pulls[pulliden]['soffs'])
+
+                pushs = await core.callStorm('return($lib.layer.get($layr0).get(pushs))', opts=opts)
+                self.true(pushs[pushiden]['enabled'])
+                self.eq(0, pushs[pushiden]['soffs'])
+
+                pulls = await core.callStorm('return($lib.layer.get($layr2).get(pulls))', opts=opts)
+                self.true(pulls[pulliden]['enabled'])
+                self.eq(0, pulls[pulliden]['soffs'])
+
+                ldef = await core.callStorm('return($lib.layer.get($layr0).pack())', opts=opts)
+                self.true(ldef['pushs'][pushiden]['enabled'])
+                self.eq(0, ldef['pushs'][pushiden]['soffs'])
+
+                ldef = await core.callStorm('return($lib.layer.get($layr2).pack())', opts=opts)
+                self.true(ldef['pulls'][pulliden]['enabled'])
+                self.eq(0, ldef['pulls'][pulliden]['soffs'])
 
                 pidn = await core.callStorm('for ($iden, $pdef) in $lib.layer.get($layr0).get(pushs) { return($iden) }', opts=opts)
                 msgs = await core.stormlist(f'layer.push.del $layr0 {pidn}', opts=opts)

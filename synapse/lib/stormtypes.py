@@ -8277,8 +8277,9 @@ def _reqLayrPdefs(runt, layriden, name):
     return layr.layrinfo.get(name, {})
 
 async def _fillLayrPdef(runt, iden, pdef, defoffs):
-    '''Fill in the start and current offsets of a layer push or pull config.'''
+    '''Fill in the start offset, current offset, and enabled state of a layer push or pull config.'''
     pdef['soffs'] = pdef.get('soffs', pdef.get('offs', 0))
+    pdef['enabled'] = pdef.get('enabled', True)
     # push and pull configs both store their current offset in push:<iden>
     pdef['offs'] = await runt.snap.core.getStormVar(f'push:{iden}', defoffs)
     return pdef
@@ -8362,7 +8363,6 @@ class LayerPushPull(Prim):
     async def value(self):
         pdef = await _fillLayrPdef(self.runt, self.valu, copy.deepcopy(self._reqPdef()), -1)
         pdef['url'] = s_urlhelp.sanitizeUrl(pdef.get('url'))
-        pdef['enabled'] = pdef.get('enabled', True)
         return pdef
 
     async def stormrepr(self):

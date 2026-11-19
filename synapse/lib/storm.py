@@ -426,7 +426,7 @@ stormcmds = (
                     $sstr = $lib.cast(str, $pdef.soffs).rjust(12)
                     $ostr = $lib.cast(str, $pdef.offs).rjust(10)
 
-                    $estr = $lib.model.type(bool).repr(($pdef.enabled != false)).ljust(7)
+                    $estr = $lib.model.type(bool).repr($pdef.enabled).ljust(7)
 
                     $lib.print("{iden} | {user} | {time} | {soffs} | {offs} | {enabled} | {url}",
                                iden=$iden, time=$tstr, user=$user, soffs=$sstr, offs=$ostr, enabled=$estr, url=$pdef.url)
@@ -490,7 +490,7 @@ stormcmds = (
                     $sstr = $lib.cast(str, $pdef.soffs).rjust(12)
                     $ostr = $lib.cast(str, $pdef.offs).rjust(10)
 
-                    $estr = $lib.model.type(bool).repr(($pdef.enabled != false)).ljust(7)
+                    $estr = $lib.model.type(bool).repr($pdef.enabled).ljust(7)
 
                     $lib.print("{iden} | {user} | {time} | {soffs} | {offs} | {enabled} | {url}",
                                iden=$iden, time=$tstr, user=$user, soffs=$sstr, offs=$ostr, enabled=$estr, url=$pdef.url)
