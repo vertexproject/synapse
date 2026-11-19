@@ -128,9 +128,17 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time._rawparse('2015:11'), (datetime.datetime(2015, 11, 1), 0, 6))
         self.eq(s_time._rawparse('2015:11/02 05:55'), (datetime.datetime(2015, 11, 2, 5, 55), 0, 12))
         self.eq(s_time._rawparse('2015:11:0205:55'), (datetime.datetime(2015, 11, 2, 5, 55), 0, 12))
-        for text in ('2015:11:2', '2015:11-02', '2015-11:02'):
+        for text in ('2015:11:2', '2015-11:02'):
             with self.raises(s_exc.BadTypeValu):
                 s_time.parse(text)
+
+        # a colon year and month is not read as a time with an offset
+        self.eq(s_time.parsetz('2015:11-02'), ('2015:11-02', 0))
+        self.eq(s_time.parse('2015:11-02'), s_time.parse('2015-11-02'))
+        self.eq(s_time.parse('2015:11-05'), s_time.parse('2015-11-05'))
+        self.eq(s_time.parse('2015:11-05', base=0, chop=True), s_time.parse('2015-11-05'))
+        for text in ('20151102 5:55-05', '2015-11-02T05:55-05', '2015/11/02 5:55 -05', '2015:11:02 5:55-05'):
+            self.eq(s_time.parse(text), s_time.parse('2015-11-02T10:55Z'))
 
         # values the fast path declines take the general path
         self.eq(s_time.parse('2015-11-02T05:55:00.123456Z'), tick + 123)
@@ -301,7 +309,6 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parsetz('2021060702030-05'), ('2021060702030', 5 * s_time.onehour))
         with self.raises(s_exc.BadTypeValu):
             s_time.parse('2021060702030-05')
-
 
         # ... after any date separator
         for sep in '.:_':
