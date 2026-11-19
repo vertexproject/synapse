@@ -279,6 +279,13 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parse('2021-06-07 0203+05'), tick - 5 * s_time.onehour - 4 * s_time.onesec)
         self.eq(s_time.parsetz('2021/06/07 0203-05'), ('2021/06/07 0203', 5 * s_time.onehour))
 
+        # ... after any date separator
+        for sep in '.:_':
+            for text, offs in ((f'2021{sep}06{sep}07 020304', 0), (f'2021{sep}06{sep}07T020304', 0),
+                               (f'2021{sep}06{sep}07T020304.123', 123)):
+                self.eq(s_time.parse(text + '+00'), tick + offs)
+                self.eq(s_time.parse(text + '-05'), tick + offs + 5 * s_time.onehour)
+
         # a trailing number after a date or an hour is not an offset
         for text in ('2021-06-07-05', '2021-06-05', '2021-06-07 02-05', '2021-06-07 020-05'):
             self.eq(s_time.parsetz(text), (text, 0))
