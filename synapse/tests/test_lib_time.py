@@ -62,6 +62,7 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parse('2015-11-02T05:55:00', base=5), tick + 5)
         self.eq(s_time.parse('2015-11-02T05:55:00.123456Z'), tick + 123)
         self.eq(s_time.parse('20151102055500123'), tick + 123)
+        self.eq(s_time.parsefast('2015-11-02T05:55:00.123456789Z', chop=True), tick + 123)
         self.eq(s_time.wildrange('2015-11-02T05:55'), (tick, tick + s_time.onemin))
 
         # values the fast path declines take the general path
@@ -71,6 +72,7 @@ class TimeTest(s_t_utils.SynTest):
                      '20151302', '2015-11-02T05:55:60', '2015-11-02 24:00', '0000-01-01', '2015-11-02*', '2015-11-02?',
                      '\uff12\uff10\uff11\uff15'):
             self.none(s_time._fastparse(text, None, False))
+            self.none(s_time.parsefast(text))
 
         self.none(s_time._fastparse('2015-11-02T05:55:00Z', 0, False))
 

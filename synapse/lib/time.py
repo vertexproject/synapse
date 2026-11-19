@@ -192,6 +192,16 @@ def _fastparse(text, base, chop):
 
     return dt, base, tlen
 
+def parsefast(text, chop=False):
+    '''
+    Parse a clean ISO 8601 style or separator free digits time value into epoch millis, or return None.
+    '''
+    if (info := _fastparse(text, None, chop)) is None:
+        return None
+
+    dt, base, tlen = info
+    return int((dt - EPOCH).total_seconds() * 1000 + base)
+
 def _rawparse(text, base=None, chop=False):
 
     if (info := _fastparse(text, base, chop)) is not None:

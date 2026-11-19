@@ -1438,6 +1438,33 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(t.norm('2024-01-02 03:04:05.123456789 +0000 UTC')[0], ztick + 123)
             self.eq(t.norm('2024/01/02 03:04:05+1day')[0], ztick + s_time.oneday)
 
+            # clean ISO 8601, colon date and digit values
+            ntick = 1446443700000
+            ival = core.model.type('ival')
+            self.eq(t.norm('2015-11-02T05:55:00Z'), (ntick, {}))
+            self.eq(t.norm(' 2015-11-02T05:55:00Z '), (ntick, {}))
+            self.eq(t.norm('2015-11-02 05:55:00'), (ntick, {}))
+            self.eq(t.norm('20151102055500'), (ntick, {}))
+            self.eq(t.norm('2015-11-02 05:55:00.123456+05:00'), (1446425700123, {}))
+            self.eq(t.norm('2015-11-02T05:55:00.1234567Z'), (ntick + 123, {}))
+            self.eq(t.norm('2008:04:19 11:49:11'), (1208605751000, {}))
+            self.eq(t.norm('2008:04:19T11:49:11-00:00'), (1208605751000, {}))
+            self.eq(t.norm('2015-11-03'), (1446508800000, {}))
+            self.eq(ival.norm('2015-11-02T05:55:00Z'), ((ntick, ntick + 1), {}))
+            self.eq(ival.norm(('2015-11-02T05:55:00Z', '2015-11-03')), ((ntick, 1446508800000), {}))
+            self.eq(t.norm('9999-12-31T23:59:59.999Z'), (maxtime, {}))
+            with self.raises(s_exc.BadTypeValu):
+                t.norm('9999-12-31T23:59:59.999-01:00')
+
+            # other values take the general path
+            self.eq(t.norm('2015-11-02 05:55:00 EST'), (1446461700000, {}))
+            self.eq(t.norm('20151102055500 +1day'), (ntick + s_time.oneday, {}))
+            self.eq(t.norm('2015-11-02?'), (1446422400000, {}))
+            self.eq(t.norm('2015-11-02 05:55-0205'), (ntick + 125 * s_time.onemin, {}))
+            for valu in ('2015-02-30T05:55:00Z', '2015-11-02T05:55:00+24:00', '2015-11-02T5:55:00Z', '2015/11/2 05:55:00'):
+                with self.raises(s_exc.BadTypeValu):
+                    t.norm(valu)
+
             utc = datetime.timezone.utc
             delta = datetime.datetime.now(tz=utc) - datetime.datetime(2014, 1, 1, tzinfo=utc)
             days = delta.days + 14
