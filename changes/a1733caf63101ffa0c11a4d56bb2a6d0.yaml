@@ -1,9 +1,10 @@
 ---
 desc: Fixed `time` values containing unrecognized text, such as `AM`/`PM` or a time zone name,
   being stored with a wrong value; these now raise a `BadTypeValu` error. Added zero padding
-  of a single digit day or hour before a time. Fixed timezone offsets after an `HH:MM` time,
-  such as `03:04-07`, being read as seconds or removed from the wrong position. Added support
-  for a comment after a numeric offset, such as `-0700 (PDT)`.
+  of a single digit day or hour before a time. Fixed timezone offsets after an `HH:MM` time or
+  a space separated basic time, such as `03:04-07` or `2021-06-07 0203-05`, being read as
+  seconds or removed from the wrong position. Added support for a comment after a numeric
+  offset, such as `-0700 (PDT)`.
 desc:literal: false
 prs: []
 type: bug

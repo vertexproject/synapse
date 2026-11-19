@@ -219,6 +219,21 @@ class TimeTest(s_t_utils.SynTest):
         with self.raises(s_exc.BadTypeValu):
             s_time.parse('2021t0203+05')
 
+        # ... including one after a space
+        self.eq(s_time.parse('2021-06-07 020304+00'), tick)
+        self.eq(s_time.parse('2021-06-07 020304-05'), tick + 5 * s_time.onehour)
+        self.eq(s_time.parse('2021-06-07 020304 -05'), tick + 5 * s_time.onehour)
+        self.eq(s_time.parse('2021-06-07 020304.123-05'), tick + 5 * s_time.onehour + 123)
+        self.eq(s_time.parse('20210607 020304-05'), tick + 5 * s_time.onehour)
+        self.eq(s_time.parse('2021-06-07 0203-05'), tick + 5 * s_time.onehour - 4 * s_time.onesec)
+        self.eq(s_time.parse('2021-06-07 0203 -05'), tick + 5 * s_time.onehour - 4 * s_time.onesec)
+        self.eq(s_time.parse('2021-06-07 0203+05'), tick - 5 * s_time.onehour - 4 * s_time.onesec)
+        self.eq(s_time.parsetz('2021/06/07 0203-05'), ('2021/06/07 0203', 5 * s_time.onehour))
+
+        # a trailing number after a date or an hour is not an offset
+        for text in ('2021-06-07-05', '2021-06-05', '2021-06-07 02-05', '2021-06-07 020-05'):
+            self.eq(s_time.parsetz(text), (text, 0))
+
         # any whitespace separates fields, and a leading byte order mark is ignored
         for text in ('2021-06-07\t02:03:04', '2021-06-07\n02:03:04', '2021-06-07\r\n02:03:04', '2021-06-07\xa002:03:04',
                      '2021-06-07 02:03:04', '2021-06-07　02:03:04', '﻿2021-06-07T02:03:04Z'):
