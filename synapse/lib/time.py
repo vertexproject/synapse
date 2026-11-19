@@ -116,6 +116,19 @@ def _getTimeDigits(text, otext):
 
     return ''.join([c for c in text if c.isdigit()])
 
+def _tzoffs(tzrel, tzhr, tzmin):
+    '''
+    Return the base offset for a numeric timezone offset, where tzmin may be None.
+    '''
+    base = onehour * int(tzhr)
+    if tzmin is not None:
+        base += onemin * int(tzmin)
+
+    if tzrel == '+':
+        base *= -1
+
+    return base
+
 def _fastparse(text, base, chop):
     '''
     Parse a clean ISO 8601 style or separator free digits time value, or return None for the general path.
@@ -174,12 +187,9 @@ def _fastparse(text, base, chop):
 
             base = 0
             if tzrel is not None:
-                base = onehour * int(tzhr) + onemin * int(tzmin)
+                base = _tzoffs(tzrel, tzhr, tzmin)
                 if abs(base) >= oneday:
                     return None
-
-                if tzrel == '+':
-                    base *= -1
 
     if base is None:
         base = 0
@@ -348,12 +358,7 @@ def parsetz(text):
     tzrel = match['tzrel']
     if tzrel is not None:
 
-        base = onehour * int(match['tzhr'])
-        if (tzmin := match.groupdict().get('tzmin')) is not None:
-            base += onemin * int(tzmin)
-        if tzrel == '+':
-            base *= -1
-
+        base = _tzoffs(tzrel, match['tzhr'], match.groupdict().get('tzmin'))
         if abs(base) >= oneday:
             raise s_exc.BadTypeValu(mesg=f'Timezone offset must be between +/- 24 hours for {text}',
                                     valu=text, name='time')
