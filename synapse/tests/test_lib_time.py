@@ -57,6 +57,25 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parse('2015-11-02T05:55:00+00:00'), tick)
         self.eq(s_time.parse('2015-11-02T05:55:00', base=5), tick + 5)
 
+        # colon separated dates
+        self.eq(s_time._fastparse('2015:11:02', None, False), (datetime.datetime(2015, 11, 2), 0, 8))
+        self.eq(s_time._fastparse('2015:11:2 5:55:00+00:00', None, False),
+                (datetime.datetime(2015, 11, 2, 5, 55), 0, 14))
+        self.eq(s_time.parse('2015:11:02 05:55:00'), tick)
+        self.eq(s_time.parse('2015:11:02T00:55:00-05:00'), tick)
+        self.eq(s_time.parse('2015:11:02 05:55:00.123Z'), tick + 123)
+
+        # colon dates the fast path declines, since mixed separators may read as an offset
+        for text in ('2015:11', '2015:11:2', '2015:11-02', '2015-11:02', '2015:11/02 05:55', '2015:11:0205:55'):
+            self.none(s_time._fastparse(text, None, False))
+
+        self.eq(s_time._rawparse('2015:11'), (datetime.datetime(2015, 11, 1), 0, 6))
+        self.eq(s_time._rawparse('2015:11/02 05:55'), (datetime.datetime(2015, 11, 2, 5, 55), 0, 12))
+        self.eq(s_time._rawparse('2015:11:0205:55'), (datetime.datetime(2015, 11, 2, 5, 55), 0, 12))
+        for text in ('2015:11:2', '2015:11-02', '2015-11:02'):
+            with self.raises(s_exc.BadTypeValu):
+                s_time.parse(text)
+
         # values the fast path declines take the general path
         self.eq(s_time.parse('2015-11-02T05:55:00.123456Z'), tick + 123)
         self.eq(s_time.parse('2015-11-02T05:55:00.123456789Z', chop=True), tick + 123)
