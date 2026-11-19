@@ -1466,6 +1466,34 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(t.repr(t.norm('2021-06-07T02:03:04 -05:00*')[0]), '2021/06/07 07:03:04.000')
             self.eq(t.norm('2021-06-07T02:03:04 EST?'), (1623049384000, {}))
 
+            # clean ISO 8601, colon date and digit values
+            ntick = 1446443700000
+            ival = core.model.type('ival')
+            self.eq(t.norm('2015-11-02T05:55:00Z'), (ntick, {}))
+            self.eq(t.norm(' 2015-11-02T05:55:00Z '), (ntick, {}))
+            self.eq(t.norm('2015-11-02 05:55:00'), (ntick, {}))
+            self.eq(t.norm('20151102055500'), (ntick, {}))
+            self.eq(t.norm('2015-11-02 05:55:00.123456+05:00'), (1446425700123, {}))
+            self.eq(t.norm('2015-11-02T05:55:00.1234567Z'), (ntick + 123, {}))
+            self.eq(t.norm('2008:04:19 11:49:11'), (1208605751000, {}))
+            self.eq(t.norm('2008:04:19T11:49:11-00:00'), (1208605751000, {}))
+            self.eq(t.norm('2015-11-03'), (1446508800000, {}))
+            self.eq(ival.norm('2015-11-02T05:55:00Z'), ((ntick, ntick + 1), {}))
+            self.eq(ival.norm(('2015-11-02T05:55:00Z', '2015-11-03')), ((ntick, 1446508800000), {}))
+            self.eq(t.norm('9999-12-31T23:59:59.999Z'), (maxtime, {}))
+            with self.raises(s_exc.BadTypeValu):
+                t.norm('9999-12-31T23:59:59.999-01:00')
+
+            # other values take the general path
+            self.eq(t.norm('2015-11-02 05:55:00 EST'), (1446461700000, {}))
+            self.eq(t.norm('20151102055500 +1day'), (ntick + s_time.oneday, {}))
+            self.eq(t.norm('2015-11-02?'), (1446422400000, {}))
+            with self.raises(s_exc.BadTypeValu):
+                t.norm('2015-02-30T05:55:00Z')
+
+            with self.raises(s_exc.BadTypeValu):
+                t.norm('2015-11-02T05:55:00+24:00')
+
             # an invalid relative time is a bad value
             with self.raises(s_exc.BadTypeValu):
                 core.model.type('ival').norm('2021-06-7T02:03:04,123-07+1day')
