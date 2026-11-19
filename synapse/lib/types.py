@@ -2227,6 +2227,12 @@ class Time(IntBase):
         if (tick := s_time.parsefast(valu, chop=True)) is not None:
             return self._normPyInt(tick)
 
+        return self._normTimeText(valu)
+
+    def _normTimeText(self, valu):
+        '''
+        Norm a stripped and lowered time string without the leading parsefast attempt.
+        '''
         # parse timezone
         text, base = s_time.parsetz(valu)
 

@@ -10,6 +10,16 @@ import synapse.lib.const as s_const
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tests.utils as s_t_utils
+import synapse.tests.test_lib_time as s_t_time
+
+def getNormOrErr(func, valu):
+    '''
+    Return the result of func(valu), or the class of the exception it raised.
+    '''
+    try:
+        return func(valu)
+    except Exception as e:
+        return e.__class__
 
 
 class TypesTest(s_t_utils.SynTest):
@@ -1464,6 +1474,17 @@ class TypesTest(s_t_utils.SynTest):
             for valu in ('2015-02-30T05:55:00Z', '2015-11-02T05:55:00+24:00', '2015-11-02T5:55:00Z', '2015/11/2 05:55:00'):
                 with self.raises(s_exc.BadTypeValu):
                     t.norm(valu)
+
+            # every value the fast path reads norms the same as with the general path
+            hits = 0
+            for valu in s_t_time.getTimeVals():
+                text = valu.strip().lower()
+                if s_time.parsefast(text, chop=True) is not None:
+                    hits += 1
+
+                self.eq(getNormOrErr(t.norm, valu), getNormOrErr(t._normTimeText, text), msg=repr(valu))
+
+            self.gt(hits, 150)
 
             utc = datetime.timezone.utc
             delta = datetime.datetime.now(tz=utc) - datetime.datetime(2014, 1, 1, tzinfo=utc)

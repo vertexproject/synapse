@@ -8,6 +8,33 @@ import synapse.lookup.timezones as s_l_timezones
 
 import synapse.tests.utils as s_t_utils
 
+def getTimeVals():
+    '''
+    Return seeded time values for comparing the fast path with the general path.
+    '''
+    rand = random.Random(0)
+    dates = ('2015', '2015-11', '2015/11', '2015-11-02', '2015/11/02', '2015-11/02', '2015-11-2', '2015:11:02',
+             '2015:11:2', '2015-13-02', '2015-00-02', '2015-11-31', '2015-11-32', '2015-02-29', '2016-02-29',
+             '0000-01-01', '0001-01-01', '9999-12-31', '2015-1-02', '20151102')
+    times = ('', 'T05:55', 't05:55', ' 05:55', 'T5:55', ' 5:55', 'T05:55:00', 't23:59:59', ' 05:55:59',
+             'T24:00', 'T05:60', 'T05:55:60', 'T055500', ' 0555', 'T05:55:00,1') + tuple(
+             f'{sep}05:55:00.{"123456789"[:size]}' for sep in 'Tt ' for size in range(1, 10))
+    tzs = ('', '', '', 'Z', 'z', ' Z', '+05:30', '-0500', ' -05:00', '-05', '+0000', '+24:00', '-23:59', '+5:30',
+           '-0205', ' EST', 'x', '*', '?')
+    digits = '20151102055500123456789'
+    vals = [digits[:size] for size in range(1, 24)]
+    for size in range(4, 24):
+        vals.append(''.join(rand.choice('0123456789') for _ in range(size)))
+
+    for _ in range(1000):
+        valu = rand.choice(dates) + rand.choice(times) + rand.choice(tzs)
+        if rand.random() < 0.1:
+            valu = rand.choice((' ', '\t', '')) + valu + rand.choice((' ', '\n', ''))
+
+        vals.append(valu)
+
+    return vals
+
 class TimeTest(s_t_utils.SynTest):
 
     def test_time_delta(self):
@@ -111,29 +138,8 @@ class TimeTest(s_t_utils.SynTest):
                 s_time.parse(text)
 
         # every value the fast path reads matches the general path
-        rand = random.Random(0)
-        dates = ('2015', '2015-11', '2015/11', '2015-11-02', '2015/11/02', '2015-11/02', '2015-11-2', '2015:11:02',
-                 '2015:11:2', '2015-13-02', '2015-00-02', '2015-11-31', '2015-11-32', '2015-02-29', '2016-02-29',
-                 '0000-01-01', '0001-01-01', '9999-12-31', '2015-1-02', '20151102')
-        times = ('', 'T05:55', 't05:55', ' 05:55', 'T5:55', ' 5:55', 'T05:55:00', 't23:59:59', ' 05:55:59',
-                 'T24:00', 'T05:60', 'T05:55:60', 'T055500', ' 0555', 'T05:55:00,1') + tuple(
-                 f'{sep}05:55:00.{"123456789"[:size]}' for sep in 'Tt ' for size in range(1, 10))
-        tzs = ('', '', '', 'Z', 'z', ' Z', '+05:30', '-0500', ' -05:00', '-05', '+0000', '+24:00', '-23:59', '+5:30',
-               '-0205', ' EST', 'x', '*', '?')
-        digits = '20151102055500123456789'
-        vals = [digits[:size] for size in range(1, 24)]
-        for size in range(4, 24):
-            vals.append(''.join(rand.choice('0123456789') for _ in range(size)))
-
-        for _ in range(1000):
-            valu = rand.choice(dates) + rand.choice(times) + rand.choice(tzs)
-            if rand.random() < 0.1:
-                valu = rand.choice((' ', '\t', '')) + valu + rand.choice((' ', '\n', ''))
-
-            vals.append(valu)
-
         hits = 0
-        for valu in vals:
+        for valu in getTimeVals():
             for base, chop in ((None, False), (None, True), (7, False)):
                 if (info := s_time._fastparse(valu, base, chop)) is not None:
                     hits += 1
