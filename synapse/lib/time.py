@@ -86,6 +86,9 @@ isotime_re = regex.compile(
     r'(?P<year>[0-9]{4})[\-/](?P<month>[0-9]{2})(?:[\-/](?P<day>[0-9]{2})' + isotime_tail + r')?'
 )
 
+# colon separated dates ( 2008:04:19 11:49:11 ) must use colons for both separators and include the day
+colontime_re = regex.compile(r'(?P<year>[0-9]{4}):(?P<month>[0-9]{2}):(?P<day>[0-9]{2})' + isotime_tail)
+
 daycat = '|'.join(calendar.day_abbr[i].lower() for i in range(7))
 monthcat = '|'.join(calendar.month_abbr[i].lower() for i in range(1, 13))
 rfc822_re = regex.compile(r'((?:%s),)?\d{1,2}(?:%s)\d{4}\d{2}:\d{2}:\d{2}' % (daycat, monthcat))
@@ -132,6 +135,9 @@ def _fastparse(text, base, chop):
 
     else:
         match = isotime_re.fullmatch(text)
+        if match is None and text[4:5] == ':':
+            match = colontime_re.fullmatch(text)
+
         if match is None:
             return None
 
