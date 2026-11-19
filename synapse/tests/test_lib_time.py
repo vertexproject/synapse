@@ -1,5 +1,7 @@
 import time
+import random
 import datetime
+import unittest.mock as mock
 
 import synapse.exc as s_exc
 
@@ -62,6 +64,38 @@ class TimeTest(s_t_utils.SynTest):
                         self.isin(f'Error parsing time "{valu}"', cm.exception.get('mesg'))
 
         # clean iso 8601 and separator free digit values return the same parse details as the general path
+        rand = random.Random(0)
+        dates = ('2015', '2015-11', '2015/11', '2015-11-02', '2015/11/02', '2015-11/02', '2015-11-2', '2015:11:02',
+                 '2015:11:2', '2015-13-02', '2015-00-02', '2015-11-31', '2015-11-32', '2015-02-29', '2016-02-29',
+                 '0000-01-01', '0001-01-01', '9999-12-31', '2015-1-02', '20151102')
+        times = ('', 'T05:55', 't05:55', ' 05:55', 'T5:55', ' 5:55', 'T05:55:00', 't23:59:59', ' 05:55:59',
+                 'T24:00', 'T05:60', 'T05:55:60', 'T055500', ' 0555', 'T05:55:00,1') + tuple(
+                 f'{sep}05:55:00.{"123456789"[:size]}' for sep in 'Tt ' for size in range(1, 10))
+        tzs = ('', '', '', 'Z', 'z', ' Z', '+05:30', '-0500', ' -05:00', '-05', '+0000', '+24:00', '-23:59', '+5:30',
+               ' EST', 'x', '*', '?')
+        digits = '20151102055500123456789'
+        vals = [digits[:size] for size in range(1, 24)]
+        for size in range(4, 24):
+            vals.append(''.join(rand.choice('0123456789') for _ in range(size)))
+
+        for _ in range(600):
+            valu = rand.choice(dates) + rand.choice(times) + rand.choice(tzs)
+            if rand.random() < 0.1:
+                valu = rand.choice((' ', '\t', '')) + valu + rand.choice((' ', '\n', ''))
+
+            vals.append(valu)
+
+        tests = []
+        for valu in vals:
+            for kwargs in ({}, {'chop': True}, {'base': 7}):
+                if (info := s_time._fastparse(valu, kwargs.get('base'), kwargs.get('chop', False))) is not None:
+                    tests.append((valu, kwargs, info))
+
+        self.gt(len(tests), 250)
+        with mock.patch.object(s_time, '_fastparse', return_value=None):
+            for valu, kwargs, info in tests:
+                self.eq(s_time._rawparse(valu, **kwargs), info, msg=f'{valu!r} {kwargs}')
+
         tick = s_time.parse('2015-11-02T05:55:00Z')
         self.eq(s_time._rawparse('2015'), (datetime.datetime(2015, 1, 1), 0, 4))
         self.eq(s_time._rawparse(' 2015-11 '), (datetime.datetime(2015, 11, 1), 0, 6))
