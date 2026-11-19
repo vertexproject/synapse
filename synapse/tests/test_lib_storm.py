@@ -6114,6 +6114,18 @@ class StormTest(s_t_utils.SynTest):
                 line = [m[1]['mesg'] for m in msgs if m[0] == 'print' and m[1]['mesg'].startswith(npull)][0]
                 self.isin(' |            0 |          0 | false   | tcp://root:****@127.0.0.1', line)
 
+                # a negative start offset is stored as given
+                mpush = s_common.guid()
+                self.none(await core.addLayrPush(layr4, {**nooffs, 'iden': mpush, 'offs': -1, 'soffs': -1}))
+                self.eq(-1, core.getLayer(layr4).layrinfo['pushs'][mpush]['soffs'])
+
+                mopts = {'vars': {'layr4': layr4, 'mpush': mpush}}
+                self.eq(-1, await core.callStorm('return($lib.layer.get($layr4).pushs.$mpush.soffs)', opts=mopts))
+
+                msgs = await core.stormlist('layer.push.list $layr4', opts=mopts)
+                line = [m[1]['mesg'] for m in msgs if m[0] == 'print' and m[1]['mesg'].startswith(mpush)][0]
+                self.isin(' |           -1 |          0 | false   | tcp://root:****@127.0.0.1', line)
+
                 with self.raises(s_exc.SchemaViolation):
                     await core.addLayrPush(layr4, {**nooffs, 'iden': s_common.guid(), 'soffs': 1.5})
 
