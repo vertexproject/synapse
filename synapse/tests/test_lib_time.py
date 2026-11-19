@@ -1,3 +1,4 @@
+import time
 import datetime
 
 import synapse.exc as s_exc
@@ -25,6 +26,12 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.delta('-3  days'), -259200000)
         self.eq(s_time.delta('-  3days'), -259200000)
         self.eq(s_time.delta('-  3   days'), -259200000)
+
+        for text in ('07days', '-days', '-07:00+1day'):
+            with self.raises(s_exc.BadTypeValu) as cm:
+                s_time.delta(text)
+
+            self.isin('invalid time delta size', cm.exception.get('mesg'))
 
     def test_time_parse(self):
         self.eq(s_time.parse('2050'), 2524608000000)
@@ -159,6 +166,96 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parse('2015/11/02 05:55:00.123 456'), 1446443700123)
         self.eq(s_time.parse('2015/11/02 05 55 00'), 1446443700000)
         self.eq(s_time.parse(' 2015/11/02 \t 05:55:00 \n'), 1446443700000)
+
+        # a space separated offset may not follow the year and month, where it is the end of a date
+        tick = s_time.parse('2021-06-07T02:00:00Z')
+        self.eq(s_time.parse('2021-06-07 02'), tick)
+        self.eq(s_time.parse('2021-06-07 02 UTC'), tick)
+        self.eq(s_time.parse('2021-06-07 02Z'), tick)
+        self.eq(s_time.parse('2021-06-27 02'), tick + 20 * s_time.oneday)
+        self.eq(s_time.wildrange('2021-06-07 02'), (tick, tick + s_time.onehour))
+        self.eq(s_time.parse('2021-06-07 02', base=0), tick)
+        self.eq(s_time.parsetz('2021-06-07 02 est'), ('2021-06-07 02', 5 * s_time.onehour))
+        self.eq(s_time.parsetz('2021-06-07 -05 00'), ('2021-06-07', 5 * s_time.onehour))
+        self.eq(s_time.parsetz('202106-07 02'), ('202106-07 02', 0))
+        self.eq(s_time.parsetz('2021:06 -07 02 est'), ('2021:06 -07 02', 5 * s_time.onehour))
+        self.eq(s_time.parsetz('20151102 0555 -05 00'), ('20151102 0555', 5 * s_time.onehour))
+        self.eq(s_time.parsetz('2015/11/02 05:55:00.123 456 -05 00'),
+                ('2015/11/02 05:55:00.123 456', 5 * s_time.onehour))
+        self.eq(s_time.parsetz('2015/11/02 05:55 -05 00 est'), ('2015/11/02 05:55', 5 * s_time.onehour))
+        with self.raises(s_exc.BadTypeValu):
+            s_time.parse('2021-06-07 02 EST')
+
+        # an offset is not read as a time once a zone name applies
+        with self.raises(s_exc.BadTypeValu):
+            s_time.parse('2021-06-07 -0500 (EST)')
+
+        self.eq(s_time.parsetz('2021-06-07 -0500 (est)'), ('2021-06-07', 5 * s_time.onehour))
+        self.eq(s_time.parse('2021-06-07 02:03 -05 (EST)'), s_time.parse('2021-06-07T07:03Z'))
+
+        # a parenthesized comment after a numeric offset is dropped and the offset applies
+        tick = s_time.parse('2021-06-07T02:03:04Z')
+        self.eq(s_time.parse('2021-06-07 02:03:04 +00:00 (UTC)'), tick)
+        self.eq(s_time.parse('2021-06-07 02:03:04 +0000 (UTC)'), tick)
+        self.eq(s_time.parse('2021-06-07 02:03:04 -07:00 (PDT)'), tick + 7 * s_time.onehour)
+        self.eq(s_time.parse('2021-06-07 02:03:04 -07:00 (Pacific Daylight Time)'), tick + 7 * s_time.onehour)
+        self.eq(s_time.parse('Thu, 27 Sep 2018 12:10:44 -0700 (PDT)'), s_time.parse('2018-09-27T19:10:44Z'))
+        self.eq(s_time.parse('2021-06-07 02:03:04 (EST)'), tick + 5 * s_time.onehour)
+        self.eq(s_time.parsetz('2021-06-07 02:03:04 (pdt)'), ('2021-06-07 02:03:04', 7 * s_time.onehour))
+        for text in ('2021-06-07 02:03:04 (nope)', '2021-06-07 02:03:04 (-07:00)'):
+            with self.raises(s_exc.BadTypeValu):
+                s_time.parse(text)
+
+        # a basic format time may carry an undotted fraction
+        self.eq(s_time.parse('20170710t220448480z'), s_time.parse('2017-07-10T22:04:48.480Z'))
+        self.eq(s_time.parse('20190425t121011z'), s_time.parse('2019-04-25T12:10:11Z'))
+
+        # an hour offset may follow a basic format time
+        tick = s_time.parse('2021-06-07T02:03:04Z')
+        self.eq(s_time.parse('2021-06-07T020304+00'), tick)
+        self.eq(s_time.parse('20210607T020304.123+00'), tick + 123)
+        self.eq(s_time.parse('2021-06-07T020304+05'), s_time.parse('2021-06-06T21:03:04Z'))
+        self.eq(s_time.parse('2021/06/07t0203 -05'), tick + 5 * s_time.onehour - 4 * s_time.onesec)
+        with self.raises(s_exc.BadTypeValu):
+            s_time.parse('2021t0203+05')
+
+        # any whitespace separates fields, and a leading byte order mark is ignored
+        for text in ('2021-06-07\t02:03:04', '2021-06-07\n02:03:04', '2021-06-07\r\n02:03:04', '2021-06-07\xa002:03:04',
+                     '2021-06-07 02:03:04', '2021-06-07　02:03:04', '﻿2021-06-07T02:03:04Z'):
+            self.eq(s_time.parse(text), tick)
+
+        self.eq(s_time.parse('﻿2021-06-07'), s_time.parse('2021-06-07'))
+
+        # unicode hyphens and the fullwidth colon are not separators
+        for text in ('2021‐06‐07', '2021−06−07', '2021-06-07 02：03'):
+            with self.raises(s_exc.BadTypeValu):
+                s_time.parse(text)
+
+        # a precision marker may follow a timezone
+        for text, offs in (('2021-06-07T02:03:04Z*', 0), ('2021-06-07T02:03:04Z?', 0),
+                           ('2021-06-07T02:03:04 EST*', 5), ('2021-06-07T02:03:04 -05:00*', 5)):
+            base = offs * s_time.onehour
+            self.eq(s_time.parse(text), tick + base)
+            self.eq(s_time.wildrange(text), (tick + base, tick + base + s_time.onesec))
+
+        self.eq(s_time.parse('2021-06-07T02:03:04 EST?'), tick + 5 * s_time.onehour)
+        self.eq(s_time.parsetz('2021-06-07t02:03:04z?'), ('2021-06-07t02:03:04?', 0))
+        self.eq(s_time.parsetz('2021-06-07?'), ('2021-06-07?', 0))
+
+        # a wild card range past the maximum time is rejected
+        for text in ('9999-12-31', '9999-12-31 UTC+0', '9999-12-31 (EST)', '9999', '9999-12-31T23:59:59'):
+            with self.raises(s_exc.BadTypeValu):
+                s_time.wildrange(text)
+
+        # a long run of digits before an hour offset is rejected in linear time
+        for text in ('x' + '1 ' * 100000 + '+07', '1 ' * 100000 + 'x+07', '1 ' * 100000 + '+07 (est)'):
+            start = time.perf_counter()
+            with self.raises(s_exc.BadTypeValu):
+                s_time.parse(text)
+
+            self.lt(time.perf_counter() - start, 1)
+
+        self.eq(s_time.parsetz('2015 11 02 05 55 00 -05'), ('2015 11 02 05 55 00', 5 * s_time.onehour))
 
         for text in ('2015/1/2', '2015/11/02 5:5:00', '2015/11/02 5', '2015/11/2', '2015/1/02 01:05:00',
                      '2015/11/2 5', '2015/11/2:05:00', '2015/11/2/05:00', '2015/11/215:55', '2015/11/215:55:00',

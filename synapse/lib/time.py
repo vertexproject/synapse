@@ -42,28 +42,37 @@ timeunits = {
 
 tzcat = '|'.join(sorted(s_l_timezones.getTzNames(), key=lambda x: len(x), reverse=True))
 unitcat = '|'.join(sorted(timeunits.keys(), key=lambda x: len(x), reverse=True))
+# a space separated offset ( -05 00 ) may not start right after the year and month, where it is the end of a
+# date ( 2021-06-07 02 )
+tzspaced = r'(?<!^\d{4}[\-/\._:]?\d{2}\s?[\-\+]\d{2}\s\d{2})'
 tz_re = regex.compile(
     r'\d(?P<tzstr>\s?(?:'
     # go style numeric offset followed by a redundant abbreviation ( -0500 EST ); the offset wins
-    r'(?:(?P<tzrel>\-|\+)(?P<tzhr>\d{2})\s?(?P<tzmin>\d{2})\s?(?:%s))|'
+    r'(?:(?P<tzrel>\-|\+)(?:(?P<tzhr>\d{2})(?P<tzmin>\d{2})|(?P<tzhr>\d{2})\s(?P<tzmin>\d{2})%s)\s?(?:%s))|'
     # utc / gmt prefixed offsets ( GMT+5, UTC-05:30 )
     r'(?:(?:utc|gmt|ut)(?P<tzrel>\-|\+)(?P<tzhr>\d{1,2})(?:[:\s]?(?P<tzmin>\d{2}))?)|'
     # parenthesized timezone names ( (EST) )
     r'(?:\((?P<tzname>%s)\))|'
     r'(?P<tzname>%s)|'
-    r'(?:(?P<tzrel>\-|\+)(?:(?P<tzhr>\d{1,2}):?|(?P<tzhr>\d{2})\s)(?P<tzmin>\d{2})))'
-    r')(?:[\-|\+]\d+(?:%s))?$' % (tzcat, tzcat, tzcat, unitcat),
+    r'(?:(?P<tzrel>\-|\+)(?:(?P<tzhr>\d{1,2}):?(?P<tzmin>\d{2})|(?P<tzhr>\d{2})\s(?P<tzmin>\d{2})%s)))'
+    r')(?:[\-|\+]\d+(?:%s))?$' % (tzspaced, tzcat, tzcat, tzcat, tzspaced, unitcat),
     flags=regex.IGNORECASE
 )
 
-# a bare ISO 8601 +/-hh offset is only unambiguous following a time of at least minutes precision.
-# the search runs in reverse so the end anchor fails fast.
+# a bare ISO 8601 +/-hh offset is only unambiguous following a time of at least minutes precision, either
+# extended ( 05:55 ) or basic after a date ( 20151102t0555 ). the search runs in reverse so the end anchor fails fast.
+tzhour = r'(?P<tzstr>\s?(?P<tzrel>\-|\+)(?P<tzhr>\d{2}))(?:[\-|\+]\d+(?:%s))?$' % (unitcat,)
 tzhour_re = regex.compile(
-    r'(?:\d{1,2}:\d{2}(?::\d{2}(?:[\.,]\d+)?)?|^(?:\d\s?){13,}\d)'
-    r'(?P<tzstr>\s?(?P<tzrel>\-|\+)(?P<tzhr>\d{2}))'
-    r'(?:[\-|\+]\d+(?:%s))?$' % (unitcat,),
+    r'(?:\d{1,2}:\d{2}(?::\d{2}(?:[\.,]\d+)?)?|\d{4}[\-/]?\d{2}[\-/]?\d{2}[tT]\d{4}(?:\d{2}(?:[\.,]\d+)?)?)' + tzhour,
     flags=regex.REVERSE
 )
+
+# ... or following separator free digits of at least seconds precision. matched forward from the start and
+# possessively, since an offset never starts with a digit and backtracking over them is quadratic.
+tzdigits_re = regex.compile(r'^\d(?:\s?\d){13}(?:\s?\d)*+' + tzhour)
+
+# an RFC 2822 style comment after a numeric offset ( -0700 (PDT) )
+tzcomment_re = regex.compile(r'\s?\([^()]*\)$')
 
 # after timezone removal, only digits and separators may remain, and every separator must fall on a
 # year, month, day, hour, minute or second boundary. a space separates the seconds only when one also
@@ -73,6 +82,8 @@ tzhour_re = regex.compile(
 # may follow the seconds.
 timefields = r'''
     \d{15,}                                   # separator free digits beyond seconds precision
+    |
+    \d{8}t\d{7,}                             # a basic format time with an undotted fraction
     |
     \d{4}(?:%(s)s?\d{2}){0,2}                 # a date, from year up to day
     |
@@ -234,11 +245,11 @@ def _rawparse(text, base=None, chop=False):
         return info
 
     otext = text
-    text = text.strip().lower()
+    text = text.strip().lstrip('\ufeff').lower()
 
-    # only a single space between two digits is kept, as a field boundary
-    if ' ' in text:
-        parts = text.split()
+    # any run of whitespace is a single space, and only one between two digits is kept, as a field boundary
+    parts = text.split()
+    if len(parts) > 1:
         text = parts[0]
         for part in parts[1:]:
             if text[-1].isdigit() and part[0].isdigit():
@@ -343,22 +354,35 @@ def wildrange(text):
         mesg = f'Time wild card position not supported for {text}'
         raise s_exc.BadTypeValu(mesg=mesg, valu=text)
 
-    if tlen == 4:
-        dttock = dttick + relativedelta(years=1)
-    elif tlen == 6:
-        dttock = dttick + relativedelta(months=1)
-    elif tlen == 8:
-        dttock = dttick + relativedelta(days=1)
-    elif tlen == 10:
-        dttock = dttick + relativedelta(hours=1)
-    elif tlen == 12:
-        dttock = dttick + relativedelta(minutes=1)
-    else:  # tlen = 14
-        dttock = dttick + relativedelta(seconds=1)
+    try:
+        if tlen == 4:
+            dttock = dttick + relativedelta(years=1)
+        elif tlen == 6:
+            dttock = dttick + relativedelta(months=1)
+        elif tlen == 8:
+            dttock = dttick + relativedelta(days=1)
+        elif tlen == 10:
+            dttock = dttick + relativedelta(hours=1)
+        elif tlen == 12:
+            dttock = dttick + relativedelta(minutes=1)
+        else:  # tlen = 14
+            dttock = dttick + relativedelta(seconds=1)
+    except (ValueError, OverflowError):
+        mesg = f'Time wild card range exceeds the maximum time for {text}'
+        raise s_exc.BadTypeValu(mesg=mesg, valu=text) from None
 
     tick = int((dttick - EPOCH).total_seconds() * 1000 + base)
     tock = int((dttock - EPOCH).total_seconds() * 1000 + base)
     return (tick, tock)
+
+def _matchtz(text):
+    if (match := tz_re.search(text)) is not None:
+        return match
+
+    if (match := tzhour_re.search(text)) is not None:
+        return match
+
+    return tzdigits_re.match(text)
 
 def parsetz(text):
     '''
@@ -371,15 +395,30 @@ def parsetz(text):
         tuple: A tuple of text with tz chars removed and base milliseconds to offset time.
     '''
 
-    match = tz_re.search(text)
-    if match is None:
-        match = tzhour_re.search(text)
+    # a trailing precision marker ( 2021-06-07T02:03:04Z* ) is set aside and returned with the remaining text
+    mark = ''
+    if text.endswith(('?', '*')):
+        mark = text[-1]
+        text = text[:-1]
+
+    match = None
+    if text.endswith(')') and (cmnt := tzcomment_re.search(text)) is not None:
+        # a comment is dropped when a numeric offset precedes it, which then applies
+        head = text[:cmnt.start()]
+        match = _matchtz(head)
+        if match is not None and match['tzrel'] is not None:
+            text = head
+        else:
+            match = None
 
     if match is None:
-        return text, 0
+        match = _matchtz(text)
+
+    if match is None:
+        return text + mark, 0
 
     offs, ends = match.span('tzstr')
-    rest = text[:offs] + text[ends:]
+    rest = text[:offs] + text[ends:] + mark
 
     tzrel = match['tzrel']
     if tzrel is not None:
@@ -491,7 +530,11 @@ def delta(text):
 
     unittext = text[offs:]
 
-    size = int(sizetext, 0)
+    try:
+        size = int(sizetext, 0)
+    except ValueError:
+        mesg = f'invalid time delta size: {sizetext} for {otext}'
+        raise s_exc.BadTypeValu(name='time', valu=otext, mesg=mesg) from None
 
     if sign == '-':
         size = -size

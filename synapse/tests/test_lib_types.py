@@ -1438,6 +1438,41 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(t.norm('2024-01-02 03:04:05.123456789 +0000 UTC')[0], ztick + 123)
             self.eq(t.norm('2024/01/02 03:04:05+1day')[0], ztick + s_time.oneday)
 
+            # the end of a date is not read as a space separated offset
+            self.eq(t.repr(t.norm('2021-06-07 02')[0]), '2021/06/07 02:00:00.000')
+            self.eq(t.repr(t.norm('2021-06-07 02 UTC')[0]), '2021/06/07 02:00:00.000')
+            self.eq(t.repr(t.norm('2021-06-07 02Z')[0]), '2021/06/07 02:00:00.000')
+            self.eq(t.repr(t.norm('2021-06-07 02 EST')[0]), '2021/06/07 07:00:00.000')
+            self.eq(t.repr(t.norm('2021-06-27 02')[0]), '2021/06/27 02:00:00.000')
+            self.eq(t.repr(t.norm('2015/11/02 05:55:00 -05 00')[0]), '2015/11/02 10:55:00.000')
+
+            # a parenthesized comment after a numeric offset is dropped and the offset applies
+            self.eq(t.repr(t.norm('2021-06-07 -0500 (EST)')[0]), '2021/06/07 05:00:00.000')
+            self.eq(t.repr(t.norm('2021-06-07 02:03:04 +00:00 (UTC)')[0]), '2021/06/07 02:03:04.000')
+            self.eq(t.repr(t.norm('2021-06-07 02:03:04 -07:00 (PDT)')[0]), '2021/06/07 09:03:04.000')
+            self.eq(t.repr(t.norm('Thu, 27 Sep 2018 12:10:44 -0700 (PDT)')[0]), '2018/09/27 19:10:44.000')
+            self.eq(t.repr(t.norm('2021-06-07 02:03:04 (EST)')[0]), '2021/06/07 07:03:04.000')
+
+            # any whitespace separates fields, and a leading byte order mark is ignored
+            for text in ('2021-06-07\t02:03:04', '2021-06-07\r\n02:03:04', '2021-06-07\xa002:03:04',
+                         '2021-06-07　02:03:04', '﻿2021-06-07 02:03:04'):
+                self.eq(t.repr(t.norm(text)[0]), '2021/06/07 02:03:04.000')
+
+            self.eq(t.repr(t.norm('2021-06-07\t02:03:04\tEST')[0]), '2021/06/07 07:03:04.000')
+
+            # a precision marker may follow a timezone
+            self.eq(t.repr(t.norm('2021-06-07T02:03:04Z*')[0]), '2021/06/07 02:03:04.000')
+            self.eq(t.repr(t.norm('2021-06-07T02:03:04 EST*')[0]), '2021/06/07 07:03:04.000')
+            self.eq(t.repr(t.norm('2021-06-07T02:03:04 -05:00*')[0]), '2021/06/07 07:03:04.000')
+            self.eq(t.norm('2021-06-07T02:03:04 EST?'), (1623049384000, {}))
+
+            # an invalid relative time is a bad value
+            with self.raises(s_exc.BadTypeValu):
+                core.model.type('ival').norm('2021-06-7T02:03:04,123-07+1day')
+
+            with self.raises(s_exc.BadTypeValu):
+                t.norm('2021-06-07 -07days')
+
             utc = datetime.timezone.utc
             delta = datetime.datetime.now(tz=utc) - datetime.datetime(2014, 1, 1, tzinfo=utc)
             days = delta.days + 14
