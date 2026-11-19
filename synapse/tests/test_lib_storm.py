@@ -6117,6 +6117,12 @@ class StormTest(s_t_utils.SynTest):
                 with self.raises(s_exc.SchemaViolation):
                     await core.addLayrPush(layr4, {**nooffs, 'iden': s_common.guid(), 'soffs': 1.5})
 
+                with self.raises(s_exc.SchemaViolation):
+                    await core.addLayrPush(layr4, {**nooffs, 'iden': s_common.guid(), 'time': 1.5})
+
+                with self.raises(s_exc.SchemaViolation):
+                    await core.addLayrPush(layr4, {**nooffs, 'iden': s_common.guid(), 'offs': 1.5})
+
                 # remove and ensure no replay on restart
                 await core.nodes('ps:contact | delnode', opts={'view': view2})
                 self.len(0, await core.nodes('ps:contact', opts={'view': view2}))
