@@ -123,6 +123,15 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parse('2015-11-2 01:05:00.123'), tick + 123)
         self.eq(s_time.parse('2015/11/2@1:05:00'), tick)
 
+        # a single digit hour may end a value with a trailing colon
+        for text, padded in (('2015/11/02 5:*', '2015/11/02 05:*'), ('2015/11/02 5:', '2015/11/02 05:'),
+                             ('2015/11/2 1:*', '2015/11/02 01:*'), ('2015/11/02 5:?', '2015/11/02 05:?')):
+            self.eq(s_time.parse(text), s_time.parse(padded))
+            self.eq(s_time.wildrange(text), s_time.wildrange(padded))
+
+        self.eq(s_time.wildrange('2015/11/02 5:*'), (1446440400000, 1446444000000))
+        self.eq(s_time.parse('2015/11/02 5:?'), 1446440400000)
+
         # without a space, the day and hour run together
         self.eq(s_time.parse('2015/11/21:05:00'), 1448082000000)
         self.eq(s_time.parse('2015/11/21 5:55'), 1448085300000)

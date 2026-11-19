@@ -68,23 +68,29 @@ tzhour_re = regex.compile(
 # after timezone removal, only digits and separators may remain, and every separator must fall on a
 # year, month, day, hour, minute or second boundary. a space separates the seconds only when one also
 # separates the minutes, so a bare number after hh:mm is not read as seconds. only the day and hour may
-# be a single digit: the day only when a separator and a time follow it, and the hour only when a
-# separator comes before it and minutes follow it. only a trailing fraction may follow the seconds.
-timefields_re = regex.compile(r'''
+# be a single digit: the day only when a separator comes before it and a t, @ or space then a time follow
+# it, and the hour only when a separator comes before it and a colon follows it. only a trailing fraction
+# may follow the seconds.
+timefields = r'''
     \d{15,}                                   # separator free digits beyond seconds precision
     |
     \d{4}(?:%(s)s?\d{2}){0,2}                 # a date, from year up to day
     |
     \d{4}%(s)s?\d{2}                          # year and month
-    (?:%(s)s?(?P<day>\d{2})|%(s)s(?P<day>\d)(?=[t@ ]))  # a single digit day must sit between separators
-    (?:%(s)s?(?P<hour>\d{2})|%(s)s(?P<hour>\d)(?=:))    # a single digit hour must sit between a separator and minutes
+    (?:%(s)s?(?P<day>\d{2})|%(s)s(?P<day>\d)(?=[t@ ]))  # a single digit day must be followed by t, @ or a space
+    (?:%(s)s?(?P<hour>\d{2})|%(s)s(?P<hour>\d)(?=%(h)s))  # a single digit hour must be followed by a colon
     (?:
         (?:[ ]\d{2}[ ]\d{2}|%(s)s?\d{2}%(n)s?\d{2})  # minute and second
         (?:[\.,]\d+(?:[ ]\d+)*)?              # only a full seconds time may carry a fraction
         |
         (?:%(s)s?\d{2})?                      # minute
     )
-''' % {'s': r'[\-/\._:t@ ]', 'n': r'[\-/\._:t@]'}, flags=regex.VERBOSE)
+'''
+timeseps = {'s': r'[\-/\._:t@ ]', 'n': r'[\-/\._:t@]'}
+timefields_re = regex.compile(timefields % {**timeseps, 'h': ':'}, flags=regex.VERBOSE)
+
+# a single digit hour may also end a value whose trailing colon was stripped ( 2015/11/02 5:* )
+timefields_colon_re = regex.compile(timefields % {**timeseps, 'h': r':|\Z'}, flags=regex.VERBOSE)
 
 # clean ISO 8601 style values, which _rawparse reads without the general path. an offset may only follow a time.
 isotime_tail = (
@@ -112,14 +118,18 @@ def _getTimeDigits(text, otext):
         text = text[:-1]
 
     # a trailing separator, which reprmax() emits and a wildcard lift leaves behind ( 2021-06-07T02:* )
+    fieldsre = timefields_re
     if text.endswith(('-', '/', '.', '_', ':', 't', '@')):
+        if text[-1] == ':':
+            fieldsre = timefields_colon_re
+
         text = text[:-1]
 
     # text without any digits falls through to the unknown time format error
     if not any(c.isdigit() for c in text):
         return ''
 
-    match = timefields_re.fullmatch(text)
+    match = fieldsre.fullmatch(text)
     if match is None and ' ' in text:
         # spaces that split separator free digits are not field boundaries
         text = text.replace(' ', '')
