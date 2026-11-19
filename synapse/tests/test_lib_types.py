@@ -1453,6 +1453,15 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 t.norm('2015 -05 00')
 
+            # an hour offset may follow a minute precision time
+            for text in ('2015-11-02 05 55 -05', '201511020555-05', '2015-11-02 0555-05', '2015-11-02 05:55-05'):
+                self.eq(t.norm(text), (1446461700000, {}))
+
+            # ... but not a date or an hour
+            self.eq(t.norm('2021-06-07-05'), (1623042000000, {}))
+            self.eq(t.norm('20210607-05'), (1623042000000, {}))
+            self.eq(t.norm('2021-06-07 02-05'), (1623031500000, {}))
+
             # a parenthesized comment after a numeric offset is dropped and the offset applies
             self.eq(t.repr(t.norm('2021-06-07 -0500 (EST)')[0]), '2021/06/07 05:00:00.000')
             self.eq(t.repr(t.norm('2021-06-07 02:03:04 +00:00 (UTC)')[0]), '2021/06/07 02:03:04.000')

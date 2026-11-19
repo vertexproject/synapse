@@ -60,18 +60,18 @@ tz_re = regex.compile(
 )
 
 # a bare ISO 8601 +/-hh offset is only unambiguous following a time of at least minutes precision, either
-# extended ( 05:55 ) or basic after a full date and a t or space ( 20151102t0555, 2015.11.02 0555 ). the search
-# runs in reverse so the end anchor fails fast.
+# extended ( 05:55 ) or basic or space separated after a full date and a t or space ( 20151102t0555,
+# 2015.11.02 0555, 2015-11-02 05 55 ). the search runs in reverse so the end anchor fails fast.
 tzhour = r'(?P<tzstr>\s?(?P<tzrel>\-|\+)(?P<tzhr>\d{2}))(?:[\-|\+]\d+(?:%s))?$' % (unitcat,)
 tzhour_re = regex.compile(
     r'(?:\d{1,2}:\d{2}(?::\d{2}(?:[\.,]\d+)?)?|'
-    r'\d{4}[\-/\._:]?\d{2}[\-/\._:]?\d{2}[tT ]\d{4}(?:\d{2}(?:[\.,]\d+)?)?)' + tzhour,
+    r'\d{4}[\-/\._:]?\d{2}[\-/\._:]?\d{2}[tT ](?:\d{4}(?:\d{2}(?:[\.,]\d+)?)?|\d{2} \d{2}))' + tzhour,
     flags=regex.REVERSE
 )
 
-# ... or following separator free digits of at least seconds precision. matched forward from the start and
+# ... or following separator free digits of at least minutes precision. matched forward from the start and
 # possessively, since an offset never starts with a digit and backtracking over them is quadratic.
-tzdigits_re = regex.compile(r'^\d(?:\s?\d){13}(?:\s?\d)*+' + tzhour)
+tzdigits_re = regex.compile(r'^\d(?:\s?\d){11}(?:\s?\d)*+' + tzhour)
 
 # an RFC 2822 style comment after a numeric offset ( -0700 (PDT) )
 tzcomment_re = regex.compile(r'\s?\([^()]*\)$')

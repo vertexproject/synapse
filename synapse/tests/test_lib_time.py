@@ -290,6 +290,19 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parse('2021-06-07 0203+05'), tick - 5 * s_time.onehour - 4 * s_time.onesec)
         self.eq(s_time.parsetz('2021/06/07 0203-05'), ('2021/06/07 0203', 5 * s_time.onehour))
 
+        # ... or a space separated or separator free time of minute precision
+        for text in ('2021-06-07 02 03 -05', '2021-06-07 02 03-05', '20210607T02 03-05', '202106070203-05',
+                     '202106070203 -05', '2021 06 07 02 03-05'):
+            self.eq(s_time.parse(text), tick + 5 * s_time.onehour - 4 * s_time.onesec)
+
+        self.eq(s_time.parse('202106070203+05'), tick - 5 * s_time.onehour - 4 * s_time.onesec)
+        self.eq(s_time.parse('2021 06 7 02 03 04-05'), tick + 5 * s_time.onehour)
+        self.eq(s_time.parsetz('2021-06-07 02 03 -05'), ('2021-06-07 02 03', 5 * s_time.onehour))
+        self.eq(s_time.parsetz('2021060702030-05'), ('2021060702030', 5 * s_time.onehour))
+        with self.raises(s_exc.BadTypeValu):
+            s_time.parse('2021060702030-05')
+
+
         # ... after any date separator
         for sep in '.:_':
             for text, offs in ((f'2021{sep}06{sep}07 020304', 0), (f'2021{sep}06{sep}07T020304', 0),
@@ -298,7 +311,8 @@ class TimeTest(s_t_utils.SynTest):
                 self.eq(s_time.parse(text + '-05'), tick + offs + 5 * s_time.onehour)
 
         # a trailing number after a date or an hour is not an offset
-        for text in ('2021-06-07-05', '2021-06-05', '2021-06-07 02-05', '2021-06-07 020-05'):
+        for text in ('2021-06-07-05', '2021-06-05', '2021-06-07 02-05', '2021-06-07 020-05', '20210607-05',
+                     '2021060702-05', '2021-06-07 02 -05', '2021 06 07 02-05'):
             self.eq(s_time.parsetz(text), (text, 0))
 
         # any whitespace separates fields, and a leading byte order mark is ignored
