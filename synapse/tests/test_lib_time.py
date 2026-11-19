@@ -1,3 +1,5 @@
+import datetime
+
 import synapse.exc as s_exc
 
 import synapse.lib.time as s_time
@@ -35,6 +37,56 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parse('205012170304321015'), 2554859072101)
         self.eq(s_time.parse('20501217030432101567'), 2554859072101)
         self.raises(s_exc.BadTypeValu, s_time.parse, '2050121703043210156789')
+        self.eq(s_time.parse('2050121703043210156789', chop=True), 2554859072101)
+
+        # clean iso 8601 and separator free digit values are read by the fast path
+        tick = s_time.parse('2015-11-02T05:55:00Z')
+        self.eq(tick, 1446443700000)
+        self.eq(s_time._fastparse('2015', None, False), (datetime.datetime(2015, 1, 1), 0, 4))
+        self.eq(s_time._fastparse(' 2015-11 ', None, False), (datetime.datetime(2015, 11, 1), 0, 6))
+        self.eq(s_time._fastparse('2015/11/02', None, False), (datetime.datetime(2015, 11, 2), 0, 8))
+        self.eq(s_time._fastparse('2015-11-02 05:55', 10, False), (datetime.datetime(2015, 11, 2, 5, 55), 10, 12))
+        self.eq(s_time._fastparse('2015-11-02t05:55:00z', None, False), (datetime.datetime(2015, 11, 2, 5, 55), 0, 14))
+        self.eq(s_time._fastparse('2015-11-02T05:55:00.12 +05:30', None, False),
+                (datetime.datetime(2015, 11, 2, 5, 55, 0, 120000), -19800000, 16))
+        self.eq(s_time._fastparse('2015-11-02T05:55:00.123456Z', None, False),
+                (datetime.datetime(2015, 11, 2, 5, 55, 0, 123456), 0, 20))
+        self.eq(s_time._fastparse('2015-11-02T05:55:00.123456789Z', None, True),
+                (datetime.datetime(2015, 11, 2, 5, 55, 0, 123000), 0, 17))
+        self.eq(s_time._fastparse('2015110205', None, False), (datetime.datetime(2015, 11, 2, 5), 0, 10))
+        self.eq(s_time._fastparse('201511020555001234567', None, True),
+                (datetime.datetime(2015, 11, 2, 5, 55, 0, 123000), 0, 17))
+        self.eq(s_time.parse('2015-11-02T00:55:00-0500'), tick)
+        self.eq(s_time.parse('2015-11-02T05:55:00+00:00'), tick)
+        self.eq(s_time.parse('2015-11-02T05:55:00+23:59'), 1446357360000)
+        self.eq(s_time.parse('2015-11-02T05:55:00', base=5), tick + 5)
+        self.eq(s_time.parse('2015-11-02T05:55:00.123456Z'), tick + 123)
+        self.eq(s_time.parse('20151102055500123'), tick + 123)
+        self.eq(s_time.wildrange('2015-11-02T05:55'), (tick, tick + s_time.onemin))
+
+        # values the fast path declines take the general path
+        for text in ('2015-11-02T5:55:00Z', '2015/11/2 05:55:00', '2015-11-2', '2015-1-02', '2015110',
+                     '2015-11-02T05:55:00-05', '2015-11-02T05:55:00,123', '2015-11-02T05:55:00.1234567Z',
+                     '2015-11-02 05:55-0205', '2015-11-02T05:55-0205', '2015-11-02T05:55:00+24:00', '2015-02-30',
+                     '20151302', '2015-11-02T05:55:60', '2015-11-02 24:00', '0000-01-01', '2015-11-02*', '2015-11-02?',
+                     '\uff12\uff10\uff11\uff15'):
+            self.none(s_time._fastparse(text, None, False))
+
+        self.none(s_time._fastparse('2015-11-02T05:55:00Z', 0, False))
+
+        self.eq(s_time.parse('2015-11-02T05:55:00-05'), tick + 5 * s_time.onehour)
+        self.eq(s_time.parse('2015-11-02T05:55:00,123'), tick + 123)
+        self.eq(s_time.parse('2015-11-02T05:55-0205'), tick + 125 * s_time.onemin)
+        for text in ('2015-11-02T5:55:00Z', '2015/11/2 05:55:00', '2015-11-02T05:55:00.1234567Z',
+                     '2015-11-02 05:55-0205', '2015-11-02T05:55:00+24:00', '2015-02-30', '20151302',
+                     '2015-11-02T05:55:60', '2015-11-02 24:00', '0000-01-01'):
+            with self.raises(s_exc.BadTypeValu):
+                s_time.parse(text)
+
+        with self.raises(s_exc.BadTypeValu) as cm:
+            s_time.parse('2015-11-02T05:55:00Z', base=0)
+
+        self.isin('unexpected text in time value', cm.exception.get('mesg'))
 
         # malformed times with leftover text are not silently misparsed
         with self.raises(s_exc.BadTypeValu) as cm:
