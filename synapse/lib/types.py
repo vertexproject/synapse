@@ -2223,7 +2223,7 @@ class Time(IntBase):
         if valu == '?':
             return self.futsize, {}
 
-        # clean ISO 8601 and digit values need no timezone or relative time handling
+        # clean ISO 8601 and digit values, offsets included, need no parsetz or relative time handling
         if (tick := s_time.parsefast(valu, chop=True)) is not None:
             return self._normPyInt(tick)
 
