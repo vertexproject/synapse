@@ -298,44 +298,16 @@ def _rawparse(text, base=None, chop=False):
         text = text[:17]
 
     tlen = len(text)
+    if tlen not in (4, 6, 8, 10, 12, 14) and not 15 <= tlen <= 20:
+        raise s_exc.BadTypeValu(valu=otext, name='time', mesg=f'Unknown time format for {otext}')
 
+    if parsed_tz and tlen < 12:
+        raise s_exc.BadTypeValu(mesg=f'Not enough information to parse timezone properly for {otext}.', valu=otext)
+
+    # each field is read at its fixed width, so an invalid one is rejected rather than re-split
     try:
-        if tlen == 4:
-            if parsed_tz:
-                raise s_exc.BadTypeValu(mesg=f'Not enough information to parse timezone properly for {otext}.',
-                                        valu=otext)
-            dt = datetime.datetime.strptime(text, '%Y')
-
-        elif tlen == 6:
-            if parsed_tz:
-                raise s_exc.BadTypeValu(mesg=f'Not enough information to parse timezone properly for {otext}.',
-                                        valu=otext)
-            dt = datetime.datetime.strptime(text, '%Y%m')
-
-        elif tlen == 8:
-            if parsed_tz:
-                raise s_exc.BadTypeValu(mesg=f'Not enough information to parse timezone properly for {otext}.',
-                                        valu=otext)
-            dt = datetime.datetime.strptime(text, '%Y%m%d')
-
-        elif tlen == 10:
-            if parsed_tz:
-                raise s_exc.BadTypeValu(mesg=f'Not enough information to parse timezone properly for {otext}.',
-                                        valu=otext)
-            dt = datetime.datetime.strptime(text, '%Y%m%d%H')
-
-        elif tlen == 12:
-            dt = datetime.datetime.strptime(text, '%Y%m%d%H%M')
-
-        elif tlen == 14:
-            dt = datetime.datetime.strptime(text, '%Y%m%d%H%M%S')
-
-        elif 15 <= tlen <= 20:
-            dt = datetime.datetime.strptime(text, '%Y%m%d%H%M%S%f')
-
-        else:
-            raise s_exc.BadTypeValu(valu=otext, name='time',
-                                    mesg=f'Unknown time format for {otext}')
+        dt = datetime.datetime(int(text[:4]), int(text[4:6] or 1), int(text[6:8] or 1), int(text[8:10] or 0),
+                               int(text[10:12] or 0), int(text[12:14] or 0), int(text[14:].ljust(6, '0')))
     except ValueError as e:
         raise s_exc.BadTypeValu(mesg=f'Error parsing time "{otext}"; {str(e)}', valu=otext)
 

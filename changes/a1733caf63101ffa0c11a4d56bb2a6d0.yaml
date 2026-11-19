@@ -4,7 +4,8 @@ desc: Fixed `time` values containing unrecognized text, such as `AM`/`PM` or a t
   of a single digit day or hour before a time. Fixed timezone offsets after an `HH:MM` time or
   a space separated basic time, such as `03:04-07` or `2021-06-07 0203-05`, being read as
   seconds or removed from the wrong position. Added support for a comment after a numeric
-  offset, such as `-0700 (PDT)`.
+  offset, such as `-0700 (PDT)`. Fixed `time` values with an invalid month, day or hour and
+  fractional seconds, such as `2015-13-01 21:00:17.400`, being stored as a different date.
 desc:literal: false
 prs: []
 type: bug

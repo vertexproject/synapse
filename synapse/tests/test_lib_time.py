@@ -46,6 +46,21 @@ class TimeTest(s_t_utils.SynTest):
         self.raises(s_exc.BadTypeValu, s_time.parse, '2050121703043210156789')
         self.eq(s_time.parse('2050121703043210156789', chop=True), 2554859072101)
 
+        # each field is read at its fixed width, so an invalid one is rejected rather than re-split
+        self.eq(s_time.parse('2015-12-01 21:00:17.400'), 1449003617400)
+        self.eq(s_time.parse('2015-12-01 21:00:17.4'), 1449003617400)
+        self.eq(s_time.parse('20151201210017400'), 1449003617400)
+        self.eq(s_time.parse('2015-12-01 21:00:17.400000999', chop=True), 1449003617400)
+        for text in ('2015-13-01 21:00:17', '2015-12-32 21:00:17', '2015-02-30 21:00:17', '2015-12-01 24:00:17',
+                     '2015-12-01 21:60:17', '0000-12-01 21:00:17'):
+            for frac in ('', '.4', '.400', '.400123'):
+                for chop in (False, True):
+                    for valu in (text + frac, ''.join(c for c in text + frac if c.isdigit())):
+                        with self.raises(s_exc.BadTypeValu) as cm:
+                            s_time.parse(valu, chop=chop)
+
+                        self.isin(f'Error parsing time "{valu}"', cm.exception.get('mesg'))
+
         # clean iso 8601 and separator free digit values return the same parse details as the general path
         tick = s_time.parse('2015-11-02T05:55:00Z')
         self.eq(s_time._rawparse('2015'), (datetime.datetime(2015, 1, 1), 0, 4))
