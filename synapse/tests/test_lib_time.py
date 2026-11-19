@@ -307,6 +307,14 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parse('2021 06 7 02 03 04-05'), tick + 5 * s_time.onehour)
         self.eq(s_time.parsetz('2021-06-07 02 03 -05'), ('2021-06-07 02 03', 5 * s_time.onehour))
         self.eq(s_time.parsetz('2021060702030-05'), ('2021060702030', 5 * s_time.onehour))
+
+        # ... or a basic time after a one digit day
+        for text in ('2021/06/7T0203-05', '2021-06-7 0203-05', '2021/06/7 0203 -05', '2021.06.7t0203-05',
+                     '2021/06/7T07:03+00', '2021/06/7T0203-0500'):
+            self.eq(s_time.parse(text), tick + 5 * s_time.onehour - 4 * s_time.onesec)
+
+        self.eq(s_time.parse('2021-06-7 020304.123-05'), tick + 5 * s_time.onehour + 123)
+        self.eq(s_time.parsetz('2021-06-7 0203-05'), ('2021-06-7 0203', 5 * s_time.onehour))
         with self.raises(s_exc.BadTypeValu):
             s_time.parse('2021060702030-05')
 
