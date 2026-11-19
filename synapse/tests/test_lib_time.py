@@ -137,8 +137,12 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parse('2015:11-02'), s_time.parse('2015-11-02'))
         self.eq(s_time.parse('2015:11-05'), s_time.parse('2015-11-05'))
         self.eq(s_time.parse('2015:11-05', base=0, chop=True), s_time.parse('2015-11-05'))
-        for text in ('20151102 5:55-05', '2015-11-02T05:55-05', '2015/11/02 5:55 -05', '2015:11:02 5:55-05'):
+        for text in ('20151102 5:55-05', '2015-11-02T05:55-05', '2015/11/02 5:55 -05', '2015:11:02 5:55-05',
+                     '2015-11-0205:55-05', '2015110205:55-05', ' 2015-11-02 0555:00 -05'):
             self.eq(s_time.parse(text), s_time.parse('2015-11-02T10:55Z'))
+
+        self.eq(s_time.parsetz(' 2015:11-05'), (' 2015:11-05', 0))
+        self.eq(s_time.parsetz('2015-11-02T0555:00-05'), ('2015-11-02T0555:00', 5 * s_time.onehour))
 
         # values the fast path declines take the general path
         self.eq(s_time.parse('2015-11-02T05:55:00.123456Z'), tick + 123)
