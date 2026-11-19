@@ -202,6 +202,12 @@ def _fastparse(text, base, chop):
 
     return dt, base, tlen
 
+def _epochmillis(dt, base):
+    '''
+    Convert a naive UTC datetime and a millis offset into an epoch millis value.
+    '''
+    return int((dt - EPOCH).total_seconds() * 1000 + base)
+
 def parsefast(text, chop=False):
     '''
     Parse a clean ISO 8601 style or separator free digits time value into epoch millis, or return None.
@@ -210,7 +216,7 @@ def parsefast(text, chop=False):
         return None
 
     dt, base, tlen = info
-    return int((dt - EPOCH).total_seconds() * 1000 + base)
+    return _epochmillis(dt, base)
 
 def _rawparse(text, base=None, chop=False):
 
@@ -309,7 +315,7 @@ def parse(text, base=None, chop=False):
         int: Epoch milliseconds
     '''
     dtraw, base, tlen = _rawparse(text, base=base, chop=chop)
-    return int((dtraw - EPOCH).total_seconds() * 1000 + base)
+    return _epochmillis(dtraw, base)
 
 def wildrange(text):
     '''
