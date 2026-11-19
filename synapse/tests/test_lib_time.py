@@ -1,3 +1,5 @@
+import datetime
+
 import synapse.exc as s_exc
 
 import synapse.lib.time as s_time
@@ -35,6 +37,39 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parse('205012170304321015'), 2554859072101)
         self.eq(s_time.parse('20501217030432101567'), 2554859072101)
         self.raises(s_exc.BadTypeValu, s_time.parse, '2050121703043210156789')
+        self.eq(s_time.parse('2050121703043210156789', chop=True), 2554859072101)
+
+        # clean iso 8601 and separator free digit values return the same parse details as the general path
+        tick = s_time.parse('2015-11-02T05:55:00Z')
+        self.eq(s_time._rawparse('2015'), (datetime.datetime(2015, 1, 1), 0, 4))
+        self.eq(s_time._rawparse(' 2015-11 '), (datetime.datetime(2015, 11, 1), 0, 6))
+        self.eq(s_time._rawparse('2015/11/02'), (datetime.datetime(2015, 11, 2), 0, 8))
+        self.eq(s_time._rawparse('2015-11-02 05:55', base=10), (datetime.datetime(2015, 11, 2, 5, 55), 10, 12))
+        self.eq(s_time._rawparse('2015-11-02t05:55:00z'), (datetime.datetime(2015, 11, 2, 5, 55), 0, 14))
+        self.eq(s_time._rawparse('2015-11-02T05:55:00.12 +05:30'),
+                (datetime.datetime(2015, 11, 2, 5, 55, 0, 120000), 330 * s_time.onemin * -1, 16))
+        self.eq(s_time._rawparse('2015-11-02T05:55:00.123456789Z', chop=True),
+                (datetime.datetime(2015, 11, 2, 5, 55, 0, 123000), 0, 17))
+        self.eq(s_time._rawparse('2015110205'), (datetime.datetime(2015, 11, 2, 5), 0, 10))
+        self.eq(s_time._rawparse('201511020555001234567', chop=True),
+                (datetime.datetime(2015, 11, 2, 5, 55, 0, 123000), 0, 17))
+        self.eq(s_time.parse('2015-11-02T00:55:00-0500'), tick)
+        self.eq(s_time.parse('2015-11-02T05:55:00+00:00'), tick)
+        self.eq(s_time.parse('2015-11-02T05:55:00', base=5), tick + 5)
+
+        # values the fast path declines take the general path
+        self.eq(s_time.parse('2015-11-02T05:55:00.123456Z'), tick + 123)
+        self.eq(s_time.parse('2015-11-02T05:55:00.123456789Z', chop=True), tick + 123)
+        self.eq(s_time.parse('2015-11-02T05:55:00+23:59'), tick - 1439 * s_time.onemin)
+
+        for text in ('2015110', '2015-11-02T05:55:00.1234567Z', '2015-11-02T05:55:00+24:00', '2015-13-02',
+                     '20151302', '2015-11-02T05:55:60', '0000-01-01'):
+            with self.raises(s_exc.BadTypeValu):
+                s_time.parse(text)
+
+        with self.raises(s_exc.BadTypeValu) as cm:
+            s_time.parse('2015-11-02T05:55:00Z', base=0)
+        self.isin('unexpected text in time value', cm.exception.get('mesg'))
 
         # malformed times with leftover text are not silently misparsed
         with self.raises(s_exc.BadTypeValu) as cm:
@@ -67,6 +102,7 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parse('2015/11/2 1:05:00 -0500'), tick + 5 * s_time.onehour)
         self.eq(s_time.parse('2015/11/2 11:05:00'), 1446462300000)
         self.eq(s_time.parse('2015-11-2 01:05:00.123'), tick + 123)
+        self.eq(s_time.parse('2015/11/2@1:05:00'), tick)
 
         # without a space, the day and hour run together
         self.eq(s_time.parse('2015/11/21:05:00'), 1448082000000)
