@@ -2228,17 +2228,17 @@ class Time(IntBase):
             return self._normPyInt(tick)
 
         # parse timezone
-        valu, base = s_time.parsetz(valu)
+        text, base = s_time.parsetz(valu)
 
         # we need to be pretty sure this is meant for us, otherwise it might
         # just be a slightly messy time parse
-        unitcheck = [u for u in s_time.timeunits.keys() if u in valu]
-        if unitcheck and ('-' in valu or '+' in valu):
+        unitcheck = [u for u in s_time.timeunits.keys() if u in text]
+        if unitcheck and ('-' in text or '+' in text):
             splitter = '+'
-            if '-' in valu:
+            if '-' in text:
                 splitter = '-'
 
-            bgn, end = valu.split(splitter, 1)
+            bgn, end = text.split(splitter, 1)
             delt = s_time.delta(splitter + end)
             if bgn:
                 bgn = self._normPyStr(bgn)[0] + base
@@ -2247,7 +2247,8 @@ class Time(IntBase):
 
             return self._normPyInt(delt + bgn)
 
-        valu = s_time.parse(valu, base=base, chop=True)
+        # parsefast declined valu, so only retry the fast path if parsetz removed a timezone
+        valu = s_time._parse(text, base, True, text != valu)
         return self._normPyInt(valu)
 
     def _normPyInt(self, valu):

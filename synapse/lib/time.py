@@ -314,7 +314,17 @@ def parse(text, base=None, chop=False):
     Returns:
         int: Epoch milliseconds
     '''
-    dtraw, base, tlen = _rawparse(text, base=base, chop=chop)
+    return _parse(text, base, chop, True)
+
+def _parse(text, base, chop, fast):
+    '''
+    Parse a time string into an epoch millis value, only trying the fast path if fast is set.
+    '''
+    if fast:
+        dtraw, base, tlen = _rawparse(text, base, chop)
+    else:
+        dtraw, base, tlen = _textparse(text, base, chop)
+
     return _epochmillis(dtraw, base)
 
 def wildrange(text):
