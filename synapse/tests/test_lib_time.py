@@ -1,6 +1,5 @@
 import random
 import datetime
-import unittest.mock as mock
 
 import synapse.exc as s_exc
 
@@ -133,16 +132,14 @@ class TimeTest(s_t_utils.SynTest):
 
             vals.append(valu)
 
-        tests = []
+        hits = 0
         for valu in vals:
-            for kwargs in ({}, {'chop': True}, {'base': 7}):
-                if (info := s_time._fastparse(valu, kwargs.get('base'), kwargs.get('chop', False))) is not None:
-                    tests.append((valu, kwargs, info))
+            for base, chop in ((None, False), (None, True), (7, False)):
+                if (info := s_time._fastparse(valu, base, chop)) is not None:
+                    hits += 1
+                    self.eq(s_time._textparse(valu, base, chop), info, msg=f'{valu!r} {base} {chop}')
 
-        self.gt(len(tests), 350)
-        with mock.patch.object(s_time, '_fastparse', return_value=None):
-            for valu, kwargs, info in tests:
-                self.eq(s_time._rawparse(valu, **kwargs), info, msg=f'{valu!r} {kwargs}')
+        self.gt(hits, 350)
 
         # malformed times with leftover text are not silently misparsed
         with self.raises(s_exc.BadTypeValu) as cm:

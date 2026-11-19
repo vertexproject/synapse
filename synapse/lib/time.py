@@ -207,6 +207,12 @@ def _rawparse(text, base=None, chop=False):
     if (info := _fastparse(text, base, chop)) is not None:
         return info
 
+    return _textparse(text, base, chop)
+
+def _textparse(text, base, chop):
+    '''
+    Parse a time value with the general path, which handles timezones, separators and RFC822.
+    '''
     otext = text
     text = text.strip().lower().replace(' ', '')
 
