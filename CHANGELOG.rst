@@ -6,7 +6,7 @@
 Synapse Changelog
 *****************
 
-v2.258.0 - 2026-11-18
+v2.258.0 - 2026-11-20
 =====================
 
 Automatic Migrations
@@ -29,6 +29,8 @@ Features and Enhancements
 - Added the ``$lib.storm.lint`` library and the ``storm.lint`` command to lint
   Storm code from Storm.
   (`#5105 <https://github.com/vertexproject/synapse/pull/5105>`_)
+- Improved the performance of parsing ISO 8601 and digit only `time` values.
+  (`#5118 <https://github.com/vertexproject/synapse/pull/5118>`_)
 
 Bugfixes
 --------
