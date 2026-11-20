@@ -77,6 +77,18 @@ timefields_re = regex.compile(r'''
     )
 ''' % {'s': r'[\-/\._:t@]'}, flags=regex.VERBOSE)
 
+# clean ISO 8601 style values, which _rawparse reads without the general path. an offset may only follow a time.
+isotime_tail = (
+    r'(?:[tT ](?P<hour>[0-9]{2}):(?P<minute>[0-9]{2})(?::(?P<second>[0-9]{2})(?:\.(?P<frac>[0-9]+))?)?'
+    r'(?:[ ]?(?P<tz>[zZ]|(?P<tzrel>[\-+])(?P<tzhr>[0-9]{2}):?(?P<tzmin>[0-9]{2})))?)?'
+)
+isotime_re = regex.compile(
+    r'(?P<year>[0-9]{4})[\-/](?P<month>[0-9]{2})(?:[\-/](?P<day>[0-9]{2})' + isotime_tail + r')?'
+)
+
+# colon separated dates ( 2008:04:19 11:49:11 ) must use colons for both separators and include the day
+colontime_re = regex.compile(r'(?P<year>[0-9]{4}):(?P<month>[0-9]{2}):(?P<day>[0-9]{2})' + isotime_tail)
+
 daycat = '|'.join(calendar.day_abbr[i].lower() for i in range(7))
 monthcat = '|'.join(calendar.month_abbr[i].lower() for i in range(1, 13))
 rfc822_re = regex.compile(r'((?:%s),)?\d{1,2}(?:%s)\d{4}\d{2}:\d{2}:\d{2}' % (daycat, monthcat))
@@ -104,7 +116,119 @@ def _getTimeDigits(text, otext):
 
     return ''.join([c for c in text if c.isdigit()])
 
+def _tzoffs(tzrel, tzhr, tzmin):
+    '''
+    Return the base offset for a numeric timezone offset, where tzmin may be None.
+    '''
+    base = onehour * int(tzhr)
+    if tzmin is not None:
+        base += onemin * int(tzmin)
+
+    if tzrel == '+':
+        base *= -1
+
+    return base
+
+def _fastparse(text, base, chop):
+    '''
+    Parse a clean ISO 8601 style or separator free digits time value, or return None for the general path.
+    '''
+    text = text.strip()
+    if text.isdigit() and text.isascii():
+
+        if chop:
+            text = text[:17]
+
+        tlen = len(text)
+        if tlen not in (4, 6, 8, 10, 12, 14) and not 15 <= tlen <= 20:
+            return None
+
+        year, month, day, hour, minute, second, frac = (text[:4], text[4:6], text[6:8], text[8:10],
+                                                        text[10:12], text[12:14], text[14:])
+
+    else:
+        match = isotime_re.fullmatch(text)
+        if match is None and text[4:5] == ':':
+            match = colontime_re.fullmatch(text)
+
+        if match is None:
+            return None
+
+        year, month, day, hour, minute, second, frac, tz, tzrel, tzhr, tzmin = match.groups()
+
+        if frac is not None:
+            if chop:
+                frac = frac[:3]
+
+            elif len(frac) > 6:
+                return None
+
+            tlen = 14 + len(frac)
+
+        elif second is not None:
+            tlen = 14
+
+        elif hour is not None:
+            tlen = 12
+
+        elif day is not None:
+            tlen = 8
+
+        else:
+            tlen = 6
+
+        if tz is not None:
+            if base is not None:
+                return None
+
+            # the general path strips the first copy of the offset text, which may be the day and hour
+            if tzhr == day and tzmin == hour:
+                return None
+
+            base = 0
+            if tzrel is not None:
+                base = _tzoffs(tzrel, tzhr, tzmin)
+                if abs(base) >= oneday:
+                    return None
+
+    if base is None:
+        base = 0
+
+    try:
+        dt = datetime.datetime(int(year), int(month or 1), int(day or 1), int(hour or 0), int(minute or 0),
+                               int(second or 0), int(frac.ljust(6, '0')) if frac else 0)
+    except ValueError:
+        return None
+
+    return dt, base, tlen
+
+def _epochmillis(dt, base):
+    '''
+    Convert a naive UTC datetime and a millis offset into an epoch millis value.
+    '''
+    return int((dt - EPOCH).total_seconds() * 1000 + base)
+
+def parsefast(text, chop=False):
+    '''
+    Parse a clean ISO 8601 style or separator free digits time value into epoch millis, or return None.
+    '''
+    if (info := _fastparse(text, None, chop)) is None:
+        return None
+
+    dt, base, tlen = info
+    return _epochmillis(dt, base)
+
 def _rawparse(text, base=None, chop=False):
+
+    if (info := _fastparse(text, base, chop)) is not None:
+        return info
+
+    return _textparse(text, base, chop)
+
+def _textparse(text, base, chop):
+    '''
+    Parse a time value with the general path, which handles timezones, separators and RFC822.
+    '''
     otext = text
     text = text.strip().lower().replace(' ', '')
 
@@ -190,8 +314,18 @@ def parse(text, base=None, chop=False):
     Returns:
         int: Epoch milliseconds
     '''
-    dtraw, base, tlen = _rawparse(text, base=base, chop=chop)
-    return int((dtraw - EPOCH).total_seconds() * 1000 + base)
+    return _parse(text, base, chop, True)
+
+def _parse(text, base, chop, fast):
+    '''
+    Parse a time string into an epoch millis value, only trying the fast path if fast is set.
+    '''
+    if fast:
+        dtraw, base, tlen = _rawparse(text, base, chop)
+    else:
+        dtraw, base, tlen = _textparse(text, base, chop)
+
+    return _epochmillis(dtraw, base)
 
 def wildrange(text):
     '''
@@ -240,12 +374,7 @@ def parsetz(text):
     tzrel = match['tzrel']
     if tzrel is not None:
 
-        base = onehour * int(match['tzhr'])
-        if (tzmin := match.groupdict().get('tzmin')) is not None:
-            base += onemin * int(tzmin)
-        if tzrel == '+':
-            base *= -1
-
+        base = _tzoffs(tzrel, match['tzhr'], match.groupdict().get('tzmin'))
         if abs(base) >= oneday:
             raise s_exc.BadTypeValu(mesg=f'Timezone offset must be between +/- 24 hours for {text}',
                                     valu=text, name='time')
