@@ -13,6 +13,22 @@ class RiskModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
+            display = core.model.type('risk:attack').info.get('display')
+            self.eq(['period', 'name', 'actor:name', 'victim:name', 'reporter:name'],
+                    [col['opts']['name'] for col in display['columns']])
+
+            display = core.model.type('risk:compromise').info.get('display')
+            self.eq(['period', 'name', 'actor:name', 'victim:name', 'reporter:name', 'tag'],
+                    [col['opts']['name'] for col in display['columns']])
+
+            display = core.model.type('risk:extortion').info.get('display')
+            self.eq(['period', 'name', 'actor:name', 'victim:name', 'reporter:name'],
+                    [col['opts']['name'] for col in display['columns']])
+
+            display = core.model.type('risk:leak').info.get('display')
+            self.eq(['time', 'name', 'actor:name', 'victim:name', 'reporter:name'],
+                    [col['opts']['name'] for col in display['columns']])
+
             nodes = await core.nodes('''[
                 risk:attack=17eb16247855525d6f9cb1585a59877f
                     :reporter={[ entity:contact=* ]}
@@ -500,6 +516,10 @@ class RiskModelTest(s_t_utils.SynTest):
 
     async def test_model_risk_mitigation(self):
         async with self.getTestCore() as core:
+            display = core.model.type('risk:mitigation').info.get('display')
+            self.eq(['id', 'name', 'reporter:name'],
+                    [col['opts']['name'] for col in display['columns']])
+
             nodes = await core.nodes('''[
                 risk:mitigation=*
                     :name="  FooBar  "
@@ -530,6 +550,10 @@ class RiskModelTest(s_t_utils.SynTest):
 
     async def test_model_risk_theft(self):
         async with self.getTestCore() as core:
+            display = core.model.type('risk:theft').info.get('display')
+            self.eq(['time', 'name', 'actor:name', 'victim:name', 'reporter:name'],
+                    [col['opts']['name'] for col in display['columns']])
+
             nodes = await core.nodes('''[
                 risk:theft=*
                     :actor={[ entity:contact=* :name=thief ]}
@@ -540,6 +564,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :reporter={ gen.org vertex }
                     :reporter:name=vertex
                     +(stole)> {[ file:bytes=* ]}
+                    +(stole)> {[ meta:aggregate=* :type=pii :count=10 ]}
             ]''')
             self.len(1, nodes)
             self.nn(nodes[0].get('actor'))
@@ -553,6 +578,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:theft :actor -> entity:contact +:name=thief'))
             self.len(1, await core.nodes('risk:theft :victim -> entity:contact +:name=target'))
             self.len(1, await core.nodes('risk:theft -(stole)> file:bytes'))
+            self.len(1, await core.nodes('risk:theft -(stole)> meta:aggregate +:type=pii +:count=10'))
             self.len(1, await core.nodes('risk:theft :reporter -> ou:org +:name=vertex'))
 
     async def test_model_risk_loss(self):
@@ -594,6 +620,14 @@ class RiskModelTest(s_t_utils.SynTest):
 
     async def test_model_risk_vuln_technique(self):
         async with self.getTestCore() as core:
+            display = core.model.type('risk:vuln').info.get('display')
+            self.eq(['id', 'name', 'reporter:name'],
+                    [col['opts']['name'] for col in display['columns']])
+
+            display = core.model.type('meta:technique').info.get('display')
+            self.eq(['id', 'name', 'reporter:name'],
+                    [col['opts']['name'] for col in display['columns']])
+
             nodes = await core.nodes('''
                 [ risk:vuln=* :name=foo <(uses)+ { [ meta:technique=* :name=bar ] } ]
             ''')

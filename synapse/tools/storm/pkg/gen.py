@@ -246,6 +246,44 @@ def loadPkgProto(path, readonly=False, encryption=False, encpubkey=None):
     if filedefs:
         pkgdef['files'] = filedefs
 
+    # the courses section is generated from the courses directory, so an author never
+    # declares it
+    if pkgdef.get('courses') is not None:
+        mesg = 'The courses section is loaded from the courses directory and may not be specified.'
+        raise s_exc.BadPkgDef(mesg=mesg)
+
+    coursedir = s_common.genpath(protodir, 'courses')
+    if os.path.isdir(coursedir):
+
+        idens = set()
+
+        # sorted so that rebuilding a prototype produces the same package
+        for name in sorted(os.listdir(coursedir)):
+
+            if not name.endswith('.yaml'):
+                logger.warning('Skipping course file "%s" which is not a .yaml file' % (name,))
+                continue
+
+            fullpath = s_common.genpath(coursedir, name)
+
+            cdef = s_common.yamlload(fullpath)
+            if cdef is None:
+                mesg = f'Package course file {fullpath} is empty.'
+                raise s_exc.BadPkgDef(mesg=mesg, path=fullpath)
+
+            # names within a course must be unique, and each course must be
+            # distinguishable from the others by iden
+            s_schemas.reqValidCourse(cdef)
+
+            iden = cdef.get('iden')
+            if iden in idens:
+                mesg = f'Package has more than one course with the iden {iden}.'
+                raise s_exc.BadPkgDef(mesg=mesg, iden=iden)
+
+            idens.add(iden)
+
+            pkgdef.setdefault('courses', []).append(cdef)
+
     for mod in pkgdef.get('modules', ()):
 
         # A module loads its storm from a python package asset (package + path),

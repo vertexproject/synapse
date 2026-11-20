@@ -112,8 +112,7 @@ class BackupTest(s_t_utils.SynTest):
             with self.getTestDir() as dirn2:
                 with self.getLoggerStream('synapse.tools.service.backup') as stream:
                     s_backup.txnbackup({}, core.dirn, dirn2)
-                    stream.seek(0)
-                    self.isin('not copied', stream.read())
+                    await stream.expect('not copied')
 
     async def test_backup_url(self):
 

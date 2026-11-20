@@ -164,6 +164,7 @@ class EconTest(s_utils.SynTest):
 
                     :status=settled
                     :amount = 20.30
+                    :memo="rent for march"
 
                     :time=20180202
 
@@ -176,6 +177,7 @@ class EconTest(s_utils.SynTest):
             nodes = await core.nodes(text)
 
             self.propeq(nodes[0], 'status', 'settled')
+            self.propeq(nodes[0], 'memo', 'rent for march')
             self.propeq(nodes[0], 'place:name', 'myhouse')
             self.propeq(nodes[0], 'place:latlong', (90, 80))
             self.propeq(nodes[0], 'place:loc', 'us.ny.brooklyn')
@@ -209,6 +211,8 @@ class EconTest(s_utils.SynTest):
                     econ:security=(us, nasdaq, tsla)
                         :exchange=(us, nasdaq) as econ:exchange
                         :ticker=nasdaq/tsla
+                        :issuer={[ ou:org=({"name": "tesla"}) ]}
+                        :issuer:name=Tesla
                         :type=STOCK
                         :price=9999.00
                         :time=202002
@@ -219,10 +223,24 @@ class EconTest(s_utils.SynTest):
             self.eq('947183947f2e2c7bdc55264c20670f19', nodes[0].ndef[1])
             self.propeq(nodes[0], 'type', 'stock.')
             self.propeq(nodes[0], 'ticker', 'nasdaq/tsla')
+            self.propeq(nodes[0], 'issuer:name', 'Tesla')
             self.propeq(nodes[0], 'price', '9999')
             self.propeq(nodes[0], 'time', 1580515200000000)
 
             self.len(1, await core.nodes('econ:security -> econ:exchange +:operator:name="nasdaq inc"'))
+            self.len(1, await core.nodes('econ:security :issuer -> ou:org +:name=tesla'))
+
+            self.true(core.model.form('econ:security').implements('meta:havable'))
+            nodes = await core.nodes('''
+                [ entity:owned=*
+                    :item=(us, nasdaq, tsla) as econ:security
+                    :actor={[ ou:org=({"name": "vertex"}) ]}
+                    :percent=5
+                    :value=250000
+                ]
+            ''')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('entity:owned :item -> econ:security +:ticker=nasdaq/tsla'))
 
             nodes = await core.nodes('''
                 [
@@ -294,6 +312,15 @@ class EconTest(s_utils.SynTest):
             self.propeq(nodes[0], 'count', 10)
             self.propeq(nodes[0], 'price', '100')
             self.len(1, await core.nodes('econ:lineitem -> biz:product +:name=bananna'))
+
+            nodes = await core.nodes('[ econ:lineitem=* :count=3 :item={[ entity:title=analyst ]} ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'item', 'analyst')
+            self.len(1, await core.nodes('econ:lineitem -> entity:title +entity:title=analyst'))
+
+            nodes = await core.nodes('[ econ:lineitem=* :count=5 :item={[ mat:spec=* :name=laptop ]} ]')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('econ:lineitem -> mat:spec +:name=laptop'))
 
             # US-style: an econ:account for the funds plus an econ:bank:account
             # instrument carrying the (ABA RTN, account id) pair.

@@ -6,6 +6,13 @@ modeldefs = (
                 'interfaces': (
                     ('doc:authorable', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'created'}},
+                        {'type': 'prop', 'opts': {'name': 'creator:name'}},
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                    ),
+                },
                 'props': (
 
                     ('name', ('base:name', {}), {
@@ -22,6 +29,15 @@ modeldefs = (
                 'interfaces': (
                     ('doc:authorable', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'created'}},
+                        {'type': 'prop', 'opts': {'name': 'creator:name'}},
+                        {'type': 'prop', 'opts': {'name': 'system::name'}},
+                        {'type': 'prop', 'opts': {'name': 'id'}},
+                        {'type': 'prop', 'opts': {'name': 'title'}},
+                    ),
+                },
                 'props': (
 
                     ('id', (

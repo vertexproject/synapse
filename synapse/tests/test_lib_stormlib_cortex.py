@@ -100,6 +100,15 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 '''
                 await core.callStorm(q, opts={'vars': {'iden': iden}})
 
+            q = '''
+            function f(i as str) { return($lib.cortex.httpapi.add(duplicate, iden=$i)) }
+            return($f($iden))
+            '''
+            with self.raises(s_exc.DupIden) as cm:
+                await core.callStorm(q, opts={'vars': {'iden': iden}})
+
+            self.eq(iden, cm.exception.get('iden'))
+
             with self.raises(s_exc.SchemaViolation):
                 q = '''
                 $api = $lib.cortex.httpapi.add(duplicate, iden="trollolololol")
@@ -1097,8 +1106,14 @@ for $i in $values {
             }
             // Cannot modify request headers
             $api.methods.post = ${
+                function typed(n as str) { $lib.dict.pop($request.headers, $n) return() }
+                function typedset(n as str) { $request.headers.$n = haha return() }
                 if $request.headers.popmethod {
                     $lib.dict.pop($request.headers, "Secret-Key")
+                } elif $request.headers.typedpop {
+                    $typed("Secret-Key")
+                } elif $request.headers.typedset {
+                    $typedset(newp)
                 } elif $request.headers.dictmethod {
                     $lib.dict.update($request.headers, ({"newp": "haha"}))
                 } else {
@@ -1144,6 +1159,13 @@ for $i in $values {
                 data = await resp.json()
                 self.eq(data.get('code'), 'StormRuntimeError')
                 self.eq(data.get('mesg'), 'http:api:request:headers may not be modified by the runtime.')
+
+                for name in ('typedpop', 'typedset'):
+                    resp = await sess.post(f'https://localhost:{hport}/api/ext/testpath', headers={name: '1'})
+                    self.eq(resp.status, http.HTTPStatus.INTERNAL_SERVER_ERROR)
+                    data = await resp.json()
+                    self.eq(data.get('code'), 'StormRuntimeError')
+                    self.eq(data.get('mesg'), 'http:api:request:headers may not be modified by the runtime.')
 
     async def test_libcortex_httpapi_vars(self):
 

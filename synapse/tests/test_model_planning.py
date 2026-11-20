@@ -5,6 +5,15 @@ class PlanModelTest(s_t_utils.SynTest):
     async def test_model_planning(self):
 
         async with self.getTestCore() as core:
+
+            display = core.model.type('plan:phase').info.get('display')
+            self.eq(['created', 'creator:name', 'system::name', 'id', 'title'],
+                    [col['opts']['name'] for col in display['columns']])
+
+            display = core.model.type('plan:system').info.get('display')
+            self.eq(['created', 'creator:name', 'name'],
+                    [col['opts']['name'] for col in display['columns']])
+
             nodes = await core.nodes('''
                 [ plan:system=*
                     :name="Woot CNO Planner"

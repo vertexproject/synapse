@@ -12,6 +12,11 @@ Storm in any other kind of host file is measured when it is listed in a manifest
 
     {"queries": [{"path": "../src/app.ts", "line": 12, "text": "inet:fqdn=$fqdn"}]}
 
+A manifest whose path ends in `.jsonl` instead holds one query object per line, and is read a chunk of
+lines at a time:
+
+    {"path": "../src/app.ts", "line": 12, "text": "inet:fqdn=$fqdn"}
+
 A relative `path` is relative to the manifest. `line` is the host line holding the first line of `text`,
 and each further line of `text` must sit on the next host line.
 
@@ -61,8 +66,7 @@ import synapse.exc as s_exc
 import synapse.data as s_data
 import synapse.common as s_common
 
-import synapse.lib.json as s_json
-import synapse.lib.config as s_config
+import synapse.lib.stormmanifest as s_stormmanifest
 
 logger = logging.getLogger(__name__)
 
@@ -81,28 +85,8 @@ DEFAULT_DATA = '.stormcov-embed'
 # A coverage build marks each query with the call site its manifest entry names
 SITE_RX = regex.compile(r'/\* stormcov:(\S+) \*/\s*$')
 
-MANIFEST_SCHEMA = {
-    'type': 'object',
-    'properties': {
-        'queries': {
-            'type': 'array',
-            'items': {
-                'type': 'object',
-                'properties': {
-                    'path': {'type': 'string', 'minLength': 1},
-                    'line': {'type': 'integer', 'minimum': 1},
-                    'text': {'type': 'string'},
-                    'site': {'type': 'string', 'minLength': 1},
-                },
-                'required': ['path', 'line', 'text'],
-                'additionalProperties': False,
-            },
-        },
-    },
-    'required': ['queries'],
-}
-
-reqValidManifest = s_config.getJsValidator(MANIFEST_SCHEMA)
+MANIFEST_SCHEMA = s_stormmanifest.MANIFEST_SCHEMA
+reqValidManifest = s_stormmanifest.reqValidManifest
 
 def pytest_addoption(parser): # pragma: no cover
     # NB: no coverage since this is a pytest hook
@@ -162,7 +146,7 @@ def pytest_addoption(parser): # pragma: no cover
         action='store',
         default='',
         dest='stormmanifests',
-        help='Comma separated list of JSON manifests listing Storm embedded in other files. Default: none',
+        help='Comma separated list of JSON or JSONL manifests listing Storm embedded in other files. Default: none',
     )
 
     group.addoption(
@@ -346,15 +330,14 @@ def loadManifests(paths):
 
     for path in paths:
         try:
-            with open(path, 'rb') as fd:
-                mdef = reqValidManifest(s_json.load(fd))
-        except (OSError, s_exc.BadJsonText, s_exc.SchemaViolation) as e:
-            logger.warning('Skipping invalid storm manifest %s: %s', path, e)
+            queries = list(s_stormmanifest.iterManifest(path))
+        except s_exc.BadArg as e:
+            logger.warning('Skipping invalid storm manifest %s: %s', path, e.get('mesg'))
             continue
 
         dirn = os.path.dirname(os.path.abspath(path))
 
-        for query in mdef['queries']:
+        for query in queries:
             if not query['text'].strip():
                 continue
 
@@ -376,14 +359,13 @@ def loadManifestSites(paths):
 
     for path in paths:
         try:
-            with open(path, 'rb') as fd:
-                mdef = reqValidManifest(s_json.load(fd))
-        except (OSError, s_exc.BadJsonText, s_exc.SchemaViolation):
+            queries = list(s_stormmanifest.iterManifest(path))
+        except s_exc.BadArg:
             continue
 
         dirn = os.path.dirname(os.path.abspath(path))
 
-        for query in mdef['queries']:
+        for query in queries:
             site = query.get('site')
             if site is None or not query['text'].strip():
                 continue

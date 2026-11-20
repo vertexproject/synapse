@@ -1,10 +1,13 @@
 import asyncio
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
+import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
+import synapse.lib.editor as s_editor
 import synapse.lib.stormtypes as s_stormtypes
 
 RISK_HASVULN_VULNPROPS = (
@@ -736,7 +739,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
               to a layer in which the fuse creates dst, since dst retains its own computed
               properties in the layer it was created in.
             - Inbound references (properties on other nodes which point at src) are
-              rewritten to point at dst. This includes typed value (poly) properties and
+              rewritten to point at dst. This includes typed value properties and
               array properties. A property which is declared for one of src's ancestor
               forms may have filed its reference under that ancestor rather than under
               src's own form; such a reference keeps the ancestor it was filed under.
@@ -1204,3 +1207,412 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
 
     def getObjLocals(self):
         return {}
+
+class LibModelMigrationsQueue(s_stormtypes.Lib):
+    '''
+    The shared implementation of a library for the queue a model migration records the
+    nodes it could not repair in.
+    '''
+    queuename = None
+
+    def getObjLocals(self):
+        return {
+            'listNodes': self._methListNodes,
+            'printNode': self._methPrintNode,
+            'repairNode': self._methRepairNode,
+        }
+
+    def _getPath(self):
+        return '$lib.' + '.'.join(self._storm_lib_path)
+
+    async def _getQueueIden(self, verb):
+
+        qdef = await self.runt.view.core.getCoreQueueByName(self.queuename)
+        if qdef is None:
+            await self.runt.printf(f'Queue {self.queuename} not found, no nodes to {verb}.')
+            return None
+
+        return qdef.get('iden')
+
+    async def _getQueueItem(self, iden, offset):
+
+        async for offs, item in self.runt.view.core.coreQueueGets(iden, offset, cull=False, wait=False, size=1):
+            if offs == offset:
+                return item
+
+        await self.runt.printf(f'No item at offset {offset} in queue {self.queuename}.')
+
+    def _getNodeNid(self, ndef):
+        '''
+        Return the nid of a node which some layer still holds, or None.
+
+        A nid stays assigned to a value after its node is deleted, so having one does not
+        mean the node exists.
+        '''
+        core = self.runt.view.core
+
+        if (nid := core.getNidByNdef(ndef)) is None:
+            return None
+
+        for layr in core.layers.values():
+            if layr.getStorNode(nid).get('valu') is not None:
+                return nid
+
+    def _getRepr(self, typ, valu):
+        try:
+            return typ.repr(valu)
+        except Exception:  # pragma: no cover
+            return repr(valu)
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _methListNodes(self, form=None, source=None, offset=0, size=None):
+
+        self.runt.reqAdmin(mesg=f'{self._getPath()}.listNodes() requires global admin.')
+
+        form = await s_stormtypes.tostr(form, noneok=True)
+        source = await s_stormtypes.tostr(source, noneok=True)
+        offset = await s_stormtypes.toint(offset)
+        size = await s_stormtypes.toint(size, noneok=True)
+
+        if (iden := await self._getQueueIden('list')) is None:
+            return
+
+        count = 0
+        async for offs, item in self.runt.view.core.coreQueueGets(iden, offset, cull=False, wait=False):
+
+            if form is not None and item.get('form') != form:
+                continue
+
+            sources = item['sources']
+            if source is not None and source not in sources:
+                continue
+
+            yield (offs, item.get('form'), item.get('valu'), sources)
+
+            count += 1
+            if size is not None and count >= size:
+                return
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _methPrintNode(self, offset):
+
+        self.runt.reqAdmin(mesg=f'{self._getPath()}.printNode() requires global admin.')
+
+        offset = await s_stormtypes.toint(offset)
+
+        if (iden := await self._getQueueIden('print')) is None:
+            return
+
+        if (item := await self._getQueueItem(iden, offset)) is None:
+            return
+
+        model = self.runt.model
+        printf = self.runt.printf
+
+        form = model.form(item.get('form'))
+        valu = item.get('valu')
+
+        await printf(f'{form.name}={valu!r}')
+
+        reason = item.get('reason')
+        if (mesg := item.get('mesg')) is not None:
+            reason = f'{reason}: {mesg}'
+
+        await printf(f'  reason: {reason}')
+
+        ivaltype = model.type('ival')
+
+        for layriden, info in item['layers'].items():
+
+            await printf(f'  layer: {layriden}')
+
+            if (created := info['meta'].get('created')) is not None:
+                await printf(f'    .created = {self._getRepr(model.metatypes["created"], created)}')
+
+            for name, propvalu in info['props'].items():
+                if (prop := form.props.get(name)) is not None:
+                    propvalu = self._getRepr(prop.type, propvalu)
+                await printf(f'    :{name} = {propvalu}')
+
+            for tag, ival in info['tags'].items():
+                if tuple(ival) == (None, None, None):
+                    await printf(f'    #{tag}')
+                else:
+                    await printf(f'    #{tag} = {self._getRepr(ivaltype, ival)}')
+
+            for tag, tprops in info['tagprops'].items():
+                for name, tpvalu in tprops.items():
+                    if (tagprop := model.getTagProp(name)) is not None:
+                        tpvalu = self._getRepr(tagprop.type, tpvalu)
+                    await printf(f'    #{tag}:{name} = {tpvalu}')
+
+            for name, _ in info['nodedata']:
+                await printf(f'    data: {name}')
+
+            for verb, (n2form, n2valu) in info['n1edges']:
+                await printf(f'    -({verb})> {n2form}={n2valu!r}')
+
+            for verb, (n1form, n1valu) in info['n2edges']:
+                await printf(f'    <({verb})- {n1form}={n1valu!r}')
+
+            tombs = info['tombs']
+
+            if tombs['valu']:
+                await printf('    tombstone: node')
+
+            for name in tombs['props']:
+                await printf(f'    tombstone: :{name}')
+
+            for tag in tombs['tags']:
+                await printf(f'    tombstone: #{tag}')
+
+            for tag, names in tombs['tagprops'].items():
+                for name in names:
+                    await printf(f'    tombstone: #{tag}:{name}')
+
+            for name in tombs['nodedata']:
+                await printf(f'    tombstone: data: {name}')
+
+            for verb, (n2form, n2valu) in tombs['n1edges']:
+                await printf(f'    tombstone: -({verb})> {n2form}={n2valu!r}')
+
+            for verb, (n1form, n1valu) in tombs['n2edges']:
+                await printf(f'    tombstone: <({verb})- {n1form}={n1valu!r}')
+
+        if (sources := item.get('sources')):
+            await printf(f'  sources: {", ".join(sources)}')
+
+        for layriden, (refform, refvalu), propfull, isarray, iscomp in item['refs']:
+            mesg = f'  ref: {propfull} on {refform}={refvalu!r} in layer {layriden}'
+            if iscomp:
+                mesg += ' (comp key, repair separately)'
+            await printf(mesg)
+
+    async def _methRepairNode(self, offset, newvalu, remove=False):
+
+        self.runt.reqAdmin(mesg=f'{self._getPath()}.repairNode() requires global admin.')
+
+        offset = await s_stormtypes.toint(offset)
+        newvalu = await s_stormtypes.toprim(newvalu)
+        remove = await s_stormtypes.tobool(remove)
+
+        if (iden := await self._getQueueIden('repair')) is None:
+            return False
+
+        if (item := await self._getQueueItem(iden, offset)) is None:
+            return False
+
+        core = self.runt.view.core
+        model = self.runt.model
+
+        form = model.reqForm(item.get('form'))
+
+        (norm, _) = await form.type.norm(newvalu)
+
+        ndef = (form.name, norm)
+        intnid = s_common.int64un(await core.genNdefNid(ndef))
+
+        meta = {'time': s_common.now(), 'user': self.runt.user.iden}
+
+        editor = s_editor.MigrationEditor(core, self.runt.user)
+
+        for layriden, info in item['layers'].items():
+
+            if (layr := core.getLayer(layriden)) is None:
+                await self.runt.warn(f'Layer {layriden} no longer exists, skipping it.')
+                continue
+
+            nodeedits = await editor.getNewNodeEdits(form.name, norm, layr=layr)
+
+            edits = []
+            adds = []
+
+            if info.get('valu'):
+                edits.extend(nodeedits[0][2])
+                adds.extend(nodeedits[1:])
+
+            if (created := info['meta'].get('created')) is not None:
+                edits.append((s_layer.EDIT_META_SET, ('created', created, model.metatypes['created'].stortype)))
+
+            for name, propvalu in info['props'].items():
+
+                prop = form.props.get(name)
+                if prop is None or prop.info.get('computed'):
+                    continue
+
+                (stortype, virts) = prop.type.getStorInfo(propvalu)
+                edits.append((s_layer.EDIT_PROP_SET, (name, propvalu, stortype, virts)))
+
+            for tag, ival in info['tags'].items():
+                edits.append((s_layer.EDIT_TAG_SET, (tag, tuple(ival))))
+
+            for tag, tprops in info['tagprops'].items():
+                for name, tpvalu in tprops.items():
+
+                    if (tagprop := model.getTagProp(name)) is None:
+                        await self.runt.warn(f'Tag property {name} no longer exists, skipping it.')
+                        continue
+
+                    (stortype, virts) = tagprop.type.getStorInfo(tpvalu)
+                    edits.append((s_layer.EDIT_TAGPROP_SET, (tag, name, tpvalu, stortype, virts)))
+
+            for name, datavalu in info['nodedata']:
+                edits.append((s_layer.EDIT_NODEDATA_SET, (name, datavalu)))
+
+            othredits = []
+
+            for verb, n2ndef in info['n1edges']:
+
+                if (n2nid := self._getNodeNid(n2ndef)) is None:
+                    await self.runt.warn(f'Node {n2ndef[0]}={n2ndef[1]!r} no longer exists, skipping its -({verb})> edge.')
+                    continue
+
+                edits.append((s_layer.EDIT_EDGE_ADD, (verb, s_common.int64un(n2nid))))
+
+            for verb, n1ndef in info['n2edges']:
+
+                if (n1nid := self._getNodeNid(n1ndef)) is None:
+                    await self.runt.warn(f'Node {n1ndef[0]}={n1ndef[1]!r} no longer exists, skipping its -({verb})> edge.')
+                    continue
+
+                othredits.append((s_common.int64un(n1nid), n1ndef[0], (
+                    (s_layer.EDIT_EDGE_ADD, (verb, intnid)),
+                )))
+
+            # the tombstones keep what this layer deleted from the layers below it hidden.
+            # one for a node which no longer exists has nothing left to hide.
+            tombs = info['tombs']
+
+            if tombs['valu']:
+                edits.append((s_layer.EDIT_NODE_TOMB, ()))
+
+            for name in tombs['props']:
+                if (prop := form.props.get(name)) is not None and not prop.info.get('computed'):
+                    edits.append((s_layer.EDIT_PROP_TOMB, (name,)))
+
+            for tag in tombs['tags']:
+                edits.append((s_layer.EDIT_TAG_TOMB, (tag,)))
+
+            for tag, names in tombs['tagprops'].items():
+                for name in names:
+                    edits.append((s_layer.EDIT_TAGPROP_TOMB, (tag, name)))
+
+            for name in tombs['nodedata']:
+                edits.append((s_layer.EDIT_NODEDATA_TOMB, (name,)))
+
+            for verb, n2ndef in tombs['n1edges']:
+                if (n2nid := self._getNodeNid(n2ndef)) is not None:
+                    edits.append((s_layer.EDIT_EDGE_TOMB, (verb, s_common.int64un(n2nid))))
+
+            for verb, n1ndef in tombs['n2edges']:
+                if (n1nid := self._getNodeNid(n1ndef)) is not None:
+                    othredits.append((s_common.int64un(n1nid), n1ndef[0], (
+                        (s_layer.EDIT_EDGE_TOMB, (verb, intnid)),
+                    )))
+
+            try:
+                await layr.saveNodeEdits(adds + [(intnid, form.name, edits)] + othredits, meta)
+            except s_exc.IsReadOnly:
+                await self.runt.warn(f'Layer {layriden} is read only, skipping it.')
+                continue
+
+        for layriden, refndef, propfull, isarray, iscomp in item['refs']:
+
+            # a comp's primary value embeds the node, so it cannot be repointed in place
+            if iscomp:
+                continue
+
+            if (layr := core.getLayer(layriden)) is None:
+                continue
+
+            if (refnid := self._getNodeNid(refndef)) is None:
+                continue
+
+            sode = layr.getStorNode(refnid)
+            if sode.get('form') is None:
+                continue
+
+            prop = model.prop(propfull)
+            if prop is None:  # pragma: no cover
+                continue
+
+            curv = None
+            if (props := sode.get('props')) is not None:
+                curv = props.get(prop.name)
+
+            if isarray:
+                setv = [ndef]
+                if curv is not None:
+                    if ndef in [tuple(v) for v in curv[0]]:
+                        continue
+                    setv = list(curv[0]) + setv
+
+                (setv, _) = await prop.type.normFromTypedValu(setv)
+
+            else:
+                # a scalar set again since the node was recorded is left as it is
+                if curv is not None:
+                    continue
+
+                setv = ndef
+
+            (stortype, virts) = prop.type.getStorInfo(setv)
+
+            try:
+                await layr.saveNodeEdits([(s_common.int64un(refnid), refndef[0], (
+                    (s_layer.EDIT_PROP_SET, (prop.name, setv, stortype, virts)),
+                ))], meta)
+            except s_exc.IsReadOnly:
+                await self.runt.warn(f'Layer {layriden} is read only, {propfull} was not repointed.')
+
+        if remove:
+            await core.coreQueuePop(iden, offset)
+
+        await self.runt.printf(f'Repaired {form.name}={norm!r}.')
+        return True
+
+@s_stormtypes.registry.registerLib
+class LibModelMigrations_3_2_0(LibModelMigrationsQueue):
+    '''
+    A Storm library for the inet:url nodes the 3.2.0 model migration could not repair.
+    '''
+    queuename = 'model_3_2_0:nodes'
+
+    _storm_locals = (
+        {'name': 'listNodes', 'desc': 'List the nodes in the model_3_2_0:nodes queue.',
+         'type': {'type': 'function', '_funcname': '_methListNodes',
+                  'args': (
+                      {'name': 'form', 'type': 'str', 'default': None,
+                       'desc': 'Only list nodes of this form.', },
+                      {'name': 'source', 'type': 'str', 'default': None,
+                       'desc': 'Only list nodes seen by the `meta:source` node with this guid.', },
+                      {'name': 'offset', 'type': 'int', 'default': 0,
+                       'desc': 'The queue offset to start listing from.', },
+                      {'name': 'size', 'type': 'int', 'default': None,
+                       'desc': 'The maximum number of nodes to list.', },
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'list',
+                              'desc': 'Yields (offset, form, valu, sources) tuples.'}}},
+        {'name': 'printNode', 'desc': 'Print what a queued node held, and what referenced it.',
+         'type': {'type': 'function', '_funcname': '_methPrintNode',
+                  'args': (
+                      {'name': 'offset', 'type': 'int', 'desc': 'The queue offset of the node.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'repairNode', 'desc': '''
+            Re-create a queued node with a new value, in each layer which held it.
+
+            Its props, tags, tag properties, node data and light edges are restored, along
+            with the tombstones each layer held for them, and each property which referenced
+            it, other than a comp key, is set to the new node.
+            ''',
+         'type': {'type': 'function', '_funcname': '_methRepairNode',
+                  'args': (
+                      {'name': 'offset', 'type': 'int', 'desc': 'The queue offset of the node.', },
+                      {'name': 'newvalu', 'type': 'any', 'desc': 'The value to re-create the node with.', },
+                      {'name': 'remove', 'type': 'boolean', 'default': False,
+                       'desc': 'Remove the node from the queue once it is repaired.', },
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'True if the node was repaired.', }}},
+    )
+    _storm_lib_path = ('model', 'migration', 's', 'model_3_2_0')

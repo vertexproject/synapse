@@ -352,6 +352,14 @@ modeldefs = (
                 'interfaces': (
                     ('meta:reported', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'source::name'}},
+                        {'type': 'prop', 'opts': {'name': 'target::name'}},
+                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                        {'type': 'prop', 'opts': {'name': 'type'}},
+                    ),
+                },
                 'props': (
 
                     ('type', ('entity:relationship:type:taxonomy', {}), {
@@ -412,8 +420,14 @@ modeldefs = (
                     ('actor:name', None, {
                         'doc': 'The name of the entity which owned the item.'}),
 
+                    ('period', None, {
+                        'doc': 'The time period when the entity owned the item.'}),
+
                     ('percent', ('percent', {}), {
                         'doc': 'The percentage of the item owned by the owner.'}),
+
+                    ('value', ('econ:price', {}), {
+                        'doc': 'The value of the portion of the item owned by the owner.'}),
 
                 ),
                 'doc': 'An item which was owned by an actor.'}),
@@ -437,30 +451,78 @@ modeldefs = (
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                     ),
                 },
                 'props': (
 
                     ('name', ('base:name', {}), {
                         'alts': ('names',),
-                        'doc': 'A terse name for the goal.'}),
+                        'doc': 'A terse name for the {title}.'}),
 
                     ('names', ('base:name', {}), {
                         'array': {},
-                        'doc': 'Alternative names for the goal.'}),
+                        'doc': 'Alternative names for the {title}.'}),
 
                     ('type', ('entity:goal:type:taxonomy', {}), {
                         'doc': 'A type taxonomy entry for the goal.'}),
 
                     ('desc', ('text', {}), {
-                        'doc': 'A description of the goal.'}),
+                        'doc': 'A description of the {title}.'}),
                 ),
                 'doc': 'A stated or assessed goal.'}),
+
+            ('entity:goal:financial', ('entity:goal', {}), {
+                'template': {'title': 'financial goal'},
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'target'}},
+                        {'type': 'prop', 'opts': {'name': 'actual'}},
+                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                    ),
+                },
+                'props': (
+
+                    ('target', ('econ:price', {}), {
+                        'doc': 'The amount of money the goal aimed for.'}),
+
+                    ('actual', ('econ:price', {}), {
+                        'doc': 'The amount of money actually achieved toward the goal.'}),
+                ),
+                'doc': 'A goal for an amount of money such as revenue or funds raised.'}),
+
+            ('entity:goal:people', ('entity:goal', {}), {
+                'template': {'title': 'people goal'},
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'target'}},
+                        {'type': 'prop', 'opts': {'name': 'actual'}},
+                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                    ),
+                },
+                'props': (
+
+                    ('target', ('int', {}), {
+                        'doc': 'The change in the number of people the goal aimed for. A negative value is a reduction.'}),
+
+                    ('actual', ('int', {}), {
+                        'doc': 'The change in the number of people actually achieved. A negative value is a reduction.'}),
+                ),
+                'doc': 'A goal for a change in the number of people such as people reached, recruited, or removed.'}),
 
             ('entity:motive', ('guid', {}), {
                 'interfaces': (
                     ('entity:activity', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'period'}},
+                        {'type': 'prop', 'opts': {'name': 'actor:name'}},
+                        {'type': 'prop', 'opts': {'name': 'goal::name'}},
+                    ),
+                },
                 'props': (
                     ('goal', ('entity:goal', {}), {
                         'doc': 'The goal which motivated the actor.'}),
@@ -486,11 +548,11 @@ modeldefs = (
                 ),
                 'display': {
                     'columns': (
+                        {'type': 'prop', 'opts': {'name': 'period'}},
                         {'type': 'prop', 'opts': {'name': 'name'}},
-                        {'type': 'prop', 'opts': {'name': 'names'}},
+                        {'type': 'prop', 'opts': {'name': 'actor:name'}},
                         {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                         {'type': 'prop', 'opts': {'name': 'tag'}},
-                        {'type': 'prop', 'opts': {'name': 'period'}},
                     ),
                 },
                 'props': (
@@ -558,12 +620,19 @@ modeldefs = (
                 'props': (
 
                     ('campaign', ('entity:campaign', {}), {
-                        'doc': 'The campaign receiving the contribution.'}),
+                        'deprecated': {'eoldate': '2027-01-01'},
+                        'doc': 'Deprecated. Please use :recipient.'}),
+
+                    ('recipient', (('entity:actor', {}), ('entity:campaign', {})), {
+                        'doc': 'The actor or campaign receiving the contribution.'}),
+
+                    ('recipient:name', ('entity:name', {}), {
+                        'doc': 'The name of the actor or campaign receiving the contribution.'}),
 
                     ('value', ('econ:price', {}), {
                         'doc': 'The assessed value of the contribution.'}),
                 ),
-                'doc': 'Represents a specific instance of contributing material support to a campaign.'}),
+                'doc': 'Represents a specific instance of contributing material support to an actor or campaign.'}),
 
             ('entity:studied', ('guid', {}), {
                 'template': {'title': 'study', 'verb': 'undertook'},
@@ -597,6 +666,7 @@ modeldefs = (
                 },
                 'interfaces': (
                     ('entity:event', {}),
+                    ('meta:revocable', {}),
                 ),
                 'props': (
                     ('achievement', ('meta:achievable', {}), {
@@ -636,6 +706,17 @@ modeldefs = (
                         'doc': 'The item destroyed by the actor.'}),
                 ),
                 'doc': 'An event where an actor destroyed an item.'}),
+
+            ('entity:revoked', ('guid', {}), {
+                'template': {'title': 'revocation'},
+                'interfaces': (
+                    ('entity:event', {}),
+                ),
+                'props': (
+                    ('item', ('meta:revocable', {}), {
+                        'doc': 'The item revoked by the actor.'}),
+                ),
+                'doc': 'An event where an actor revoked an item.'}),
 
             ('entity:signed', ('guid', {}), {
                 'template': {'title': 'signing'},

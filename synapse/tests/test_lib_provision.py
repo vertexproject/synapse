@@ -163,8 +163,7 @@ class ProvisionTest(s_test.SynTest):
 
                 self.true(srv.rxq.empty())
 
-            stream.seek(0)
-            self.isin('Error decrypting provision datagram', stream.read())
+            await stream.expect('Error decrypting provision datagram')
 
             # and the listener still serves a legitimate request afterwards
             async with await s_provision.ProvCast.anit(key, port, group=group) as cli:

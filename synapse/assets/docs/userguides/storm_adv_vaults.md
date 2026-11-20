@@ -84,8 +84,8 @@ for $vault in $lib.vault.list() {
         $lib.print(`{$vault.name}: owner={$lib.auth.users.get($vault.owner).name}`)
     }
 }
-mailer-visi: owner=visi
 mailer-ron: owner=ron
+mailer-visi: owner=visi
 ```
 
 To share one set of credentials, create a `role` or `global` vault of the type instead. A user's own `user` vault takes precedence over them when the code looks the vault up by type. A vault that should be used only when asked for, such as one of several sets of credentials, is created unscoped. Code selects it by name, usually from a `--config <name>` option on a command.
@@ -209,6 +209,8 @@ another-key
 Assigning [`$lib.undef`](../stormtypes_libs.md#stormlibs-lib-undef) to a key removes it. [`$lib.vault.print()`](../stormtypes_libs.md#stormlibs-lib-vault-print) prints the details of a vault, and omits the `secrets` unless `showsecrets` is set and the user has `edit` on the vault. To replace several settings at once, change a dictionary from [`$vault.vdef()`](../stormtypes_prims.md#stormprims-vault-vdef) and pass it to [`$lib.vault.update()`](../stormtypes_libs.md#stormlibs-lib-vault-update), which requires `edit` on the vault, or `admin` if the permissions are changed.
 
 A vault is deleted with `vault.del` or [`$vault.delete()`](../stormtypes_prims.md#stormprims-vault-delete), which require `admin`.
+
+Vaults can also be listed, read, added, modified, and deleted without Storm through the Cortex [vault HTTP APIs](../httpapi.md#apiv3vaultlist), which enforce the same permissions.
 
 <a id="storm-vaults-use"></a>
 

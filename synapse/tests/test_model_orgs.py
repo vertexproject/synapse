@@ -12,9 +12,15 @@ class OuModelTest(s_t_utils.SynTest):
             t = core.model.type('ou:naics')
             norm, subs = await t.norm(541715)
             self.eq(norm, '541715')
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('newp'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('1'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm(1000000))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('newp')
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('1')
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm(1000000)
+
             self.eq('10', (await t.norm('10'))[0])
             self.eq('100', (await t.norm('  100  '))[0])
             self.eq('1000', (await t.norm('1000'))[0])
@@ -29,10 +35,17 @@ class OuModelTest(s_t_utils.SynTest):
             norm, subs = await t.norm('0111')
             self.eq(norm, '0111')
 
-            await self.asyncraises(s_exc.BadTypeValu, t.norm(-1))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm(0))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm(111))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm(10000))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm(-1)
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm(0)
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm(111)
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm(10000)
 
             # ou:isic
             t = core.model.type('ou:isic')
@@ -40,10 +53,17 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq('C13', (await t.norm('C13'))[0])
             self.eq('C139', (await t.norm('C139'))[0])
             self.eq('C1393', (await t.norm('C1393'))[0])
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('C1'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('C12345'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('newp'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm(1000000))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('C1')
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('C12345')
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('newp')
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm(1000000)
 
             # ou:naics, ou:sic, and ou:isic are forms
             self.len(1, await core.nodes('[ ou:naics=541715 ]'))
@@ -166,6 +186,7 @@ class OuModelTest(s_t_utils.SynTest):
                 ou:conference=39f8d9599cd663b00013bfedf69dcf53
                     :name="arrowcon 2018"
                     :names=("arrow conference 2018", "arrcon18", "arrcon18")
+                    :desc="The annual arrow conference."
                     :period=(20180301, 20180303)
                     :website=http://arrowcon.org/2018
                     :place=39f8d9599cd663b00013bfedf69dcf53 as geo:place
@@ -174,6 +195,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('ou:conference', '39f8d9599cd663b00013bfedf69dcf53'))
             self.propeq(nodes[0], 'name', 'arrowcon 2018')
             self.propeq(nodes[0], 'names', ('arrcon18', 'arrow conference 2018',))
+            self.propeq(nodes[0], 'desc', 'The annual arrow conference.')
             self.propeq(nodes[0], 'period', (1519862400000000, 1520035200000000, 172800000000))
             self.propeq(nodes[0], 'place', '39f8d9599cd663b00013bfedf69dcf53')
             self.propeq(nodes[0], 'website', 'http://arrowcon.org/2018')
@@ -189,6 +211,7 @@ class OuModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''[
                 ou:event=39f8d9599cd663b00013bfedf69dcf53
                     :name='arrowcon 2018 dinner'
+                    :desc="Dinner for arrowcon attendees."
                     :period=(201803011900, 201803012200)
                     :place=39f8d9599cd663b00013bfedf69dcf53 as geo:place
                     :website=http://arrowcon.org/2018/dinner
@@ -196,6 +219,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('ou:event', '39f8d9599cd663b00013bfedf69dcf53'))
             self.propeq(nodes[0], 'name', 'arrowcon 2018 dinner')
+            self.propeq(nodes[0], 'desc', 'Dinner for arrowcon attendees.')
             self.propeq(nodes[0], 'period', (1519930800000000, 1519941600000000, 10800000000))
             self.propeq(nodes[0], 'place', '39f8d9599cd663b00013bfedf69dcf53')
             self.propeq(nodes[0], 'website', 'http://arrowcon.org/2018/dinner')
@@ -242,6 +266,7 @@ class OuModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''[
                 ou:preso=*
                     :name=syn101
+                    :desc="Synapse 101"
                     :period=(202008081200, 202008081400)
 
                     :place=* as geo:place
@@ -252,6 +277,7 @@ class OuModelTest(s_t_utils.SynTest):
             ]''')
             self.len(1, nodes)
             self.propeq(nodes[0], 'name', 'syn101')
+            self.propeq(nodes[0], 'desc', 'Synapse 101')
 
             self.propeq(nodes[0], 'period', (1596888000000000, 1596895200000000, 7200000000))
 
@@ -265,6 +291,8 @@ class OuModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''[
                 ou:contest=*
                     :name="defcon ctf 2020"
+                    :family="defcon ctf"
+                    :desc="The DEF CON capture the flag contest."
                     :type=cyber.ctf
                     :period=(20200808, 20200811)
                     :website=http://vertex.link/contest
@@ -275,6 +303,8 @@ class OuModelTest(s_t_utils.SynTest):
             ]''')
             self.len(1, nodes)
             self.propeq(nodes[0], 'name', 'defcon ctf 2020')
+            self.propeq(nodes[0], 'family', 'defcon ctf')
+            self.propeq(nodes[0], 'desc', 'The DEF CON capture the flag contest.')
             self.propeq(nodes[0], 'type', 'cyber.ctf.')
             self.propeq(nodes[0], 'period', (1596844800000000, 1597104000000000, 259200000000))
 
@@ -284,6 +314,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'place:loc', 'us.nv.lasvegas')
 
             self.len(1, await core.nodes('ou:contest -> ou:contest:type:taxonomy'))
+            self.len(1, await core.nodes('ou:contest:family="defcon ctf"'))
 
             nodes = await core.nodes('''[
                 ou:contest:result=(*, *)
@@ -447,6 +478,10 @@ class OuModelTest(s_t_utils.SynTest):
     async def test_ou_industry(self):
 
         async with self.getTestCore() as core:
+            display = core.model.type('ind:industry').info.get('display')
+            self.eq(['id', 'name', 'reporter:name'],
+                    [col['opts']['name'] for col in display['columns']])
+
             # the id/ids props are a poly type of ou:naics, ou:sic, ou:isic and base:id
             q = '''
             [ ind:industry=*
@@ -537,6 +572,26 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:opening -> entity:title'))
             self.len(1, await core.nodes('ou:opening -> ou:employment:type:taxonomy'))
             self.len(1, await core.nodes('ou:opening :contact -> entity:contact'))
+
+            nodes = await core.nodes('''
+                [ ou:opening:location=*
+                    :opening={ ou:opening }
+                    :place:name="new york city"
+                    :place:loc=us.ny.nyc
+                    :pay:range=(100000, 150000)
+                    :pay:range.currency=usd
+                ]
+            ''')
+            self.len(1, nodes)
+            self.true(nodes[0].form.implements('geo:locatable'))
+            self.propeq(nodes[0], 'place:name', 'new york city')
+            self.propeq(nodes[0], 'place:loc', 'us.ny.nyc')
+            self.propeq(nodes[0], 'pay:range', ('100000', '150000', '50000'))
+            self.eq('USD', nodes[0].get('pay:range.currency'))
+            self.eq('The place where the opening is located.', core.model.prop('ou:opening:location:place').info['doc'])
+
+            self.len(1, await core.nodes('ou:opening:location :opening -> ou:opening +:title=pydev'))
+            self.len(1, await core.nodes('ou:opening -> ou:opening:location'))
 
     async def test_ou_vitals(self):
 

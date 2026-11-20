@@ -383,6 +383,53 @@ $l = ((1), (2), (3)) $lib.fire('demo', key=valu, somelist=$l)
 ('storm:fire', {'data': {'key': 'valu', 'somelist': (1, 2, 3)}, 'type': 'demo'})
 ```
 
+### input
+
+The `input` message is produced by the [`$lib.input.request()`](../stormtypes_libs.md#stormlibs-lib-input-request) Storm API to request input from the caller. The query blocks until the request is answered or expires. A request expires after the `timeout` passed to `$lib.input.request()`, which defaults to 300 seconds (5 minutes) and may not exceed 86400 seconds (one day); the leader then removes the request, any later reply is rejected, and the query raises a `TimeOut` error.
+
+The query must have a caller that reads its `input` messages, such as the `storm()` API without a `show` or `hide` filter, or the Storm CLI. The `view.exec` and `runas` commands forward `input` messages from the query they run. A request made where nothing reads the `input` message, such as from the `callStorm()` API, a cron job, or a trigger, waits until it expires and raises a `TimeOut` error. In a synchronous trigger, the wait also blocks the edit which fired the trigger until the request expires.
+
+It includes the following keys:
+
+iden
+
+:   The iden of the request. The reply must include it.
+
+type
+
+:   The type of input being requested.
+
+info
+
+:   The type specific details of the request.
+
+The following types are supported:
+
+text
+
+:   A line of text. The request `info` must contain a non-empty `prompt` string, which may be markdown, and no other keys. The reply `info` must contain a `text` string, and no other keys.
+
+A client answers the request by running [`$lib.input.send()`](../stormtypes_libs.md#stormlibs-lib-input-send) with the `iden` from the message and the reply `info`. The reply must be sent by the user who ran the query, or by an admin, and may be sent to any Cortex in the cluster. A reply which does not match the schema for the type is rejected, and the request keeps waiting for a valid reply. A request accepts only one reply, and any later reply is rejected.
+
+Requests which have not been answered fail if the Cortex leader changes.
+
+Example:
+
+```text
+# The following query requests input and waits for the reply
+$reply = $lib.input.request(text, ({"prompt": "What is your **name**?"}))
+$lib.print(`Hello {$reply.text}`)
+
+# The message produced.
+('input', {'iden': '0d3bf8b7a6e0f23a6c3e2d4b9c1a8e57', 'type': 'text', 'info': {'prompt': 'What is your **name**?'}})
+
+# The query the client runs to answer it, with the iden and reply passed in as vars
+$lib.input.send($iden, $info)
+
+# The vars for that query.
+{'iden': '0d3bf8b7a6e0f23a6c3e2d4b9c1a8e57', 'info': {'text': 'visi'}}
+```
+
 ### look:miss
 
 The `look:miss` message is sent when the Storm runtime is set to `lookup` mode and the node that was identified by the scrape logic is not present in the current View.

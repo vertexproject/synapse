@@ -68,7 +68,7 @@ Interfaces have three primary uses:
 
 - First, interfaces **ensure consistent form definitions**. An interface can define a set of **secondary properties** that should be present on a set of related forms. Instead of explicitly defining the secondary properties on each form, the forms can **implement** an interface to receive its properties. This makes it easier to define objects and ensures properties are named, defined, and used consistently.
 
-  **Example**: Synapse uses several forms to represent activity occurring on a host, such as file writes (`it:exec:file:write`) or process execution (`it:exec:proc`). These forms represent similar operations and use many of the same secondary properties, such as the time of execution (`:time`) and the file (`:exe`) or process (`:proc`) responsible for the activity. These common properties are defined on the `it:host:event` **interface** which is implemented by each form for consistency.
+  **Example**: Synapse uses several forms to represent activity occurring on a host, such as file writes (`it:exec:file:write`) or process creation (`it:exec:proc:create`). These forms represent similar operations and use many of the same secondary properties, such as the time of execution (`:time`) and the file (`:exe`) or process (`:proc`) responsible for the activity. These common properties are defined on the `it:host:event` **interface** which is implemented by each form for consistency.
 
   Forms can implement multiple interfaces. Interfaces can be ordered (that is, interfaces can implement other interfaces), but they do not have any defined structure (e.g., they are not inherently hierarchical, for example). They act as building blocks that can be combined and applied where appropriate.
 
@@ -150,8 +150,8 @@ inet:fqdn=www.google.com
         :_virustotal:reputation = 497
         :_virustotal:votes:harmless = 318
         :_virustotal:votes:malicious = 53
-        .created = 2026-10-09T14:39:38.64517Z
-        .updated = 2026-10-09T14:39:38.648524Z
+        .created = 2026-11-10T14:22:11.448534Z
+        .updated = 2026-11-10T14:22:11.450813Z
         #rep.moz.500
 ```
 
@@ -313,8 +313,8 @@ syn:tag=cno.infra.dns.sink.holed
         :doc = A domain (zone) that has been sinkholed.
         :title = Sinkholed domain
         :up = cno.infra.dns.sink
-        .created = 2026-10-09T14:39:38.663787Z
-        .updated = 2026-10-09T14:39:38.664541Z
+        .created = 2026-11-10T14:22:11.475743Z
+        .updated = 2026-11-10T14:22:11.476254Z
 ```
 
 The Storm query below displays the **tag** `cno.infra.dns.sink.holed` applied to the node `inet:fqdn=hugesoft.org`:
@@ -327,8 +327,8 @@ inet:fqdn=hugesoft.org
         :issuffix = false
         :iszone = true
         :zone = hugesoft.org
-        .created = 2026-10-09T14:39:38.667687Z
-        .updated = 2026-10-09T14:39:38.669018Z
+        .created = 2026-11-10T14:22:11.478092Z
+        .updated = 2026-11-10T14:22:11.47896Z
         #cno.infra.dns.sink.holed
 ```
 
@@ -353,7 +353,7 @@ You can create:
 To avoid name collisions with existing (or future) base model elements, extended element names must begin with an underscore (`_`). This includes:
 
 - Form names (e.g., `_extended:form`).
-- Property names, whether added to existing forms (`inet:fqdn:_extended:property`) or extended forms (e.g., `_extended:form:_extended:property`). If the extended property represents source-specific or vendor-specific data, we recommend using the vendor name as the first element in the extended property name (e.g., `:_vendor:extended:property`).
+- Property names, whether added to existing forms (`inet:fqdn:_extended:property`) or extended forms (e.g., `_extended:form:_extended:property`). If the extended property represents source-specific or vendor-specific data, we recommend using the vendor name as the first element in the extended property name (e.g., `:_vendor:extended:property`). Each colon-separated part of a property name may contain only lowercase letters, digits, and underscores (e.g., `:_iso:3166`).
 - Edge verbs (e.g., `-(_verb)>`).
 
 > [!NOTE]
@@ -411,8 +411,8 @@ storm> inet:email=kilkys@yandex.ru
 inet:email=kilkys@yandex.ru
         :fqdn = yandex.ru
         :username = kilkys
-        .created = 2026-10-09T14:39:38.677523Z
-        .updated = 2026-10-09T14:39:38.677523Z
+        .created = 2026-11-10T14:22:11.483386Z
+        .updated = 2026-11-10T14:22:11.483386Z
 ```
 
 <a id="node-relationship"></a>
@@ -428,8 +428,8 @@ storm> inet:dns:a=(google.com, 172.217.9.142)
 inet:dns:a=('google.com', '172.217.9.142')
         :fqdn = google.com
         :ip = 172.217.9.142
-        .created = 2026-10-09T14:39:38.683751Z
-        .updated = 2026-10-09T14:39:38.683751Z
+        .created = 2026-11-10T14:22:11.487295Z
+        .updated = 2026-11-10T14:22:11.487295Z
 ```
 
 <a id="node-event"></a>
@@ -455,8 +455,8 @@ inet:dns:request=87c46bee95e2e6a147241e226920c21e
         :server = tcp://178.62.239.55
         :server.ip = 178.62.239.55
         :time = 2024-09-30T16:01:27.506Z
-        .created = 2026-10-09T14:39:38.691043Z
-        .updated = 2026-10-09T14:39:38.691043Z
+        .created = 2026-11-10T14:22:11.495162Z
+        .updated = 2026-11-10T14:22:11.495162Z
 ```
 
 Some network-based operations are **activities** (e.g., `inet:flow`, `inet:http:session`), as are most human occurrences (e.g., `ou:conference`, `proj:project`). For example:
@@ -471,8 +471,8 @@ ou:conference=782fcd10d3a0ba2a2312e3fed16d4c35
         :period.duration = 5D 00:00:00
         :period.precision = microsecond
         :place:country:code = cw
-        .created = 2026-10-09T14:39:38.699192Z
-        .updated = 2026-10-09T14:39:38.699851Z
+        .created = 2026-11-10T14:22:11.501751Z
+        .updated = 2026-11-10T14:22:11.502525Z
 ```
 
 <a id="instance-fused"></a>

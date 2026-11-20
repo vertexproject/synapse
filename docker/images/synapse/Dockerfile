@@ -1,5 +1,5 @@
 # vim:set ft=dockerfile:
-ARG BASE_PYTHON_IMAGE=python:3.14.8-slim-trixie
+ARG BASE_PYTHON_IMAGE=python:3.14.10-slim-trixie
 
 FROM ${BASE_PYTHON_IMAGE} AS builder
 

@@ -114,13 +114,27 @@ class NodeFuser(s_base.Base):
           re-running the fuse completes it.
     '''
 
-    async def __anit__(self, core, useriden):
-
+    async def __anit__(self, core, useriden, layers=None, keeptombs=False):
+        '''
+        Args:
+            core (Cortex): The Cortex to fuse nodes in.
+            useriden (str): The iden of the user the fuse runs as.
+            layers (list): Internal use only. The layers to write to, rather than every
+                layer in the Cortex which is not read only. A read only layer in this list
+                is written to while the Cortex is in migration mode, which is how a model
+                migration repairs a node in every layer holding it.
+            keeptombs (bool): Internal use only. Carry src's tombstones over to a dst which
+                no layer held before the fuse, so a node a fork had deleted stays deleted
+                there once it is renamed.
+        '''
         await s_base.Base.__anit__(self)
 
         self.core = core
         self.model = core.model
         self.useriden = useriden
+
+        self.reqlayers = layers
+        self.keeptombs = keeptombs
 
         self.layers = []        # the layers we may write to
         self.layridens = set()
@@ -190,6 +204,24 @@ class NodeFuser(s_base.Base):
         # referenced comp form discovers one rename per referring node.
         self.visited = await s_spooled.Set.anit(dirn=core.dirn, cell=core)
         self.onfini(self.visited)
+
+        # dst nids which no layer held before the fuse, for keeptombs. Decided once during
+        # discovery, since applying the first layer's edits creates dst and would make every
+        # later layer see it as an existing node.
+        self.freshdsts = await s_spooled.Set.anit(dirn=core.dirn, cell=core)
+        self.onfini(self.freshdsts)
+
+    def _canWrite(self, layer):
+        '''
+        Return whether this fuse may write to the given layer.
+
+        A read only layer is only written to when the caller named the layers explicitly
+        and the Cortex is in migration mode, where Layer allows the write.
+        '''
+        if not layer.readonly:
+            return True
+
+        return self.reqlayers is not None and self.core.migration
 
     async def _addEdit(self, nid, formname, edits):
         '''
@@ -312,9 +344,13 @@ class NodeFuser(s_base.Base):
         # Sorted by iden so applyLayerEdits() processes the layers in a deterministic
         # order, rather than one which depends on how self.core.layers - a plain dict -
         # happens to iterate.
-        for layer in sorted(self.core.layers.values(), key=lambda layer: layer.iden):
+        layers = self.core.layers.values()
+        if self.reqlayers is not None:
+            layers = self.reqlayers
 
-            if layer.readonly:
+        for layer in sorted(layers, key=lambda layer: layer.iden):
+
+            if not self._canWrite(layer):
                 continue
 
             self.layers.append(layer)
@@ -352,6 +388,12 @@ class NodeFuser(s_base.Base):
                 if layriden in self.layridens:
                     continue
 
+                if self.reqlayers is not None:
+                    await self.warn(
+                        f'Layer {layriden} is not being modified, so {nextsrc[0]}={nextsrc[1]!r} will '
+                        f'not be removed from it.')
+                    continue
+
                 await self.warn(
                     f'$lib.model.migration.fuse() cannot modify layer {layriden} because it is read only. '
                     f'{nextsrc[0]}={nextsrc[1]!r} will not be removed from it, and will still be visible '
@@ -368,6 +410,12 @@ class NodeFuser(s_base.Base):
             await self._reqRefsCompatible(srcndef, dstndef)
 
         await self._computeRenames(srcndef, dstndef)
+
+        if self.keeptombs:
+            async for (_, (newndef, _)) in s_coro.pause(self.ndefmap.items()):
+                dstnid = await self.core.genNdefNid(newndef)
+                if not await self._getSodes(dstnid):
+                    await self.freshdsts.add(dstnid)
 
     async def _reqRefsCompatible(self, srcndef, dstndef):
         '''
@@ -504,7 +552,7 @@ class NodeFuser(s_base.Base):
             offs = fields.index(prop.name)
             curv = newcomp[offs]
 
-            newv = self._remapSelfRef(curv)
+            newv = self._remapCompSlotValu(form, prop, curv)
 
             if newv != curv:
                 newcomp[offs] = newv
@@ -726,6 +774,51 @@ class NodeFuser(s_base.Base):
 
         return retn
 
+    def _remapCompSlotValu(self, form, prop, valu):
+        '''
+        Return the value a comp key slot is renamed to, or the value unchanged.
+
+        By default a slot follows the rename map, the same way any other self reference
+        does. A subclass may also substitute slots which name nodes this fuse does not
+        rename, such as a model migration which is moving several nodes of the same form
+        and must not re-normalize a slot naming one it has not reached yet.
+
+        Args:
+            form (Form): The comp form.
+            prop (Prop): The computed property restating the slot.
+            valu (tuple): The (typename, valu) typed value stored in the slot.
+
+        Returns:
+            tuple: The typed value the slot holds after the rename.
+        '''
+        return self._remapSelfRef(valu)
+
+    async def _getSeedComputed(self, dstnid, dstform, dstndef):
+        '''
+        Return the computed properties to create a dst no layer holds yet with.
+
+        By default there are none, since a fuse names an existing dst. A subclass which
+        fuses into a new value returns them as {name: (valu, stortype, virts)}.
+        '''
+        return {}
+
+    async def _onConflict(self, layer, dstnid, dstform, kind, key, valu):
+        '''
+        Called where dst's own value is kept over a different value src held in this layer.
+
+        kind is "props", "tagprops" or "nodedata". key is the property name, the (tag,
+        name) of a tag property, or the node data name. For node data, dst holds a live
+        value but it is not read to compare, so it may be the same as valu.
+        '''
+        return
+
+    async def _flushConflicts(self, layer, srcndef, dstnid, dstform):
+        '''
+        Called once src's props, tags, tag properties and node data have been queued for dst
+        in this layer, so a subclass may queue edits recording what _onConflict() saw.
+        '''
+        return
+
     def _remapSelfRef(self, valu):
         '''
         Return the rename map's replacement for the given typed value, or the value unchanged
@@ -913,6 +1006,12 @@ class NodeFuser(s_base.Base):
                 # value it is handed second, so passing dst's second is what makes dst the
                 # survivor, and an ival or a min/max time unions the two symmetrically.
                 merged = prop.type.merge(valu, dstvalt[0])
+
+                # a merge which depends on the order the values are handed in is one where
+                # dst's value simply won, rather than one which combined the two
+                if merged != prop.type.merge(dstvalt[0], valu):
+                    await self._onConflict(layer, dstnid, dstform, 'props', name, valu)
+
                 if merged == dstvalt[0]:
                     continue
 
@@ -992,6 +1091,10 @@ class NodeFuser(s_base.Base):
                         continue
 
                     merged = tagprop.type.merge(valu, dstvalt[0])
+
+                    if merged != tagprop.type.merge(dstvalt[0], valu):
+                        await self._onConflict(layer, dstnid, dstform, 'tagprops', (tag, name), valu)
+
                     if merged == dstvalt[0]:
                         continue
 
@@ -1019,11 +1122,14 @@ class NodeFuser(s_base.Base):
             # value being transferred, so src's value is written and EDIT_NODEDATA_SET
             # clears the tombstone along with it.
             if await layer.hasNodeData(dstnid, name):
+                await self._onConflict(layer, dstnid, dstform, 'nodedata', name, valu)
                 continue
 
             await self._addEdit(dstnid, dstform.name, (
                 (s_layer.EDIT_NODEDATA_SET, (name, valu)),
             ))
+
+        await self._flushConflicts(layer, srcndef, dstnid, dstform)
 
         # 3. transfer light edges. N1 edges move to dst, and for N2 edges the edge is
         #    stored under the n1 node, so it is re-pointed there. Both ends are named by
@@ -1081,6 +1187,9 @@ class NodeFuser(s_base.Base):
                 (s_layer.EDIT_EDGE_ADD, (verb, dstintnid)),
                 (s_layer.EDIT_EDGE_DEL, (verb, srcintnid)),
             ))
+
+        if self.keeptombs and self.freshdsts.has(dstnid):
+            await self._copyTombs(layer, srcsode, srcnid, dstnid, dstintnid, dstform)
 
         # 4. tear src down in this layer
         for name in srcprops.keys():
@@ -1158,6 +1267,72 @@ class NodeFuser(s_base.Base):
         #    getLayerEdits(), so no new task is returned here.
         await self._rewriteRefs(layer, srcndef, dstndef)
 
+    async def _copyTombs(self, layer, srcsode, srcnid, dstnid, dstintnid, dstform):
+        '''
+        Queue tombstones on dst for every tombstone src holds in this layer.
+
+        Only used for a dst no layer held before the fuse, so nothing of dst's own can be
+        hidden by them: every tombstone masks state dst inherits from src in a lower layer.
+        A computed property is skipped, since dst derives its own from its primary value.
+        '''
+        if srcsode.get('antivalu') is not None:
+            await self._addEdit(dstnid, dstform.name, (
+                (s_layer.EDIT_NODE_TOMB, ()),
+            ))
+
+        if (antiprops := srcsode.get('antiprops')) is not None:
+            for name in antiprops.keys():
+
+                # defensive: a computed prop cannot be deleted on its own, so it is never
+                # tombstoned, and a prop no longer in the model has nothing on dst to hide
+                prop = dstform.props.get(name)
+                if prop is None or prop.info.get('computed'):  # pragma: no cover
+                    continue
+
+                await self._addEdit(dstnid, dstform.name, (
+                    (s_layer.EDIT_PROP_TOMB, (name,)),
+                ))
+
+        if (antitags := srcsode.get('antitags')) is not None:
+            for tag in antitags.keys():
+                await self._addEdit(dstnid, dstform.name, (
+                    (s_layer.EDIT_TAG_TOMB, (tag,)),
+                ))
+
+        if (antitagprops := srcsode.get('antitagprops')) is not None:
+            for tag, propdict in antitagprops.items():
+                for name in propdict.keys():
+                    await self._addEdit(dstnid, dstform.name, (
+                        (s_layer.EDIT_TAGPROP_TOMB, (tag, name)),
+                    ))
+
+        async for abrv, tomb in s_coro.pause(layer.iterNodeDataKeys(srcnid)):
+            if tomb:
+                await self._addEdit(dstnid, dstform.name, (
+                    (s_layer.EDIT_NODEDATA_TOMB, (self.core.getAbrvIndx(abrv)[0],)),
+                ))
+
+        async for abrv, n2nid, tomb in s_coro.pause(layer.iterNodeEdgesN1(srcnid)):
+            if tomb:
+                n2intnid = s_common.int64un(n2nid)
+                n2intnid = self.nidmap.get(n2intnid, n2intnid)
+                await self._addEdit(dstnid, dstform.name, (
+                    (s_layer.EDIT_EDGE_TOMB, (self.core.getAbrvIndx(abrv)[0], n2intnid)),
+                ))
+
+        async for abrv, n1nid, tomb in s_coro.pause(layer.iterNodeEdgesN2(srcnid)):
+
+            if not tomb or n1nid == srcnid or self.visited.has(n1nid):
+                continue
+
+            n1ndef = self.core.getNidNdef(n1nid)
+            if n1ndef is None:  # pragma: no cover
+                continue
+
+            await self._addEdit(n1nid, n1ndef[0], (
+                (s_layer.EDIT_EDGE_TOMB, (self.core.getAbrvIndx(abrv)[0], dstintnid)),
+            ))
+
     def _getStorValu(self, dstsode, dstform, dstndef):
         '''
         Return the (valu, stortype, virts) triple to create dst with.
@@ -1229,6 +1404,9 @@ class NodeFuser(s_base.Base):
                             continue
 
                         computed[name] = valt
+
+                if not computed:
+                    computed = await self._getSeedComputed(dstnid, dstform, dstndef)
 
                 self.dstcomputed[dstnid] = computed
 
@@ -1327,96 +1505,10 @@ class NodeFuser(s_base.Base):
         '''
         Yield (refnid, prop, isarray, reftyp) for props in this layer which point at src.
 
-        This is used both to discover which comp-form references require a cascade rename,
-        and to rewrite every inbound reference once every rename this fuse makes is known.
-
-        3.x has no reverse index for node valued properties: the Ndef type and its index
-        are gone, a node valued property is a poly, and the model's own registry of which
-        properties accept a given type is what answers "who points at this node". So rather
-        than one index scan per layer, this is one indexed lift per property the model says
-        could hold a reference - the same shape Storm's reverse pivot uses (see
-        PivotIn.getPivsIn) - and it walks the whole inheritance chain, because
-        Model.getPropsByType() is keyed by the exact declared type and a poly declared for
-        an ancestor form may hold, and may have filed the reference under, either the
-        ancestor or the concrete form.
-
-        A reference src holds to itself is never yielded. Those follow the node rather than
-        being repointed in place, so _fuseOneLayer() transfers them to dst along with the
-        rest of src's state; queueing an edit for them here would target a nid which is
-        being torn down in the same pass.
-
-        Args:
-            layer (Layer): The layer to scan.
-            srcndef (tuple): The (form, valu) of the node being referenced.
-
-        Yields:
-            tuple: (refnid, prop, isarray, reftyp) for each inbound reference.
+        See iterLayerRefs().
         '''
-        srcform = self.model.reqForm(srcndef[0])
-        srcnid = await self.core.genNdefNid(srcndef)
-
-        # Which form in the chain a property is *declared* for and which one a stored value
-        # is *tagged* with are two separate things, so both are varied. A property declared
-        # for an ancestor accepts the ancestor and everything below it, and Poly._canonType
-        # keeps whichever of those the value was given, so the pair to try for a property
-        # declared at ftyps[idx] is every tag from there down to the concrete form. Ordered
-        # ancestor first so that idx slice means "this declared type and everything more
-        # specific", the same pairing View.nodesByPropTypeNorm() makes.
-        ftyps = srcform.formtypes[::-1]
-        nrefs = [s_stormtypes.NodeRef(((ftyp, srcndef[1]), None)) for ftyp in ftyps]
-
-        # A property is reachable from more than one form in the chain when it is a poly
-        # declared for an interface, since Model.getPropsByType() merges the interface polys
-        # of every form it is asked about and a child form implements everything its parent
-        # does. Such a property is scanned once per form which reaches it, so the same
-        # reference can be found more than once and must only be rewritten the first time.
-        seen = set()
-
-        # No property found this way can refuse the reference: Model.getPropsByType() returns
-        # properties declared for ftyps[idx], and both Poly.formfilter() and Poly.typefilter()
-        # test the whole inheritance chain of the candidate, so a poly which accepts a form
-        # accepts every form below it - which is exactly the set reftyp ranges over.
-        for idx, ftyp in enumerate(ftyps):
-
-            for prop in self.model.getPropsByType(ftyp):
-
-                for reftyp, nref in zip(ftyps[idx:], nrefs[idx:]):
-
-                    cmprvals = await prop.type.getStorCmprs('=', nref)
-
-                    async for _, refnid, _ in s_coro.pause(
-                            layer.liftByPropValu(prop.form.name, prop.name, cmprvals)):
-
-                        if refnid == srcnid:
-                            continue
-
-                        if (refnid, prop.full) in seen:
-                            continue
-
-                        seen.add((refnid, prop.full))
-
-                        yield refnid, prop, False, reftyp
-
-            for prop in self.model.getArrayPropsByType(ftyp):
-
-                for reftyp, nref in zip(ftyps[idx:], nrefs[idx:]):
-
-                    # an array is lifted by element through the member type; the array type
-                    # itself only compares whole arrays and refuses a bare value
-                    cmprvals = await prop.type.arraytype.getStorCmprs('=', nref)
-
-                    async for _, refnid, _ in s_coro.pause(
-                            layer.liftByPropArray(prop.form.name, prop.name, cmprvals)):
-
-                        if refnid == srcnid:
-                            continue
-
-                        if (refnid, prop.full) in seen:
-                            continue
-
-                        seen.add((refnid, prop.full))
-
-                        yield refnid, prop, True, reftyp
+        async for item in iterLayerRefs(self.core, layer, srcndef):
+            yield item
 
     async def applyLayerEdits(self, meta):
         '''
@@ -1447,7 +1539,7 @@ class NodeFuser(s_base.Base):
             # the layer is still one we may write to, since a read only layer would raise.
             # Checked before computing anything for this layer, so a layer which is no
             # longer writable does not pay for the computation either.
-            if layer.readonly:
+            if not self._canWrite(layer):
                 await self.warn(
                     f'$lib.model.migration.fuse() did not modify layer {layriden} because it became '
                     f'read only while the fuse was being computed. Re-run fuse() with the same '
@@ -1543,3 +1635,99 @@ def iterEditChunks(nodeedits, chunk=None):
 
     if todo:
         yield todo
+
+async def iterLayerRefs(core, layer, srcndef):
+    '''
+    Yield (refnid, prop, isarray, reftyp) for props in this layer which point at src.
+
+    This is used both to discover which comp-form references require a cascade rename,
+    and to rewrite every inbound reference once every rename this fuse makes is known.
+
+    3.x has no reverse index for node valued properties: the Ndef type and its index
+    are gone, a node valued property is a poly, and the model's own registry of which
+    properties accept a given type is what answers "who points at this node". So rather
+    than one index scan per layer, this is one indexed lift per property the model says
+    could hold a reference - the same shape Storm's reverse pivot uses (see
+    PivotIn.getPivsIn) - and it walks the whole inheritance chain, because
+    Model.getPropsByType() is keyed by the exact declared type and a poly declared for
+    an ancestor form may hold, and may have filed the reference under, either the
+    ancestor or the concrete form.
+
+    A reference src holds to itself is never yielded. Those follow the node rather than
+    being repointed in place, so _fuseOneLayer() transfers them to dst along with the
+    rest of src's state; queueing an edit for them here would target a nid which is
+    being torn down in the same pass.
+
+    Args:
+        core (Cortex): The Cortex the layer belongs to.
+        layer (Layer): The layer to scan.
+        srcndef (tuple): The (form, valu) of the node being referenced.
+
+    Yields:
+        tuple: (refnid, prop, isarray, reftyp) for each inbound reference.
+    '''
+    srcform = core.model.reqForm(srcndef[0])
+    srcnid = await core.genNdefNid(srcndef)
+
+    # Which form in the chain a property is *declared* for and which one a stored value
+    # is *tagged* with are two separate things, so both are varied. A property declared
+    # for an ancestor accepts the ancestor and everything below it, and Poly._canonType
+    # keeps whichever of those the value was given, so the pair to try for a property
+    # declared at ftyps[idx] is every tag from there down to the concrete form. Ordered
+    # ancestor first so that idx slice means "this declared type and everything more
+    # specific", the same pairing View.nodesByPropTypeNorm() makes.
+    ftyps = srcform.formtypes[::-1]
+    nrefs = [s_stormtypes.NodeRef(((ftyp, srcndef[1]), None)) for ftyp in ftyps]
+
+    # A property is reachable from more than one form in the chain when it is a poly
+    # declared for an interface, since Model.getPropsByType() merges the interface polys
+    # of every form it is asked about and a child form implements everything its parent
+    # does. Such a property is scanned once per form which reaches it, so the same
+    # reference can be found more than once and must only be rewritten the first time.
+    seen = set()
+
+    # No property found this way can refuse the reference: Model.getPropsByType() returns
+    # properties declared for ftyps[idx], and both Poly.formfilter() and Poly.typefilter()
+    # test the whole inheritance chain of the candidate, so a poly which accepts a form
+    # accepts every form below it - which is exactly the set reftyp ranges over.
+    for idx, ftyp in enumerate(ftyps):
+
+        for prop in core.model.getPropsByType(ftyp):
+
+            for reftyp, nref in zip(ftyps[idx:], nrefs[idx:]):
+
+                cmprvals = await prop.type.getStorCmprs('=', nref)
+
+                async for _, refnid, _ in s_coro.pause(
+                        layer.liftByPropValu(prop.form.name, prop.name, cmprvals)):
+
+                    if refnid == srcnid:
+                        continue
+
+                    if (refnid, prop.full) in seen:
+                        continue
+
+                    seen.add((refnid, prop.full))
+
+                    yield refnid, prop, False, reftyp
+
+        for prop in core.model.getArrayPropsByType(ftyp):
+
+            for reftyp, nref in zip(ftyps[idx:], nrefs[idx:]):
+
+                # an array is lifted by element through the member type; the array type
+                # itself only compares whole arrays and refuses a bare value
+                cmprvals = await prop.type.arraytype.getStorCmprs('=', nref)
+
+                async for _, refnid, _ in s_coro.pause(
+                        layer.liftByPropArray(prop.form.name, prop.name, cmprvals)):
+
+                    if refnid == srcnid:
+                        continue
+
+                    if (refnid, prop.full) in seen:
+                        continue
+
+                    seen.add((refnid, prop.full))
+
+                    yield refnid, prop, True, reftyp

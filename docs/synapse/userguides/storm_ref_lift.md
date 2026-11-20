@@ -653,7 +653,7 @@ doc:report:published>=2026/06/01
 Lift the nodes representing political races (`pol:race`) where voter turnout was greater than 10,000:
 
 ```mdstorm --hide
-$election={ [ pol:election=( { "name": "Derpistan 2026 Regional Election", "period": "(2025/11/04, 2025/11/05)" } ) ] } $office1={ [ pol:office=( { "title": "Bureaucrat-in-Chief" } ) ] } $office2={ [ pol:office=( { "title": "Head Supervisory Supervisor" } ) ] } [ pol:race=( { "election": $election, "office": $office1, "$props": { "turnout": "11279" } } ) pol:race=( { "election": $election, "office": $office2, "$props": { "turnout": "9734" } } ) ]
+$election={ [ pol:election=( { "name": "Derpistan 2026 Regional Election", "period": ["2025/11/04", "2025/11/05"] } ) ] } $office1={ [ pol:office=( { "title": "Bureaucrat-in-Chief" } ) ] } $office2={ [ pol:office=( { "title": "Head Supervisory Supervisor" } ) ] } [ pol:race=( { "election": $election, "office": $office1, "$props": { "turnout": "11279" } } ) pol:race=( { "election": $election, "office": $office2, "$props": { "turnout": "9734" } } ) ]
 ```
 
 ```mdstorm --hide
@@ -1480,7 +1480,7 @@ inet:ip#cno.infra.dns.sink.hole
 List all entity activity nodes (all nodes of all forms that implement the `entity:activity` interface) that Vertex attributes to the Wobbly Emu threat group (`#cno.threat.wobbly_emu`):
 
 ```mdstorm --hide
-[ risk:attack=( { "name": "CVE-2026-1603 Exploit Attempt", "period": "2026/02/17", "reporter:name": "Vertex", "actor:name": "Wobbly Emu" } ) entity:campaign=( { "name": "Credential Phishing Campaign", "period": "(2026/05/13, 2026/05/18)", "reporter:name": "Vertex", "actor:name": "Wobbly Emu" } ) risk:extortion=( { "name": "Extortion / Threat to Release Internal Data", "period": "2026/06/01", "reporter:name": "Vertex", "actor:name": "Wobbly Emu" } ) +#cno.threat.wobbly_emu ]
+[ risk:attack=( { "name": "CVE-2026-1603 Exploit Attempt", "period": "2026/02/17", "reporter:name": "Vertex", "actor:name": "Wobbly Emu" } ) entity:campaign=( { "name": "Credential Phishing Campaign", "period": ["2026/05/13", "2026/05/18"], "reporter:name": "Vertex", "actor:name": "Wobbly Emu" } ) risk:extortion=( { "name": "Extortion / Threat to Release Internal Data", "period": "2026/06/01", "reporter:name": "Vertex", "actor:name": "Wobbly Emu" } ) +#cno.threat.wobbly_emu ]
 ```
 
 ```storm

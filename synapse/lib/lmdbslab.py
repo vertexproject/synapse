@@ -1070,6 +1070,8 @@ class Slab(s_base.Base):
         if self.maxsize is not None:
             self.mapsize = min(self.mapsize, self.maxsize)
 
+        opts['map_size'] = self.mapsize
+
         self._saveOptsFile()
 
         try:
@@ -2277,9 +2279,8 @@ class Slab(s_base.Base):
         if self.readonly:
             raise s_exc.IsReadOnly()
 
-        # Log playback isn't compatible with generators
-        if not isinstance(kvpairs, list):
-            kvpairs = list(kvpairs)
+        # Journal a copy, since a caller may reuse its list before a map growth replays it
+        kvpairs = list(kvpairs)
 
         realdb, dupsort = self.dbnames[db]
 

@@ -40,12 +40,9 @@ Key types that have been optimized in various ways are documented below along wi
 
 ## array
 
-An `array` is a specialized type that consists of either a list or a set of typed values. That is, an array is a type that consists of one or more values that are themselves all of a single, defined type.
+An `array` is a specialized type that consists of values that are all of a single, defined type.
 
-> [!TIP]
-> An array that is a **list** can have duplicate entries in the list. An array that is a **set** consists of a unique group of entries.
-
-`Array` types can be used for secondary properties where that property may have multiple values. Examples of array secondary properties include `doc:report:topics`, `inet:email:message:headers`, and `ps:person:names`. You can view all secondary properties that are `array` types using the following Storm query:
+`Array` types can be used for secondary properties where that property may have multiple values. Examples of array secondary properties include `ou:org:names`, `doc:report:topics`, and `entity:contact:emails`. You can view all secondary properties that are `array` types using the following Storm query:
 
 ```storm
 syn:prop:array=true
@@ -54,13 +51,21 @@ syn:prop:array=true
 > [!TIP]
 > Some forms include both a singular and an array property for the same type. This allows you to record a primary value along with optional variations (e.g., `ou:org:name` and `ou:org:names`).
 
+Array types have two common options, `uniq` and `sorted`. If `uniq` is `true` (the default), items in the array will be deduplicated so they are unique. If `sorted` is `true` (the default), items in the array will be sorted and displayed in ascending order. This means:
+
+- Arrays where both `uniq` and `sorted` are `true` (the default) are **sets**. Most arrays use these default options.
+- Arrays where both `uniq` and `sorted` are `false` are ordered **lists**. Duplicates are allowed, and items remain in the order in which they were added to the array. These options are used for things like headers (e.g., `inet:email:message:headers`) where order matters.
+- Arrays that are `uniq` but not `sorted` are deduplicated but items remain in the order in which they were added to the array.
+
+Deduplication ignores case for types that compare case-insensitively (e.g., `title` types).
+
 **Virtual Properties**
 
 All `array` properties have a `.size` virtual property (e.g., `ou:org:names.size`). The value of `.size` is set by Synapse to the number of array values and cannot be edited by a user.
 
 ### Indexing
 
-N/A
+Each array element is indexed individually under its own type. This allows array elements to be lifted, filtered, and pivoted on individually.
 
 ### Parsing
 
@@ -68,7 +73,7 @@ Because an `array` is a list or set of typed values, `array` elements can be inp
 
 ### Insertion
 
-Because an array may contain multiple values, an `array` property must be set using comma-separated values enclosed in parentheses (this is true even if the array contains only a single element; you must still use parentheses, and the single element must still be followed by a trailing comma). Single or double quotes are required in accordance with the standard rules for using [Whitespace and Literals in Storm](storm_ref_intro.md#storm-whitespace-literals).
+Because an array may contain multiple values, an `array` property must generally be set using comma-separated values enclosed in parentheses (this is true even if the array contains only a single element; you must still use parentheses, and the single element must still be followed by a trailing comma). Single or double quotes are required in accordance with the standard rules for using [Whitespace and Literals in Storm](storm_ref_intro.md#storm-whitespace-literals).
 
 **Examples:**
 
@@ -141,10 +146,22 @@ entity:contact:name='ron the cat' [ :emails?+='ron[at]protonmail.com' ]
 
 #### Lifting and Filtering
 
-Lifting or filtering array properties using the equals ( `=` ) operator requires an **exact match** of the full array property value. This is often infeasible for arrays because lifting by the full array value requires you to know the exact values of each of the array elements as well as their exact order:
+Lifting or filtering array properties using the equals ( `=` ) operator is usually impractical because it requires you to specify **every element** in the array. (For most arrays, element order does not matter because Synapse sorts the values when normalizing them; but you still need to know what all of the values are.)
+
+The following example lifts an `it:software` node by all of the names in its `:names` array:
+
+```mdstorm --hide
+[ it:software=( { "name": "S0063", "reporter:name": "MITRE" } ) :names=(Backdoor.APT.CookieCutter, Pirpi, SHOTPUT) ]
+```
 
 ```mdstorm
-ou:org:names=('The Vertex Project', 'The Vertex Project, LLC')
+it:software:names=(SHOTPUT, backdoor.apt.cookiecutter, pirpi)
+```
+
+In the example above, the case-sensitivity and order of the array elements do not matter, because Synapse normalizes and sorts the `it:softwarename` values before locating the corresponding node. However, if one of the elements does not match exactly (as in the following example), Synapse is unable to lift the node:
+
+```mdstorm
+it:software:names=(SHOTPUT, CookieCutter, pirpi)
 ```
 
 For this reason, Storm offers a special syntax for lifting and filtering with `array` types. The syntax consists of an asterisk ( `*` ) followed by a set of square brackets ( `[ ]` ), where the square brackets contain a comparison operator and a value that can match one or more elements in the array. This allows users to match elements in the array similarly to how they would match individual property values.
@@ -277,18 +294,12 @@ A `duration` can also be specified as the number of microseconds expressed as an
 
 **Special time values**
 
-The following are also acceptable:
-
-- The special time values `?` ("unknown") and `*` ("ongoing") can be set for a property type of `duration` (e.g., `it:sec:c2:config:connect:delay`) or a `.duration` virtual property.
-  
-  - `?` results in a duration of `(?, ?)` (unknown start / unknown end).
-  - `*` results in a duration of `(?, *)` (unknown start, ongoing).
+The special time values `?` (unknown) and `*` (ongoing) can be used to set either a property type of `duration` (e.g., `it:sec:c2:config:connect:delay`) or a `.duration` virtual property (e.g., `risk:compromise:period.duration`).
 
 See the [time](storm_ref_type_specific.md#type-time) section for additional details on these special values and their use.
 
-
 > [!NOTE]
-> The value of the `.duration` virtual property of an interval (`ival`) is directly related to the interval's start (`.min`) and end (`.max`) values. Your ability to set (or modify) `.duration` may depend on whether `.min` and `.max` already exist, as well as their current values.
+> The value of the `.duration` virtual property of an interval (`ival`) is directly related to the interval's start (`<min>`) and end (`<max>`) values. Your ability to set (or modify) `.duration` may depend on whether `<min>` and `<max>` already exist, as well as their current values.
 >
 > See the [ival](storm_ref_type_specific.md#type-ival) section for additional details on the `.duration` virtual property and its behavior.
 
@@ -297,7 +308,7 @@ See the [time](storm_ref_type_specific.md#type-time) section for additional deta
 
 ### Insertion
 
-When setting a `duration` value, enter the value using either format above.
+When setting a `duration` value, enter the value using any format above.
 
 **Examples:**
 
@@ -347,7 +358,7 @@ As `duration` types are stored as integers, they support any operations suitable
 In addition, arithmetic on typed values preserves the `duration` type:
 
 - Adding or subtracting two `duration` values yields a `duration`. Similarly, subtracting two `time` values yields a `duration` (see [time](storm_ref_type_specific.md#type-time)).
-  - If either operation results in a negative value, Synapse returns an error (`Duration value is outside of valid range.`) because a `duration` cannot be negative.
+  - If either operation results in a negative value, Synapse returns an error indicating the duration value is outside of the valid range.
 - Multiplying a `duration` by an integer yields a `duration`.
 - Adding a `duration` to a `time` yields a new `time`.
 - When adding a string to a `duration` (e.g., `<duration> + '2020'`), Synapse attempts to parse (and add) the string as a `time`; if that fails, Synapse will attempt to parse (and add) the string as another `duration`.
@@ -357,7 +368,7 @@ In addition, arithmetic on typed values preserves the `duration` type:
 
 ## file:bytes
 
-Files (`file:bytes`) nodes are [guid](storm_ref_type_specific.md#type-guid) forms and are subject to the same type-specific behaviors as other `guid` nodes.
+A file (`file:bytes` node) is a [guid](storm_ref_type_specific.md#type-guid) form and is subject to the same type-specific behaviors as other `guid` forms.
 
 ### Indexing
 
@@ -365,28 +376,41 @@ N/A
 
 ### Parsing
 
-N/A
+See the [Parsing](storm_ref_type_specific.md#type-guid-parsing) section for [guid](storm_ref_type_specific.md#type-guid) forms.
 
 ### Insertion
 
 We recommend using [Dictionary Syntax](storm_ref_type_specific.md#guid-dictionary) and the file's SHA256 hash for [deconfliction](storm_ref_type_specific.md#guid-best-practices) purposes. (Generating MD5 hash collisions is trivial and SHA1 collisions are feasible, so these hashes are insufficiently unique for reliable deconfliction.)
 
-Synapse will automatically create a `file:bytes` node when any file is loaded into the Cortex. (Synapse's Axon storage must be configured and enabled in order to upload files). Synapse will deconflict or add the file based on the SHA256 hash, and calculate and set the file's size and other hash properties.
+For example:
+
+```mdstorm
+[ file:bytes=( { "sha256": "9386e8594f33d2563e21f9f10932932c144fdbbfcfc731258c36d698d3a2b2a2" } ) ]
+```
+
+or
+
+```mdstorm
+$sha256=9386e8594f33d2563e21f9f10932932c144fdbbfcfc731258c36d698d3a2b2a2
+[ file:bytes=( { "sha256": $sha256 } ) ]
+```
+
+A `file:bytes` node **represents** a file object. You can create a `file:bytes` node even if you do not have the actual file. A `file:bytes` node may also be created programmatically (such as via a Synapse [Power-Up](../glossary.md#gloss-power-up)).
+
+Files (the corresponding bytes / actual files, when available) are stored in Synapse's Axon. Several methods for ingesting files will store them in the Axon and also create (or deconflict) a corresponding `file:bytes` node in the Cortex based on the file's SHA256 hash. These include:
+
+- Optic's **Upload File(s)** menu option.
+- Power-Ups that support the download or retrieval of files.
+- The Storm [wget](storm_ref_cmd.md#storm-wget) command.
+- The Storm libraries [$lib.axon.urlfile()](../stormtypes_libs.md#stormlibs-lib-axon-urlfile) or [$lib.file.frombytes()](../stormtypes_libs.md#stormlibs-lib-file-frombytes).
+- The Synapse CLI [axon.put](syn_tools_axon_put.md#syn-tools-axon-put) tool with the `--cortex` option.
 
 > [!TIP]
-> Files ingested directly into a storage Axon will not automatically create corresponding `file:bytes` nodes in the Cortex.
-
-Files can be ingested programmatically (such as via a Synapse [Power-Up](../glossary.md#gloss-power-up)). Other options include:
-
-- the built-in Synapse [wget](storm_ref_cmd.md#storm-wget) command;
-- the **Upload File** menu option available from the [Optic UI](/docs/synapse-enterprise-optic/latest/index.md), which allows you to either upload a file from local disk, or download a file from a specified URL; or
-- the <span class="title-ref">[axon.put](syn_tools_axon_put.md#syn-tools-axon-put) tool, available from the CLI in the community version of Synapse, which loads a file into the Axon and optionally creates the corresponding </span><span class="title-ref">file:bytes</span>\` node.
-
-Similarly, Storm's HTTP library ([`$lib.inet.http`](../stormtypes_libs.md#stormlibs-lib-inet-http)) could be leveraged to retrieve a web-based file and use the returned bytes as input (potentially using Storm variables - see [Storm Reference - Advanced - Variables](storm_adv_vars.md#storm-adv-vars)) to the `guid` generator. A detailed discussion of this method is beyond the scope of this section; see the [Storm Libraries](../stormtypes_libs.md#stormtypes-libs-header) technical documentation for additional detail.
+> The Storm libraries [$lib.axon.put()](../stormtypes_libs.md#stormlibs-lib-axon-put), [$lib.axon.upload()](../stormtypes_libs.md#stormlibs-lib-axon-upload), and [$lib.axon.wget()](../stormtypes_libs.md#stormlibs-lib-axon-wget) store the file in the Axon, but do not automatically create corresponding `file:bytes` nodes in the Cortex.
 
 ### Operations
 
-N/A
+See the [Operations](storm_ref_type_specific.md#type-guid-operations) section for [guid](storm_ref_type_specific.md#type-guid) forms.
 
 
 <a id="type-guid"></a>
@@ -402,6 +426,8 @@ The `guid` type is used as the primary property for forms that cannot be uniquel
 ### Indexing
 
 N/A
+
+<a id="type-guid-parsing"></a>
 
 ### Parsing
 
@@ -776,6 +802,8 @@ In particular users (who are most likely to make use of this method due to its s
 - If these options are not available, train users to manually check for duplicate nodes before creating a new, arbitrary guid form. (This is "best effort" - even if users remember to check, they will not be able to discover duplicate nodes that may exist in forks or other views that are not visible to the user.)
 - Decide to live with the risk. The number of user-created nodes is likely to be small compared to the volume of data ingested through Power-Ups or other automation. Nodes initially created with arbitrary guids may later be "recognized" (and deconflicted appropriately) by automation that uses other guid node creation strategies.
 
+<a id="type-guid-operations"></a>
+
 ### Operations
 
 Because guid values are unwieldy to use on the command line (outside of copy and paste operations), it is often easier to lift guid nodes by a unique secondary property.
@@ -842,16 +870,16 @@ See [Add or Modify Properties Using Subqueries](storm_ref_data_mod.md#prop-add-m
 
 ## inet:fqdn
 
-**Fully qualified domain names** (FQDNs) are structured as a set of string elements separated by the dot ( `.` ) character. The Domain Name System acts as a "reverse hierarchy" (operating from right to left instead of from left to right) separated along the dot boundaries - i.e., `com` is the hierarchical root for domains such as `google.com` or `microsoft.com`.
+**Fully qualified domain names** (FQDNs) are structured as a set of string elements separated by the dot ( `.` ) character. The Domain Name System acts as a reverse hierarchy (operating from right to left instead of from left to right) separated along the dot boundaries - i.e., `com` is the hierarchical root for domains such as `google.com` or `microsoft.com`.
 
 Because of this logical structure, Synapse includes certain optimizations for working with `inet:fqdn` types:
 
 - Reverse string indexing on `inet:fqdn` types.
-- Default values for the secondary properties `:issuffix` and `:iszone` of a given `inet:fqdn` node based on the values of those properties for the node's parent domain.
+- Default values for the secondary properties `:issuffix`, `:iszone`, and `:zone` of a given `inet:fqdn` node based on the values of those properties for the node's parent domain.
 
 ### Indexing
 
-Synapse performs **reverse string indexing** on `inet:fqdn` types. Domains are indexed in full reverse order -that is, the domain `this.is.my.domain.com` is indexed as `moc.niamod.ym.si.siht` to account for the reverse hierarchy implicit in the DNS structure.
+Synapse performs **reverse string indexing** on `inet:fqdn` types. Domains are indexed in full reverse order - that is, the domain `this.is.my.domain.com` is indexed as `moc.niamod.ym.si.siht` to account for the reverse hierarchy implicit in the DNS structure.
 
 ### Parsing
 
@@ -863,7 +891,7 @@ When `inet:fqdn` nodes are created (or modifications to certain properties are m
 
 The reverse hierarchy implicit in dotted FQDNs represents elements such as `<host>.<domain>.<suffix>`, but can also represent implicit or explicit **zones of control**. The term "zone of control" is loosely defined, and is not meant to represent control or authority by any specific organization or entity. Instead, "zone of control" can be thought of as a boundary within an individual FQDN hierarchy where control of a portion of the domain namespace shifts from one entity or owner to another.
 
-A simple example is the `com` top-level domain (managed by Verisign) vs. the domain `microsoft.com` (controlled by Microsoft Corporation). `Com` represents one zone of control where `microsoft.com` represents another.
+A simple example is the `com` top-level domain (managed by Verisign) vs. the domain `microsoft.com` (controlled by Microsoft Corporation). The domain `com` represents one zone of control and `microsoft.com` represents another.
 
 The `inet:fqdn` form in the Synapse data model uses several secondary properties that relate to zones of control:
 
@@ -871,33 +899,33 @@ The `inet:fqdn` form in the Synapse data model uses several secondary properties
 - `:iszone` = secondary zone of control
 - `:zone` = authoritative zone for a given domain or subdomain
 
-**Note**: contrast `:zone` with `:domain` which simply represents the next level "up" in the hierarchy from the current domain.
+**Note**: contrast `:zone` with `:domain` which simply represents the next level up in the hierarchy from the current domain.
 
 Synapse uses the following logic for suffixes and zones when an `inet:fqdn` is created:
 
 1.  All domains consisting of a single element (such as `com`, `museum`, `us`, `br`, etc.) are considered **suffixes** and receive the following default values:
-    - `:issuffix=1`
-    - `:iszone=0`
+    - `:issuffix=true`
+    - `:iszone=false`
     - `:zone=<none / property not set>`
     - `:domain=<none / property not set>`
 2.  Any domain whose **parent domain is a suffix** is considered a **zone** and receives the following default values:
-    - `:issuffix=0`
-    - `:iszone=1`
+    - `:issuffix=false`
+    - `:iszone=true`
     - `:zone=<set to self>`
     - `:domain=<set to parent domain>`
 3.  Any domain whose **parent domain is a zone** is considered a normal subdomain and receives the following default values:
-    - `:issuffix=0`
-    - `:iszone=0`
+    - `:issuffix=false`
+    - `:iszone=false`
     - `:zone=<set to parent domain>`
     - `:domain=<set to parent domain>`
 4.  Any domain whose parent domain is a normal subdomain receives the following default values:
-    - `:issuffix=0`
-    - `:iszone=0`
-    - `:zone=<set to first domain "up" the domain hierarchy with :iszone=1>`
+    - `:issuffix=false`
+    - `:iszone=false`
+    - `:zone=<set to first domain up the domain hierarchy with :iszone=true>`
     - `:domain=<set to parent domain>`
 
 > [!NOTE]
-> The above logic is **recursive** over all nodes in a Cortex. Changing an `:issuffix` or `:iszone` property on an existing `inet:fqdn` node will not only modify that node, but also propagate any changes associated with those properties to any existing subdomains.
+> The above logic is **recursive** over all nodes in the view. Changing an `:issuffix` or `:iszone` property on an existing `inet:fqdn` node will not only modify that node, but also propagate any changes associated with those properties to any existing subdomains.
 
 #### Potential Limitations
 
@@ -913,7 +941,7 @@ Examples such as these are **not accounted for** by Synapse's default suffix / z
 
 ### Operations
 
-Because of Synapse's reverse string indexing for `inet:fqdn` types, domains can be lifted or filtered based on matching any partial domain suffix string. The asterisk ( `*` ) is the extended operator used to perform this operation. The asterisk does **not** have to be used along dot boundaries but can match anywhere in any FQDN element.
+Because of Synapse's reverse string indexing for `inet:fqdn` types, domains can be lifted or filtered based on matching any partial domain suffix string. The asterisk ( `*` ) is the wildcard character used to perform this operation. The asterisk does **not** have to be used along dot boundaries but can match any set of characters at the beginning of the FQDN.
 
 **Examples**
 
@@ -924,7 +952,7 @@ Lift all domains that end with `yahooapis.com`:
 ```
 
 ```mdstorm
-inet:fqdn='*yahooapis.com'
+inet:fqdn=*yahooapis.com
 ```
 
 Lift all domains ending with `s.wordpress.com`:
@@ -934,25 +962,23 @@ Lift all domains ending with `s.wordpress.com`:
 ```
 
 ```mdstorm
-inet:fqdn='*s.wordpress.com'
+inet:fqdn=*s.wordpress.com
 ```
 
 Filter a set of DNS A records to those with domains ending with `.museum`:
 
 ```mdstorm --hide
-[ inet:dns:a=(woot.com, 1.2.3.4) inet:dns:a=(woot.museum, 5.6.7.8) inet:dns:a=(woot.link, 7.7.7.7) ] +:fqdn='*.museum'
+[ inet:dns:a=(woot.com, 1.2.3.4) inet:dns:a=(woot.museum, 5.6.7.8) inet:dns:a=(woot.link, 7.7.7.7) ] +:fqdn=*.museum
 ```
 
 ```mdstorm
-inet:dns:a +:fqdn='*.museum'
+inet:dns:a +:fqdn=*.museum
 ```
 
 **Usage Notes**
 
-- Because the asterisk is a non-alphanumeric character, the string to be matched must be enclosed in single or double quotes (see [Whitespace and Literals in Storm](storm_ref_intro.md#storm-whitespace-literals)).
 - Because domains are reverse-indexed instead of prefix indexed, for **lift** operations, partial string matching can only occur based on the end (suffix) of a domain. It is not possible to **lift** FQDNs by prefix. For example, `inet:fqdn^=yahoo` is invalid.
-- Domains can be **filtered** by prefix (`^=`). For example, `inet:fqdn='*.biz' +inet:fqdn^=smtp` is valid.
-- Domains cannot be **filtered** based on suffix matching (note that a "lift by suffix" is effectively a combined "lift and filter" operation).
+- Domains can be **filtered** by prefix (`^=`). For example, `inet:fqdn=*.biz +inet:fqdn^=smtp` is valid.
 - Domains can be lifted or filtered using the regular expression (regex) extended operator (`~=`). For example `inet:fqdn~=google` is valid (see [Lift by Regular Expression (~=)](storm_ref_lift.md#lift-regex) and [Filter by Regular Expression (~=)](storm_ref_filter.md#filter-regex)). Note that lifting by regular expression is a brute-force operation and may be resource-intensive over large data sets; lifting a subset of data by some other method and then filtering by regular expression is preferable where possible.
 
 
@@ -1141,7 +1167,7 @@ risk:alert:priority>5
 Lift all `inet:flow` nodes tagged with `#my.tag` and filter to include only those where the `:ip:proto` property is set to the hex equivalent of 6:
 
 ```mdstorm --hide
-[ inet:flow=( { "server": "tcp://62.152.42.139:1234", "period": "(2026/03/19 01:37:42, 2026/03/19 01:38:09)" } ) :ip:proto=6 +#my.tag ]
+[ inet:flow=( { "server": "tcp://62.152.42.139:1234", "period": ["2026/03/19 01:37:42", "2026/03/19 01:38:09"] } ) :ip:proto=6 +#my.tag ]
 ```
 
 ```mdstorm
@@ -1260,6 +1286,11 @@ inet:dns:a:seen@=(2019/03/01, 2019/04/01)
 ```
 
 `ival` types cannot be used with the `*range=` custom comparator. `*range=` can only be used to specify a range of individual values (such as `time` or `int`).
+
+The `.min`, `.max`, and `.duration` virtual properties of an `ival` (including tag and tag property intervals) can be used with comparison operators. Lifting and filtering return the same nodes, and compare the [special time values](storm_ref_type_specific.md#type-time-parse-special) as follows:
+
+- `.min` and `.max` follow the same rules as a [time](storm_ref_type_specific.md#type-time-parse-special): an "unknown" ( `?` ) value never matches `<`, `<=`, `>`, or `>=` against a known value, and an "ongoing" ( `*` ) value is later than any time. For example, `+:seen.max>2020` does not match a `:seen` of `(2019, ?)`, and `+:seen.max>=now` matches a `:seen` of `(2019, *)`.
+- The `.duration` of an ongoing interval is compared using its current duration (from its `.min` until now). `.duration=*` matches every ongoing interval, `<=*` and `>=*` match the same nodes as `=*`, and `<*` and `>*` match nothing.
 
 > [!TIP]
 > By definition, an `ival` is a **pair** of date/time values treated as a single combined value. This means that when using [variables](storm_adv_vars.md#storm-adv-vars) to work with `ival` types, the full value of the property is assigned to the variable by default. For example, given a node (such as an `inet:dns:a` node) with a `:seen` value of `(2023/07/08 11:19:02, 2023/12/14 21:18:47)`, the variable assignment `$time=:seen` will assign the **pair** of date/times to `$time`.
@@ -1686,6 +1717,21 @@ When entering explicit `time` values, you can enter them at any level of precisi
   > [!NOTE]
   > Synapse does not support the **storage** of a time zone (e.g., `+0800`) with a `time` value. Synapse stores all `time` values in UTC for consistency. If a time zone is specified using an acceptable time zone offset format on input, Synapse will automatically convert the value to UTC for storage. If no time zone is specified, Synapse will assume the value is in UTC.
 
+- Human-readable with other time zone formats. Synapse also accepts a time zone abbreviation (such as `EST` or `UTC`), optionally in parentheses, a `UTC` or `GMT` prefixed offset, an hour-only offset following a time with seconds, and an offset followed by an abbreviation:
+
+  `'2018-12-16 09:37:52 EST'`
+
+  `'2018-12-16 09:37:52 (EST)'`
+
+  `'2018-12-16 09:37:52 GMT-4'`
+
+  `'2018-12-16 09:37:52-04'`
+
+  `'2018-12-16 09:37:52.324873 -0400 EDT'`
+
+> [!NOTE]
+  > Each date and time field after the year must be two digits (for example, `2018-01-02` rather than `2018-1-2`). Text that is not part of a supported format, such as `AM` / `PM` or a time zone name like `America/New_York`, causes a `BadTypeValu` error instead of being ignored.
+
 - No formatting (`YYYYMMDDhhmmssmmmmmm`):
   
   `20181216093752324873`
@@ -1743,6 +1789,7 @@ The following terms and symbols have specialized meanings with respect to time i
 
 - The question mark ( `?` ) for "unknown" is most useful when setting the `.min` and / or `.max` value of an [ival](storm_ref_type_specific.md#type-ival), where the start and / or end time are not known.
 - The asterisk ( `*` ) for "ongoing" is most useful when setting the `.max` value of an [ival](storm_ref_type_specific.md#type-ival) to indicate that the activity is known (or assumed) to be continuing indefinitely.
+- When lifting or filtering with `<`, `<=`, `>`, or `>=`, an "ongoing" ( `*` ) time is later than any known time, and an "unknown" ( `?` ) time never matches a known value. `<=?` and `>=?` match only unknown values, and `<?` and `>?` match nothing. For example, `+:time>2020` matches a `:time` of `*` but not one of `?`. The same rules apply to the `.min` and `.max` of an [ival](storm_ref_type_specific.md#type-ival).
 
 > [!NOTE]
 > "Ongoing" and "unknown" are represented **differently** in Synapse v3 and Synapse v2. Synapse v2 uses the question mark (not the asterisk) for "ongoing", and there is no symbol to represent "unknown".

@@ -1105,33 +1105,12 @@ class Axon(s_cell.Cell):
         self.metadata = self.blobslab.initdb('metadata')
 
         if self.inaugural:
-            self._setStorVers(1)
+            self._setStorVers(s_const.AXON_BLOB_STORVERS)
 
         storvers = self._getStorVers()
-        if storvers < 1:
-            storvers = await self._setStorVers01()
-
-    async def _setStorVers01(self):
-
-        logger.warning('Updating Axon storage version (adding offset index). This may take a while.')
-
-        offs = 0
-        cursha = b''
-
-        # TODO: need LMDB to support getting value size without getting value
-        for lkey, byts in self.blobslab.scanByFull(db=self.blobs):
-
-            blobsha = lkey[:32]
-
-            if blobsha != cursha:
-                offs = 0
-                cursha = blobsha
-
-            offs += len(byts)
-
-            await self.blobslab.put(cursha + offs.to_bytes(8, 'big'), lkey[32:], db=self.offsets)
-
-        return self._setStorVers(1)
+        if storvers < s_const.AXON_BLOB_STORVERS:
+            mesg = f'The Axon blob storage at {path} has no storage version and cannot be used by this version of Synapse.'
+            raise s_exc.BadStorageVersion(mesg=mesg, valu=storvers, reqver=s_const.AXON_BLOB_STORVERS)
 
     def _getStorVers(self):
         byts = self.blobslab.get(b'version', db=self.metadata)

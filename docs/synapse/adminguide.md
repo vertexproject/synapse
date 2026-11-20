@@ -992,6 +992,8 @@ Synapse includes the ability to automate Storm-based tasks using triggers, cron 
 
 Refer to the [Storm Reference - Automation](userguides/storm_ref_automation.md#storm-ref-automation) section of the [Synapse User Guide](userguide.md#userguide) for a detailed discussion of automation in Synapse (including permissions considerations).
 
+Synapse admins can also add **view hooks**, which are Storm queries that run as `root` when a view is created, merged, or deleted. A `merging` or `deleted` hook which raises an error aborts the merge or delete. Only global admins can manage view hooks. See [View Hooks](userguides/storm_ref_automation.md#auto-view-hooks) for details.
+
 #### Power-Ups
 
 Power-Ups implement Storm packages and Storm services to provide additional functionality to Synapse. Power-Ups may be provided by The Vertex Project (as free or commercial offerings). Organizations may also develop their own custom Power-Ups.
@@ -1020,6 +1022,10 @@ See [Extended Model](storm_lib_modelext.md#modelext) for how to add, export, and
 ## Manage Model Deprecations
 
 As the Synapse Data Model grows and evolves, model elements (types, forms, and properties) may be deprecated and should no longer be used for new data modeling. The Storm `model.deprecated` commands can be used to prepare for the eventual removal of deprecated model elements.
+
+Setting a deprecated property produces a warning. When a removal date or version has been scheduled for the property, the warning includes it, for example: `The property it:os:windows:service:exe is deprecated and will be removed on or after 2027-01-01.`
+
+An extended model property can schedule its own removal by setting `deprecated` in its property info to a dictionary with either an `eoldate` (a `YYYY-MM-DD` date) or an `eolvers` (a version) key, and an optional `mesg` key with text to append to the warning. For example, `({"deprecated": {"eoldate": "2027-01-01"}})`. An extended property stored by an earlier release with deprecation info that is not valid is changed on upgrade to `true` if the earlier value was truthy, or to `false` if it was not, with a warning naming it.
 
 ### Lock Deprecated Model Elements
 

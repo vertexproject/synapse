@@ -1698,7 +1698,7 @@ class GrammarTest(s_t_utils.SynTest):
                 with self.getLoggerStream('synapse.lib.parser') as stream:
                     parser, cached = s_parser.loadLarkParser(path=path)
                 self.false(cached)
-                self.isin('Failed to load the Storm grammar cache', stream.getvalue())
+                await stream.expect('Failed to load the Storm grammar cache')
                 self.nn(parser.parse('inet:fqdn', start='query'))
 
             with mock.patch('synapse.lib.parser.loadLarkParser', return_value=(None, False)):
@@ -2193,16 +2193,61 @@ class GrammarTest(s_t_utils.SynTest):
         self.true(s_grammar.isPropName('test:str:str123'))
         self.true(s_grammar.isPropName('test:str:123str'))
         self.true(s_grammar.isPropName('test:str:123:456'))
-        self.true(s_grammar.isPropName('test:str.hehe'))
-        self.true(s_grammar.isPropName('test:str.hehe'))
-        self.true(s_grammar.isPropName('test:str.hehe.haha'))
-        self.true(s_grammar.isPropName('test:str.hehe:haha'))
         self.true(s_grammar.isPropName('test:x'))
         self.true(s_grammar.isPropName('x:x'))
         self.false(s_grammar.isPropName('test'))
         self.false(s_grammar.isPropName('2t:str'))
         self.false(s_grammar.isPropName('.hehe'))
         self.false(s_grammar.isPropName('testcmd'))
+        self.false(s_grammar.isPropName('test:str.hehe'))
+        self.false(s_grammar.isPropName('test:str. hehe'))
+        self.false(s_grammar.isPropName('test:str.hehe:haha'))
+
+        self.true(s_grammar.isBasePropNoPivprop('_foo'))
+        self.true(s_grammar.isBasePropNoPivprop('_iso:3166'))
+        self.true(s_grammar.isBasePropNoPivprop('_foo:_bar'))
+        self.false(s_grammar.isBasePropNoPivprop('_foo.bar'))
+        self.false(s_grammar.isBasePropNoPivprop('_foo::bar'))
+        self.false(s_grammar.isBasePropNoPivprop('_foo:'))
+        self.false(s_grammar.isBasePropNoPivprop('_Foo'))
+
+        # each name check must accept exactly the names Storm parses whole in that position
+        def stormok(*queries):
+            for text, want in queries:
+                try:
+                    if str(s_parser.parseQuery(text)) != want:
+                        return False
+
+                except s_exc.BadSyntax:
+                    return False
+
+            return True
+
+        def getNames(chars, size, extra):
+            names = ['']
+            for _ in range(size):
+                names = [n + c for n in names for c in chars]
+                yield from names
+
+            yield from extra
+
+        for name in getNames('_a1:.', 4, ('_A', '_a-b', '_a b', '_a^b', '_a::b')):
+            ok = stormok(
+                (f'+:{name}', f'Query: [FiltOper: [Const: +, HasRelPropCond: [RelProp: [Const: {name}]]]]'),
+                (f'test:str:{name}', f'Query: [LiftProp: [Const: test:str:{name}]]'),
+                (f'#t:{name}', f'Query: [LiftTagProp: [TagProp: [TagName: [Const: t], Const: {name}]]]'),
+            )
+            self.eq(ok, s_grammar.isBasePropNoPivprop(name), msg=name)
+
+        for name in getNames('_a1:.', 5, ('a:b.cc', 'a:b. cc', 'a:b.cc:dd', 'A:b', 'a-b:c', 'a::b')):
+            ok = stormok((name, f'Query: [LiftProp: [Const: {name}]]'))
+            self.eq(ok, s_grammar.isFormName(name), msg=name)
+            self.eq(ok, s_grammar.isPropName(name), msg=name)
+
+        # reserved words are rejected by the lexer but not by isCmdName
+        for name in getNames('a1.', 4, ('A.b', 'a-b', 'a:b', 'a_b')):
+            ok = stormok((name, f'Query: [CmdOper: [Const: {name}, Const: ()]]'))
+            self.eq(ok, s_grammar.isCmdName(name), msg=name)
 
     async def test_embed_offsets(self):
 

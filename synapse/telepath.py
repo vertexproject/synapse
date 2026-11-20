@@ -71,47 +71,12 @@ async def delAhaUrl(url):
 
     return refs
 
-def zipurl(info):
-    '''
-    Reconstruct a URL string from a parsed telepath info dict.
-    '''
-    # copy to prevent mutation
-    info = dict(info)
-
-    host = info.pop('host', None)
-    port = info.pop('port', None)
-    path = info.pop('path', None)
-    user = info.pop('user', None)
-    passwd = info.pop('passwd', None)
-    scheme = info.pop('scheme', None)
-
-    url = f'{scheme}://'
-    if user:
-        url += user
-        if passwd:
-            url += f':{passwd}'
-        url += '@'
-
-    if host:
-        url += host
-        if port is not None:
-            url += f':{port}'
-
-    if path:
-        url += f'{path}'
-
-    if info:
-        params = '&'.join([f'{k}={v}' for (k, v) in info.items()])
-        url += f'?{params}'
-
-    return url
-
 def modurl(url, **info):
     if isinstance(url, str):
         urlinfo = chopurl(url)
         for k, v in info.items():
             urlinfo[k] = v
-        return zipurl(urlinfo)
+        return s_urlhelp.zipurl(urlinfo)
     return [modurl(u, **info) for u in url]
 
 def mergeAhaInfo(info0, info1):
@@ -552,6 +517,10 @@ class Proxy(s_base.Base):
             except Exception:  # pragma: no cover
                 logger.exception('synapse.telepath.Proxy.linkLoopTask()')
 
+    def _getExcInfo(self, mesg):
+        endp = self.link.endpoint()
+        return {'mesg': f'{mesg} ({endp})', 'url': endp}
+
     def _hasTeleFeat(self, name, vers='1.0.0'):
         valu = self._features.get(name)
         if valu is None:
@@ -640,7 +609,12 @@ class Proxy(s_base.Base):
             host = self.link.get('host')
             port = self.link.get('port')
             info = {'certhash': self.link.get('certhash'), 'hostname': self.link.get('hostname'), }
-            link = await s_link.connect(host, port, ssl=ssl, linkinfo=info)
+
+            try:
+                link = await s_link.connect(host, port, ssl=ssl, linkinfo=info)
+            except OSError as e:
+                endp = self.link.endpoint()
+                raise s_exc.LinkErr(mesg=f'Unable to connect to {endp}: {e}', url=endp) from e
 
         self.alllinks.append(link)
         async def fini():
@@ -707,7 +681,7 @@ class Proxy(s_base.Base):
     async def task(self, todo, name=None):
 
         if self.isfini:
-            raise s_exc.IsFini(mesg='Telepath Proxy isfini')
+            raise s_exc.IsFini(**self._getExcInfo('Telepath Proxy isfini'))
 
         mesg = ('t2:init', {
                 'todo': todo,
@@ -720,7 +694,7 @@ class Proxy(s_base.Base):
 
         mesg = await link.rx()
         if mesg is None:
-            raise s_exc.LinkShutDown(mesg='Remote peer disconnected')
+            raise s_exc.LinkShutDown(**self._getExcInfo('Remote peer disconnected'))
 
         if mesg[0] == 't2:fini':
             await self._putPoolLink(link)
@@ -737,7 +711,7 @@ class Proxy(s_base.Base):
 
                         mesg = await link.rx()
                         if mesg is None:
-                            raise s_exc.LinkShutDown(mesg='Remote peer disconnected')
+                            raise s_exc.LinkShutDown(**self._getExcInfo('Remote peer disconnected'))
 
                         if mesg[0] != 't2:yield':  # pragma: no cover
                             info = 'Telepath protocol violation:  unexpected message received'
@@ -784,8 +758,7 @@ class Proxy(s_base.Base):
 
         self.synack = await self.link.rx()
         if self.synack is None:
-            mesg = 'socket closed by server before handshake'
-            raise s_exc.LinkShutDown(mesg=mesg)
+            raise s_exc.LinkShutDown(**self._getExcInfo('socket closed by server before handshake'))
 
         self.sess = self.synack[1].get('sess')
         self._ahainfo = self.synack[1].get('ahainfo', {})
@@ -918,7 +891,7 @@ class ClientV2(s_base.Base):
 
                 now = time.monotonic()
                 if now > lastlog + 60.0:  # don't logspam the disconnect message more than 1/min
-                    url = s_urlhelp.sanitizeUrl(zipurl(urlinfo))
+                    url = s_urlhelp.sanitizeUrl(s_urlhelp.zipurl(urlinfo))
                     logger.exception(f'telepath clientv2 ({url}) encountered an error: {e}')
                     lastlog = now
 
@@ -1276,7 +1249,11 @@ async def openinfo(info):
 
             linkinfo['ssl'] = sslctx
 
-        link = await s_link.connect(host, port, linkinfo=linkinfo)
+        try:
+            link = await s_link.connect(host, port, linkinfo=linkinfo)
+        except OSError as e:
+            endp = s_urlhelp.sanitizeUrl(s_urlhelp.zipurl(info))
+            raise s_exc.LinkErr(mesg=f'Unable to connect to {endp}: {e}', url=endp) from e
 
     else:
         raise s_exc.BadUrl(mesg=f'Invalid URL scheme: {scheme}')

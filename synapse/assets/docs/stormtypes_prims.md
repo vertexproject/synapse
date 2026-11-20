@@ -1232,6 +1232,14 @@ True if the signature is valid, otherwise False. The return type is [`boolean`](
 Implements the Storm API for a Dictionary object.
 
 
+<a id="stormprims-dict-readonly-f527"></a>
+
+## dict:readonly
+
+A read-only dictionary. Setting or removing a key, including in any nested dictionary or list, raises an error.
+Use $lib.copy() to get a mutable copy.
+
+
 <a id="stormprims-environment-vars-f527"></a>
 
 ## environment:vars
@@ -3130,6 +3138,15 @@ Get a copy of the list containing unique items.
 
 **Returns:**
 The return type is [`list`](#stormprims-list-f527).
+
+<a id="stormprims-list-readonly-f527"></a>
+
+## list:readonly
+
+A read-only list. It supports the non-modifying operations of a list, such as indexing, iteration, size(), and
+has(). Methods that would modify it, including in any nested dictionary or list, raise an error. Use $lib.copy()
+to get a mutable copy.
+
 
 <a id="stormprims-markdown-block-f527"></a>
 
@@ -6832,6 +6849,89 @@ Delete all nodes and nodedata from the write layer. Triggers will be run.
 
 **Returns:**
 The return type is `null`.
+
+<a id="stormprims-view-hook-f527"></a>
+
+## view:hook
+
+A view hook which runs a Storm query on a view lifecycle event.
+
+
+<a id="stormprims-view-hook-created"></a>
+
+### created
+
+The time the view hook was created.
+
+**Returns:**
+The type is `time`.
+
+<a id="stormprims-view-hook-creator"></a>
+
+### creator
+
+The iden of the user who added the view hook.
+
+**Returns:**
+The type is [`str`](#stormprims-str-f527).
+
+<a id="stormprims-view-hook-enabled"></a>
+
+### enabled
+
+Set to true if the view hook is enabled.
+
+**Returns:**
+The return type is [`boolean`](#stormprims-boolean-f527).
+When this is used to set the value, it does not have a return type.
+
+<a id="stormprims-view-hook-iden"></a>
+
+### iden
+
+The iden of the view hook.
+
+**Returns:**
+The type is [`str`](#stormprims-str-f527).
+
+<a id="stormprims-view-hook-name"></a>
+
+### name
+
+The name of the view hook.
+
+**Returns:**
+The return type is [`str`](#stormprims-str-f527).
+When this is used to set the value, it does not have a return type.
+
+<a id="stormprims-view-hook-storm"></a>
+
+### storm
+
+The Storm query the view hook runs.
+
+**Returns:**
+The return type is [`str`](#stormprims-str-f527).
+When this is used to set the value, it does not have a return type.
+
+<a id="stormprims-view-hook-type"></a>
+
+### type
+
+The hook type (`created`, `merging`, or `deleted`).
+
+**Returns:**
+The return type is [`str`](#stormprims-str-f527).
+When this is used to set the value, it does not have a return type.
+
+<a id="stormprims-view-hook-updated"></a>
+
+### updated
+
+The time the view hook was last modified.
+
+**Returns:**
+The type is `time`.
 
 <a id="stormprims-xml-element-f527"></a>
 

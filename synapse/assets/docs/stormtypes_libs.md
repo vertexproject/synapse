@@ -3697,6 +3697,79 @@ Normalize a MITRE ATT&CK Flow diagram in JSON format.
 **Returns:**
 The normalized MITRE ATT&CK Flow diagram. The return type is [`dict`](stormtypes_prims.md#stormprims-dict-f527).
 
+<a id="stormlibs-lib-input"></a>
+
+## $lib.input
+
+A Storm Library for requesting input from the caller of a Storm query.
+
+
+<a id="stormlibs-lib-input-request"></a>
+
+### $lib.input.request(type, info, timeout=(300))
+
+Request input from the caller of the Storm query and wait for the reply.
+
+Emits an `input` message containing the `iden`, `type`, and `info` of the request.
+The caller answers by running `$lib.input.send()` with the `iden` from the message.
+Only the requesting user or an admin may reply.
+
+The request expires after `timeout` seconds, which defaults to 300 (5 minutes)
+and may not exceed 86400 (one day).
+If no reply arrives before then, the request raises a `TimeOut` error.
+
+The query must have a caller that reads its `input` messages, such as `storm()`
+without a message filter or the Storm CLI. The `view.exec` and `runas` commands
+forward `input` messages from the query they run. A request made where nothing
+reads the `input` message, such as from `callStorm()`, a cron job, or a trigger,
+waits until it expires. In a synchronous trigger, the wait also blocks the edit
+which fired the trigger.
+
+The only supported type is `text`, which requests a line of text. Its `info` must
+contain a non-empty `prompt` string, which may be markdown, and no other keys.
+The reply is a dictionary in the form `{"text": <str>}`.
+
+Example:
+    Ask the caller for their name::
+
+        $reply = $lib.input.request(text, ({"prompt": "What is your **name**?"}))
+        $lib.print(`Hello {$reply.text}`)
+
+
+**Args:**
+
+- `type` (`str`): The type of input to request.
+- `info` (`dict`): The type specific details of the request.
+- `timeout` (`int`): The number of seconds to wait for a reply before the request expires, up to 86400.
+
+
+**Returns:**
+The reply sent by `$lib.input.send()`. The return type is [`dict`](stormtypes_prims.md#stormprims-dict-f527).
+
+<a id="stormlibs-lib-input-send"></a>
+
+### $lib.input.send(iden, info)
+
+Send a reply to a pending input request.
+
+The reply must match the schema for the type of the request. For a `text`
+request, the reply is a dictionary in the form `{"text": <str>}`.
+
+Example:
+    Reply to a text input request::
+
+        $lib.input.send($iden, ({"text": "visi"}))
+
+
+**Args:**
+
+- `iden` (`str`): The iden from the `input` message.
+- `info` (`dict`): The reply to the input request.
+
+
+**Returns:**
+The return type is `null`.
+
 <a id="stormlibs-lib-iters"></a>
 
 ## $lib.iters
@@ -5192,7 +5265,7 @@ The following special cases apply regardless of the conflict policy:
   to a layer in which the fuse creates dst, since dst retains its own computed
   properties in the layer it was created in.
 - Inbound references (properties on other nodes which point at src) are
-  rewritten to point at dst. This includes typed value (poly) properties and
+  rewritten to point at dst. This includes typed value properties and
   array properties. A property which is declared for one of src's ancestor
   forms may have filed its reference under that ancestor rather than under
   src's own form; such a reference keeps the ancestor it was filed under.
@@ -5391,6 +5464,65 @@ The return type is `null`.
 
 A Storm library for selectively migrating nodes in the current view.
 
+
+<a id="stormlibs-lib-model-migration-s-model_3_2_0"></a>
+
+## $lib.model.migration.s.model_3_2_0
+
+A Storm library for the inet:url nodes the 3.2.0 model migration could not repair.
+
+
+<a id="stormlibs-lib-model-migration-s-model_3_2_0-listNodes"></a>
+
+### $lib.model.migration.s.model_3_2_0.listNodes(form=(null), source=(null), offset=(0), size=(null))
+
+List the nodes in the model_3_2_0:nodes queue.
+
+**Args:**
+
+- `form` (`str`): Only list nodes of this form.
+- `source` (`str`): Only list nodes seen by the `meta:source` node with this guid.
+- `offset` (`int`): The queue offset to start listing from.
+- `size` (`int`): The maximum number of nodes to list.
+
+
+**Yields:**
+Yields (offset, form, valu, sources) tuples. The return type is [`list`](stormtypes_prims.md#stormprims-list-f527).
+
+<a id="stormlibs-lib-model-migration-s-model_3_2_0-printNode"></a>
+
+### $lib.model.migration.s.model_3_2_0.printNode(offset)
+
+Print what a queued node held, and what referenced it.
+
+**Args:**
+
+- `offset` (`int`): The queue offset of the node.
+
+
+**Returns:**
+The return type is `null`.
+
+<a id="stormlibs-lib-model-migration-s-model_3_2_0-repairNode"></a>
+
+### $lib.model.migration.s.model_3_2_0.repairNode(offset, newvalu, remove=(false))
+
+Re-create a queued node with a new value, in each layer which held it.
+
+Its props, tags, tag properties, node data and light edges are restored, along
+with the tombstones each layer held for them, and each property which referenced
+it, other than a comp key, is set to the new node.
+
+
+**Args:**
+
+- `offset` (`int`): The queue offset of the node.
+- `newvalu` (`any`): The value to re-create the node with.
+- `remove` (`boolean`): Remove the node from the queue once it is repaired.
+
+
+**Returns:**
+True if the node was repaired. The return type is [`boolean`](stormtypes_prims.md#stormprims-boolean-f527).
 
 <a id="stormlibs-lib-model-tags"></a>
 
@@ -6569,6 +6701,79 @@ Note:
 **Yields:**
 The output messages from the Storm runtime. The return type is [`list`](stormtypes_prims.md#stormprims-list-f527).
 
+<a id="stormlibs-lib-storm-lint"></a>
+
+## $lib.storm.lint
+
+A Storm library for linting Storm code.
+
+
+<a id="stormlibs-lib-storm-lint-rules"></a>
+
+### $lib.storm.lint.rules()
+
+Get the lint rules used by $lib.storm.lint.scan().
+
+Each rule is a dictionary with the keys rule (the rule ID), name, severity, default
+(true when the rule runs by default) and desc (the rule description), in rule ID order.
+
+Examples:
+    Print the rules which are off by default::
+
+        for $rule in $lib.storm.lint.rules() {
+            if (not $rule.default) { $lib.print(`{$rule.rule} {$rule.name}`) }
+        }
+
+
+**Returns:**
+A dictionary for each lint rule. The return type is [`list`](stormtypes_prims.md#stormprims-list-f527).
+
+<a id="stormlibs-lib-storm-lint-scan"></a>
+
+### $lib.storm.lint.scan(text, select=(null), ignore=(null), enable=(null))
+
+Lint Storm code and yield a dictionary for each finding.
+
+Findings are checked against the data model of the Cortex, including extended model
+elements. Each finding is a dictionary with the keys rule, severity, line, column and mesg,
+sorted by line, column and rule. A syntax error yields an E001 finding.
+
+The select, enable and ignore arguments match the --select, --enable and --ignore
+options of the storm.lint command line tool, the keys of its [tool.stormlint]
+configuration table and the arguments of the MCP storm_lint tool. Each entry is a rule
+ID or an ID prefix, and an unknown rule ID or prefix raises a BadArg error.
+
+When text is an embedded query, its text is linted, and the line and column of each
+finding are relative to the text of the embedded query.
+
+Examples:
+    Print the findings for a query::
+
+        for $finding in $lib.storm.lint.scan($text) {
+            $lib.print(`{$finding.line}:{$finding.column} {$finding.rule} {$finding.mesg}`)
+        }
+
+    Lint an embedded query with only the R rules and S010, which is off by default::
+
+        $query = ${
+            if $x { [ :name=$x ] }
+        }
+        for $finding in $lib.storm.lint.scan($query, select=(R,), enable=(S010,)) {
+            $lib.print(`{$finding.line}:{$finding.column} {$finding.rule} {$finding.mesg}`)
+        }
+
+
+**Args:**
+
+- `text`: The Storm code or embedded query to lint. The input type may be one of the following: `str`, `storm:query`.
+- `select` (`list`): Rule IDs or ID prefixes which replace the default rule set. An empty list runs only the enabled rules.
+- `ignore` (`list`): Rule IDs or ID prefixes to remove from the rule set, applied last.
+- `enable` (`list`): Rule IDs or ID prefixes to add to the rule set, including rules which are off by default such as S010 and S015.
+
+
+**Yields:**
+A dictionary for each lint finding. The return type is [`dict`](stormtypes_prims.md#stormprims-dict-f527).
+
 <a id="stormlibs-lib-tabular"></a>
 
 ## $lib.tabular
@@ -7599,6 +7804,77 @@ List the Views in the Cortex.
 
 **Returns:**
 List of `view` objects. The return type is [`list`](stormtypes_prims.md#stormprims-list-f527).
+
+<a id="stormlibs-lib-view-hook"></a>
+
+## $lib.view.hook
+
+A Storm Library for managing view hooks.
+
+A view hook runs a Storm query as root, in the view, when a view is created,
+about to be merged, or about to be deleted. An exception raised by a `merging` or
+`deleted` hook aborts the merge or delete. Managing view hooks requires admin privileges.
+
+
+<a id="stormlibs-lib-view-hook-add"></a>
+
+### $lib.view.hook.add(name, type, storm, enabled=(true))
+
+Add a view hook.
+
+Example:
+    Add a hook which sets the description of every new view::
+
+        $lib.view.hook.add(viewdesc, created, ${ $lib.view.get().set(desc, "A new view.") })
+
+
+**Args:**
+
+- `name` (`str`): The name of the view hook.
+- `type` (`str`): The hook type (`created`, `merging`, or `deleted`).
+- `storm` (`str`): The Storm query to run.
+- `enabled` (`boolean`): Set to false to add the view hook disabled.
+
+
+**Returns:**
+The new view hook. The return type is [`view:hook`](stormtypes_prims.md#stormprims-view-hook-f527).
+
+<a id="stormlibs-lib-view-hook-del"></a>
+
+### $lib.view.hook.del(iden)
+
+Delete a view hook.
+
+**Args:**
+
+- `iden` (`str`): The iden of the view hook.
+
+
+**Returns:**
+The return type is `null`.
+
+<a id="stormlibs-lib-view-hook-get"></a>
+
+### $lib.view.hook.get(iden)
+
+Get a view hook. Raises `NoSuchIden` if the view hook does not exist.
+
+**Args:**
+
+- `iden` (`str`): The iden of the view hook.
+
+
+**Returns:**
+The view hook. The return type is [`view:hook`](stormtypes_prims.md#stormprims-view-hook-f527).
+
+<a id="stormlibs-lib-view-hook-list"></a>
+
+### $lib.view.hook.list()
+
+List the view hooks.
+
+**Returns:**
+A list of `view:hook` objects. The return type is [`list`](stormtypes_prims.md#stormprims-list-f527).
 
 <a id="stormlibs-lib-xml"></a>
 

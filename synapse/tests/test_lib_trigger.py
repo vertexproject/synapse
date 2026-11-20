@@ -128,7 +128,8 @@ class TrigTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             tdef = {'cond': 'node:add', 'form': 'test:guid', 'storm': '[ test:guid="*" ]'}
             await core.view.addTrigger(tdef)
-            await self.asyncraises(s_exc.RecursionLimitHit, core.nodes('[ test:guid="*" ]'))
+            with self.raises(s_exc.RecursionLimitHit):
+                await core.nodes('[ test:guid="*" ]')
 
     async def test_modification_persistence(self):
 
@@ -148,8 +149,11 @@ class TrigTest(s_t_utils.SynTest):
                 self.eq(triggers[0][1].tdef['storm'], '[test:int=2 :name=4] | testcmd')
 
                 # Sad cases
-                await self.asyncraises(s_exc.BadSyntax, core.view.setTriggerInfo(iden, {'storm': ' | | badstorm '}))
-                await self.asyncraises(s_exc.NoSuchIden, core.view.setTriggerInfo('deadb33f', {'storm': 'test:innt'}))
+                with self.raises(s_exc.BadSyntax):
+                    await core.view.setTriggerInfo(iden, {'storm': ' | | badstorm '})
+
+                with self.raises(s_exc.NoSuchIden):
+                    await core.view.setTriggerInfo('deadb33f', {'storm': 'test:innt'})
 
     async def test_trigger_basics(self):
 
@@ -232,8 +236,7 @@ class TrigTest(s_t_utils.SynTest):
             await core.nodes('[ test:type10=1 ]')
             with self.getLoggerStream('synapse.storm.log') as stream:
                 await core.nodes('[ test:type10=1 :intprop=25 ]')
-                await stream.expect('pf=', timeout=6)
-            self.isin('pf=test:type10:intprop pn=intprop', stream.getvalue())
+                await stream.expect('pf=test:type10:intprop pn=intprop', timeout=6)
             self.len(1, await core.nodes('test:guid#propset'))
 
             # Test re-setting doesn't fire
@@ -288,6 +291,9 @@ class TrigTest(s_t_utils.SynTest):
                 await view.addTrigger({'cond': 'prop:set', 'storm': 'test:int=4', 'form': 'test:str', 'prop': 'foo'})
 
             with self.raises(s_exc.SchemaViolation):
+                await view.addTrigger({'cond': 'prop:set', 'storm': 'test:int=4', 'prop': 'test:str.hehe'})
+
+            with self.raises(s_exc.SchemaViolation):
                 await view.addTrigger({'cond': 'tag:add', 'storm': '[ +#count test:str=$tag ]'})
 
             with self.raises(s_exc.BadOptValu):
@@ -318,7 +324,8 @@ class TrigTest(s_t_utils.SynTest):
             self.len(10, triglist)
 
             # Delete not a trigger
-            await self.asyncraises(s_exc.NoSuchIden, view.delTrigger('foo'))
+            with self.raises(s_exc.NoSuchIden):
+                await view.delTrigger('foo')
 
             # Delete trigger
             iden = [iden for iden, r in triglist if r.tdef['cond'] == 'prop:set'][0]
@@ -329,7 +336,8 @@ class TrigTest(s_t_utils.SynTest):
             await core.nodes('[ test:type10=3 :intprop=25 ]')
             self.len(0, await core.nodes('test:int=6'))
 
-            await self.asyncraises(s_exc.NoSuchIden, view.delTrigger(b'badiden'))
+            with self.raises(s_exc.NoSuchIden):
+                await view.delTrigger(b'badiden')
 
             # Mod trigger
 
@@ -355,8 +363,8 @@ class TrigTest(s_t_utils.SynTest):
             self.eq(exc.exception.get('mesg'), 'Trigger property is not editable: prop')
 
             opts = {'vars': {'iden': iden}}
-            await self.asyncraises(s_exc.BadArg,
-                                    core.callStorm('$lib.trigger.mod($iden, ({"form": "test:int"}))', opts=opts))
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('$lib.trigger.mod($iden, ({"form": "test:int"}))', opts=opts)
 
             # trigger.mod no longer advertises --form/--tag/--prop (they never worked); they
             # are now rejected as unrecognized options before the backend is ever reached.
@@ -393,17 +401,23 @@ class TrigTest(s_t_utils.SynTest):
                     await fred.callStorm(q, opts=opts)
 
                 # Delete trigger auth failure
-                await self.asyncraises(s_exc.BadArg, fred.callStorm(f'$lib.trigger.del({iden})'))
+                with self.raises(s_exc.BadArg):
+                    await fred.callStorm(f'$lib.trigger.del({iden})')
 
                 # Mod trigger auth failure
                 opts = {'vars': {'iden': iden}}
-                await self.asyncraises(s_exc.BadArg,
-                                       fred.callStorm('$lib.trigger.mod($iden, "{#foo}")', opts=opts))
+                with self.raises(s_exc.BadArg):
+                    await fred.callStorm('$lib.trigger.mod($iden, "{#foo}")', opts=opts)
 
             # additional NoSuchIden failures
-            await self.asyncraises(s_exc.NoSuchIden, view.getTrigger('newp'))
-            await self.asyncraises(s_exc.NoSuchIden, view.delTrigger('newp'))
-            await self.asyncraises(s_exc.NoSuchIden, view.setTriggerInfo('newp', {'enabled': True}))
+            with self.raises(s_exc.NoSuchIden):
+                await view.getTrigger('newp')
+
+            with self.raises(s_exc.NoSuchIden):
+                await view.delTrigger('newp')
+
+            with self.raises(s_exc.NoSuchIden):
+                await view.setTriggerInfo('newp', {'enabled': True})
 
             # mop up some coverage
             msgs = await core.stormlist('trigger.add tag:del --form inet:ip --tag zoinks { [+#bar] }')
@@ -603,16 +617,18 @@ class TrigTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             view = await core.callStorm('return ($lib.view.get().fork().iden)')
 
-            await self.asyncraises(s_exc.SchemaViolation, core.nodes('''
+            with self.raises(s_exc.SchemaViolation):
+                await core.nodes('''
                 $tdef = ({
                     'cond':'edge:add',
                     'form':'test:int',
                     'storm':'[+#asdfasdf]'
                 })
                 $lib.trigger.add($tdef)
-            '''))
+            ''')
 
-            await self.asyncraises(s_exc.SchemaViolation, core.nodes('''
+            with self.raises(s_exc.SchemaViolation):
+                await core.nodes('''
                 $tdef = ({
                     'cond':'edge:add',
                     'form':'test:int',
@@ -620,7 +636,7 @@ class TrigTest(s_t_utils.SynTest):
                     'verb':null
                 })
                 $lib.trigger.add($tdef)
-            '''))
+            ''')
 
             # edge:add
             tdef = {
@@ -1023,10 +1039,8 @@ class TrigTest(s_t_utils.SynTest):
 
             with self.getLoggerStream('synapse.storm.log') as stream:
                 await core1.addFeedData(podes)
-                await stream.expect('f=', timeout=6)
-            valu = stream.getvalue().strip()
-            self.isin('f=test:int v=1 u=root', valu)
-            self.isin('f=test:int v=2 u=root', valu)
-            self.isin('f=test:int v=3 u=root', valu)
-            self.isin('f=test:int v=4 u=root', valu)
+                await stream.expect('f=test:int v=1 u=root', timeout=6)
+                await stream.expect('f=test:int v=2 u=root', timeout=6)
+                await stream.expect('f=test:int v=3 u=root', timeout=6)
+                await stream.expect('f=test:int v=4 u=root', timeout=6)
             self.len(4, await core1.nodes('test:guid#nodeadd'))

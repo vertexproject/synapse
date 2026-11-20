@@ -3,6 +3,8 @@ import sys
 import fnmatch
 import tomllib
 
+import regex
+
 import synapse.exc as s_exc
 
 import synapse.lib.cmd as s_cmd
@@ -10,11 +12,20 @@ import synapse.lib.json as s_json
 import synapse.lib.output as s_output
 import synapse.lib.schemas as s_schemas
 import synapse.lib.stormlint as s_stormlint
+import synapse.lib.stormmanifest as s_stormmanifest
 
 desc = '''
 Lint Storm code.
 
 Each path is a file, a directory which is searched recursively for *.storm files, or - to read stdin.
+
+Each --manifest is a stormcov manifest of Storm queries embedded in other source files, in the form
+{"queries": [{"path": ..., "line": ..., "text": ..., "site": ...}]}, or when its path ends in .jsonl,
+one {"path": ..., "line": ..., "text": ..., "site": ...} object per line. The path of each query's
+host file is relative to the manifest's directory, line is the host line where the query text begins,
+and each later line of text is on the next host line. The optional site is a label; when it ends with
+:<line>:<col>, col is the 0-based column of the character before the query text, otherwise the text
+starts at column 1. Findings are reported at their location in the host file.
 
 Without --config, settings are read from the [tool.stormlint] table of the nearest pyproject.toml
 which has one, searching upward from the current directory.
@@ -64,9 +75,6 @@ def _checkConf(path, conf):
         return s_schemas.reqValidStormLintConf(conf)
     except s_exc.SchemaViolation as e:
         raise s_exc.BadConfValu(mesg=f'{path}: [tool.stormlint] {e.get("mesg")}') from None
-
-def _splitRulesString(valu):
-    return [v.strip() for v in valu.split(',') if v.strip()]
 
 def _isExcluded(path, confdir, globs):
 
@@ -121,17 +129,49 @@ def _readText(path):
     with open(path, 'r', encoding='utf8') as fd:
         return fd.read()
 
+# A file:line:col site gives the 0-based column of the character before the query text
+SITE_COLUMN_RX = regex.compile(r':[0-9]+:([0-9]+)$')
+
+def _loadManifest(path):
+    '''
+    Yield a (path, line, column, text) tuple for each query in a Storm query manifest.
+    '''
+    dirn = os.path.dirname(path)
+
+    for query in s_stormmanifest.iterManifest(path):
+        hostpath = os.path.normpath(os.path.join(dirn, query['path']))
+
+        column = 0
+        match = SITE_COLUMN_RX.search(query.get('site', ''))
+        if match is not None:
+            column = int(match.group(1)) + 1
+
+        yield hostpath, query['line'], column, query['text']
+
+def _printError(outp, asjson, path, mesg):
+    '''
+    Print an error for a file which could not be read or parsed, as text or a JSON line.
+    '''
+    if asjson:
+        outp.printf(s_json.dumps({'path': path, 'error': mesg}).decode())
+    else:
+        outp.printf(f'{path}: error: {mesg}')
+
+def _printFinding(outp, asjson, path, line, column, f):
+    '''
+    Print a lint finding at its location, as text or a JSON line.
+    '''
+    if asjson:
+        info = {'path': path, 'line': line, 'column': column, 'rule': f.rule, 'severity': f.severity,
+                'mesg': f.mesg}
+        outp.printf(s_json.dumps(info).decode())
+    else:
+        outp.printf(f'{path}:{line}:{column}: {f.rule} {f.mesg}')
+
 def _showRules(outp):
 
-    rows = [('ID', 'SEVERITY', 'DEFAULT', 'NAME', 'DESCRIPTION')]
-    for r in s_stormlint.rules.values():
-        doc = r.doc.split('\n', 1)[0]
-        rows.append((r.iden, r.severity, 'yes' if r.default else 'no', r.name, doc))
-
-    sizes = [max(len(row[i]) for row in rows) for i in range(4)]
-    for row in rows:
-        cols = [valu.ljust(size) for valu, size in zip(row, sizes)]
-        outp.printf('  '.join(cols + [row[4]]).rstrip())
+    for line in s_stormlint.getRuleTable():
+        outp.printf(line)
 
     return 0
 
@@ -139,12 +179,14 @@ async def main(argv, outp=s_output.stdout):
 
     pars = s_cmd.Parser(prog='synapse.tools.storm.lint', outp=outp, description=desc)
     pars.add_argument('paths', nargs='*', help='Files or directories to lint (use - for stdin).')
-    pars.add_argument('--select', type=_splitRulesString,
+    pars.add_argument('--select', type=s_stormlint.splitRules,
                       help='Comma-separated rule IDs or prefixes to run in place of the default rules.')
-    pars.add_argument('--ignore', type=_splitRulesString, help='Comma-separated rule IDs or prefixes to disable.')
-    pars.add_argument('--enable', type=_splitRulesString,
+    pars.add_argument('--ignore', type=s_stormlint.splitRules, help='Comma-separated rule IDs or prefixes to disable.')
+    pars.add_argument('--enable', type=s_stormlint.splitRules,
                       help='Comma-separated rule IDs or prefixes to add to the selected rules, '
                            'such as rules which are off by default.')
+    pars.add_argument('--manifest', default=[], action='append',
+                      help='A JSON or JSONL manifest of embedded Storm queries to lint (may be specified multiple times).')
     pars.add_argument('--config', help='Path to a pyproject.toml with a [tool.stormlint] table.')
     pars.add_argument('--format', default='text', choices=('text', 'json'),
                       help='Print findings as text, or as one JSON object per line.')
@@ -155,8 +197,8 @@ async def main(argv, outp=s_output.stdout):
     if opts.show_rules:
         return _showRules(outp)
 
-    if not opts.paths:
-        pars.error('at least one path is required.')
+    if not opts.paths and not opts.manifest:
+        pars.error('at least one path or --manifest is required.')
 
     try:
         conf, confdir = _loadConf(opts.config)
@@ -200,31 +242,32 @@ async def main(argv, outp=s_output.stdout):
             text = _readText(path)
         except (OSError, UnicodeDecodeError) as e:
             failed = True
-            if asjson:
-                outp.printf(s_json.dumps({'path': path, 'error': str(e)}).decode())
-            else:
-                outp.printf(f'{path}: error: {e}')
-
+            _printError(outp, asjson, path, str(e))
             continue
 
         for f in linter.lint(text):
-
             count += 1
-            if asjson:
-                info = {'path': path, 'line': f.line, 'column': f.column, 'rule': f.rule,
-                        'severity': f.severity, 'mesg': f.mesg}
-                outp.printf(s_json.dumps(info).decode())
-            else:
-                outp.printf(f'{path}:{f.line}:{f.column}: {f.rule} {f.mesg}')
+            _printFinding(outp, asjson, path, f.line, f.column, f)
 
-    if not asjson:
+    for mpath in opts.manifest:
 
-        if count:
-            noun = 'error' if count == 1 else 'errors'
-            outp.printf(f'Found {count} {noun}.')
+        try:
+            for path, line, column, text in _loadManifest(mpath):
 
-        elif not failed:
-            outp.printf('All checks passed!')
+                if _isExcluded(path, confdir, globs):
+                    continue
+
+                for f in linter.lint(text):
+                    count += 1
+                    fcol = f.column + column if f.line == 1 else f.column
+                    _printFinding(outp, asjson, path, line + f.line - 1, fcol, f)
+
+        except s_exc.BadArg as e:
+            failed = True
+            _printError(outp, asjson, mpath, e.get('mesg'))
+
+    if not asjson and (count or not failed):
+        outp.printf(s_stormlint.getSummary(count))
 
     if failed:
         return 2

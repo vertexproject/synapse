@@ -127,6 +127,22 @@ def buid(valu=None):
     byts = s_msgpack.en(valu)
     return hashlib.sha256(byts).digest()
 
+def getItemHash(item):
+    '''
+    Return the stable sha256 of a msgpack serializable item.
+
+    The item is flattened before it is packed, so the hash depends on the content of the
+    item rather than on the order its keys happen to be in. Two items which differ only by
+    key order, or by a list where a tuple was used, therefore hash the same.
+
+    Args:
+        item: The item to hash. This must be able to be msgpack'd.
+
+    Returns:
+        str: 64 character, lowercase ascii string.
+    '''
+    return hashlib.sha256(s_msgpack.en(flatten(item))).hexdigest()
+
 def flatten(item):
     '''
     Normalize a primitive object for cryptographic signing.

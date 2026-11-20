@@ -849,6 +849,30 @@ info_ignores = (
     'interfaces',
 )
 
+def _getPolyTypeNames(typedef):
+    '''
+    Return the member type names of a poly prop typedef.
+
+    The model converts every prop typedef to ('poly', {...}), including one declared
+    with a single type, while an array prop element or an interface prop keeps its
+    declared tuple of (name, info) constituents. Both name the types a user sees.
+
+    Args:
+        typedef (tuple): A prop typedef.
+
+    Returns:
+        tuple: The member type and interface names, or None if the typedef names a single type.
+    '''
+    typename = typedef[0]
+    if isinstance(typename, (tuple, list)):
+        return tuple(member[0] for member in typedef)
+
+    if typename == 'poly':
+        opts = typedef[1]
+        return tuple(opts.get('types') or ()) + tuple(opts.get('interfaces') or ())
+
+    return None
+
 class DocHelp:
     '''
     Helper to pre-compute all doc strings hierarchically, for the data model
@@ -865,8 +889,11 @@ class DocHelp:
         for form, props in props.items():
             for prop in props:
                 tn = prop[1][0]
-                # A poly typedef has a tuple of constituents in the type slot (no single doc source).
-                if isinstance(tn, str):
+                # A poly with a single member takes its doc from that member; several have no single doc source.
+                if (names := _getPolyTypeNames(prop[1])) is not None:
+                    tn = names[0] if len(names) == 1 else None
+
+                if tn is not None:
                     doc = prop[2].get('doc', self.forms.get(tn, self.types.get(tn, self.ifaces.get(tn, self.ctors.get(tn)))))
                 else:
                     doc = prop[2].get('doc', '')
@@ -903,6 +930,10 @@ def processCtorsMd(md, dochelp, ctors, types):
     md.addLines('Base types are defined via Python classes.', '')
 
     for name, ctor, opts, info in ctors:
+
+        # poly is how the model stores a prop type; its members are documented instead.
+        if name == 'poly':
+            continue
 
         doc = dochelp.ctors.get(name)
         if not doc.endswith('.'):
@@ -980,9 +1011,18 @@ def processTypesMd(md, dochelp, types):
         md.addHead(name, lvl=2, anchor=anchor)
 
         info = tnfo['info']
-        base_anchor = getMdLink(info['bases'][-1], 'dm-type')
-        baseref = mdRef(info['bases'][-1], base_anchor)
-        md.addLines(doc, f'The `{name}` type is derived from the base type: {baseref}.')
+        opts = tnfo.get('opts')
+        if info['bases'][-1] == 'poly':
+            names = _getPolyTypeNames(('poly', opts))
+            members = ' or '.join(mdRef(n, getMdLink(n, 'dm-type')) for n in names)
+            md.addLines(doc, f'The `{name}` type may be any of the following types: {members}.')
+            # the member types are the only option a user sets on these
+            opts = None
+
+        else:
+            base_anchor = getMdLink(info['bases'][-1], 'dm-type')
+            baseref = mdRef(info['bases'][-1], base_anchor)
+            md.addLines(doc, f'The `{name}` type is derived from the base type: {baseref}.')
 
         ifaces = info.pop('interfaces', None)
         if ifaces:
@@ -995,7 +1035,7 @@ def processTypesMd(md, dochelp, types):
         if ex:
             md.addLines('', f'An example of `{name}`:', '', f'- `{ex}`')
 
-        if (opts := tnfo.get('opts')):
+        if opts:
             md.addLines('', 'This type has the following options set:', '')
 
             for key, valu in sorted(opts.items(), key=lambda x: x[0]):
@@ -1019,6 +1059,19 @@ def processTypesMd(md, dochelp, types):
 
         if info:
             logger.warning(f'Type {name} has unhandled info: {info}')
+
+def getPropDeprText(depr):
+    if (eoldate := depr.get('eoldate')) is not None:
+        text = f'Deprecated: removed on or after {eoldate}.'
+    else:
+        text = f'Deprecated: removed in {depr["eolvers"]}.'
+
+    if (mesg := depr.get('mesg')) is not None:
+        text = f'{text} {mesg}'
+        if not mesg.endswith('.'):
+            text = f'{text}.'
+
+    return text
 
 def processInterfacesMd(md, ifaces, knownnames=None):
     '''
@@ -1079,12 +1132,19 @@ def processInterfacesMd(md, ifaces, knownnames=None):
                 pdoc = pinfo.get('doc', '')
                 if not pdoc:
                     pdoc = f'The `{pname}` property.'
-                if isinstance(typedef[0], (tuple, list)):
-                    md.addLines(f'- `:{pname}` (poly) - {pdoc}')
-                else:
-                    ptname = typedef[0]
-                    tref = _typeref(ptname, '`unknown`')
-                    md.addLines(f'- `:{pname}` ({tref}) - {pdoc}')
+
+                if isinstance(depr := pinfo.get('deprecated'), dict):
+                    pdoc = f'{pdoc} {getPropDeprText(depr)}'
+
+                elif depr:
+                    pdoc = f'{pdoc} Deprecated.'
+
+                names = _getPolyTypeNames(typedef)
+                if names is None:
+                    names = (typedef[0],)
+
+                tref = ' or '.join(_typeref(n, '`unknown`') for n in names)
+                md.addLines(f'- `:{pname}` ({tref}) - {pdoc}')
 
 def has_popts_data(props):
     # Props contain "doc" which we pop out, and "array" (rendered in the type column).
@@ -1255,13 +1315,13 @@ def processFormsPropsMd(md, dochelp, forms, alledges, modeldict=None):
                     logger.warning(f'Docstring for prop ({name}, {pname}) does not end with a period.]')
                     doc = doc + '.'
 
-                if isinstance(typedef[0], (tuple, list)):
-                    ptname, ptopts = 'poly', {}
+                names = _getPolyTypeNames(typedef)
+                if names is None:
+                    names, ptopts = (typedef[0],), typedef[1]
                 else:
-                    ptname, ptopts = typedef
+                    ptopts = {}
 
-                type_anchor2 = getMdLink(ptname, 'dm-type', suffix=None)
-                typecell = mdRef(ptname, type_anchor2, mdfile=_TYPES_MD_FILE)
+                typecell = ' or '.join(mdRef(n, getMdLink(n, 'dm-type'), mdfile=_TYPES_MD_FILE) for n in names)
 
                 extra = []
                 for k, v in (arrayinfo or {}).items():
@@ -1281,6 +1341,10 @@ def processFormsPropsMd(md, dochelp, forms, alledges, modeldict=None):
                     if popts:
                         optparts = []
                         for k, v in popts.items():
+                            if k == 'deprecated' and isinstance(v, dict):
+                                optparts.append(getPropDeprText(v).replace('|', '\\|'))
+                                continue
+
                             k = poptsToWords.get(k, k.replace(':', '-'))
                             optparts.append(f'{k}: `{v}`')
                         row.append('<br>'.join(optparts))

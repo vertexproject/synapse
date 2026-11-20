@@ -7,6 +7,7 @@ import textwrap
 import functools
 import contextlib
 import collections
+import contextvars
 
 from collections.abc import Mapping
 
@@ -26,6 +27,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.time as s_time
 import synapse.lib.view as s_view
 import synapse.lib.cache as s_cache
+import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
 import synapse.lib.oauth as s_oauth
@@ -86,6 +88,7 @@ import synapse.lib.stormlib.bytes as s_stormlib_bytes  # noqa: F401
 import synapse.lib.stormlib.cache as s_stormlib_cache  # noqa: F401
 import synapse.lib.stormlib.graph as s_stormlib_graph  # noqa: F401
 import synapse.lib.stormlib.index as s_stormlib_index  # noqa: F401
+import synapse.lib.stormlib.input as s_stormlib_input  # noqa: F401
 import synapse.lib.stormlib.iters as s_stormlib_iters  # noqa: F401
 import synapse.lib.stormlib.macro as s_stormlib_macro
 import synapse.lib.stormlib.model as s_stormlib_model
@@ -108,9 +111,13 @@ import synapse.lib.stormlib.easyperm as s_stormlib_easyperm  # noqa: F401
 import synapse.lib.stormlib.ethereum as s_stormlib_ethereum  # noqa: F401
 import synapse.lib.stormlib.markdown as s_stormlib_markdown  # noqa: F401
 import synapse.lib.stormlib.modelext as s_stormlib_modelext  # noqa: F401
+import synapse.lib.stormlib.viewhook as s_stormlib_viewhook  # noqa: F401
 import synapse.lib.stormlib.compression as s_stormlib_compression  # noqa: F401
 
 logger = logging.getLogger(__name__)
+
+# the nesting depth of running view hooks, which is inherited by tasks they start
+ViewHookDepth = contextvars.ContextVar('ViewHookDepth', default=0)
 
 stormlogger = logging.getLogger('synapse.storm')
 
@@ -417,9 +424,6 @@ class CoreApi(s_cell.CellApi):
         Extended properties *must* begin with _
         '''
         self.user.confirm(('model', 'admin'))
-        if not s_grammar.isBasePropNoPivprop(prop):
-            mesg = f'Invalid prop name {prop}'
-            raise s_exc.BadPropDef(prop=prop, mesg=mesg)
         return await self.cell.addFormProp(form, prop, tdef, info)
 
     async def delFormProp(self, form, name):
@@ -434,9 +438,6 @@ class CoreApi(s_cell.CellApi):
         Add a tag property to record data about tags on nodes.
         '''
         self.user.confirm(('model', 'admin'))
-        if not s_grammar.isBasePropNoPivprop(name):
-            mesg = f'Invalid prop name {name}'
-            raise s_exc.BadPropDef(name=name, mesg=mesg)
         return await self.cell.addTagProp(name, tdef, info)
 
     async def delTagProp(self, name):
@@ -476,6 +477,11 @@ class CoreApi(s_cell.CellApi):
         return await self.cell.getStormPkg(name)
 
     @s_cell.adminapi()
+    async def getPkgCourses(self):
+        async for item in self.cell.getPkgCourses():
+            yield item
+
+    @s_cell.adminapi()
     async def addStormDmon(self, ddef):
         return await self.cell.addStormDmon(ddef)
 
@@ -490,6 +496,22 @@ class CoreApi(s_cell.CellApi):
     @s_cell.adminapi()
     async def getStormDmon(self, iden):
         return await self.cell.getStormDmon(iden)
+
+    @s_cell.adminapi()
+    async def addStormInput(self, iden, user, type, timeout=s_const.STORM_INPUT_TIMEOUT):
+        return await self.cell.addStormInput(iden, user, type, timeout=timeout)
+
+    @s_cell.adminapi()
+    async def waitStormInput(self, iden):
+        return await self.cell.waitStormInput(iden)
+
+    @s_cell.adminapi()
+    async def sendStormInput(self, iden, user, info):
+        return await self.cell.sendStormInput(iden, user, info)
+
+    @s_cell.adminapi()
+    async def delStormInput(self, iden):
+        return await self.cell.delStormInput(iden)
 
     @s_cell.adminapi()
     async def bumpStormDmon(self, iden):
@@ -644,6 +666,204 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getViewDef(iden, user=self.user)
 
+    async def _reqVaultUser(self, user):
+        if user is None or user == self.user.iden:
+            return self.user
+
+        self.user.reqAdmin()
+        return await self.cell.auth.reqUser(user)
+
+    async def getVaults(self, *, user=None):
+        '''
+        Get the vaults a user can read.
+
+        Args:
+            user (str|None): The iden of the user to check permissions for. Defaults to the caller.
+                Specifying another user requires admin.
+
+        Notes:
+            Vault secrets are removed unless the user has edit permission on the vault.
+
+        Raises:
+            synapse.exc.AuthDeny: A non-admin specified another user.
+            synapse.exc.NoSuchUser: The specified user does not exist.
+
+        Returns:
+            list: A list of vault definitions.
+        '''
+        user = await self._reqVaultUser(user)
+        return await self.cell.getVaults(user=user)
+
+    async def getVault(self, iden, *, user=None):
+        '''
+        Get a vault by iden.
+
+        Args:
+            iden (str): The iden of the vault.
+            user (str|None): The iden of the user to check permissions for. Defaults to the caller.
+                Specifying another user requires admin.
+
+        Notes:
+            Vault secrets are removed unless the user has edit permission on the vault.
+
+        Raises:
+            synapse.exc.AuthDeny: The user does not have read permission on the vault, or a
+                non-admin specified another user.
+            synapse.exc.NoSuchUser: The specified user does not exist.
+
+        Returns:
+            dict|None: The vault definition, or None if the vault does not exist.
+        '''
+        user = await self._reqVaultUser(user)
+        return await self.cell.getVault(iden, user=user)
+
+    async def getVaultByName(self, name, *, user=None):
+        '''
+        Get a vault by name.
+
+        Args:
+            name (str): The name of the vault.
+            user (str|None): The iden of the user to check permissions for. Defaults to the caller.
+                Specifying another user requires admin.
+
+        Notes:
+            Vault secrets are removed unless the user has edit permission on the vault.
+
+        Raises:
+            synapse.exc.AuthDeny: The user does not have read permission on the vault, or a
+                non-admin specified another user.
+            synapse.exc.NoSuchUser: The specified user does not exist.
+
+        Returns:
+            dict|None: The vault definition, or None if the vault does not exist.
+        '''
+        user = await self._reqVaultUser(user)
+        return await self.cell.getVaultByName(name, user=user)
+
+    async def getVaultByType(self, vtype, *, scope=None, user=None):
+        '''
+        Get the vault of a given type for a user.
+
+        If `scope` is not specified, the user, role, and global scopes are searched in that order.
+
+        Args:
+            vtype (str): The vault type.
+            scope (str|None): The vault scope to get (user, role, or global).
+            user (str|None): The iden of the user to get the vault for. Defaults to the caller.
+                Specifying another user requires admin.
+
+        Notes:
+            Vault secrets are removed unless the user has edit permission on the vault.
+
+        Raises:
+            synapse.exc.BadArg: An invalid scope was specified.
+            synapse.exc.AuthDeny: The user does not have read permission on the vault, or a
+                non-admin specified another user.
+            synapse.exc.NoSuchUser: The specified user does not exist.
+
+        Returns:
+            dict|None: The vault definition, or None if no matching vault exists.
+        '''
+        user = await self._reqVaultUser(user)
+        return await self.cell.getVaultByType(vtype, user.iden, scope=scope, user=user)
+
+    async def addVault(self, vdef, *, user=None):
+        '''
+        Add a vault.
+
+        Non-admin users may only add unscoped vaults and user vaults they own.
+
+        Args:
+            vdef (dict): The vault definition, containing name, type, scope, owner, secrets, and configs.
+            user (str|None): The iden of the user to add the vault as. Defaults to the caller.
+                Specifying another user requires admin.
+
+        Raises:
+            synapse.exc.AuthDeny: The user may not add the vault, or a non-admin specified another user.
+            synapse.exc.NoSuchUser: The specified user does not exist.
+            synapse.exc.DupName: A vault with the same name, or type, scope, and owner already exists.
+            synapse.exc.SchemaViolation: The vault definition is invalid.
+
+        Returns:
+            str: The iden of the new vault.
+        '''
+        user = await self._reqVaultUser(user)
+        return await self.cell.addVault(vdef, user=user)
+
+    async def modVault(self, vdef, *, user=None):
+        '''
+        Replace a vault with a full vault definition.
+
+        Changing the vault configs, secrets, or name requires edit permission on the vault.
+        Changing the vault permissions requires admin permission on the vault. The vault
+        type, scope, and owner cannot be changed.
+
+        Args:
+            vdef (dict): The full vault definition, including the vault iden.
+            user (str|None): The iden of the user to modify the vault as. Defaults to the caller.
+                Specifying another user requires admin.
+
+        Raises:
+            synapse.exc.AuthDeny: The user does not have the required permission on the vault,
+                or a non-admin specified another user.
+            synapse.exc.NoSuchUser: The specified user does not exist.
+            synapse.exc.NoSuchIden: The vault does not exist.
+            synapse.exc.BadArg: The vault definition changes an immutable field or is invalid.
+            synapse.exc.SchemaViolation: The vault definition is invalid.
+
+        Returns:
+            dict: The updated vault definition.
+        '''
+        user = await self._reqVaultUser(user)
+        return await self.cell.modVault(vdef, user=user)
+
+    async def setVaultPerm(self, viden, iden, level, *, user=None):
+        '''
+        Set the permission level of a user or role on a vault.
+
+        Requires admin permission on the vault.
+
+        Args:
+            viden (str): The iden of the vault.
+            iden (str): The iden of the user or role to set the permission for.
+            level (int|None): The permission level, or None to remove the permission.
+            user (str|None): The iden of the user to set the permission as. Defaults to the caller.
+                Specifying another user requires admin.
+
+        Raises:
+            synapse.exc.AuthDeny: The user does not have admin permission on the vault, or a
+                non-admin specified another user.
+            synapse.exc.NoSuchUser: The specified user does not exist.
+            synapse.exc.NoSuchIden: The vault, or user or role, does not exist.
+
+        Returns:
+            dict: The updated vault definition.
+        '''
+        user = await self._reqVaultUser(user)
+        return await self.cell.setVaultPerm(viden, iden, level, user=user)
+
+    async def delVault(self, iden, *, user=None):
+        '''
+        Delete a vault.
+
+        Requires admin permission on the vault.
+
+        Args:
+            iden (str): The iden of the vault.
+            user (str|None): The iden of the user to delete the vault as. Defaults to the caller.
+                Specifying another user requires admin.
+
+        Raises:
+            synapse.exc.AuthDeny: The user does not have admin permission on the vault, or a
+                non-admin specified another user.
+            synapse.exc.NoSuchUser: The specified user does not exist.
+
+        Returns:
+            None
+        '''
+        user = await self._reqVaultUser(user)
+        return await self.cell.delVault(iden, user=user)
+
 def _rsaLoadDecrypt(privbyts, byts):
     # load the RSA private key + decrypt; pure crypto (no slab access) so it is safe
     # to run in an executor thread
@@ -730,10 +950,10 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         # NOTE: we may not make *any* nexus actions in this method
         self.macrodb = self.slab.initdb('storm:macros')
         self.httpextapidb = self.slab.initdb('http:ext:apis')
+        self.viewhookdb = self.slab.initdb('view:hooks')
 
         await self.initCellVers('cortex:storage')
         await self.initCellVers('cortex:defaults')
-        await self.initCellVers('cortex:extmodel')
 
         self.viewmeta = self.slab.initdb('view:meta')
 
@@ -744,6 +964,9 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
         self.stormcmds = {}
         self._stormdocs = None
+
+        # iden: pending Storm input request; only populated on the leader.
+        self.storminputs = {}
 
         self.maxnodes = self.conf.get('max:nodes')
         self.nodecount = 0
@@ -845,12 +1068,16 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         self._exthttpapicache = s_cache.FixedCache(self._getHttpExtApiByPath, size=1000)
         self._initCortexExtHttpApi()
 
+        self.viewhooks = {}  # iden -> hdef
+        self._initViewHooks()
+
         self.model = s_datamodel.Model(core=self)
         self._localmodeldefs = []
         self._mainlinehash = None
         self._loadedhash = None
 
         await self._loadModels()
+        await self.initCellVers('cortex:extmodel', (self._migrateExtPropDepr,))
         await self._loadExtModel()
         await self._initStormCmds()
 
@@ -1236,10 +1463,10 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             {'perm': ('storm', 'sudo'), 'gate': 'cortex',
             'desc': 'Allows the user to run Storm as a global admin. This allows the user to bypass all permission checks.'},
 
-            {'perm': ('storm', 'graph'), 'gate': 'cortex',
-             'desc': 'Controls all Storm graph permissions.'},
-            {'perm': ('storm', 'graph', 'add'), 'gate': 'cortex',
-             'desc': 'Controls access to add a storm graph.',
+            {'perm': ('graph',), 'gate': 'cortex',
+             'desc': 'Controls all graph projection permissions.'},
+            {'perm': ('graph', 'add'), 'gate': 'cortex',
+             'desc': 'Controls access to add a graph projection.',
              'default': True},
             {'perm': ('macro',), 'gate': 'cortex',
              'desc': 'Controls all Storm macro permissions.'},
@@ -1372,6 +1599,8 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         for view in self.views.values():
             await view.finiTrigTask()
             await view.finiMergeTask()
+
+        self._failStormInputs('The Cortex is no longer the leader.')
 
     async def _execCellUpdates(self):
         await super()._execCellUpdates()
@@ -2513,7 +2742,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             if 'vaults' not in keep:
                 for vtype in pkgdef.get('vaults', {}):
                     for vault in [v for v in self._getVaults() if v.get('type') == vtype]:
-                        await self._hndldelVault(vault.get('iden'))
+                        await self._delVault(vault.get('iden'))
                     await self._delVaultType(vtype)
 
             for qinfo in [q for q in self.stormpkgqueue.list() if q.get('pkgname') == name]:
@@ -2567,6 +2796,57 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
     def _getStormPkgs(self):
         return [self._addStormPkgSvc(p) for p in copy.deepcopy(list(self.pkgdefs.values()))]
+
+    async def getPkgCourses(self):
+        '''
+        Yield (pkgname, course) tuples for each course declared by a loaded package.
+
+        NOTE: This iterates the loaded packages rather than the persisted ones, so it
+              includes the courses declared by a Storm service package.
+
+        Yields:
+            (str, dict): A package name and one of its course definitions.
+        '''
+        for name, pkgdef in list(self.stormpkgs.items()):
+
+            courses = pkgdef.get('courses')
+            if courses is None:
+                continue
+
+            for cdef in courses:
+                yield name, copy.deepcopy(cdef)
+
+    def _reqUniqueCourses(self, pkgname, cdefs, validstorm=True):
+        # idens are unique in the pkg that provides them
+        pkgseen = set()
+        # ... and across the cortex (save for if we're upgrading from an older version)
+        cortexseen = {}
+        for name, pkgdef in list(self.stormpkgs.items()):
+            if pkgname == name:
+                continue
+
+            courses = pkgdef.get('courses')
+            if courses is None:
+                continue
+
+            for cdef in courses:
+                cortexseen[cdef.get('iden')] = name
+
+        for cdef in cdefs:
+            iden = cdef.get('iden')
+
+            if iden in cortexseen:
+                name = cortexseen[iden]
+                mesg = f'Course iden ({iden}) is already provided by package {name}'
+                raise s_exc.DupIden(mesg=mesg, iden=iden)
+
+            if iden in pkgseen:
+                mesg = f'Course iden ({iden}) is attached to two different courses provided by the same package.'
+                raise s_exc.DupIden(mesg=mesg, iden=iden)
+
+            pkgseen.add(iden)
+
+            s_schemas.reqValidCourse(cdef, validstorm=validstorm)
 
     async def getStormMods(self):
         return copy.deepcopy(self.stormmods)
@@ -2788,6 +3068,10 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
         # Validate package def (post normalization)
         s_schemas.reqValidPkgdef(pkgdef)
+
+        if (cdefs := pkgdef.get('courses')):
+            name = pkgdef.get('name')
+            self._reqUniqueCourses(name, cdefs, validstorm=validstorm)
 
         if (uninstall := pkgdef.get('uninstall')) is not None:
 
@@ -3674,6 +3958,26 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             self.cellinfo.set('cortex:model', mdefs)
         await self.feedBeholder('model:set', {'hash': modelhash})
 
+    def _normExtPropDepr(self, form, prop, info):
+        depr = info.get('deprecated', s_common.novalu)
+        if depr is s_common.novalu:
+            return info
+
+        try:
+            s_datamodel.reqValidPropDepr(f'{form}:{prop}', depr)
+            return info
+        except s_exc.BadArg as e:
+            mesg = e.get('mesg')
+            logger.warning(f'Extended property {form}:{prop} has invalid deprecation info {depr!r}, changing it to {bool(depr)}: {mesg}')
+            return {**info, 'deprecated': bool(depr)}
+
+    async def _migrateExtPropDepr(self):
+        extprops = self.cortexdata.getSubKeyVal('model:props:')
+        for full, (form, prop, tdef, info) in list(extprops.items()):
+            norm = self._normExtPropDepr(form, prop, info)
+            if norm is not info:
+                extprops.set(full, (form, prop, tdef, norm))
+
     async def _loadExtModel(self):
 
         self.exttypes = self.cortexdata.getSubKeyVal('model:types:')
@@ -4037,6 +4341,10 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             mesg = 'Extended prop must begin with "_".'
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
 
+        if not s_grammar.isBasePropNoPivprop(prop):
+            mesg = f'Invalid prop name {prop}'
+            raise s_exc.BadPropDef(prop=prop, mesg=mesg)
+
         for cform in self.model.getChildForms(form):
             _form = self.model.form(cform)
             if _form is None:
@@ -4045,10 +4353,12 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
                 raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
                                          form=cform, prop=prop)
 
-        # Validate the typedef on the leader so a bad ext prop is rejected before the nexus
-        # push. Inline type opts are only permitted on an array container; other types must
-        # reference a named type. The original tdef is pushed so _applyExtModel re-derives it.
+        # Validate the typedef and deprecation info on the leader so a bad ext prop is rejected
+        # before the nexus push. Inline type opts are only permitted on an array container; other
+        # types must reference a named type. The original tdef is pushed so _applyExtModel
+        # re-derives it.
         self.model._reqValidPropTypedef(prop, tdef, info, formname=form)
+        s_datamodel.reqValidPropDepr(f'{form}:{prop}', info.get('deprecated', False))
         if 'array' in info:
             self.model.getPropTypeClone(tdef, info)
         else:
@@ -4060,6 +4370,8 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
     async def _addFormProp(self, form, prop, tdef, info):
         if (_form := self.model.form(form)) is not None and _form.prop(prop) is not None:
             return
+
+        info = self._normExtPropDepr(form, prop, info)
 
         _prop = self.model.addFormProp(form, prop, tdef, info)
         if _prop.type.deprecated:
@@ -4198,6 +4510,10 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             mesg = 'Extended tag property names must begin with "_".'
             raise s_exc.BadPropDef(name=name, mesg=mesg)
 
+        if not s_grammar.isBasePropNoPivprop(name):
+            mesg = f'Invalid prop name {name}'
+            raise s_exc.BadPropDef(name=name, mesg=mesg)
+
         if self.exttagprops.get(name) is not None:
             raise s_exc.DupPropName(name=name)
 
@@ -4319,6 +4635,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         '''
         # the axon and jsonstor are owned by the HasAxon / HasJsonStor mixins,
         # so they do not need teardown here.
+        self._failStormInputs('The Cortex is shutting down.')
 
     async def _initCoreInfo(self):
         self.stormvars = self.cortexdata.getSubKeyVal('storm:vars:')
@@ -4453,6 +4770,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         self.addStormCmd(s_storm.BackgroundCmd)
         self.addStormCmd(s_stormlib_macro.MacroExecCmd)
         self.addStormCmd(s_stormlib_storm.StormExecCmd)
+        self.addStormCmd(s_stormlib_storm.StormLintCmd)
         self.addStormCmd(s_stormlib_stats.StatsCountByCmd)
 
         cmdmods = [
@@ -4527,6 +4845,12 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         self.addHttpApi('/api/v3/storm/vars/set', s_httpapi.StormVarsSetV3, {'cell': self})
         self.addHttpApi('/api/v3/storm/vars/get', s_httpapi.StormVarsGetV3, {'cell': self})
         self.addHttpApi('/api/v3/storm/vars/pop', s_httpapi.StormVarsPopV3, {'cell': self})
+
+        self.addHttpApi('/api/v3/vault/list', s_httpapi.VaultListV3, {'cell': self})
+        self.addHttpApi('/api/v3/vault/get', s_httpapi.VaultGetV3, {'cell': self})
+        self.addHttpApi('/api/v3/vault/add', s_httpapi.VaultAddV3, {'cell': self})
+        self.addHttpApi('/api/v3/vault/mod', s_httpapi.VaultModV3, {'cell': self})
+        self.addHttpApi('/api/v3/vault/del', s_httpapi.VaultDelV3, {'cell': self})
 
         self.addHttpApi('/api/v3/model', s_httpapi.ModelV3, {'cell': self})
         self.addHttpApi('/api/v3/model/norm', s_httpapi.ModelNormV3, {'cell': self})
@@ -4714,6 +5038,261 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             return iden, match.groups()
         return None, ()
 
+    def _initViewHooks(self):
+        self.viewhooks.clear()
+
+        hdefs = [s_msgpack.un(byts) for _, byts in self.slab.scanByFull(db=self.viewhookdb)]
+        hdefs.sort(key=lambda hdef: hdef.get('created'))
+
+        for hdef in hdefs:
+            self.viewhooks[hdef.get('iden')] = hdef
+
+    async def addViewHook(self, hdef):
+        '''
+        Add a view hook which runs a Storm query as root on a view lifecycle event.
+
+        Args:
+            hdef (dict): The hook definition containing name, type, storm, creator, and optionally iden and enabled.
+
+        Returns:
+            dict: The new hook definition.
+        '''
+        hdef = dict(hdef)
+        hdef.setdefault('iden', s_common.guid())
+        hdef.setdefault('enabled', True)
+
+        hdef['created'] = s_common.now()
+        hdef['updated'] = hdef['created']
+
+        hdef = s_schemas.reqValidViewHook(hdef)
+
+        iden = hdef['iden']
+        if self.viewhooks.get(iden) is not None:
+            raise s_exc.DupIden(mesg=f'Duplicate iden specified for view hook: {iden}', iden=iden)
+
+        creator = hdef['creator']
+        if self.auth.user(creator) is None:
+            raise s_exc.NoSuchUser(mesg=f'No user found with iden: {creator}', user=creator)
+
+        await self.getStormQuery(hdef['storm'])
+
+        return await self._push('view:hook:add', hdef)
+
+    @s_nexus.Pusher.onPush('view:hook:add')
+    async def _addViewHook(self, hdef):
+        # update the in-memory cache from the event args - see _addHttpExtApi
+        iden = hdef.get('iden')
+        self.viewhooks[iden] = hdef
+
+        if not self.readonly:
+            await self.slab.put(s_common.uhex(iden), s_msgpack.en(hdef), db=self.viewhookdb)
+
+        return copy.deepcopy(hdef)
+
+    async def delViewHook(self, iden):
+        '''
+        Delete a view hook.
+
+        Args:
+            iden (str): The iden of the hook.
+        '''
+        if self.viewhooks.get(iden) is None:
+            raise s_exc.NoSuchIden(mesg=f'No view hook for {iden=}', iden=iden)
+
+        return await self._push('view:hook:del', iden)
+
+    @s_nexus.Pusher.onPush('view:hook:del')
+    async def _delViewHook(self, iden):
+        self.viewhooks.pop(iden, None)
+
+        if not self.readonly:
+            self.slab.pop(s_common.uhex(iden), db=self.viewhookdb)
+
+    async def modViewHook(self, iden, opts):
+        '''
+        Modify the name, type, storm, or enabled fields of a view hook.
+
+        Args:
+            iden (str): The iden of the hook.
+            opts (dict): The fields to set and their new values.
+
+        Returns:
+            dict: The updated hook definition.
+        '''
+        if not opts:
+            raise s_exc.BadArg(mesg='No view hook fields specified.')
+
+        for name in opts.keys():
+            if name not in ('name', 'type', 'storm', 'enabled'):
+                raise s_exc.BadArg(mesg=f'Cannot set {name=} on view hook', name=name)
+
+        hdef = self.viewhooks.get(iden)
+        if hdef is None:
+            raise s_exc.NoSuchIden(mesg=f'No view hook for {iden=}', iden=iden)
+
+        hdef = copy.deepcopy(hdef)
+        hdef.update(opts)
+        s_schemas.reqValidViewHook(hdef)
+
+        storm = opts.get('storm')
+        if storm is not None:
+            await self.getStormQuery(storm)
+
+        opts = dict(opts)
+        opts['updated'] = s_common.now()
+
+        return await self._push('view:hook:mod', iden, opts)
+
+    @s_nexus.Pusher.onPush('view:hook:mod')
+    async def _modViewHook(self, iden, opts):
+        # read the current def from the in-memory cache - see _modHttpExtApi
+        hdef = self.viewhooks.get(iden)
+        if hdef is None:
+            return None
+
+        hdef = copy.deepcopy(hdef)
+        hdef.update(opts)
+        hdef = s_schemas.reqValidViewHook(hdef)
+
+        self.viewhooks[iden] = hdef
+
+        if not self.readonly:
+            await self.slab.put(s_common.uhex(iden), s_msgpack.en(hdef), db=self.viewhookdb)
+
+        return copy.deepcopy(hdef)
+
+    async def getViewHook(self, iden):
+        hdef = self.viewhooks.get(iden)
+        if hdef is None:
+            raise s_exc.NoSuchIden(mesg=f'No view hook for {iden=}', iden=iden)
+
+        return copy.deepcopy(hdef)
+
+    async def getViewHooks(self, type=None):
+        hdefs = self.viewhooks.values()
+        if type is not None:
+            hdefs = [hdef for hdef in hdefs if hdef.get('type') == type]
+
+        return copy.deepcopy(list(hdefs))
+
+    def _getRunViewHooks(self, htype):
+        if self.safemode:
+            return []
+
+        return [hdef for hdef in self.viewhooks.values() if hdef.get('type') == htype and hdef.get('enabled')]
+
+    def _reqViewHookDepth(self, htype, **info):
+        depth = ViewHookDepth.get()
+        if depth >= s_const.VIEW_HOOK_MAX_DEPTH:
+            mesg = f'View hooks exceeded the maximum nesting depth of {s_const.VIEW_HOOK_MAX_DEPTH}.'
+            raise s_exc.RecursionLimitHit(mesg=mesg, limit=s_const.VIEW_HOOK_MAX_DEPTH, type=htype, **info)
+
+        return depth
+
+    def _reqCreatedHookDepth(self):
+        '''
+        Raise RecursionLimitHit if a new view's created hooks would exceed VIEW_HOOK_MAX_DEPTH.
+
+        Called before a view is created so a view over the limit is never made.
+        '''
+        if self._getRunViewHooks('created'):
+            self._reqViewHookDepth('created')
+
+    async def _runViewHooks(self, htype, view, errok=False):
+        '''
+        Run the enabled view hooks of the given type in the view, ordered by creation time.
+
+        Hooks run as the root user, in a new task, and do not run in safemode. Hooks run for
+        lifecycle events caused by hook storm, and the tasks it starts, up to a nesting depth
+        of VIEW_HOOK_MAX_DEPTH. Exceptions propagate to the caller unless errok is set, in which
+        case they are logged and the remaining hooks run. If the hook task is cancelled while the
+        caller is not, a SynErr is raised, or logged if errok is set, and the remaining hooks do not run.
+
+        Args:
+            htype (str): The hook type (created, merging, or deleted).
+            view (View): The view the hook storm runs in.
+            errok (bool): Log hook exceptions rather than raising them.
+
+        Returns:
+            bool: True if any hooks ran.
+
+        Raises:
+            s_exc.RecursionLimitHit: If running the hooks would exceed VIEW_HOOK_MAX_DEPTH.
+            s_exc.SynErr: If the hook task is cancelled while the caller is not, and errok is not set.
+        '''
+        hdefs = self._getRunViewHooks(htype)
+        if not hdefs:
+            return False
+
+        depth = self._reqViewHookDepth(htype, view=view.iden)
+
+        hdefs.sort(key=lambda hdef: hdef.get('created'))
+
+        # a new task keeps the python stack from growing with each nesting level
+        task = s_coro.create_task(self._execViewHooks(htype, view, hdefs, depth + 1, errok))
+        s_scope.clone(task)
+
+        try:
+            await task
+
+        except asyncio.CancelledError:
+            # a hook task killed on its own is a hook failure, not a cancel of the caller
+            if asyncio.current_task().cancelling():
+                raise
+
+            mesg = f'A {htype} view hook in view {view.iden} was cancelled.'
+            if not errok:
+                raise s_exc.SynErr(mesg=mesg, type=htype, view=view.iden) from None
+
+            logger.error(mesg, extra=self.getLogExtra(type=htype, view=view.iden))
+
+        return True
+
+    async def _execViewHooks(self, htype, view, hdefs, depth, errok):
+
+        ViewHookDepth.set(depth)
+
+        root = self.auth.rootuser.iden
+        for hdef in hdefs:
+
+            iden = hdef.get('iden')
+            opts = {
+                'user': root,
+                'view': view.iden,
+                'vars': {'auto': {'iden': iden, 'type': 'view:hook', 'opts': {'type': htype}}},
+            }
+
+            try:
+                await self.callStorm(hdef.get('storm'), opts=opts)
+
+            except Exception:
+                if not errok:
+                    raise
+
+                logger.exception(f'Error running {htype} view hook {iden} in view {view.iden}',
+                                 extra=self.getLogExtra(iden=iden, view=view.iden, creator=hdef.get('creator')))
+
+    async def _runCreatedHooks(self, iden, pack):
+        '''
+        Run the created view hooks for a new view and return its view definition.
+
+        Args:
+            iden (str): The iden of the new view.
+            pack (dict): The view definition of the new view.
+
+        Returns:
+            dict: The view definition repacked after the hooks, or the given one if no hooks ran or a hook
+            deleted the view.
+        '''
+        if not await self._runViewHooks('created', self.reqView(iden), errok=True):
+            return pack
+
+        view = self.getView(iden)
+        if view is None:
+            return pack
+
+        return await view.pack()
+
     async def getCellApi(self, link, user, path):
 
         if not path:
@@ -4883,10 +5462,13 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
         s_schemas.reqValidView(vdef)
 
-        if nexs:
-            return await self._push('view:add', vdef)
-        else:
+        if not nexs:
             return await self._addView(vdef)
+
+        self._reqCreatedHookDepth()
+
+        pack = await self._push('view:add', vdef)
+        return await self._runCreatedHooks(vdef['iden'], pack)
 
     @s_nexus.Pusher.onPush('view:add')
     async def _addView(self, vdef):
@@ -4920,14 +5502,20 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         await self.feedBeholder('view:add', pack, gates=[iden])
         return pack
 
-    async def delView(self, iden):
+    async def delView(self, iden, hooks=True):
         view = self.views.get(iden)
         if view is None:
             raise s_exc.NoSuchView(mesg=f'No such view {iden=}', iden=iden)
 
+        if iden == self.view.iden:
+            raise s_exc.SynErr(mesg='Cannot delete the main view')
+
         if view.info.get('protected'):
             mesg = f'Cannot delete view ({iden}) that has protected set.'
             raise s_exc.CantDelView(mesg=mesg)
+
+        if hooks:
+            await self._runViewHooks('deleted', view)
 
         return await self._push('view:del', iden)
 
@@ -5803,6 +6391,133 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
     @s_cell.from_leader
     async def getStormDmonLog(self, iden):
         return self.stormdmons.getDmonRunlog(iden)
+
+    @s_cell.from_leader
+    async def addStormInput(self, iden, user, type, timeout=s_const.STORM_INPUT_TIMEOUT):
+        '''
+        Register a pending Storm input request on the leader.
+
+        The leader removes the request once its timeout elapses, waking any waiter with a TimeOut.
+
+        Args:
+            iden (str): The iden of the input request.
+            user (str): The iden of the requesting user.
+            type (str): The input type, which selects the reply schema.
+            timeout (int): The number of seconds before the request expires, up to one day.
+        '''
+        if s_schemas.stormInputReplyValidators.get(type) is None:
+            types = ', '.join(sorted(s_schemas.stormInputReplyValidators))
+            mesg = f'Unsupported Storm input type: {type}. Supported types: {types}'
+            raise s_exc.BadArg(mesg=mesg, type=type)
+
+        if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or timeout <= 0:
+            mesg = f'Storm input request timeout must be a positive number of seconds, not {timeout!r}.'
+            raise s_exc.BadArg(mesg=mesg, timeout=timeout)
+
+        if timeout > s_const.STORM_INPUT_TIMEOUT_MAX:
+            maxval = s_const.STORM_INPUT_TIMEOUT_MAX
+            mesg = f'Storm input request timeout may not exceed {maxval} seconds, not {timeout!r}.'
+            raise s_exc.BadArg(mesg=mesg, timeout=timeout)
+
+        if self.storminputs.get(iden) is not None:
+            mesg = f'A Storm input request with iden {iden} already exists.'
+            raise s_exc.BadArg(mesg=mesg, iden=iden)
+
+        expire = self.loop.call_later(timeout, self._expireStormInput, iden)
+        self.storminputs[iden] = {'user': user, 'type': type, 'event': asyncio.Event(), 'reply': None,
+                                  'fail': None, 'expire': expire}
+
+    def _failStormInputs(self, mesg):
+        for item in self.storminputs.values():
+            item['expire'].cancel()
+            item['fail'] = mesg
+            item['event'].set()
+
+        self.storminputs.clear()
+
+    def _popStormInput(self, iden):
+        item = self.storminputs.pop(iden, None)
+        if item is not None:
+            item['expire'].cancel()
+
+        return item
+
+    def _expireStormInput(self, iden):
+        item = self._popStormInput(iden)
+        if item is None:
+            return False
+
+        item['event'].set()
+        return True
+
+    @s_cell.from_leader
+    async def delStormInput(self, iden):
+        '''
+        Remove a pending Storm input request from the leader.
+
+        Any waiter raises a TimeOut. Returns True if the request was removed, or False if no
+        request with the iden exists.
+        '''
+        return self._expireStormInput(iden)
+
+    @s_cell.from_leader
+    async def waitStormInput(self, iden):
+        '''
+        Wait for the reply to a registered Storm input request and return it.
+
+        Raises a TimeOut if the request expires before a reply arrives, or a BadState if the
+        Cortex stops being the leader before a reply arrives. The request is removed once the wait completes, times
+        out, or is cancelled.
+        '''
+        info = self.storminputs.get(iden)
+        if info is None:
+            mesg = f'No Storm input request with iden {iden}.'
+            raise s_exc.NoSuchIden(mesg=mesg, iden=iden)
+
+        try:
+            await info['event'].wait()
+
+            # an accepted reply wins over any later failure or expiry
+            if info['reply'] is not None:
+                return info['reply']
+
+            if info['fail'] is not None:
+                mesg = f'Storm input request {iden} failed: {info["fail"]}'
+                raise s_exc.BadState(mesg=mesg, iden=iden)
+
+            mesg = f'Timed out waiting for Storm input request {iden}.'
+            raise s_exc.TimeOut(mesg=mesg, iden=iden)
+
+        finally:
+            self._popStormInput(iden)
+
+    @s_cell.from_leader
+    async def sendStormInput(self, iden, user, info):
+        '''
+        Send a reply to a pending Storm input request.
+
+        Only the requesting user or an admin may reply, and a request accepts only one reply.
+        '''
+        item = self.storminputs.get(iden)
+        if item is None:
+            mesg = f'No Storm input request with iden {iden}.'
+            raise s_exc.NoSuchIden(mesg=mesg, iden=iden)
+
+        if user != item['user']:
+            useritem = await self.auth.reqUser(user)
+            if not useritem.isAdmin():
+                mesg = 'Only the requesting user or an admin may reply to a Storm input request.'
+                raise s_exc.AuthDeny(mesg=mesg, user=user, username=useritem.name)
+
+        # checked after the user lookup await, which may race a reply, expiry, or removal
+        if item['event'].is_set() or self.storminputs.get(iden) is not item:
+            mesg = f'Storm input request {iden} has already been replied to or removed.'
+            raise s_exc.BadState(mesg=mesg, iden=iden)
+
+        s_schemas.stormInputReplyValidators[item['type']](info)
+
+        item['reply'] = info
+        item['event'].set()
 
     def addStormLib(self, path, ctor):
 
@@ -7011,36 +7726,87 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
         return self._getVaultByBidn(bidn)
 
-    def getVault(self, iden):
+    def _reqVaultPerm(self, user, vault, level, ref=None):
+        if ref is None:
+            ref = vault.get('iden')
+
+        mesg = f'User requires {s_cell.permnames.get(level)} permission on vault: {ref}.'
+        self._reqEasyPerm(vault, user, level, mesg=mesg)
+
+    def _getVaultUser(self, user):
+        if not isinstance(user, str):
+            return user
+
+        retn = self.auth.user(user)
+        if retn is None:
+            raise s_exc.NoSuchUser(mesg=f'No user with iden {user}.', user=user)
+
+        return retn
+
+    def _vaultForUser(self, user, vault):
+        # secrets are only returned to users with edit permission
+        if vault is None or user is None or self._hasEasyPerm(vault, user, s_cell.PERM_EDIT):
+            return vault
+
+        vault = dict(vault)
+        vault.pop('secrets', None)
+        return vault
+
+    async def getVault(self, iden, user=None):
         '''
         Get a vault.
 
         Args:
             iden (str): Iden of the vault to get.
+            user (User|str|None): If set, require read permission and hide secrets without edit permission.
+
+        Raises:
+            synapse.exc.AuthDeny: `user` does not have read permission on the vault.
+            synapse.exc.NoSuchUser: `user` is an iden which does not exist.
 
         Returns: vault or None
         '''
+        user = self._getVaultUser(user)
+
         if not s_common.isguid(iden):
             return None
 
         bidn = s_common.uhex(iden)
-        return self._getVaultByBidn(bidn)
+        vault = self._getVaultByBidn(bidn)
+        if vault is None or user is None:
+            return vault
 
-    def getVaultByName(self, name):
+        self._reqVaultPerm(user, vault, s_cell.PERM_READ)
+        return self._vaultForUser(user, vault)
+
+    async def getVaultByName(self, name, user=None):
         '''
         Get a vault by name.
 
         Args:
             name (str): Name of the vault to get.
+            user (User|str|None): If set, require read permission and hide secrets without edit permission.
+
+        Raises:
+            synapse.exc.AuthDeny: `user` does not have read permission on the vault.
+            synapse.exc.NoSuchUser: `user` is an iden which does not exist.
 
         Returns: vault or None
         '''
+        user = self._getVaultUser(user)
+
         bidn = self.slab.get(name.encode(), db=self.vaultsbynamedb)
         if bidn is None:
             return None
-        return self._getVaultByBidn(bidn)
 
-    def getVaultByType(self, vtype, useriden, scope=None):
+        vault = self._getVaultByBidn(bidn)
+        if vault is None or user is None:
+            return vault
+
+        self._reqVaultPerm(user, vault, s_cell.PERM_READ, ref=name)
+        return self._vaultForUser(user, vault)
+
+    async def getVaultByType(self, vtype, useriden=None, scope=None, user=None):
         '''
         Get a vault of type `vtype` and scope `scope` for user with `iden`.
 
@@ -7058,14 +7824,25 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
         Args:
             vtype (str): Type of the vault to open.
-            useriden (str): Iden of user trying to open the vault.
+            useriden (str|None): Iden of user trying to open the vault. Defaults to the iden of `user`.
             scope (str|None): The vault scope to open.
+            user (User|str|None): If set, require read permission and hide secrets without edit permission.
 
         Raises:
-            synapse.exc.BadArg: Invalid scope specified.
+            synapse.exc.BadArg: Invalid scope specified, or neither `useriden` nor `user` specified.
+            synapse.exc.AuthDeny: `user` does not have read permission on the vault.
+            synapse.exc.NoSuchUser: `user` is an iden which does not exist.
 
         Returns: vault or None if matching vault could not be found.
         '''
+        user = self._getVaultUser(user)
+
+        if useriden is None:
+            if user is None:
+                raise s_exc.BadArg(mesg='A useriden or user is required to get a vault by type.')
+
+            useriden = user.iden
+
         if scope not in (None, 'user', 'role', 'global'):
             raise s_exc.BadArg(mesg=f'Invalid scope: {scope}.')
 
@@ -7094,58 +7871,69 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
             return vault
 
+        vault = None
+
         # If caller specified a scope, return that vault if it exists
         if scope is not None:
-            return _getVault(scope)
+            vault = _getVault(scope)
 
-        # Finally, try the user, role, and global vaults in order
-        for _scope in ('user', 'role', 'global'):
-            vault = _getVault(_scope)
-            if vault:
-                return vault
+        else:
+            # Finally, try the user, role, and global vaults in order
+            for _scope in ('user', 'role', 'global'):
+                vault = _getVault(_scope)
+                if vault:
+                    break
 
-        return None
+        if vault is None or user is None:
+            return vault
 
-    def reqVault(self, iden):
+        self._reqVaultPerm(user, vault, s_cell.PERM_READ)
+        return self._vaultForUser(user, vault)
+
+    async def reqVault(self, iden, user=None):
         '''
         Get a vault by iden.
 
         Args:
             iden (str): Iden of the vault to get.
+            user (User|None): If set, require read permission and hide secrets without edit permission.
 
         Raises:
             synapse.exc.NoSuchIden: Vault with `iden` not found.
+            synapse.exc.AuthDeny: `user` does not have read permission on the vault.
 
         Returns: vault
         '''
         if not s_common.isguid(iden):
             raise s_exc.BadArg(mesg=f'Iden is not a valid iden: {iden}.')
 
-        vault = self.getVault(iden)
+        vault = await self.getVault(iden, user=user)
         if vault is None:
             raise s_exc.NoSuchIden(mesg=f'Vault not found for iden: {iden}.', iden=iden)
 
         return vault
 
-    def reqVaultByName(self, name):
+    async def reqVaultByName(self, name, user=None):
         '''
         Get a vault by name.
 
         Args:
             name (str): Name of the vault to get.
+            user (User|None): If set, require read permission and hide secrets without edit permission.
 
         Raises:
             synapse.exc.NoSuchName: Vault with `name` not found.
+            synapse.exc.AuthDeny: `user` does not have read permission on the vault.
 
         Returns: vault
         '''
-        vault = self.getVaultByName(name)
+        vault = await self.getVaultByName(name, user=user)
         if vault is None:
             raise s_exc.NoSuchName(mesg=f'Vault not found for name: {name}.')
 
         return vault
 
-    def reqVaultByType(self, vtype, iden, scope=None):
+    async def reqVaultByType(self, vtype, iden, scope=None, user=None):
         '''
         Get a vault by type.
 
@@ -7153,13 +7941,15 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             vtype (str): Type of the vault to get.
             iden (str): Iden of the user or role for the vault type.
             scope (str|None): Scope of the vault to get.
+            user (User|None): If set, require read permission and hide secrets without edit permission.
 
         Raises:
             synapse.exc.NoSuchName: Vault with `vtype`/`iden`/`scope` not found.
+            synapse.exc.AuthDeny: `user` does not have read permission on the vault.
 
         Returns: vault
         '''
-        vault = self.getVaultByType(vtype, iden, scope)
+        vault = await self.getVaultByType(vtype, iden, scope, user=user)
         if vault is None:
             raise s_exc.NoSuchName(mesg=f'Vault not found for type: {vtype}.')
 
@@ -7356,7 +8146,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         (default-filled) vault. The runner is not single-flight, so a callback
         may run more than once for the same vault (e.g. registration and
         activation racing) and must be convergent (idempotent); the monotonic
-        guard in _updateVault keeps concurrent applies forward-only. Idens are
+        guard in _modVault keeps concurrent applies forward-only. Idens are
         gathered up front (a bounded scan) so only one vault is held in memory
         during migration.
         '''
@@ -7379,7 +8169,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
         for iden in idens:
 
-            vault = self.getVault(iden)
+            vault = await self.getVault(iden)
             # defensive: the vault was deleted between the up-front scan and
             # processing (a concurrent migration or a user delete)
             if vault is None:
@@ -7395,7 +8185,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
             try:
                 if migration is None:
-                    await self.updateVault(vault)
+                    await self.modVault(vault)
                 else:
                     await self.callStorm(migration, opts={'vars': {'vault': vault}})
             except Exception as exc:
@@ -7405,14 +8195,17 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
         await self.fire('core:vaults:migrated', type=vtype)
 
-    async def addVault(self, vdef):
+    async def addVault(self, vdef, user=None):
         '''
         Create a new vault.
 
         Args:
             vdef (dict): The vault to add.
+            user (User|str|None): If set, a non-admin user may only add unscoped vaults or user vaults they own.
 
         Raises:
+            synapse.exc.AuthDeny: `user` may not add a vault with the requested scope or owner.
+            synapse.exc.NoSuchUser: `user` is an iden which does not exist.
             synapse.exc.SchemaViolation: `vdef` does not conform to the vault schema.
             synapse.exc.DupName:
                 - Vault already exists for type/scope/owner.
@@ -7424,8 +8217,22 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
         Returns: iden of new vault
         '''
+        user = self._getVaultUser(user)
+
         if not isinstance(vdef, dict):
             raise s_exc.BadArg(mesg='Invalid vault definition provided.')
+
+        if user is not None and not user.isAdmin():
+
+            scope = vdef.get('scope')
+            if scope in ('global', 'role'):
+                mesg = f'User {user.name} cannot create {scope} vaults.'
+                raise s_exc.AuthDeny(mesg=mesg, user=user.iden, username=user.name)
+
+            owner = vdef.get('owner')
+            if scope == 'user' and user.iden != owner:
+                mesg = f'User {user.name} cannot create vaults for user {owner}.'
+                raise s_exc.AuthDeny(mesg=mesg, user=user.iden, username=user.name)
 
         # Set some standard properties on the vdef before validating
         vdef['iden'] = s_common.guid()
@@ -7460,7 +8267,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             raise s_exc.DupName(mesg=f'Vault already exists for type {vtype}, scope {scope}, owner {owner}.')
 
         # Make sure the requested name is unique
-        if self.getVaultByName(name) is not None:
+        if await self.getVaultByName(name) is not None:
             if scope is None:
                 mesg = f'A config already exists with the name {name}.'
             else:
@@ -7540,7 +8347,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
         Returns: Updated vault.
         '''
-        vault = self.reqVault(iden)
+        vault = await self.reqVault(iden)
 
         secrets = vault.get('secrets')
 
@@ -7588,7 +8395,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
         Returns: Updated vault.
         '''
-        vault = self.reqVault(iden)
+        vault = await self.reqVault(iden)
 
         configs = vault.get('configs')
 
@@ -7621,7 +8428,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
     @s_nexus.Pusher.onPush('vault:data:set', reader=False)
     async def _setVaultData(self, iden, obj, key, valu, delete):
-        vault = self.reqVault(iden)
+        vault = await self.reqVault(iden)
         data = vault.get(obj)
 
         bidn = s_common.uhex(iden)
@@ -7650,7 +8457,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
         Returns: New configs.
         '''
-        vault = self.reqVault(iden)
+        vault = await self.reqVault(iden)
 
         if not isinstance(valu, dict):
             short = textwrap.shorten(repr(valu), width=64)
@@ -7687,7 +8494,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
         Returns: New secrets.
         '''
-        vault = self.reqVault(iden)
+        vault = await self.reqVault(iden)
 
         if not isinstance(valu, dict):
             short = textwrap.shorten(repr(valu), width=64)
@@ -7711,7 +8518,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
     @s_nexus.Pusher.onPush('vault:data:replace', reader=False)
     async def _replaceVaultData(self, iden, obj, valu):
-        vault = self.reqVault(iden)
+        vault = await self.reqVault(iden)
         bidn = s_common.uhex(iden)
 
         vault[obj] = valu
@@ -7719,33 +8526,57 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         await self.slab.put(bidn, s_msgpack.en(vault), db=self.vaultsdb)
         return valu
 
-    def listVaults(self):
+    async def getVaults(self, user=None):
         '''
-        List all vaults.
+        Get all vaults.
 
-        Args: None
+        Args:
+            user (User|str|None): If set, only return vaults the user can read and hide secrets without edit permission.
 
-        Raises: None
+        Raises:
+            synapse.exc.NoSuchUser: `user` is an iden which does not exist.
 
-        Yields: vault definition dictionaries.
+        Returns: list of vault definition dictionaries.
         '''
+        user = self._getVaultUser(user)
+
+        retn = []
+
         for vault in self._getVaults():
-            yield vault
 
-    async def setVaultPerm(self, viden, iden, level):
+            await asyncio.sleep(0)
+
+            if user is not None:
+
+                if not self._hasEasyPerm(vault, user, s_cell.PERM_READ):
+                    continue
+
+                vault = self._vaultForUser(user, vault)
+
+            retn.append(vault)
+
+        return retn
+
+    async def setVaultPerm(self, viden, iden, level, user=None):
         '''
         Set vault permissions.
+
         Args:
             viden (str): The iden of the vault to edit.
             iden (str): Iden of the user/role to add permissions for.
             level (int): Easy perms level.
+            user (User|None): If set, require admin permission on the vault.
 
         Raises:
             synapse.exc.NoSuchIden: Vault with `iden` does not exist.
+            synapse.exc.AuthDeny: `user` does not have admin permission on the vault.
 
         Returns: Updated vault.
         '''
-        vault = self.reqVault(viden)
+        vault = await self.reqVault(viden)
+
+        if user is not None:
+            self._reqVaultPerm(user, vault, s_cell.PERM_ADMIN)
 
         scope = 'users'
         ident = self.auth.user(iden)
@@ -7757,7 +8588,8 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
         await self._setEasyPerm(vault, scope, ident.iden, level)
         permissions = vault.get('permissions')
-        return await self._push(('vault:set'), viden, 'permissions', permissions)
+        vault = await self._push(('vault:set'), viden, 'permissions', permissions)
+        return self._vaultForUser(user, vault)
 
     async def renameVault(self, iden, name):
         '''
@@ -7773,27 +8605,52 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
         Returns: Updated vault.
         '''
-        if self.getVaultByName(name) is not None:
+        if await self.getVaultByName(name) is not None:
             raise s_exc.DupName(mesg=f'Vault with name {name} already exists.', name=name)
 
         return await self._push(('vault:set'), iden, 'name', name)
 
-    async def updateVault(self, vdef):
+    async def modVault(self, vdef, user=None):
         '''
         Atomically replace a vault with the given vdef (configs, secrets, name,
         permissions, type:version). Configs/secrets are validated against the
         schema for vdef['type:version']. The vault type, scope, and owner are immutable.
+        If the permissions are unchanged, the stored permissions are kept.
+
+        Args:
+            vdef (dict): The full vault definition.
+            user (User|str|None): If set, require edit permission on the vault, or admin
+                permission if the permissions are changed.
+
+        Raises:
+            synapse.exc.AuthDeny: `user` does not have the required permission on the vault.
+            synapse.exc.NoSuchUser: `user`, or a new or changed user in `permissions`, does not exist.
+            synapse.exc.NoSuchRole: A new or changed role in `permissions` does not exist.
 
         Returns: the updated vault.
         '''
+        user = self._getVaultUser(user)
+
+        if user is not None and isinstance(vdef, dict):
+
+            cur = await self.reqVault(vdef.get('iden'))
+
+            level = s_cell.PERM_EDIT
+            if vdef.get('permissions') != cur.get('permissions'):
+                level = s_cell.PERM_ADMIN
+
+            self._reqVaultPerm(user, cur, level)
+
         vdef = self._reqValidVault(vdef)
 
         iden = vdef['iden']
-        cur = self.reqVault(iden)
+        cur = await self.reqVault(iden)
 
         for field in ('type', 'scope', 'owner'):
             if vdef.get(field) != cur.get(field):
                 raise s_exc.BadArg(mesg=f'Cannot change vault {field} on update.')
+
+        await self._reqVaultPermIdens(vdef, cur)
 
         vtype = cur['type']
         version = vdef.get('type:version')
@@ -7815,14 +8672,30 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
         name = vdef['name']
         if name != cur['name']:
-            other = self.getVaultByName(name)
+            other = await self.getVaultByName(name)
             if other is not None and other['iden'] != iden:
                 raise s_exc.DupName(mesg=f'Vault with name {name} already exists.', name=name)
 
-        return await self._push('vault:update', vdef)
+        # omit unchanged permissions so a concurrent permission change is kept
+        if vdef['permissions'] == cur['permissions']:
+            vdef = {k: v for k, v in vdef.items() if k != 'permissions'}
+
+        vault = await self._push('vault:update', vdef)
+        return self._vaultForUser(user, vault)
+
+    async def _reqVaultPermIdens(self, vdef, cur):
+        # only new or changed entries are checked so deleted idens may remain
+        newperms = vdef['permissions']
+        curperms = cur['permissions']
+
+        for scope, reqfunc in (('users', self.auth.reqUser), ('roles', self.auth.reqRole)):
+            curlevels = curperms.get(scope, {})
+            for iden, level in newperms[scope].items():
+                if curlevels.get(iden) != level:
+                    await reqfunc(iden)
 
     @s_nexus.Pusher.onPush('vault:update', reader=False)
-    async def _updateVault(self, vdef):
+    async def _modVault(self, vdef):
         iden = vdef['iden']
         bidn = s_common.uhex(iden)
 
@@ -7833,12 +8706,15 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         # runs under the nexus lock: re-check version monotonicity here so a
         # write built from a now-stale read (e.g. a config update racing a
         # migration bump) cannot downgrade or un-type the stored vault. The
-        # pre-push guard in updateVault() cannot see concurrent applies, and
+        # pre-push guard in modVault() cannot see concurrent applies, and
         # this keeps leader and mirror replay deterministically forward-only.
         curvers = cur.get('type:version')
         newvers = vdef.get('type:version')
         if curvers is not None and (newvers is None or newvers < curvers):
             return None
+
+        if 'permissions' not in vdef:
+            vdef = s_schemas.reqValidVault(dict(vdef, permissions=cur['permissions']))
 
         oldname = cur['name']
         newname = vdef['name']
@@ -7854,7 +8730,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         if key not in ('name', 'permissions'):  # pragma: no cover
             raise s_exc.BadArg(mesg='Only vault names and permissions can be changed.')
 
-        vault = self.reqVault(iden)
+        vault = await self.reqVault(iden)
         oldv = vault.get(key)
         vault[key] = valu
 
@@ -7869,17 +8745,35 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         await self.slab.put(bidn, s_msgpack.en(vault), db=self.vaultsdb)
         return vault
 
-    @s_nexus.Pusher.onPushAuto('vault:del', reader=False)
-    async def delVault(self, iden):
+    async def delVault(self, iden, user=None):
         '''
         Delete a vault.
 
         Args:
             iden (str): Iden of the vault to delete.
+            user (User|str|None): If set, require admin permission on the vault.
+
+        Raises:
+            synapse.exc.AuthDeny: `user` does not have admin permission on the vault.
+            synapse.exc.NoSuchUser: `user` is an iden which does not exist.
 
         Returns: None
         '''
-        vault = self.getVault(iden)
+        user = self._getVaultUser(user)
+
+        if user is not None:
+
+            vault = await self.getVault(iden)
+            if vault is None:
+                return
+
+            self._reqVaultPerm(user, vault, s_cell.PERM_ADMIN)
+
+        return await self._push('vault:del', iden)
+
+    @s_nexus.Pusher.onPush('vault:del', reader=False)
+    async def _delVault(self, iden):
+        vault = await self.getVault(iden)
         if vault is None:
             return
 

@@ -10,6 +10,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.certdir as s_certdir
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 import synapse.lib.version as s_version
 import synapse.lib.crypto.rsa as s_rsa
@@ -457,6 +458,549 @@ class GenPkgTest(s_test.SynTest):
             s_common.yamlsave({'name': 'advpkg', 'version': '0.0.1', 'advanced': 'yes'}, protopath)
             with self.raises(s_exc.SchemaViolation):
                 s_genpkg.loadPkgProto(protopath)
+
+    def getTestCourse(self):
+        return {
+            'iden': 'a' * 32,
+            'title': 'A Course',
+            'body': 'course material',
+            'modules': [
+                {
+                    'iden': 'c' * 32,
+                    'type': 'module',
+                    'title': 'Module One',
+                    'body': 'module material',
+                },
+                {
+                    'iden': 'd' * 32,
+                    'type': 'quiz',
+                    'title': 'Quiz Two',
+                    'body': 'quiz body',
+                    'sections': [
+                        {
+                            'title': 'Section One',
+                            'questions': [
+                                {
+                                    'iden': 'f' * 32,
+                                    'type': 'basic',
+                                    'body': 'what is it?',
+                                    'points': 10,
+                                    'answer': {'value': 'vertex.link', 'type': 'inet:fqdn'},
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        }
+
+    def setTestQuestion(self, cdef, **edits):
+        '''
+        Return a copy of the test course whose one question is replaced, since which fields
+        a question carries depends on its type.
+        '''
+        ques = {'iden': 'f' * 32, 'body': 'what is it?', 'points': 10}
+        ques.update(edits)
+
+        newp = s_msgpack.deepcopy(cdef, use_list=True)
+        newp['modules'][1]['sections'][0]['questions'][0] = ques
+
+        return newp
+
+    def test_tools_genpkg_courses(self):
+
+        protodir = s_common.genpath(dirname, 'files', 'stormpkg')
+        ymlpath = s_common.genpath(protodir, 'testpkg.yaml')
+
+        # the courses directory beside the package yaml file is loaded automatically
+        pkgdef = s_genpkg.loadPkgProto(ymlpath)
+
+        self.len(1, pkgdef['courses'])
+
+        cdef = pkgdef['courses'][0]
+        self.eq('09f6c8bd3e4a41d5b7e2c0a91f8d6b34', cdef['iden'])
+        self.eq('Test Course', cdef['title'])
+        self.eq(('Introduction', 'FQDN Quiz'),
+                tuple([mdef['title'] for mdef in cdef['modules']]))
+
+        # a module is either course material or a quiz, and each names itself
+        self.eq(('module', 'quiz'), tuple([mdef['type'] for mdef in cdef['modules']]))
+        self.notin('sections', cdef['modules'][0])
+
+        quiz = cdef['modules'][1]
+        self.eq('FQDN Quiz', quiz['title'])
+        self.eq(('The Basics', 'Storm Questions'), tuple([sdef['title'] for sdef in quiz['sections']]))
+
+        # every question type is covered
+        quesdefs = [qdef for sdef in quiz['sections'] for qdef in sdef['questions']]
+        self.len(5, quesdefs)
+        self.eq(('basic', 'yesorno', 'multi', 'choice', 'storm'),
+                tuple([qdef['type'] for qdef in quesdefs]))
+
+        # a hint is carried by the answer, so it is withheld with everything else the
+        # learner may not see
+        self.len(1, quesdefs[0]['answer']['hints'])
+
+        with self.getTestDir() as dirn:
+
+            newppath = s_common.genpath(dirn, 'coursepkg.yaml')
+            coursedir = s_common.genpath(dirn, 'courses')
+
+            s_common.yamlsave({'name': 'coursepkg', 'version': '0.0.1'}, newppath)
+
+            # with no courses directory at all, the section is absent
+            self.notin('courses', s_genpkg.loadPkgProto(newppath))
+
+            def loadproto(courses, **files):
+                shutil.rmtree(coursedir, ignore_errors=True)
+                for name, cdef in files.items():
+                    s_common.yamlsave(cdef, coursedir, name)
+
+                proto = {'name': 'coursepkg', 'version': '0.0.1'}
+                if courses is not None:
+                    proto['courses'] = courses
+
+                s_common.yamlsave(proto, newppath)
+                return s_genpkg.loadPkgProto(newppath)
+
+            # every .yaml file in the directory becomes a course, in sorted order so a
+            # rebuild produces the same package
+            twodef = self.getTestCourse()
+            twodef['iden'] = 'e' * 32
+            twodef['title'] = 'Zeroth Course'
+
+            newdef = loadproto(None, **{'one.yaml': self.getTestCourse(), 'two.yaml': twodef})
+            self.eq(['a' * 32, 'e' * 32], [cdef['iden'] for cdef in newdef['courses']])
+
+            # ...and anything which is not a .yaml file is skipped
+            with self.getLoggerStream('synapse.tools.storm.pkg.gen') as stream:
+                newdef = loadproto(None, **{'one.yaml': self.getTestCourse(), 'two.newp': twodef})
+            self.len(1, newdef['courses'])
+            stream.seek(0)
+            mesg = stream.read()
+            self.isin('Skipping course file', mesg)
+            self.isin('two.newp', mesg)
+
+            # an empty course file is an authoring mistake
+            s_common.yamlsave(None, coursedir, 'empty.yaml')
+            with self.raises(s_exc.BadPkgDef) as cm:
+                s_genpkg.loadPkgProto(newppath)
+            self.isin('is empty', cm.exception.get('mesg'))
+
+            # the section is generated, so it may not also be declared
+            with self.raises(s_exc.BadPkgDef) as cm:
+                loadproto([self.getTestCourse()], **{'one.yaml': self.getTestCourse()})
+            self.isin('may not be specified', cm.exception.get('mesg'))
+
+            # a course must be distinguishable from the others by iden
+            with self.raises(s_exc.BadPkgDef) as cm:
+                loadproto(None, **{'one.yaml': self.getTestCourse(), 'two.yaml': self.getTestCourse()})
+            self.eq('a' * 32, cm.exception.get('iden'))
+
+            # a module iden is what a run is recorded against, so it must be unique
+            # within the course even when the modules are named differently
+            cdef = self.getTestCourse()
+            cdef['modules'][0]['iden'] = cdef['modules'][1]['iden']
+            with self.raises(s_exc.BadArg) as cm:
+                loadproto(None, **{'one.yaml': cdef})
+            self.eq('d' * 32, cm.exception.get('module'))
+
+            # ...and for a question iden, which must be unique across the whole quiz
+            # rather than within its section, since a run keys answers on it
+            cdef = self.getTestCourse()
+            quiz = cdef['modules'][1]
+            sect = s_msgpack.deepcopy(quiz['sections'][0], use_list=True)
+            sect['title'] = 'Section Two'
+            quiz['sections'].append(sect)
+            with self.raises(s_exc.BadArg) as cm:
+                loadproto(None, **{'one.yaml': cdef})
+            self.eq('f' * 32, cm.exception.get('question'))
+
+            # a title is only a label, so any two elements may share one as long as
+            # their idens are distinct
+            cdef = self.getTestCourse()
+            cdef['modules'][0]['title'] = 'Module Two'
+
+            quiz = s_msgpack.deepcopy(cdef['modules'][1], use_list=True)
+            quiz['iden'] = 'e' * 32
+            quiz['sections'].append(s_msgpack.deepcopy(quiz['sections'][0], use_list=True))
+            quiz['sections'][1]['questions'][0]['iden'] = '0' * 32
+            cdef['modules'].append(quiz)
+
+            self.nn(loadproto(None, **{'one.yaml': cdef}))
+
+    def test_tools_genpkg_course_schema(self):
+
+        cdef = self.getTestCourse()
+        self.eq(cdef, s_schemas.reqValidCourse(s_msgpack.deepcopy(cdef, use_list=True)))
+
+        # a question type must be implemented by both the editor and the runner
+        for valu in ('edits', 'newp'):
+            newp = s_msgpack.deepcopy(cdef, use_list=True)
+            newp['modules'][1]['sections'][0]['questions'][0]['type'] = valu
+            with self.raises(s_exc.SchemaViolation):
+                s_schemas.reqValidCourse(newp)
+
+        # the answer value of a basic question may be a bool, an int or a string, and an
+        # empty string is a legitimate answer
+        for valu in ('vertex.link', True, False, 0, 42, ''):
+            newp = s_msgpack.deepcopy(cdef, use_list=True)
+            newp['modules'][1]['sections'][0]['questions'][0]['answer']['value'] = valu
+            s_schemas.reqValidCourse(newp)
+
+        # ...but not a float or an object
+        for valu in (1.5, {'newp': 'newp'}):
+            newp = s_msgpack.deepcopy(cdef, use_list=True)
+            newp['modules'][1]['sections'][0]['questions'][0]['answer']['value'] = valu
+            with self.raises(s_exc.SchemaViolation):
+                s_schemas.reqValidCourse(newp)
+
+        # an empty array is a legitimate answer to a question which is answered with one
+        # -- "none of these are FQDNs" is a question worth asking -- and an empty value may
+        # equally be offered as one of the choices
+        newp = self.setTestQuestion(cdef, type='choice',
+                                    choices=[{'value': 'a'}, {'value': ''}, {'value': ()}],
+                                    answer={'type': 'str', 'value': ()})
+        s_schemas.reqValidCourse(newp)
+
+        # a choice must have a value
+        newp['modules'][1]['sections'][0]['questions'][0]['choices'] = [{'type': 'str'}]
+        with self.raises(s_exc.SchemaViolation):
+            s_schemas.reqValidCourse(newp)
+
+        # a title is free text, but it is bounded and may not be empty
+        for valu in ('', 'x' * 81, 42):
+            newp = s_msgpack.deepcopy(cdef, use_list=True)
+            newp['modules'][0]['title'] = valu
+            with self.raises(s_exc.SchemaViolation):
+                s_schemas.reqValidCourse(newp)
+
+        # the answer of a basic question is graded by norming the attempt as type and
+        # comparing it to value, since a storm question is the only one a query grades
+        newp = s_msgpack.deepcopy(cdef, use_list=True)
+        newp['modules'][1]['sections'][0]['questions'][0]['answer'] = {'type': 'inet:fqdn',
+                                                                       'value': 'vertex.link'}
+        s_schemas.reqValidCourse(newp)
+
+        for answer in ({'checker': 'inet:fqdn=vertex.link'},
+                       {'checker': 'inet:fqdn', 'type': 'inet:fqdn', 'value': 'vertex.link'}):
+            newp = s_msgpack.deepcopy(cdef, use_list=True)
+            newp['modules'][1]['sections'][0]['questions'][0]['answer'] = answer
+            with self.raises(s_exc.SchemaViolation):
+                s_schemas.reqValidCourse(newp)
+
+        # a value with no type has nothing to norm against, and a type with no value has
+        # nothing to compare
+        for answer in ({}, {'value': 'vertex.link'}, {'type': 'inet:fqdn'}, {'hints': ()}):
+            newp = s_msgpack.deepcopy(cdef, use_list=True)
+            newp['modules'][1]['sections'][0]['questions'][0]['answer'] = answer
+            with self.raises(s_exc.SchemaViolation):
+                s_schemas.reqValidCourse(newp)
+
+        # a hint carries both the text it shows and the deduction it charges, so a partial
+        # entry is rejected rather than silently costing nothing
+        newp = s_msgpack.deepcopy(cdef, use_list=True)
+        newp['modules'][1]['sections'][0]['questions'][0]['answer']['hints'] = [{'body': 'text',
+                                                                                 'deduction': 1}]
+        s_schemas.reqValidCourse(newp)
+
+        for entry in ({}, {'body': 'text'}, {'deduction': 1}):
+            newp = s_msgpack.deepcopy(cdef, use_list=True)
+            newp['modules'][1]['sections'][0]['questions'][0]['answer']['hints'] = [entry]
+            with self.raises(s_exc.SchemaViolation):
+                s_schemas.reqValidCourse(newp)
+
+        # ...and it belongs to the answer, so it is withheld along with it
+        newp = s_msgpack.deepcopy(cdef, use_list=True)
+        newp['modules'][1]['sections'][0]['questions'][0]['hints'] = [{'body': 'text',
+                                                                      'deduction': 1}]
+        with self.raises(s_exc.SchemaViolation):
+            s_schemas.reqValidCourse(newp)
+
+        # what a wrong attempt costs is one number on the question
+        newp = s_msgpack.deepcopy(cdef, use_list=True)
+        newp['modules'][1]['sections'][0]['questions'][0]['deduct'] = 3
+        s_schemas.reqValidCourse(newp)
+
+        for valu in (-1, 'newp'):
+            newp = s_msgpack.deepcopy(cdef, use_list=True)
+            newp['modules'][1]['sections'][0]['questions'][0]['deduct'] = valu
+            with self.raises(s_exc.SchemaViolation):
+                s_schemas.reqValidCourse(newp)
+
+        # a question is identified by its iden and its body is the question itself, so it
+        # carries no title to label it with
+        newp = s_msgpack.deepcopy(cdef, use_list=True)
+        newp['modules'][1]['sections'][0]['questions'][0]['title'] = 'A Question'
+        with self.raises(s_exc.SchemaViolation):
+            s_schemas.reqValidCourse(newp)
+
+        # a course may carry no modules at all, since one is authored before it has any
+        newp = s_msgpack.deepcopy(cdef, use_list=True)
+        newp['modules'] = []
+        s_schemas.reqValidCourse(newp)
+
+        # ...but a quiz with no sections is not content
+        newp = s_msgpack.deepcopy(cdef, use_list=True)
+        newp['modules'][1]['sections'] = []
+        with self.raises(s_exc.SchemaViolation):
+            s_schemas.reqValidCourse(newp)
+
+        # a basic question is a labelled input with a button to submit it, so its ui takes
+        # all three of the presentation options
+        newp = s_msgpack.deepcopy(cdef, use_list=True)
+        ques = newp['modules'][1]['sections'][0]['questions'][0]
+        ques['ui'] = {'label': 'FQDN', 'placeholder': 'some.fqdn', 'buttontext': 'Go'}
+        s_schemas.reqValidCourse(newp)
+
+        # ...and the ui is closed rather than an open bag, so a key no widget takes is
+        # refused instead of carried along
+        ques['ui'] = {'label': 'FQDN', 'newp': 'newp'}
+        with self.raises(s_exc.SchemaViolation):
+            s_schemas.reqValidCourse(newp)
+
+        # ...but an answer carries no type options, since the answer type is the type of
+        # one value and never the array type
+        newp = s_msgpack.deepcopy(cdef, use_list=True)
+        newp['modules'][1]['sections'][0]['questions'][0]['answer']['typeopts'] = {'type': 'str'}
+        with self.raises(s_exc.SchemaViolation):
+            s_schemas.reqValidCourse(newp)
+
+        # a hook is a Storm query rather than an open bag, and only a quiz carries any
+        newp = s_msgpack.deepcopy(cdef, use_list=True)
+        newp['modules'][1]['hooks'] = {'viewinit': 'return($view)',
+                                       'completed': '$lib.print(hi)'}
+        s_schemas.reqValidCourse(newp)
+
+        for hooks in ({'viewinit': {'newp': 'newp'}}, {'viewinit': ''}, {'newp': 'newp'}):
+            newp['modules'][1]['hooks'] = hooks
+            with self.raises(s_exc.SchemaViolation):
+                s_schemas.reqValidCourse(newp)
+
+        # a view to work in belongs to the quiz which needs it, so a course declares none
+        newp = s_msgpack.deepcopy(cdef, use_list=True)
+        newp['viewinit'] = 'return($view)'
+        with self.raises(s_exc.SchemaViolation):
+            s_schemas.reqValidCourse(newp)
+
+        # ...and course material has nothing to run, so it carries no hooks either
+        newp = s_msgpack.deepcopy(cdef, use_list=True)
+        newp['modules'][0]['hooks'] = {'completed': '$lib.print(hi)'}
+        with self.raises(s_exc.SchemaViolation):
+            s_schemas.reqValidCourse(newp)
+
+    def test_tools_genpkg_course_question_types(self):
+        '''
+        The question type is the widget the attempt was collected with, so it decides which
+        answer fields the question carries.
+        '''
+        cdef = self.getTestCourse()
+
+        # a query run on the participant's behalf needs a view to run in
+        quesargs = {'type': 'storm', 'answer': {'checker': 'inet:fqdn=vertex.link'}}
+        with self.raises(s_exc.BadArg) as cm:
+            s_schemas.reqValidCourse(self.setTestQuestion(cdef, **quesargs))
+
+        self.isin('has a checker hook, but no viewinit hook', cm.exception.get('mesg'))
+
+        for hook in ('correct', 'incorrect', 'validate'):
+            quesargs = {'type': 'basic',
+                        'answer': {'type': 'inet:fqdn', 'value': 'vertex.link',
+                                   'hooks': {hook: '$lib.print(hi)'}}}
+            with self.raises(s_exc.BadArg) as cm:
+                s_schemas.reqValidCourse(self.setTestQuestion(cdef, **quesargs))
+
+            self.isin(f'has a {hook} hook, but no viewinit hook', cm.exception.get('mesg'))
+
+        newp = s_msgpack.deepcopy(cdef, use_list=True)
+        newp['modules'][1]['hooks'] = {'completed': '$lib.print(hi)'}
+        with self.raises(s_exc.BadArg) as cm:
+            s_schemas.reqValidCourse(newp)
+
+        self.isin('has a completed hook but no viewinit hook', cm.exception.get('mesg'))
+
+        # a wrong attempt reveals a hint, so there may not be more hints than retries
+        quesargs = {'type': 'basic', 'retries': 1,
+                    'answer': {'type': 'inet:fqdn', 'value': 'vertex.link',
+                               'hints': [{'body': 'one', 'deduction': 1},
+                                         {'body': 'two', 'deduction': 1}]}}
+        with self.raises(s_exc.BadArg) as cm:
+            s_schemas.reqValidCourse(self.setTestQuestion(cdef, **quesargs))
+
+        self.isin('more hints available than retries allowed', cm.exception.get('mesg'))
+
+        cdef['modules'][1]['hooks'] = {'viewinit': 'return($lib.view.get().iden)'}
+
+        def reqValid(**edits):
+            return s_schemas.reqValidCourse(self.setTestQuestion(cdef, **edits))
+
+        # a question which does not match the branch its type names fails the whole choice,
+        # and a module is itself one branch of a choice, so the failure surfaces at the
+        # module rather than naming the field which is actually wrong
+        def reqInvalid(mesg='data.modules[1] cannot be validated by any definition', **edits):
+            with self.raises(s_exc.SchemaViolation) as cm:
+                s_schemas.reqValidCourse(self.setTestQuestion(cdef, **edits))
+
+            self.isin(mesg, cm.exception.get('mesg'))
+
+        # a storm question is the only type graded by a query, which is a field of the answer
+        # and is handed the type along with the attempt
+        reqValid(type='storm', answer={'checker': 'return(({"correct": (true)}))',
+                                       'type': 'inet:fqdn'})
+
+        # ...so no other type carries one, whether or not it has a value to compare as well
+        for qtype in ('basic', 'yesorno', 'multi', 'choice'):
+            edits = {'type': qtype, 'answer': {'checker': 'return(({"correct": (true)}))',
+                                               'type': 'inet:fqdn'}}
+            if qtype == 'choice':
+                edits['choices'] = [{'value': 'vertex.link'}]
+
+            reqInvalid(**edits)
+
+            edits['answer'] = {'checker': 'return(({"correct": (true)}))',
+                               'type': 'inet:fqdn',
+                               'value': ['vertex.link'] if qtype in ('multi', 'choice') else 'vertex.link'}
+            reqInvalid(**edits)
+
+        # the answers each type does carry, which is what the rest of these check
+        answers = {
+            'basic': {'type': 'inet:fqdn', 'value': 'vertex.link'},
+            'yesorno': {'value': True},
+            'storm': {'checker': 'inet:fqdn=vertex.link'},
+            'multi': {'type': 'inet:fqdn', 'value': ['vertex.link']},
+            'choice': {'type': 'inet:fqdn', 'value': ['vertex.link']},
+        }
+
+        # the hooks which run once an attempt has been graded belong to every type, since
+        # any question may show the participant something on the way it went
+        for (qtype, answer) in answers.items():
+            edits = {'type': qtype,
+                     'answer': {**answer, 'hooks': {'correct': '$lib.print(yup)',
+                                                    'incorrect': '$lib.print(newp)',
+                                                    'validate': 'inet:fqdn=vertex.link'}}}
+            if qtype == 'choice':
+                edits['choices'] = [{'value': 'vertex.link'}]
+
+            reqValid(**edits)
+
+        # the fields which do not depend on the widget are carried by every type, and each
+        # type is closed, so a field which is neither one of those nor one of its own is
+        # rejected whichever type it is
+        for (qtype, answer) in answers.items():
+            edits = {'type': qtype, 'retries': 2, 'deduct': 1,
+                     'answer': {**answer, 'hints': [{'body': 'a hint', 'deduction': 1}]}}
+            if qtype == 'choice':
+                edits['choices'] = [{'value': 'vertex.link'}]
+
+            reqValid(**edits)
+            reqInvalid(newp='newp', **edits)
+
+        # a ui, by contrast, does depend on the widget: each type declares its own and
+        # closes it, so an option belonging to another type's widget is refused rather than
+        # carried along and ignored
+        uiopts = {
+            'basic': ('label', 'placeholder', 'buttontext'),
+            'multi': ('label', 'placeholder', 'buttontext'),
+            'choice': ('buttontext',),
+            'storm': ('buttontext',),
+            'yesorno': (),
+        }
+
+        for (qtype, answer) in answers.items():
+            edits = {'type': qtype, 'answer': answer}
+            if qtype == 'choice':
+                edits['choices'] = [{'value': 'vertex.link'}]
+
+            takes = uiopts.get(qtype)
+
+            if takes:
+                reqValid(ui={key: 'valu' for key in takes}, **edits)
+            else:
+                # a yesorno is two fixed buttons, with nothing to label and no button of its
+                # own to name, so it declares no ui and an empty one is as invalid as an
+                # option in one
+                reqInvalid(ui={}, **edits)
+
+            for key in ('label', 'placeholder', 'buttontext', 'newp'):
+
+                if key in takes:
+                    continue
+
+                reqInvalid(ui={key: 'valu'}, **edits)
+
+        # a basic question is one text input, so it is answered with one value of one type
+        reqValid(type='basic', answer={'type': 'inet:fqdn', 'value': 'vertex.link'})
+
+        # ...never with a list of them, and it offers nothing to choose from
+        reqInvalid(type='basic', answer={'type': 'inet:fqdn', 'value': ['vertex.link']})
+        reqInvalid(type='basic', answer={'type': 'array', 'value': ['vertex.link']})
+        reqInvalid(type='basic', choices=[{'value': 'vertex.link'}],
+                   answer={'type': 'inet:fqdn', 'value': 'vertex.link'})
+
+        # a yes or no question is two buttons, so the attempt is normed as a bool. The
+        # buttons are the type, so the answer declares none of its own.
+        for valu in (True, False):
+            reqValid(type='yesorno', answer={'value': valu})
+
+        reqInvalid(type='yesorno', answer={'type': 'bool', 'value': True})
+        reqInvalid(type='yesorno', answer={'type': 'inet:fqdn', 'value': 'vertex.link'})
+        reqInvalid(type='yesorno', choices=[{'value': 'yup'}], answer={'value': True})
+
+        # ...and the value is the bool itself rather than one of the values the bool type
+        # norms as one
+        for valu in ('false', 'true', 0, 1):
+            reqInvalid(type='yesorno', answer={'value': valu})
+
+        # a storm question is answered by the work the participant does in the view, so
+        # there is no attempt to compare and only its checker can grade it
+        reqValid(type='storm', answer={'checker': 'inet:fqdn=vertex.link'})
+
+        reqInvalid(type='storm', answer={'type': 'inet:fqdn', 'value': 'vertex.link'})
+        reqInvalid(type='storm', choices=[{'value': 'vertex.link'}],
+                   answer={'checker': 'inet:fqdn=vertex.link'})
+
+        # ...and the checker sits alongside the hooks on the answer rather than among them,
+        # which only run once an attempt has been graded
+        reqInvalid(type='storm', answer={'hooks': {'attempt': 'inet:fqdn=vertex.link'}})
+
+        # the hooks are the answer's, so a question carries none of its own
+        reqInvalid(type='storm', answer={'checker': 'inet:fqdn=vertex.link'},
+                   hooks={'correct': '$lib.print(yup)'})
+
+        # ...and they are closed, so the author query is only reachable by its own name
+        reqInvalid(type='storm', answer={'checker': 'inet:fqdn=vertex.link',
+                                        'hooks': {'authorcheck': 'inet:fqdn=vertex.link'}})
+
+        # a multi question is a list editor the participant fills in themselves, so the
+        # answer is a list of values and the type is the type of one of them
+        reqValid(type='multi', answer={'type': 'inet:fqdn',
+                                      'value': ['vertex.link', 'synapse.vertex.link']})
+
+        reqInvalid(type='multi', answer={'type': 'array', 'value': ['vertex.link']})
+        reqInvalid(type='multi', answer={'type': 'inet:fqdn', 'value': ['vertex.link'],
+                                        'typeopts': {'type': 'inet:fqdn'}})
+        reqInvalid(type='multi', answer={'value': ['vertex.link']})
+        reqInvalid(type='multi', answer={'type': 'inet:fqdn', 'value': 'vertex.link'})
+        reqInvalid(type='multi', choices=[{'value': 'vertex.link'}],
+                   answer={'type': 'inet:fqdn', 'value': ['vertex.link']})
+
+        # a choice question offers the choices it declares, one of which is correct when
+        # the answer is a single value and more than one when it is an array
+        reqValid(type='choice', choices=[{'value': 'vertex.link'}, {'value': 'newp.link'}],
+                 answer={'type': 'inet:fqdn', 'value': ['vertex.link']})
+
+        reqValid(type='choice', choices=[{'value': 'vertex.link'}, {'value': 'newp.link'}],
+                 answer={'type': 'inet:fqdn', 'value': ['vertex.link', 'newp.link']})
+
+        # ...so a choice question with nothing to choose from is not a question
+        reqInvalid(type='choice', answer={'type': 'inet:fqdn', 'value': ['vertex.link']})
+        reqInvalid(type='choice', choices=[],
+                   answer={'type': 'inet:fqdn', 'value': ['vertex.link']})
+
+        # ...and the participant picks from a list either way, so a single correct choice is
+        # a list of one rather than the value itself
+        reqInvalid(type='choice', choices=[{'value': 'vertex.link'}],
+                   answer={'type': 'inet:fqdn', 'value': 'vertex.link'})
 
     async def test_tools_genpkg_signas(self):
 

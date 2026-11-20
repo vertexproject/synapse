@@ -776,16 +776,20 @@ class CellTest(s_t_utils.SynTest):
                 host, port = await echo.dmon.listen('tcp://127.0.0.1:0/')
 
                 url = f'tcp://127.0.0.1:{port}/echo00'
-                await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
+                with self.raises(s_exc.AuthDeny):
+                    await s_telepath.openurl(url)
 
                 url = f'tcp://fake@127.0.0.1:{port}/echo00'
-                await self.asyncraises(s_exc.NoSuchUser, s_telepath.openurl(url))
+                with self.raises(s_exc.NoSuchUser):
+                    await s_telepath.openurl(url)
 
                 url = f'tcp://root@127.0.0.1:{port}/echo00'
-                await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
+                with self.raises(s_exc.AuthDeny):
+                    await s_telepath.openurl(url)
 
                 url = f'tcp://root:newpnewp@127.0.0.1:{port}/echo00'
-                await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
+                with self.raises(s_exc.AuthDeny):
+                    await s_telepath.openurl(url)
 
                 root_url = f'tcp://root:secretsauce@127.0.0.1:{port}/echo00'
                 async with await s_telepath.openurl(root_url) as proxy:
@@ -847,12 +851,16 @@ class CellTest(s_t_utils.SynTest):
 
                     # User cannot get authinfo for other items since they are
                     # not an admin or do not have those roles.
-                    await self.asyncraises(s_exc.AuthDeny, proxy.getUserInfo('root'))
-                    await self.asyncraises(s_exc.AuthDeny, proxy.getRoleInfo('privrole'))
+                    with self.raises(s_exc.AuthDeny):
+                        await proxy.getUserInfo('root')
+
+                    with self.raises(s_exc.AuthDeny):
+                        await proxy.getRoleInfo('privrole')
 
                     # Basic auth checks
                     self.true(await proxy.icando('foo', 'bar'))
-                    await self.asyncraises(s_exc.AuthDeny, proxy.icando('foo', 'newp'))
+                    with self.raises(s_exc.AuthDeny):
+                        await proxy.icando('foo', 'newp')
 
                     # visi user can change visi user pass
                     await proxy.setUserPasswd(visi.iden, 'foobar')
@@ -911,8 +919,8 @@ class CellTest(s_t_utils.SynTest):
                     await proxy.setUserLocked(visi.iden, True)
                     info = await proxy.getUserInfo('visi')
                     self.true(info.get('locked'))
-                    await self.asyncraises(s_exc.AuthDeny,
-                                           s_telepath.openurl(visi_url))
+                    with self.raises(s_exc.AuthDeny):
+                        await s_telepath.openurl(visi_url)
 
                     await proxy.setUserLocked(visi.iden, False)
                     info = await proxy.getUserInfo('visi')
@@ -922,8 +930,9 @@ class CellTest(s_t_utils.SynTest):
 
                 async with await s_telepath.openurl(root_url) as proxy:  # type: EchoAuthApi
 
-                    await self.asyncraises(s_exc.NoSuchUser,
-                                           proxy.setUserArchived('newp', True))
+                    with self.raises(s_exc.NoSuchUser):
+                        await proxy.setUserArchived('newp', True)
+
                     await proxy.setUserArchived(visi.iden, True)
                     info = await proxy.getUserInfo('visi')
                     self.true(info.get('archived'))
@@ -932,8 +941,8 @@ class CellTest(s_t_utils.SynTest):
                     self.len(1, users)
                     users = await proxy.getAuthUsers(archived=True)
                     self.len(2, users)
-                    await self.asyncraises(s_exc.AuthDeny,
-                                           s_telepath.openurl(visi_url))
+                    with self.raises(s_exc.AuthDeny):
+                        await s_telepath.openurl(visi_url)
 
                     await proxy.setUserArchived(visi.iden, False)
                     info = await proxy.getUserInfo('visi')
@@ -942,8 +951,8 @@ class CellTest(s_t_utils.SynTest):
                     users = await proxy.getAuthUsers(archived=True)
                     self.len(2, users)
 
-                    await self.asyncraises(s_exc.AuthDeny,
-                                           s_telepath.openurl(visi_url))
+                    with self.raises(s_exc.AuthDeny):
+                        await s_telepath.openurl(visi_url)
 
                 # Ensure we can delete a rule by its item and index position
                 async with echo.getLocalProxy() as proxy:  # type: EchoAuthApi
@@ -1005,7 +1014,8 @@ class CellTest(s_t_utils.SynTest):
                     self.true(await proxy.allowed(('hehe', 'haha')))
 
                 url = f'tcp://root@127.0.0.1:{port}/'
-                await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
+                with self.raises(s_exc.AuthDeny):
+                    await s_telepath.openurl(url)
 
             os.unlink(s_common.genpath(dirn, 'cell.yaml'))
             # Pass the auth data in via conf directly
@@ -1296,12 +1306,15 @@ class CellTest(s_t_utils.SynTest):
                     self.eq(42, await prox.dyncall('self', s_common.todo('answer')))
                     await stream.expect('Cell.dyncall() is deprecated and will be removed on 2027-01-01.')
 
-                await self.asyncraises(s_exc.BadArg, prox.dyncall('self', s_common.todo('badanswer')))
+                with self.raises(s_exc.BadArg):
+                    await prox.dyncall('self', s_common.todo('badanswer'))
 
                 self.eq([1, 2], await s_t_utils.alist(await prox.dyncall('self', s_common.todo('stream'))))
 
                 todo = s_common.todo('stream', doraise=True)
-                await self.agenraises(s_exc.BadTime, await prox.dyncall('self', todo))
+                genr = await prox.dyncall('self', todo)
+                with self.raises(s_exc.BadTime):
+                    await s_t_utils.alist(genr)
 
                 items = []
                 todo = s_common.todo('stream', doraise=False)
@@ -1584,7 +1597,8 @@ class CellTest(s_t_utils.SynTest):
                 async with cell.getLocalProxy() as prox:
 
                     # trim raises because we cannot cull at the rotated offset
-                    await self.asyncraises(s_exc.BadConfValu, prox.trimNexsLog())
+                    with self.raises(s_exc.BadConfValu):
+                        await prox.trimNexsLog()
 
                     # we can still manually cull
                     offs = await prox.rotateNexsLog()
@@ -1604,7 +1618,8 @@ class CellTest(s_t_utils.SynTest):
 
                     self.eq(0, await prox.rotateNexsLog())
                     self.false(await prox.cullNexsLog(3))
-                    await self.asyncraises(s_exc.BadConfValu, prox.trimNexsLog())
+                    with self.raises(s_exc.BadConfValu):
+                        await prox.trimNexsLog()
 
     async def test_cell_nexusrotate(self):
 
@@ -1749,10 +1764,8 @@ class CellTest(s_t_utils.SynTest):
                 with self.getLoggerStream('synapse.lib.cell') as stream:
                     async with await s_cell.Cell.initFromArgv([dirn]):
                         pass
-                stream.seek(0)
-                buf = stream.read()
-                self.isin('...cell API (telepath): tcp://127.0.0.1:0', buf)
-                self.isin('...cell API (https): 0', buf)
+                await stream.expect('...cell API (telepath): tcp://127.0.0.1:0')
+                await stream.expect('...cell API (https): 0')
 
                 conf = {
                     'dmon:listen': 'tcp://0.0.0.0:0',
@@ -1763,10 +1776,8 @@ class CellTest(s_t_utils.SynTest):
                 with self.getLoggerStream('synapse.lib.cell') as stream:
                     async with await s_cell.Cell.initFromArgv([dirn]):
                         pass
-                stream.seek(0)
-                buf = stream.read()
-                self.isin('...cell API (telepath): tcp://0.0.0.0:0', buf)
-                self.isin('...cell API (https): disabled', buf)
+                await stream.expect('...cell API (telepath): tcp://0.0.0.0:0')
+                await stream.expect('...cell API (https): disabled')
 
     async def test_cell_initargv_conf(self):
         async with self.withSetLoggingMock():
@@ -2988,8 +2999,7 @@ class CellTest(s_t_utils.SynTest):
                     self.nn(optimized['fini']['size'])
                     self.le(optimized['init']['time'], optimized['fini']['time'])
 
-            stream.seek(0)
-            self.isin('onboot optimization complete!', stream.read())
+            await stream.expect('onboot optimization complete!')
 
             stat01 = os.stat(lmdbfile)
             self.ne(stat00.st_ino, stat01.st_ino)
@@ -3019,7 +3029,7 @@ class CellTest(s_t_utils.SynTest):
                 stream.seek(0)
                 buf = stream.read()
                 self.notin('onboot optimization complete!', buf)
-                self.isin('not on the same volume', buf)
+                await stream.expect('not on the same volume')
 
             # Local backup files are skipped
             async with self.getTestCore(dirn=dirn) as core:
@@ -3031,10 +3041,8 @@ class CellTest(s_t_utils.SynTest):
                 async with self.getTestCore(dirn=dirn, conf=conf) as core:
                     pass
 
-            stream.seek(0)
-            buf = stream.read()
-            self.isin('Skipping backup file', buf)
-            self.isin('onboot optimization complete!', buf)
+            await stream.expect('Skipping backup file')
+            await stream.expect('onboot optimization complete!')
 
             # Verify the per-slab progress heartbeat logs while a slab copy is
             # still in-flight, so long-running optimizations are not silent.
@@ -3053,11 +3061,9 @@ class CellTest(s_t_utils.SynTest):
                     async with self.getTestCore(dirn=dirn, conf=conf) as core:
                         pass
 
-            stream.seek(0)
-            buf = stream.read()
-            self.isin('still optimizing', buf)
-            self.isin('finished optimizing', buf)
-            self.isin('onboot optimization complete!', buf)
+            await stream.expect('still optimizing')
+            await stream.expect('finished optimizing')
+            await stream.expect('onboot optimization complete!')
 
     async def test_cell_gc(self):
         async with self.getTestCore() as core:
@@ -3667,9 +3673,7 @@ class CellTest(s_t_utils.SynTest):
             self.eq(exc.exception.get('currver'), oldverstr)
             self.eq(exc.exception.get('lastver'), newverstr)
 
-            stream.seek(0)
-            data = stream.read()
-            self.isin(mesg, data)
+            await stream.expect(mesg)
 
             async with self.getTestCell(TestCell, dirn=dirn):
                 pass
@@ -3702,9 +3706,7 @@ class CellTest(s_t_utils.SynTest):
             self.eq(exc.exception.get('currver'), lowerversion)
             self.eq(exc.exception.get('lastver'), '99.0.0')
 
-            stream.seek(0)
-            data = stream.read()
-            self.isin(mesg, data)
+            await stream.expect(mesg)
 
         # Legacy tuple stored in synapse:version passes through parse() on upgrade
         with self.getTestDir() as dirn:

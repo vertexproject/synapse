@@ -1761,6 +1761,7 @@ class LibUsers(s_stormtypes.Lib):
 
     async def _methUsersDel(self, iden):
         self.runt.confirm(('auth', 'user', 'del'))
+        iden = await s_stormtypes.tostr(iden)
         await self.runt.view.core.delUser(iden)
 
 @s_stormtypes.registry.registerLib
@@ -1839,6 +1840,7 @@ class LibRoles(s_stormtypes.Lib):
 
     async def _methRolesAdd(self, name, iden=None):
         self.runt.confirm(('auth', 'role', 'add'))
+        name = await s_stormtypes.tostr(name)
         iden = await s_stormtypes.tostr(iden, noneok=True)
         rdef = await self.runt.view.core.addRole(name, iden=iden)
         return Role(self.runt, rdef['iden'])

@@ -2,7 +2,7 @@
 
 Synapse is a versatile central intelligence system created to support analyst teams in every stage of the intelligence life cycle.
 
-[![codecov](https://codecov.io/gh/vertexproject/synapse/branch/master/graph/badge.svg?branch=master)](https://v.vtx.lk/synapse-codecov) [![circleci](https://circleci.com/gh/vertexproject/synapse/tree/master.svg?style=svg)](https://v.vtx.lk/synapse-circleci)
+[![circleci](https://circleci.com/gh/vertexproject/synapse/tree/master.svg?style=svg)](https://v.vtx.lk/synapse-circleci)
 
 ## Learn More About Synapse
 

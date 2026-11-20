@@ -14,6 +14,12 @@ modeldefs = (
         'types': (
 
             ('crypto:currency:chain', ('guid', {}), {
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'symbol'}},
+                        {'type': 'prop', 'opts': {'name': 'id'}},
+                    ),
+                },
                 'props': (
                     ('id', ('base:id', {}), {
                         'ex': 'eip155:8453',
@@ -415,6 +421,12 @@ modeldefs = (
                     ('econ:pay:instrument', {}),
                     ('meta:observable', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'chain::symbol'}},
+                        {'type': 'prop', 'opts': {'name': 'iden'}},
+                    ),
+                },
                 'props': (
 
                     ('chain', ('crypto:currency:chain', {}), {
@@ -509,6 +521,26 @@ modeldefs = (
                 ),
                 'props': (),
                 'doc': 'A hex encoded SHA512 hash.'}),
+
+            ('crypto:hash:lm', ('hex', {'size': 32}), {
+                'ex': 'aad3b435b51404eeaad3b435b51404ee',
+                'template': {'title': 'LM hash'},
+                'interfaces': (
+                    ('crypto:hash', {}),
+                    ('meta:observable', {}),
+                ),
+                'props': (),
+                'doc': 'A hex encoded Microsoft LAN Manager (LM) password hash.'}),
+
+            ('crypto:hash:ntlm', ('hex', {'size': 32}), {
+                'ex': '31d6cfe0d16ae931b73c59d7e0c089c0',
+                'template': {'title': 'NTLM hash'},
+                'interfaces': (
+                    ('crypto:hash', {}),
+                    ('meta:observable', {}),
+                ),
+                'props': (),
+                'doc': 'A hex encoded Microsoft NT LAN Manager (NTLM) password hash.'}),
 
             ('crypto:hash:ssdeep', ('str', {'strip': True,
                                             'regex': r'^([3-9]|[1-9]\d+):[A-Za-z0-9+/]{0,64}:[A-Za-z0-9+/]{0,64}$'}), {

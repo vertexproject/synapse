@@ -111,9 +111,15 @@ class GeoTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
+            display = core.model.type('geo:place').info.get('display')
+            self.eq(['name', 'desc', 'country:code', 'latlong'],
+                    [col['opts']['name'] for col in display['columns']])
+
             # Latitude Type Tests =====================================================================================
             t = core.model.type(formlat)
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('-90.1'))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('-90.1')
+
             self.eq((await t.norm('-90'))[0], -90.0)
             self.eq((await t.norm('-12.345678901234567890'))[0], -12.34567890123456789)
             self.eq((await t.norm('-0'))[0], 0.0)
@@ -121,20 +127,28 @@ class GeoTest(s_t_utils.SynTest):
             self.eq((await t.norm('12.345678901234567890'))[0], 12.34567890123456789)
             self.eq((await t.norm('90'))[0], 90.0)
             self.eq((await t.norm('39.94891608'))[0], 39.94891608)
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('90.1'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('newp'))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('90.1')
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('newp')
 
             # Longitude Type Tests =====================================================================================
             t = core.model.type(formlon)
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('-180.0'))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('-180.0')
+
             self.eq((await t.norm('-12.345678901234567890'))[0], -12.34567890123456789)
             self.eq((await t.norm('-0'))[0], 0.0)
             self.eq((await t.norm('0'))[0], 0.0)
             self.eq((await t.norm('12.345678901234567890'))[0], 12.34567890123456789)
             self.eq((await t.norm('180'))[0], 180.0)
             self.eq((await t.norm('39.94891608'))[0], 39.94891608)
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('180.1'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('newp'))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('180.1')
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('newp')
 
             # Latlong Type Tests =====================================================================================
             t = core.model.type(formlatlon)
@@ -182,7 +196,8 @@ class GeoTest(s_t_utils.SynTest):
             self.eqish(result[0][0], 45.78111111111111)
             self.eqish(result[0][1], 13.5125)
 
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('not valid dms'))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('not valid dms')
 
             # Geo-dist tests
             formname = 'phys:distance'
@@ -217,8 +232,11 @@ class GeoTest(s_t_utils.SynTest):
             self.eq(t.repr(10000), '10.0 m')
             self.eq(t.repr(1000000), '1.0 km')
 
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('1.3 pc'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('foo'))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('1.3 pc')
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('foo')
 
             # geo:place
 

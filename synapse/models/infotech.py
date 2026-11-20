@@ -871,6 +871,10 @@ modeldefs = (
                     ('id', ('base:id', {}), {
                         'doc': 'An external identifier for the host.'}),
 
+                    ('identifiers', ('it:host:identifier', {}), {
+                        'array': {},
+                        'doc': 'Additional identifiers for the host.'}),
+
                     ('keyboard:layout', ('base:name', {}), {
                         'doc': 'The primary keyboard layout configured on the host.'}),
 
@@ -895,7 +899,7 @@ modeldefs = (
                 'template': {'title': 'virtual host'},
                 'props': (
                     ('parent', ('it:host', {}), {
-                        'doc': 'The host which runs the virtual host.'}),
+                        'doc': 'The host which runs the {title}.'}),
                 ),
                 'doc': 'A host which runs as a virtualized instance.'}),
 
@@ -919,6 +923,14 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                        {'type': 'prop', 'opts': {'name': 'host::name'}},
+                        {'type': 'prop', 'opts': {'name': 'service:platform::name'}},
+                        {'type': 'prop', 'opts': {'name': 'mesg'}},
+                    ),
+                },
                 'props': (
                     ('mesg', ('text', {}), {
                         'doc': 'The log message text.'}),
@@ -1130,6 +1142,13 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                        {'type': 'prop', 'opts': {'name': 'host::name'}},
+                        {'type': 'prop', 'opts': {'name': 'image::sha256'}},
+                    ),
+                },
                 'props': (
                     ('image', ('file:bytes', {}), {
                         'doc': 'The image file.'}),
@@ -1145,6 +1164,14 @@ modeldefs = (
                     ('it:host:event', {}),
                     ('geo:locatable', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                        {'type': 'prop', 'opts': {'name': 'host::name'}},
+                        {'type': 'prop', 'opts': {'name': 'place:country:code'}},
+                        {'type': 'prop', 'opts': {'name': 'place:latlong'}},
+                    ),
+                },
                 'props': (
 
                     ('request', ('inet:proto:request', {}), {
@@ -1634,6 +1661,14 @@ modeldefs = (
                     ('meta:observable', {}),
                     ('risk:exploitable', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'names'}},
+                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                        {'type': 'prop', 'opts': {'name': 'tag'}},
+                    ),
+                },
                 'props': (
                     ('id', (
                         ('it:mitre:attack:software:id', {}),
@@ -1681,6 +1716,10 @@ modeldefs = (
                 'doc': 'A software product, tool, or script.'}),
 
             ('it:softwarename', ('base:name', {}), {
+                'template': {'title': 'software name'},
+                'interfaces': (
+                    ('meta:observable', {}),
+                ),
                 'modes': {
                     'lookup': [
                         {'cmpr': '^='}
@@ -1725,6 +1764,13 @@ modeldefs = (
                     ('biz:manufactured', {}),
                     ('risk:exploitable', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                        {'type': 'prop', 'opts': {'name': 'type'}},
+                    ),
+                },
                 'props': (
                     ('type', ('it:hardware:type:taxonomy', {}), {
                         'doc': 'The type of hardware.'}),
@@ -1839,6 +1885,9 @@ modeldefs = (
 
                     ('imsi', ('tel:mob:imsi', {}), {
                         'doc': 'The IMSI of the subscriber associated with the {title}.'}),
+
+                    ('phone', ('tel:phone', {}), {
+                        'doc': 'The phone number associated with the {title}.'}),
                 ),
                 'doc': 'A SIM card.'}),
 
@@ -1854,6 +1903,7 @@ modeldefs = (
                 'interfaces': (
                     ('meta:observable', {}),
                     ('entity:identifier', {}),
+                    ('it:host:identifier', {}),
                 ),
                 'props': (),
                 'doc': 'An advertising identification string.'}),
@@ -1895,6 +1945,14 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                        {'type': 'prop', 'opts': {'name': 'host::name'}},
+                        {'type': 'prop', 'opts': {'name': 'target::displayname'}},
+                        {'type': 'prop', 'opts': {'name': 'target::imagepath'}},
+                    ),
+                },
                 'props': (
                     ('target', ('it:os:windows:service', {}), {
                         'doc': 'The service which was added.'}),
@@ -1905,6 +1963,14 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                        {'type': 'prop', 'opts': {'name': 'host::name'}},
+                        {'type': 'prop', 'opts': {'name': 'target::displayname'}},
+                        {'type': 'prop', 'opts': {'name': 'target::imagepath'}},
+                    ),
+                },
                 'props': (
                     ('target', ('it:os:windows:service', {}), {
                         'doc': 'The service which was removed.'}),
@@ -2127,6 +2193,9 @@ modeldefs = (
 
                     ('parent', ('it:exec:proc', {}), {
                         'doc': 'The parent process which created this process.'}),
+
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'}),
                 ),
                 'doc': 'A process executing on a host.'}),
 
@@ -2135,6 +2204,14 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                        {'type': 'prop', 'opts': {'name': 'host::name'}},
+                        {'type': 'prop', 'opts': {'name': 'proc::name'}},
+                        {'type': 'prop', 'opts': {'name': 'target::name'}},
+                    ),
+                },
                 'props': (
                     ('target', ('it:exec:proc', {}), {
                         'doc': 'The process which was created.'}),
@@ -2146,6 +2223,14 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                        {'type': 'prop', 'opts': {'name': 'host::name'}},
+                        {'type': 'prop', 'opts': {'name': 'proc::name'}},
+                        {'type': 'prop', 'opts': {'name': 'target::name'}},
+                    ),
+                },
                 'props': (
                     ('signal', ('int', {}), {
                         'doc': 'The POSIX signal which was sent to the target process.'}),
@@ -2160,6 +2245,14 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                        {'type': 'prop', 'opts': {'name': 'host::name'}},
+                        {'type': 'prop', 'opts': {'name': 'proc::name'}},
+                        {'type': 'prop', 'opts': {'name': 'target::name'}},
+                    ),
+                },
                 'props': (
                     ('target', ('it:exec:proc', {}), {
                         'doc': 'The process which was terminated.'}),
@@ -2177,6 +2270,12 @@ modeldefs = (
 
                     ('exitcode', ('int', {}), {
                         'doc': 'The exit code or return value for the thread.'}),
+
+                    ('exe', ('file:bytes', {}), {
+                        'doc': 'The executable file which caused the thread.'}),
+
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'}),
                 ),
                 'doc': 'A thread executing in a process.'}),
 
@@ -2207,6 +2306,14 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                        {'type': 'prop', 'opts': {'name': 'host::name'}},
+                        {'type': 'prop', 'opts': {'name': 'path'}},
+                        {'type': 'prop', 'opts': {'name': 'file::sha256'}},
+                    ),
+                },
                 'props': (
                     ('proc', ('it:exec:proc', {}), {
                         'doc': 'The process where the library was loaded.'}),
@@ -2230,6 +2337,14 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                        {'type': 'prop', 'opts': {'name': 'host::name'}},
+                        {'type': 'prop', 'opts': {'name': 'path'}},
+                        {'type': 'prop', 'opts': {'name': 'file::sha256'}},
+                    ),
+                },
                 'props': (
                     ('proc', ('it:exec:proc', {}), {
                         'doc': 'The process where the library was unloaded.'}),
@@ -2338,6 +2453,12 @@ modeldefs = (
 
                     ('output', ('text', {}), {
                         'doc': 'The output of the command.'}),
+
+                    ('exe', ('file:bytes', {}), {
+                        'doc': 'The executable file which caused the command execution.'}),
+
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'}),
                 ),
                 'doc': 'A single command executed within a session.'}),
 
@@ -2350,6 +2471,14 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                        {'type': 'prop', 'opts': {'name': 'host::name'}},
+                        {'type': 'prop', 'opts': {'name': 'text'}},
+                        {'type': 'prop', 'opts': {'name': 'api:url'}},
+                    ),
+                },
                 'props': (
                     ('text', ('it:query', {}), {
                         'doc': 'The query string that was executed.'}),
@@ -2384,6 +2513,13 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                        {'type': 'prop', 'opts': {'name': 'host::name'}},
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                    ),
+                },
                 'props': (
                     ('proc', ('it:exec:proc', {}), {
                         'doc': 'The process that created the mutex.'}),
@@ -2410,6 +2546,13 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                        {'type': 'prop', 'opts': {'name': 'host::name'}},
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                    ),
+                },
                 'props': (
                     ('proc', None, {
                         'doc': 'The main process executing code that created the named pipe.'}),
@@ -2433,6 +2576,13 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                        {'type': 'prop', 'opts': {'name': 'host::name'}},
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                    ),
+                },
                 'props': (
                     ('proc', None, {
                         'doc': 'The main process executing code that deleted the named pipe.'}),
@@ -2456,6 +2606,13 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                        {'type': 'prop', 'opts': {'name': 'host::name'}},
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                    ),
+                },
                 'props': (
                     ('proc', None, {
                         'doc': 'The main process executing code that read from the named pipe.'}),
@@ -2479,6 +2636,13 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                        {'type': 'prop', 'opts': {'name': 'host::name'}},
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                    ),
+                },
                 'props': (
                     ('proc', None, {
                         'doc': 'The main process executing code that wrote to the named pipe.'}),
@@ -2502,6 +2666,13 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                        {'type': 'prop', 'opts': {'name': 'host::name'}},
+                        {'type': 'prop', 'opts': {'name': 'url'}},
+                    ),
+                },
                 'props': (
                     ('proc', ('it:exec:proc', {}), {
                         'doc': 'The main process executing code that requested the URL.'}),
@@ -2556,6 +2727,13 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                        {'type': 'prop', 'opts': {'name': 'host::name'}},
+                        {'type': 'prop', 'opts': {'name': 'server'}},
+                    ),
+                },
                 'props': (
                     ('proc', ('it:exec:proc', {}), {
                         'doc': 'The main process executing code that bound the listening port.'}),
@@ -2583,6 +2761,14 @@ modeldefs = (
                     ('file:entry', {}),
                     ('it:host:event', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                        {'type': 'prop', 'opts': {'name': 'host::name'}},
+                        {'type': 'prop', 'opts': {'name': 'path'}},
+                        {'type': 'prop', 'opts': {'name': 'file::sha256'}},
+                    ),
+                },
                 'props': (
                     ('proc', ('it:exec:proc', {}), {
                         'doc': 'The main process executing code that created the new file.'}),
@@ -2607,6 +2793,14 @@ modeldefs = (
                     ('file:entry', {}),
                     ('it:host:event', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                        {'type': 'prop', 'opts': {'name': 'host::name'}},
+                        {'type': 'prop', 'opts': {'name': 'path'}},
+                        {'type': 'prop', 'opts': {'name': 'file::sha256'}},
+                    ),
+                },
                 'props': (
                     ('proc', ('it:exec:proc', {}), {
                         'doc': 'The main process executing code that deleted the file.', }),
@@ -2631,6 +2825,14 @@ modeldefs = (
                     ('file:entry', {}),
                     ('it:host:event', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                        {'type': 'prop', 'opts': {'name': 'host::name'}},
+                        {'type': 'prop', 'opts': {'name': 'path'}},
+                        {'type': 'prop', 'opts': {'name': 'file::sha256'}},
+                    ),
+                },
                 'props': (
                     ('proc', ('it:exec:proc', {}), {
                         'doc': 'The main process executing code that read the file.'}),
@@ -2655,6 +2857,14 @@ modeldefs = (
                     ('file:entry', {}),
                     ('it:host:event', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                        {'type': 'prop', 'opts': {'name': 'host::name'}},
+                        {'type': 'prop', 'opts': {'name': 'path'}},
+                        {'type': 'prop', 'opts': {'name': 'file::sha256'}},
+                    ),
+                },
                 'props': (
                     ('proc', ('it:exec:proc', {}), {
                         'doc': 'The main process executing code that wrote to / modified the existing file.'}),
@@ -2678,6 +2888,15 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                        {'type': 'prop', 'opts': {'name': 'host::name'}},
+                        {'type': 'prop', 'opts': {'name': 'entry::key'}},
+                        {'type': 'prop', 'opts': {'name': 'entry::name'}},
+                        {'type': 'prop', 'opts': {'name': 'entry::value'}},
+                    ),
+                },
                 'props': (
                     ('proc', ('it:exec:proc', {}), {
                         'doc': 'The main process executing code that read the registry.'}),
@@ -2704,6 +2923,15 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                        {'type': 'prop', 'opts': {'name': 'host::name'}},
+                        {'type': 'prop', 'opts': {'name': 'entry::key'}},
+                        {'type': 'prop', 'opts': {'name': 'entry::name'}},
+                        {'type': 'prop', 'opts': {'name': 'entry::value'}},
+                    ),
+                },
                 'props': (
                     ('proc', ('it:exec:proc', {}), {
                         'doc': 'The main process executing code that wrote to the registry.'}),
@@ -2730,6 +2958,15 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'time'}},
+                        {'type': 'prop', 'opts': {'name': 'host::name'}},
+                        {'type': 'prop', 'opts': {'name': 'entry::key'}},
+                        {'type': 'prop', 'opts': {'name': 'entry::name'}},
+                        {'type': 'prop', 'opts': {'name': 'entry::value'}},
+                    ),
+                },
                 'props': (
                     ('proc', ('it:exec:proc', {}), {
                         'doc': 'The main process executing code that deleted data from the registry.'}),
@@ -2754,6 +2991,14 @@ modeldefs = (
             ('it:app:yara:rule', ('meta:rule', {}), {
 
                 'template': {'title': 'YARA rule', 'syntax': 'yara'},
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'created'}},
+                        {'type': 'prop', 'opts': {'name': 'creator:name'}},
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'text'}},
+                    ),
+                },
                 'props': (),
                 'doc': 'A YARA rule.'}),
 
@@ -3046,17 +3291,22 @@ modeldefs = (
                 ),
                 'doc': 'Properties common to hardware components.'}),
 
+            ('it:host:identifier', {
+                'doc': 'An interface which is implemented by host identifier forms.'}),
+
             ('it:host:exec', {
                 'template': {'title': 'activity'},
                 'props': (
 
                     ('exe', ('file:bytes', {}), {
+                        'deprecated': {'eoldate': '2027-01-01'},
                         'doc': 'The executable file which caused the {title}.'}),
 
                     ('host', ('it:host', {}), {
                         'doc': 'The host on which the {title} occurred.'}),
 
                     ('sandbox:file', ('file:bytes', {}), {
+                        'deprecated': {'eoldate': '2027-01-01'},
                         'doc': 'The initial sample given to a sandbox environment to analyze.'}),
                 ),
                 'doc': 'Properties common to runtime events and activity on a host.'}),
@@ -3073,6 +3323,12 @@ modeldefs = (
 
                     ('thread', ('it:exec:thread', {}), {
                         'doc': 'The thread which caused the {title}.'}),
+
+                    ('exe', ('file:bytes', {}), {
+                        'doc': 'The executable file which caused the {title}.'}),
+
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'}),
                 ),
                 'doc': 'An event which occurred on a host.'}),
 

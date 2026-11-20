@@ -25,6 +25,12 @@ drivre = regex.compile(r'^\w[:|]')
 fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
 srv6re = regex.compile(r'^\[([a-f0-9\.:]+)\](?::(\d+))?$', regex.IGNORECASE)
 
+# RFC 3986 URI scheme, matched against the lowercased text before the first ://
+schemere = regex.compile(r'[a-z][a-z0-9+.-]*')
+
+# Windows WebDAV host suffix from \\server[@SSL][@port]\path, as it appears in file URLs
+davre = regex.compile(r'@(SSL)(?:@(\d+))?$|@(\d+)$', regex.IGNORECASE)
+
 udots = regex.compile(r'[\u3002\uff0e\uff61]')
 
 cidrmasks = [((0xffffffff - (2 ** (32 - i) - 1)), (2 ** (32 - i))) for i in range(33)]
@@ -1133,30 +1139,33 @@ class Url(s_types.Str):
 
         # Protocol
         for splitter in ('://///', ':////'):
-            try:
-                proto, valu = orig.split(splitter, 1)
-                proto = proto.lower()
-                assert proto == 'file'
+            parts = orig.split(splitter, 1)
+            if len(parts) == 2 and parts[0].lower() == 'file':
+                proto = 'file'
+                valu = parts[1]
                 isUNC = True
                 break
-            except Exception:
-                proto = valu = ''
+
+            proto = valu = ''
 
         if not proto:
             try:
                 proto, valu = orig.split('://', 1)
                 proto = proto.lower()
+                if not schemere.fullmatch(proto):
+                    # the first :// belongs to a URL embedded in the path or query
+                    proto = valu = ''
+
             except Exception:
                 pass
 
         if not proto:
-            try:
-                proto, valu = orig.split(':', 1)
-                proto = proto.lower()
-                assert proto == 'file'
-                assert valu
+            parts = orig.split(':', 1)
+            if len(parts) == 2 and parts[0].lower() == 'file' and parts[1]:
+                proto = 'file'
+                valu = parts[1]
                 local = True
-            except Exception:
+            else:
                 proto = valu = ''
 
         if not proto or not valu:
@@ -1171,6 +1180,14 @@ class Url(s_types.Str):
         if '?' in valu:
             valu, queryrem = valu.split('?', 1)
             # TODO break out query params separately
+
+        # the authority ends at the first / or # (the query was split off above)
+        fragpart = ''
+        hashoff = valu.find('#')
+        if hashoff != -1:
+            slashoff = valu.find('/')
+            if slashoff == -1 or hashoff < slashoff:
+                valu, fragpart = valu[:hashoff], valu[hashoff:]
 
         # Resource Path
         parts = valu.split('/', 1)
@@ -1199,6 +1216,19 @@ class Url(s_types.Str):
         if queryrem:
             parampart = f'?{queryrem}'
         subs['params'] = (self.strtype.typehash, parampart, {})
+
+        # Windows WebDAV host suffix: file://host@SSL@443/path or file://host@80/path
+        isdav = False
+        davssl = False
+        davport = None
+        if proto == 'file' and not local:
+            match = davre.search(valu)
+            if match is not None:
+                isdav = True
+                sslmark, sslport, plainport = match.groups()
+                davssl = sslmark is not None
+                davport = sslport or plainport
+                valu = valu[:match.start()]
 
         # Optional User/Password
         parts = valu.rsplit('@', 1)
@@ -1266,13 +1296,22 @@ class Url(s_types.Str):
             raise s_exc.BadTypeValu(valu=orig, name=self.name,
                                     mesg='Host specified on local-only file URI') from None
 
+        if host is None and (authparts is not None or isdav):
+            raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg='Missing address/url')
+
+        if isdav:
+            if port is not None:
+                raise s_exc.BadTypeValu(valu=orig, name=self.name,
+                                        mesg='Port specified with both : and a WebDAV @ suffix')
+            port = davport
+
         # Optional Port
         if port is not None:
             port, norminfo = await self.porttype.norm(port)
             subs['port'] = (self.porttype.typehash, port, norminfo)
         else:
             # Look up default port for protocol, but don't add it back into the url
-            defport = s_l_iana.services.get(proto)
+            defport = s_l_iana.services.get('https' if davssl else proto)
             if defport:
                 subs['port'] = (self.porttype.typehash, *(await self.porttype.norm(defport)))
 
@@ -1281,11 +1320,18 @@ class Url(s_types.Str):
             hostparts += '//'
 
         if authparts:
-            hostparts = f'{authparts}@'
+            hostparts += f'{authparts}@'
 
         if host is not None:
             hostparts = f'{hostparts}{host}'
-            if port is not None:
+            if isdav:
+                if davssl:
+                    hostparts = f'{hostparts}@SSL'
+
+                if port is not None:
+                    hostparts = f'{hostparts}@{port}'
+
+            elif port is not None:
                 hostparts = f'{hostparts}:{port}'
 
         if proto != 'file' and host is None:
@@ -1295,7 +1341,7 @@ class Url(s_types.Str):
             raise s_exc.BadTypeValu(valu=orig, name=self.name,
                                     mesg='Missing address/url') from None
 
-        base = f'{proto}://{hostparts}{pathpart}'
+        base = f'{proto}://{hostparts}{pathpart}{fragpart}'
         subs['base'] = (self.strtype.typehash, base, {})
         norm = f'{base}{parampart}'
         return norm, {'subs': subs}
@@ -2387,6 +2433,15 @@ modeldefs = (
                     ('risk:targetable', {}),
                     ('risk:exploitable', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'provider:name'}},
+                        {'type': 'prop', 'opts': {'name': 'family'}},
+                        {'type': 'prop', 'opts': {'name': 'zone'}},
+                        {'type': 'prop', 'opts': {'name': 'url'}},
+                    ),
+                },
                 'props': (
                     ('id', ('base:id', {}), {
                         'doc': 'An ID which identifies the platform.'}),
@@ -2486,10 +2541,19 @@ modeldefs = (
                     ('entity:actor', {}),
                     ('meta:usable', {}),
                     ('risk:targetable', {}),
+                    ('risk:exploitable', {}),
                     ('entity:resolvable', {}),
                     ('econ:pay:instrument', {}),
                     ('inet:service:subscriber', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'platform::name'}},
+                        {'type': 'prop', 'opts': {'name': 'username'}},
+                        {'type': 'prop', 'opts': {'name': 'id'}},
+                        {'type': 'prop', 'opts': {'name': 'url'}},
+                    ),
+                },
                 'props': (
                     ('tenant', ('inet:service:tenant', {}), {
                         'doc': 'The tenant which contains the account.'}),
@@ -2783,8 +2847,17 @@ modeldefs = (
                     ('text', ('text', {}), {
                         'doc': 'The text body of the comment.'}),
 
+                    ('line', ('int', {}), {
+                        'doc': 'The line number within the target which the comment is about.'}),
+
+                    ('offset', ('int', {}), {
+                        'doc': 'The offset within the line which the comment is about.'}),
+
                     ('replyto', ('inet:service:comment', {}), {
                         'doc': 'The comment that this comment was made in reply to. Used for comment threading.'}),
+
+                    ('replaced', ('inet:service:comment', {}), {
+                        'doc': 'The original comment which this comment replaced when it was updated.'}),
 
                     ('links', ('inet:hyperlink', {}), {
                         'array': {},
@@ -2929,6 +3002,7 @@ modeldefs = (
             ('inet:service:resource', ('guid', {}), {
                 'template': {'title': 'resource'},
                 'interfaces': (
+                    ('risk:exploitable', {}),
                     ('inet:service:object', {}),
                 ),
                 'props': (
@@ -2939,7 +3013,7 @@ modeldefs = (
                         'doc': 'A description of the service resource.'}),
 
                     ('url', ('inet:url', {}), {
-                        'doc': 'The primary URL where the resource is available from the service.'}),
+                        'doc': 'The primary URL where the {title} is available from the service.'}),
 
                     ('type', ('inet:service:resource:type:taxonomy', {}), {
                         'doc': 'The resource type. For example "rpc.endpoint".'}),
@@ -3169,6 +3243,9 @@ modeldefs = (
                     ('client:proc', ('it:exec:proc', {}), {
                         'doc': 'The client process which initiated the {title}.'}),
 
+                    ('client:thread', ('it:exec:thread', {}), {
+                        'doc': 'The client thread which initiated the {title}.'}),
+
                     ('client:exe', ('file:bytes', {}), {
                         'doc': 'The client executable which initiated the {title}.'}),
 
@@ -3180,6 +3257,9 @@ modeldefs = (
 
                     ('server:proc', ('it:exec:proc', {}), {
                         'doc': 'The server process which received the {title}.'}),
+
+                    ('server:thread', ('it:exec:thread', {}), {
+                        'doc': 'The server thread which received the {title}.'}),
 
                     ('server:exe', ('file:bytes', {}), {
                         'doc': 'The server executable which received the {title}.'}),

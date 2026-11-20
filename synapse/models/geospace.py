@@ -429,6 +429,9 @@ modeldefs = (
                     ('address:city', ('base:name', {}), {
                         'doc': 'The city where the {title} {happened}.'}),
 
+                    ('address:state', ('base:name', {}), {
+                        'doc': 'The state or province where the {title} {happened}.'}),
+
                     ('latlong', ('geo:latlong', {}), {
                         'doc': 'The latlong where the {title} {happened}.'}),
 
@@ -497,6 +500,14 @@ modeldefs = (
                     ('geo:locatable', {'prefix': ''}),
                     ('risk:targetable', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'desc'}},
+                        {'type': 'prop', 'opts': {'name': 'country:code'}},
+                        {'type': 'prop', 'opts': {'name': 'latlong'}},
+                    ),
+                },
                 'props': (
 
                     ('id', ('base:id', {}), {

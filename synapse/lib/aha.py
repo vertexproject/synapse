@@ -2167,7 +2167,7 @@ class AhaCell(s_cell.Cell):
             if certhash is not None:
                 newinfo['certhash'] = certhash
 
-        return s_telepath.zipurl(newinfo)
+        return s_urlhelp.zipurl(newinfo)
 
     async def getAhaSvcProv(self, iden):
         byts = self.slab.get(iden.encode(), db='aha:provs')

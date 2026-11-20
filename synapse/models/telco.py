@@ -168,7 +168,12 @@ modeldefs = (
                 ),
                 'props': (
                     ('model', ('biz:model', {}), {
+                        'alts': ('models',),
                         'doc': 'The TAC model name.'}),
+
+                    ('models', ('biz:model', {}), {
+                        'array': {},
+                        'doc': 'An array of alternate TAC model names.'}),
                 ),
                 'ex': '49015420',
                 'doc': 'A mobile Type Allocation Code.'}),

@@ -7,11 +7,10 @@ import asyncio
 import inspect
 import logging
 import weakref
+import linecache
+import traceback
 import contextlib
 import collections
-
-if __debug__:
-    import traceback
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
@@ -121,7 +120,16 @@ class Base:
         if __debug__:
             import synapse.lib.threads as s_threads  # avoid import cycle
             self.tid = s_threads.iden()
-            self.call_stack = traceback.format_stack()  # For cleanup debugging
+
+            # Raw frames for cleanup debugging; formatted lazily by call_stack
+            frames = []
+            frame = sys._getframe()
+            while frame is not None:
+                frames.append((frame.f_code, frame.f_lineno, frame.f_globals))
+                frame = frame.f_back
+
+            frames.reverse()
+            self._call_frames = frames
 
         if object.__getattribute__(self, 'anitted') is True:
             # The Base has already been anitted. This allows a class to treat
@@ -146,6 +154,20 @@ class Base:
         self._active_tasks = None       # the set of free running tasks associated with me
         self._context_managers = None   # the set of context managers i must fini
         self._syn_signal_tasks = None   # initialized as a Set when addSignalHandlers is called.
+
+    if __debug__:
+
+        @property
+        def call_stack(self):
+            '''
+            The formatted stack from where this Base was created, as traceback.format_stack() returns it.
+            '''
+            summs = []
+            for code, lineno, fglobals in self._call_frames:
+                linecache.lazycache(code.co_filename, fglobals)
+                summs.append(traceback.FrameSummary(code.co_filename, lineno, code.co_name, _code=code))
+
+            return traceback.StackSummary.from_list(summs).format()
 
     async def postAnit(self):
         '''

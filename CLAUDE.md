@@ -128,7 +128,8 @@ SYNDEV_NEXUS_REPLAY=1 python -m pytest synapse/tests/
   -- so it holds by convention and review. `synapse/tests/test_telepath.py` documents the single
   intentional exception.
 - VCR (vcrpy) is used for HTTP mocking in tests.
-- Regression tests use a separate repo: `synapse-regression`.
+- Regression cells (cortexes, axons) live in `synapse/tests/regression/` as one gzipped tar per cell, extracted into a
+  temp dir by `SynTest.getRegrDir()`. See the README there. They are generated with an older Synapse release and never ship in the wheel.
 - To detect whether code is currently executing inside a test, check `synapse.common.isTestRun()` (backed by the
   `PYTEST_CURRENT_TEST` envar pytest sets for the duration of each test). Prefer this over a hand-rolled "are we in
   CI"-style envar -- it needs no test-suite-side setup and is accurate for exactly the lifetime of one running test.

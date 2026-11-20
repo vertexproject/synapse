@@ -38,7 +38,7 @@ For additional examples, see the code examples at [HTTPAPI Examples](https://git
 Most Synapse HTTP APIs require an authenticated user. HTTP API endpoints requiring authentication may be accessed using either HTTP Basic authentication via the HTTP "Authorization" header, using an API Key with the "X-API-KEY" header, or as part of an authenticated session. An API key may also be provided as the HTTP Basic authentication username, in which case the password is ignored.
 
 > [!NOTE]
-> The Storm and model query endpoints (`/api/v3/storm`, `/api/v3/storm/call`, `/api/v3/storm/export`, `/api/v3/model`, `/api/v3/model/norm`), the user defined `/api/ext/*` endpoints, and the Cortex file endpoints (`/api/v3/axon/files/*`) accept **API Key authentication only**. Session cookies and username/password HTTP Basic authentication are not accepted for these endpoints; the API key may still be provided via the "X-API-KEY" header or as the HTTP Basic authentication username.
+> The Storm and model query endpoints (`/api/v3/storm`, `/api/v3/storm/call`, `/api/v3/storm/export`, `/api/v3/model`, `/api/v3/model/norm`), the MCP endpoint (`/api/v3/mcp`), the Cortex vault endpoints (`/api/v3/vault/*`), the user defined `/api/ext/*` endpoints, and the Cortex file endpoints (`/api/v3/axon/files/*`) accept **API Key authentication only**. Session cookies and username/password HTTP Basic authentication are not accepted for these endpoints; the API key may still be provided via the "X-API-KEY" header or as the HTTP Basic authentication username.
 
 <a id="http-api-apikey"></a>
 
@@ -742,6 +742,127 @@ The Storm export API endpoint allows the caller to execute a Storm query on the 
 
     :   The API returns the current value of the variable or default using the REST API convention described earlier.
 
+### /api/v3/vault/list
+
+The `/api/v3/vault/*` APIs accept API key authentication only, and enforce the vault permissions described in [Vaults](userguides/storm_adv_vaults.md#storm-vaults-perms). A caller without the required permission receives an `AuthDeny` error with a 403 status code, and an invalid request body receives a `SchemaViolation` or `BadArg` error with a 400 status code.
+
+*Method*
+
+:   GET
+
+:   This API allows the caller to list the vaults they have `read` permission on. The `secrets` of a vault are only included if the caller has `edit` permission on it.
+
+    *Input*
+
+    :   The API takes no input.
+
+    *Returns*
+
+    :   The API returns a list of vault definitions using the REST API convention described earlier.
+
+### /api/v3/vault/get
+
+*Method*
+
+:   GET, POST
+
+:   This API allows the caller to get a vault by iden, name, or type. It requires `read` permission on the vault, and the `secrets` of the vault are only included if the caller has `edit` permission on it.
+
+    *Input*
+
+    :   The API expects a JSON body with exactly one of `iden`, `name`, or `type`. The optional `scope` (`user`, `role`, or `global`) may only be used with `type`; if it is omitted, the `user`, `role`, and `global` scopes of the caller are searched in that order:
+
+        ```text
+        {
+            "iden": "<iden>",
+            "name": "<name>",
+            "type": "<type>",
+            "scope": "<scope>",
+        }
+        ```
+
+    *Returns*
+
+    :   The API returns the vault definition using the REST API convention described earlier. A missing vault returns a `NoSuchIden` or `NoSuchName` error with a 404 status code.
+
+### /api/v3/vault/add
+
+*Method*
+
+:   POST
+
+:   This API allows the caller to add a vault. A user who is not an admin may only add unscoped vaults, and `user` vaults which they own.
+
+    *Input*
+
+    :   The API expects the following JSON body. The `scope` may be `user`, `role`, `global`, or `null` for an unscoped vault. The `owner` is the iden of the user or role which owns the vault, and may only be `null` for a `global` vault:
+
+        ```text
+        {
+            "name": "<name>",
+            "type": "<type>",
+            "scope": "<scope>",
+            "owner": "<iden>",
+            "secrets": { ... },
+            "configs": { ... },
+        }
+        ```
+
+    *Returns*
+
+    :   The API returns the new vault definition using the REST API convention described earlier. The `secrets` of the new vault are only included if the caller has `edit` permission on it. A vault with the same name, or the same type, scope, and owner, returns a `DupName` error with a 409 status code.
+
+### /api/v3/vault/mod
+
+*Method*
+
+:   POST
+
+:   This API allows the caller to replace a vault with a full vault definition. Changing the `name`, `secrets`, or `configs` requires `edit` permission on the vault, and changing the `permissions` requires `admin` permission on it. The `type`, `scope`, and `owner` of a vault cannot be changed.
+
+    *Input*
+
+    :   The API expects a full vault definition, such as one returned by `/api/v3/vault/get` to a user with `edit` permission:
+
+        ```text
+        {
+            "iden": "<iden>",
+            "name": "<name>",
+            "type": "<type>",
+            "scope": "<scope>",
+            "owner": "<iden>",
+            "permissions": { ... },
+            "secrets": { ... },
+            "configs": { ... },
+        }
+        ```
+
+    *Returns*
+
+    :   The API returns the updated vault definition using the REST API convention described earlier. A missing vault returns a `NoSuchIden` error with a 404 status code. Permission levels must be between 0 and 3. A user or role that is added to or changed in the `permissions` must exist, or the API returns a `NoSuchUser` or `NoSuchRole` error with a 404 status code.
+
+### /api/v3/vault/del
+
+*Method*
+
+:   POST
+
+:   This API allows the caller to delete a vault. It requires `admin` permission on the vault.
+
+    *Input*
+
+    :   The API expects the following JSON body:
+
+        ```text
+        {
+            "iden": "<iden>",
+        }
+        ```
+
+    *Returns*
+
+    :   The API returns `null` using the REST API convention described earlier, including when the vault does not exist.
+
 ### /api/v3/core/info
 
 *Method*
@@ -774,6 +895,88 @@ The Storm export API endpoint allows the caller to execute a Storm query on the 
             }
         }
         ```
+
+### /api/v3/mcp
+
+This endpoint implements a [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server over the MCP Streamable HTTP transport, using JSON-RPC 2.0 messages. It exposes the Cortex to MCP clients (such as LLM agents) as a set of tools and resources for running, validating and linting Storm queries, browsing the Synapse data model, and managing views.
+
+The server provides the following tools:
+
+- `storm`, `storm_continue`, `storm_cancel` - Run a Storm query and page through its messages.
+- `call_storm` - Run a Storm query and return the value of its `return()` statement.
+- `storm_validate`, `storm_lint` - Check the syntax of a Storm query, or lint it against the data model, without running it.
+- `model_find` - Search the data model for types, forms, properties and interfaces by name or doc.
+- `view_list`, `view_get`, `view_fork`, `view_del`, `view_merge` - List views, get the user's default view, and fork, delete and merge views.
+- `get_service_info` - Return metadata about the Cortex.
+
+It also provides the following resources: `syn://model` (the data model), `syn://model/form/{name}` (a single form definition, with completion of form names), `syn://stormdocs` (Storm library, type and command documentation), `syn://storm/grammar` (the Storm grammar), `skill://storm/SKILL.md` (a skill describing the Storm syntax), and `syn://cellinfo` (metadata about the Cortex).
+
+The endpoint accepts **API Key authentication only**, provided via the "X-API-KEY" header or as the HTTP Basic authentication username (see [API Key Support](#http-api-apikey)). Session cookies and username/password HTTP Basic authentication are not accepted. Tools run as the authenticated user, with that user's permissions and default view.
+
+*Method*
+
+:   POST
+
+:   This API sends an MCP message to the server. An MCP client first sends an `initialize` request. The response carries an `Mcp-Session-Id` header, which the client must send on every later request, starting with the `notifications/initialized` notification. A request without the header is rejected with `400 Bad Request`, and a request with an unknown or expired session is rejected with `404 Not Found`. A session is bound to the user who created it and expires after an hour without requests.
+
+    *Input*
+
+    :   The API expects a single JSON-RPC 2.0 message; batches are not supported.
+
+    :   The server supports MCP protocol versions `2025-06-18` (the default) and `2025-03-26`. A client may send an `MCP-Protocol-Version` header; an unsupported version is rejected with `400 Bad Request`.
+
+    *Returns*
+
+    :   A request receives a single JSON-RPC 2.0 response with the content type `application/json`, and a notification receives an empty `202 Accepted` response. The server does not stream responses as Server-Sent Events.
+
+    :   The `storm` tool returns the messages of a query in pages. When its result has a non-null `cursor`, the client calls `storm_continue` with the cursor until it is null, or `storm_cancel` to release the query.
+
+*Method*
+
+:   GET
+
+:   The server does not offer a server-initiated event stream, so this returns `405 Method Not Allowed`.
+
+*Method*
+
+:   DELETE
+
+:   This API ends the session named by the `Mcp-Session-Id` header and releases any Storm queries it still holds open. It returns `200 OK`, or `404 Not Found` for an unknown or expired session.
+
+A user can generate an API key for an MCP client with Storm. The secret key is only shown once:
+
+```stormdoc
+storm> ($key, $info) = $lib.auth.users.get().genApiKey(mcp) $lib.print($key)
+syn-XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=
+```
+
+An API key may also be generated with the `synapse.tools.service.apikey` tool. Its `--url` option defaults to `cell:///vertex/storage`, so by default it is run inside the Cortex container:
+
+```text
+$ python -m synapse.tools.service.apikey add mcp
+Successfully added API key with name=mcp.
+Iden: 2e08ec00f252a1f3ffedbec1eb30de37
+  API Key: syn-XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=
+  Name: mcp
+  Created: 2026-10-29T11:53:21.434536Z
+  Updated: 2026-10-29T11:53:21.434536Z
+```
+
+The `--username` option adds a key for another user, which requires the `auth.user.set.apikey` permission:
+
+```text
+$ python -m synapse.tools.service.apikey add --username visi mcp
+```
+
+The endpoint may be registered with an MCP client such as Claude Code using the `claude mcp add` command, with the `--header` option supplying the API key:
+
+```text
+claude mcp add --transport http synapse \
+    https://cortex.intel-sharing.vertex.link/api/v3/mcp \
+    --header "X-API-KEY: syn-XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA="
+```
+
+For an MCP client which only supports HTTP Basic authentication, the API key may be given as the username instead, with any password.
 
 ### /api/ext/\*
 

@@ -13,6 +13,7 @@ import synapse.data as s_data
 import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
+import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
@@ -23,6 +24,7 @@ import synapse.lib.grammar as s_grammar
 logger = logging.getLogger(__name__)
 
 hexre = regex.compile('^[0-9a-z]+$')
+eoldatere = regex.compile(r'\d{4}-\d{2}-\d{2}')
 
 PREFIX_CACHE_SIZE = 1000
 TYPESET_CACHE_SIZE = 1000
@@ -96,6 +98,55 @@ class TagProp:
 
         return (('syn:tagprop', self.name), {'props': props})
 
+def reqValidPropDepr(full, depr):
+    '''
+    Validate a prop's deprecation info, which is a bool or a dict scheduling the removal.
+
+    Returns the deprecation warning for dict info, or None for a bool.
+    '''
+    if not isinstance(depr, (bool, dict)):
+        mesg = f'Deprecation info for property {full} must be a bool or dict, not {type(depr).__name__}.'
+        raise s_exc.BadArg(mesg=mesg, prop=full)
+
+    if not isinstance(depr, dict):
+        return None
+
+    badkeys = set(depr) - {'eoldate', 'eolvers', 'mesg'}
+    if badkeys:
+        mesg = f'Deprecation info for property {full} has invalid keys: {", ".join(sorted(badkeys))}'
+        raise s_exc.BadArg(mesg=mesg, prop=full)
+
+    eoldate = depr.get('eoldate')
+    eolvers = depr.get('eolvers')
+
+    if eoldate is None and eolvers is None:
+        mesg = f'Deprecation info for property {full} must specify eoldate or eolvers.'
+        raise s_exc.BadArg(mesg=mesg, prop=full)
+
+    if eoldate is not None and eolvers is not None:
+        mesg = f'Deprecation info for property {full} cannot specify both eoldate and eolvers.'
+        raise s_exc.BadArg(mesg=mesg, prop=full)
+
+    if eoldate is not None:
+        badmesg = f'Deprecation info for property {full} has an invalid eoldate: {eoldate} (expected YYYY-MM-DD)'
+        if not isinstance(eoldate, str) or eoldatere.fullmatch(eoldate) is None:
+            raise s_exc.BadArg(mesg=badmesg, prop=full)
+
+        try:
+            s_time.parse(eoldate)
+        except s_exc.BadTypeValu as e:
+            raise s_exc.BadArg(mesg=badmesg, prop=full) from e
+
+        mesg = f'The property {full} is deprecated and will be removed on or after {eoldate}.'
+
+    else:
+        mesg = f'The property {full} is deprecated and will be removed in {eolvers}.'
+
+    if (extra := depr.get('mesg')) is not None:
+        mesg = f'{mesg} {extra}'
+
+    return mesg
+
 class Prop:
     '''
     The Prop class represents a property defined within the data model.
@@ -126,6 +177,9 @@ class Prop:
         self.locked = False
         self.deprecated = self.info.get('deprecated', False)
 
+        # validate before the prop is registered, since an empty dict is falsey
+        deprmesg = reqValidPropDepr(self.full, self.deprecated)
+
         # typedef has already been poly converted by Model.processPropdefs(), so self.type is
         # a Poly for a non-array prop and an Array whose arraytype is a Poly for an array
         # one. self.type.ispoly is False for an array prop - the poly is on the element type,
@@ -142,6 +196,8 @@ class Prop:
                 if (ifaces := self.type.ifaces) is not None:
                     for iface in ifaces:
                         self.modl.polypropsbyiface[iface][self.full] = self
+                        for fname in self.modl.formsbyiface.get(iface, ()):
+                            self.modl.propsbytype[fname][self.full] = self
 
                 if self.type.typeset:
                     for tname in self.type.typeset:
@@ -155,6 +211,8 @@ class Prop:
             if (ifaces := self.type.arraytype.ifaces) is not None:
                 for iface in ifaces:
                     self.modl.polyarraysbyiface[iface][self.full] = self
+                    for fname in self.modl.formsbyiface.get(iface, ()):
+                        self.modl.arraysbytype[fname][self.full] = self
 
             if self.type.arraytype.typeset:
                 for tname in self.type.arraytype.typeset:
@@ -164,9 +222,13 @@ class Prop:
         self.onstormset = ondef.get('set', {}).get('q')
         self.onstormdel = ondef.get('del', {}).get('q')
 
-        if self.deprecated or self.type.deprecated:
+        if self.deprecated:
+
+            mesg = deprmesg
+            if mesg is None:
+                mesg = self._getDeprMesg()
+
             async def depfunc(node):
-                mesg = f'The property {self.full} is deprecated or using a deprecated type and will be removed in 4.0.0'
                 if (runt := s_scope.get('runt')) is not None:
                     await runt.warnonce(mesg)
 
@@ -174,6 +236,10 @@ class Prop:
                     sys.audit('synapse.datamodel.Prop.deprecated', mesg, self.full)
 
             self.onSet(depfunc)
+
+    def _getDeprMesg(self):
+        # deprecated is True, since dict info has its own message
+        return f'The property {self.full} is deprecated and will be removed in 4.0.0'
 
     def __repr__(self):
         return f'DataModel Prop: {self.full}'
@@ -689,15 +755,11 @@ class Model:
         }
 
     def getPropsByType(self, name):
-        props = self.propsbytype.get(name, {})
-
-        if (form := self.forms.get(name)) is not None:
-            for iface in form.ifaces:
-                if (polyprops := self.polypropsbyiface.get(iface)):
-                    props |= polyprops
+        if (props := self.propsbytype.get(name)) is None:
+            return ()
 
         # TODO order props based on score...
-        return list(props.values())
+        return tuple(props.values())
 
     def getLookupHints(self):
         '''
@@ -737,14 +799,10 @@ class Model:
         return self._lookup_hints
 
     def getArrayPropsByType(self, name):
-        props = self.arraysbytype.get(name, {})
+        if (props := self.arraysbytype.get(name)) is None:
+            return ()
 
-        if (form := self.forms.get(name)) is not None:
-            for iface in form.ifaces:
-                if (polyprops := self.polyarraysbyiface.get(iface)):
-                    props |= polyprops
-
-        return list(props.values())
+        return tuple(props.values())
 
     def getTagPropsByType(self, name):
         if (props := self.tagpropsbytype.get(name)) is None:
@@ -902,7 +960,7 @@ class Model:
                 for form in self.formsbyiface.get(iface, ()):
                     typeset.add(self.form(form).type)
 
-        typeset = tuple(typeset)
+        typeset = tuple(sorted(typeset, key=lambda t: t.name))
         self.typesetcache[key] = typeset
         return typeset
 
@@ -1790,7 +1848,7 @@ class Model:
             pprops = [
                 (prop.name, prop.typedef, prop.info)
                 for prop in pform.props.values()
-                if not prop.ifaces and prop.name not in child_propnames
+                if (not prop.ifaces or 'raw' in prop.info) and prop.name not in child_propnames
             ]
 
             propdefs = tuple(pprops) + propdefs
@@ -1978,18 +2036,27 @@ class Model:
         self.ifaces[name] = info
         self._modeldict = None
 
+    def _isTypeDeclared(self, ptyp, typename):
+        if ptyp.name == typename:
+            return True
+
+        return ptyp.ispoly and typename in ptyp.typeset
+
     def reqTypeNotInUse(self, typename):
-        if self.propsbytype.get(typename):
-            mesg = f'Cannot delete type {typename} as it is still in use by properties.'
-            raise s_exc.CantDelType(mesg=mesg, name=typename)
+        # only props declared with the type block deleting it, not ones found through an interface
+        if (props := self.propsbytype.get(typename)) is not None:
+            if any(self._isTypeDeclared(prop.type, typename) for prop in props.values()):
+                mesg = f'Cannot delete type {typename} as it is still in use by properties.'
+                raise s_exc.CantDelType(mesg=mesg, name=typename)
 
         if self.tagpropsbytype.get(typename):
             mesg = f'Cannot delete type {typename} as it is still in use by tag properties.'
             raise s_exc.CantDelType(mesg=mesg, name=typename)
 
-        if self.arraysbytype.get(typename):
-            mesg = f'Cannot delete type {typename} as it is still in use by array properties.'
-            raise s_exc.CantDelType(mesg=mesg, name=typename)
+        if (props := self.arraysbytype.get(typename)) is not None:
+            if any(self._isTypeDeclared(prop.type.arraytype, typename) for prop in props.values()):
+                mesg = f'Cannot delete type {typename} as it is still in use by array properties.'
+                raise s_exc.CantDelType(mesg=mesg, name=typename)
 
         for _type in self.types.values():
             if typename in _type.info['bases']:
@@ -2238,6 +2305,12 @@ class Model:
         if form.name not in (forms := self.formsbyiface[name]):
             forms.append(form.name)
 
+            if (props := self.polypropsbyiface.get(name)):
+                self.propsbytype[form.name] |= props
+
+            if (props := self.polyarraysbyiface.get(name)):
+                self.arraysbytype[form.name] |= props
+
         for subname, subinfo in iface.get('interfaces', ()):
 
             if ifaceparents is None:
@@ -2328,6 +2401,8 @@ class Model:
                 if (ifaces := prop.type.ifaces) is not None:
                     for iface in ifaces:
                         self.polypropsbyiface[iface].pop(prop.full, None)
+                        for fname in self.formsbyiface.get(iface, ()):
+                            self.propsbytype[fname].pop(prop.full, None)
 
                 if prop.type.typeset:
                     for tname in prop.type.typeset:
@@ -2339,6 +2414,8 @@ class Model:
             if (ifaces := prop.type.arraytype.ifaces) is not None:
                 for iface in ifaces:
                     self.polyarraysbyiface[iface].pop(prop.full, None)
+                    for fname in self.formsbyiface.get(iface, ()):
+                        self.arraysbytype[fname].pop(prop.full, None)
 
             if prop.type.arraytype.typeset:
                 for tname in prop.type.arraytype.typeset:

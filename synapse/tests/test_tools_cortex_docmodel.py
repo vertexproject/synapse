@@ -91,6 +91,21 @@ class DocModelTest(s_t_utils.SynTest):
         self.isin('| Source | Verb | Target | Doc |', text)
         self.isin('`refs`', text)
 
+        # Deprecated props note their removal date on forms and interfaces
+        deprrow = '| `:exe` | `file:bytes` | The executable file which caused the activity. Deprecated: removed on or after 2027-01-01. |'
+
+        svcidx = text.index('### `it:os:windows:service`')
+        nextidx = text.index('### `', svcidx + 1)
+        self.isin(deprrow, text[svcidx:nextidx])
+
+        execidx = text.index('### `it:host:exec`')
+        nextidx = text.index('### `', execidx + 1)
+        self.isin(deprrow, text[execidx:nextidx])
+
+        procidx = text.index('### `it:exec:proc`')
+        nextidx = text.index('### `', procidx + 1)
+        self.notin('Deprecated', text[procidx:nextidx])
+
     async def test_tools_docmodel_cortex(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
@@ -303,6 +318,17 @@ class DocModelTest(s_t_utils.SynTest):
 
         # _escpipe: None input -> return '' (line 42)
         self.eq(s_docmodel._escpipe(None), '')
+
+        # _getPropDoc: deprecation notices are appended to the doc
+        self.eq(s_docmodel._getPropDoc({'doc': 'Foo.', 'deprecated': True}, {}), 'Foo. Deprecated.')
+        self.eq(s_docmodel._getPropDoc({'deprecated': True}, {}), 'Deprecated.')
+        self.eq(s_docmodel._getPropDoc({'deprecated': False}, {}), '')
+
+        depr = {'eolvers': 'v4.0.0', 'mesg': 'Use :bar instead.'}
+        self.eq(s_docmodel._getPropDoc({'doc': 'Foo.', 'deprecated': depr}, {}),
+                'Foo. Deprecated: removed in v4.0.0. Use :bar instead.')
+        self.eq(s_docmodel._getPropDoc({'deprecated': {'eoldate': '2027-01-01'}}, {}),
+                'Deprecated: removed on or after 2027-01-01.')
 
     def test_tools_docmodel_getnestedtypenames_unit(self):
 
@@ -632,6 +658,13 @@ class DocModelTest(s_t_utils.SynTest):
         self.isin('`:seen`', text)
         self.isin('## Referenced Types', text)
 
+        outp = self.getTestOutp()
+        self.eq(await s_docmodel.main(['--find', 'it:os:windows:service:exe'], outp=outp), 0)
+
+        text = str(outp)
+        self.isin('**Form:** `it:os:windows:service`', text)
+        self.isin('The executable file which caused the activity. Deprecated: removed on or after 2027-01-01.', text)
+
     async def test_tools_docmodel_find_ifaceprop(self):
 
         outp = self.getTestOutp()
@@ -642,6 +675,12 @@ class DocModelTest(s_t_utils.SynTest):
         self.isin('**Interface:** `meta:observable`', text)
         self.isin('| Property | Type | Doc |', text)
         self.isin('`:seen`', text)
+
+        outp = self.getTestOutp()
+        self.eq(await s_docmodel.main(['--find', 'it:host:exec:exe'], outp=outp), 0)
+
+        text = str(outp)
+        self.isin('The executable file which caused the activity. Deprecated: removed on or after 2027-01-01.', text)
 
     async def test_tools_docmodel_find_tagprop(self):
 

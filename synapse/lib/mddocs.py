@@ -67,7 +67,7 @@ WARNINGS_IGNORE = [
     r'Sysctl values different than expected',
     r'The form edge:refs is deprecated or using a deprecated type',
     r'The form edge:has is deprecated or using a deprecated type',
-    r'The property media:news:author is deprecated or using a deprecated type',
+    r'The property media:news:author is deprecated',
     r'The type [a-z:]+ field [a-z:]+ uses a deprecated type [a-z:]+.',
     r'Caught SIGTERM, shutting down\.',
     # Benign: a default (aha-less) temp Cortex's built-in mirror-service
@@ -93,7 +93,7 @@ WARNINGS_IGNORE = [
     # provision more than one --load-svc across their doc set (e.g.
     # synmods.backup's adminguide.md and userguide.md each provisioning
     # their own service instance).
-    r"telepath clientv2 \(tcp://.*\) encountered an error: \[Errno 111\] Connect call failed",
+    r"telepath clientv2 \(tcp://.*\) encountered an error: LinkErr: mesg=.*\[Errno 111\] Connect call failed",
     # Benign: a doc-only Cortex fixture that boots its own ephemeral AHA
     # network (rather than the simple no-AHA getCell() most docs use) logs
     # this on teardown if the AHA cell itself finishes finishing before the
@@ -108,7 +108,7 @@ WARNINGS_IGNORE = [
     # remote end (the doc's own ephemeral Cortex/service, already torn
     # down) disconnects first -- an expected teardown-ordering artifact,
     # not a real link failure.
-    r"error in edits listen loop LinkShutDown: mesg='Remote peer disconnected'",
+    r"error in edits listen loop LinkShutDown: mesg=.Remote peer disconnected",
     # Benign: synapse.lib.autodoc's model-processing functions
     # (processTypesMd/processFormsPropsMd) log this for a synthetic/runt
     # type or edge whose model info includes a key this doc generator
@@ -123,13 +123,14 @@ WARNINGS_IGNORE = [
 ]
 
 WARNINGS_ERROR = [
-    r'.* is deprecated or using a deprecated type',
+    r'.* is deprecated (or using a deprecated type|and will be removed)',
 ]
 
 _md_parser = markdown_it.MarkdownIt('commonmark')
 
 _re_heading = regex.compile(r'^(#{1,6})\s+(.*?)\s*#*\s*$')
 _re_explicit_anchor = regex.compile(r'<a\s+id="([^"]+)">\s*</a>')
+_re_anchor_line = regex.compile(r'^<a\s+id="([^"]+)">\s*</a>\s*$')
 _re_md_link = regex.compile(r'\[[^\]]*\]\(([^)\s]+)\)')
 _re_md_link_text = regex.compile(r'\[([^\]]*)\]\(([^)\s]+)\)')
 # A cross-bundle link into the Vertex Hub docs viewer, e.g.
@@ -747,18 +748,32 @@ def _mdtocTargets(text):
             targets.append((line.strip(), start + 2 + i))
     return targets
 
-def _fileHeadings(text):
-    '''Extract this file's headings (level, title, slug), slugged in encounter order for GFM-style dedup.'''
+def _fileHeadings(text, explicit=False):
+    '''
+    Extract this file's headings (level, title, slug), slugged in encounter order for GFM-style dedup.
+
+    With explicit set, a heading whose nearest preceding non-blank line is an `<a id="...">` tag
+    takes that id as its slug. Every heading is still slugged, so the GFM numbering of the
+    rest is unchanged.
+    '''
     seen = {}
     headings = []
+    prev = None
     for line in text.splitlines():
         match = _re_heading.match(line)
         if match is None:
+            if line.strip():
+                prev = line
             continue
         level = len(match.group(1))
         title = match.group(2).strip()
         slug = s_autodoc.mdSlugify(title, seen=seen)
+        if explicit and prev is not None:
+            anchor = _re_anchor_line.match(prev)
+            if anchor is not None:
+                slug = anchor.group(1)
         headings.append((level, title, slug))
+        prev = line
     return headings
 
 def _firstHeading(text):
@@ -862,6 +877,10 @@ def headingsToc(text, href, depth=1):
     the same way whether it came from a docs site build or a published
     package.
 
+    A changelog.md page keys a heading by the `<a id="...">` tag directly
+    above it when it has one, so a release adding a version does not
+    renumber the GFM -1/-2 suffixes of the repeated section titles below it.
+
     Args:
         text (str): The page's full Markdown text.
         href (str): This page's own toc href (its path, e.g. "userguide.md").
@@ -872,7 +891,7 @@ def headingsToc(text, href, depth=1):
     Returns:
         list: {'title', 'href', 'children'?} dicts.
     '''
-    headings = _fileHeadings(text)
+    headings = _fileHeadings(text, explicit=os.path.basename(href) == 'changelog.md')
     if not headings:
         return []
     toplvl = headings[0][0] + 1

@@ -1,11 +1,234 @@
 # Synapse Changelog
 
+## v3.8.0 - 2026-11-20
+
+<a id="v3-8-0-automatic-migrations"></a>
+
+### Automatic Migrations
+
+- Migrated `inet:url` nodes stored with an invalid value or incorrect
+  properties by earlier versions of Synapse. Nodes which cannot be repaired are
+  removed and recorded in the `model_3_2_0:nodes` queue.
+- Added a model migration which removes `it:cloud:host:parent` values that are
+  not `it:host` nodes, saving each one as `_migrated:it:cloud:host:parent` node
+  data.
+- Added a storage migration which changes the stored deprecation info of
+  extended properties to `true` or `false`, according to whether the earlier
+  value was truthy, when it is not valid.
+
+<a id="v3-8-0-model-changes"></a>
+
+### Model Changes
+
+- Updated `inet:service:account` and `inet:service:resource` to implement the
+  `risk:exploitable` interface.
+- Added default display columns to crypto currency, document reference and
+  report, motive, file, place, service account and platform, YARA rule, source,
+  planning, and country forms.
+- Added default display columns to most forms that implement the
+  `it:host:event` interface.
+- Added `:issuer` and `:issuer:name` properties to the `econ:security` form.
+- Updated `econ:lineitem:item` to allow `entity:title` and `mat:spec` values.
+- Added the `:family` property to `ou:contest`.
+- Updated `biz:rfp` to implement `meta:causal`.
+- Added the `risk:theft -(stole)> meta:aggregate` edge.
+- Added the `meta:revocable` interface and the `entity:revoked` form. Updated
+  `entity:achieved` to implement `meta:revocable`.
+- Added the `ou:opening:location` form.
+- Added the `file:system:posix:entry` form.
+- Added the `:line`, `:offset`, and `:replaced` properties to the
+  `inet:service:comment` form.
+- Added the `crypto:hash:lm` and `crypto:hash:ntlm` forms.
+- Updated the `ou:team` form to implement the `entity:actor` interface.
+- Added the `:place:address:state` property to the `geo:locatable` interface.
+- Added default display columns to the `entity:goal:financial`,
+  `entity:goal:people`, `it:software`, and `risk:attack` forms, and updated the
+  default display columns for the `entity:campaign`, `entity:goal`,
+  `risk:compromise`, `risk:extortion`, `risk:leak`, and `risk:theft` forms.
+- Added default display columns to the `entity:relationship`, `it:hardware`,
+  and `meta:cluster` forms, and updated the default display columns for the
+  `ind:industry`, `meta:technique`, `risk:mitigation`, and `risk:vuln` forms.
+- Added the `it:host:identifier` interface and updated `it:adid` to implement
+  it.
+- Added the `:phone` property to the `it:sim:card` form.
+- Added the `:identifiers` property to the `it:host` form.
+- Added the `:client:thread` and `:server:thread` properties to the
+  `inet:proto:link` interface.
+- Updated the `econ:security` form to implement the `meta:havable` interface.
+- Added the `:value` property to the `entity:owned` form.
+- Added the `entity:goal:financial` and `entity:goal:people` forms, which
+  record the `:target` and `:actual` values of a goal.
+- Added the `:models` property to the `tel:mob:tac` form.
+- Updated the `doc:contract` form to implement the `econ:budgetable` interface.
+- Added the `:recipient` and `:recipient:name` properties to the
+  `entity:contributed` form.
+- Added the `:country` property to the `transport:sea:vessel` and
+  `transport:air:tailnum` forms.
+- Added the `meta:observable` interface to the `it:softwarename` form.
+- Added `:name` to the `doc:requirement` form.
+- Added `:desc` to the `ou:promotable` interface.
+- Added the `:memo` property to the `econ:payment` form.
+- Added the `:exe` and `:sandbox:file` properties to the `it:exec:command` and
+  `it:exec:thread` forms, and the `:sandbox:file` property to the
+  `it:exec:proc` form.
+- Added the `:exe` and `:sandbox:file` properties to the `it:host:event`
+  interface.
+
+<a id="v3-8-0-features-and-enhancements"></a>
+
+### Features and Enhancements
+
+- Improved the performance of parsing ISO 8601 and digit only `time` values.
+- Added the `$lib.storm.lint` library and the `storm.lint` command to lint
+  Storm code from Storm.
+- Added the `$lib.model.migration.s.model_3_2_0` Storm library to list, print,
+  and repair nodes quarantined by the 3.2.0 model migration.
+- Added support for answering `$lib.input` requests to the Storm CLI. Replies
+  are not saved to the Storm CLI history.
+- Added the `$lib.input` Storm library to request input from the caller of a
+  Storm query.
+- Changed Telepath errors to name the remote endpoint, including the address an
+  `aha://` URL resolved to. Failed connections now raise `LinkErr` instead of
+  `OSError` subclasses, and `$lib.telepath.open` raises it instead of
+  `StormRuntimeError`.
+- Added an `interface` key to Storm command `cmdinputs` entries to declare the
+  interfaces of the nodes a command accepts.
+- Added support for JSON Lines (`.jsonl`) manifests to the `stormcov` `--storm-
+  manifests` option.
+- Added `$lib.view.hook` APIs to manage Storm hooks that run when views are
+  created, merged, or deleted.
+- Added a repeatable `--manifest` option to `synapse.tools.storm.lint` to lint
+  Storm queries listed in JSON or JSON Lines (`.jsonl`) manifests.
+- Updated `synapse.tools.cortex.docmodel` to show deprecated properties and
+  their scheduled removal.
+- Added Cortex HTTP APIs (`/api/v3/vault/*`) and Telepath APIs for listing,
+  getting, adding, modifying, and deleting vaults without Storm.
+- Added support for a removal date or version on deprecated model properties,
+  which is included in the deprecation warning.
+- Added a `courses` field to the Storm package schema which allows power-ups to
+  embed training content.
+
+<a id="v3-8-0-bugfixes"></a>
+
+### Bugfixes
+
+- Fixed the Cortex permission definitions to declare `graph` and `graph.add`,
+  the permissions checked when adding a graph projection.
+- Fixed a bug where growing the LMDB map part way through a transaction could
+  silently lose rows from earlier batched writes, when the code that made them
+  reused its list of rows for a later batch.
+- Changed the `$modconf` of an imported Storm module to be read-only, including
+  nested dictionaries and lists. Attempting to modify it now raises a
+  `StormRuntimeError`. Use `$lib.copy()` to get a mutable copy.
+- Fixed Telepath URL reconstruction dropping the brackets around IPv6 hosts and
+  not escaping special characters in the user name and password.
+- Fixed graceful leadership handoff (`Cell.handoff()`,
+  `synapse.tools.service.promote`) diverging the Nexus logs. A write forwarded
+  by a mirror that is promoted before it completes now raises `LinkErr` instead
+  of hanging.
+- Fixed an issue where deleting an extended form or property could cause
+  `delnode`, `<- *`, and `$lib.model.ext.delForm()` to fail until the Cortex
+  was restarted.
+- Fixed `prop:set` triggers accepting a property name that Storm parses as a
+  virtual property, such as `inet:fqdn.created`.
+- Fixed child forms using the interface definition of a property their parent
+  form declares, rather than the parent form declaration.
+- Fixed `$lib.model.ext.addFormProp()` and `$lib.model.ext.addTagProp()`
+  rejecting names with a part that starts with a digit, such as `_iso:3166`.
+  Changed extended prop and tag prop names to reject `.`, and
+  `$lib.model.ext.addExtModel()` to check names the same way.
+- Fixed an issue where `inet:url` stored the host of Windows WebDAV `file` URLs
+  such as `file://1.2.3.4@80/x` or `file://host@SSL@443/x` as `:username`.
+- Fixed an issue where `inet:url` did not end the host at a `#`, so an `@` in
+  the fragment set the wrong `:host` and `:username`.
+- Fixed an issue where `inet:url` dropped the UNC slashes from `file` URLs that
+  include a username or password.
+- Fixed an issue where `inet:url` accepted URLs with a username or password but
+  no host, such as `file://user@/x`.
+- Fixed `inet:url` accepting values without a valid scheme, such as
+  `//www.example.com/a?u=https://example.org`, and taking `:proto` and the host
+  from a URL embedded in the path or query.
+- Fixed `inet:url` normalization accepting malformed URLs such as
+  `http://///foo.com/x`.
+- Fixed `int` types rejecting all-zero strings such as `00`, which prevented
+  creating `tel:mob:imei` nodes with an all-zero serial.
+- Fixed `@=` filters on time values raising an error when a node had an ongoing
+  (`*`) time. They now match the same nodes as the equivalent lift.
+- Fixed Storm lifts and filters on ival `.min`, `.max`, and `.duration`
+  disagreeing about `?` and `*`. Ordered time comparisons no longer match `?`
+  against a known time, and comparing a `time` with `*` no longer raises an
+  error.
+- Fixed an issue where hour-only offsets, `UTC`/`GMT` prefixed offsets, and
+  parenthesized time zone abbreviations in `time` values were ignored instead
+  of being applied.
+- Fixed an issue where `time` values containing unrecognized text, such as
+  `AM`/`PM`, a time zone name like `America/New_York`, or an unpadded date,
+  were stored with a wrong value. These now raise a `BadTypeValu` error.
+- Fixed layer row APIs and `getPropValues()` returning wrong durations for ival
+  values using `?` or `*`, and array lifts on non-unique ival arrays missing
+  those nodes.
+- Fixed LMDB slabs reopening with a smaller map than their tracked size, which
+  caused a stall on the first write after a restart and false `DbOutOfSpace`
+  errors for slabs at their `maxsize`.
+- Fixed an issue which caused garbage collection cycles to delay cleanup during
+  node editing.
+- Fixed `$lib.vault.update` storing permissions for users or roles that do not
+  exist. It now raises `NoSuchUser` or `NoSuchRole` for a new or changed entry.
+- Fixed `$lib.vault.update` overwriting a concurrent change to the vault
+  permissions when the update did not change them.
+- Updated `$lib.time.format()` and `$lib.time.parse()` to raise a `BadArg`
+  error when the format is `(null)`, instead of using the string `None`.
+- Fixed missing argument type coercion in Storm APIs such as `$lib.view.get()`,
+  `$lib.trigger.get()`, and `$lib.time.format()`, which could raise a Python
+  `ValueError` instead of the expected Storm error.
+- Fixed `=` lifts and `<=` lifts and filters using a wildcard time value (e.g.
+  `:time=2021/05/13*`) also matching the first instant after the wildcard
+  window.
+- Fixed nondeterministic ordering of the types returned for poly properties.
+
+<a id="v3-8-0-notes"></a>
+
+### Notes
+
+- Updated the minimum allowed version of the `oauthlib` library to 4.0.0.
+- Updated the Docker images to Python `3.14.10`.
+- Updated the warning for setting a deprecated model property to remove the "or
+  using a deprecated type" wording.
+
+<a id="v3-8-0-improved-documentation"></a>
+
+### Improved documentation
+
+- Fixed the data model reference showing an internal type name instead of the
+  actual type of nearly every property.
+- Clarified in the devops guide which changes are, and are not, flag day
+  releases.
+- Added documentation for the Cortex `/api/v3/mcp` HTTP API endpoint.
+
+<a id="v3-8-0-deprecations"></a>
+
+### Deprecations
+
+- Deprecated the `entity:contributed:campaign` property in favor of
+  `:recipient`. It will be removed on or after 2027-01-01.
+- Deprecated `SynTest.asyncraises()` and `SynTest.agenraises()`; use
+  `SynTest.raises()` as a context manager instead. They will be removed on
+  2026-12-31.
+- Deprecated the `it:os:windows:service:exe` and
+  `it:os:windows:service:sandbox:file` properties, and the same properties on
+  extended model forms that inherit them from the `it:host:exec` interface.
+  They will be removed on or after 2027-01-01.
+
 ## v3.7.0 - 2026-10-23
+
+<a id="v3-7-0-automatic-migrations"></a>
 
 ### Automatic Migrations
 
 - Added a model migration which converts stored `bool` property and tag
   property values to `true`/`false`.
+
+<a id="v3-7-0-model-changes"></a>
 
 ### Model Changes
 
@@ -19,6 +242,8 @@
   `doc:requirement:type` property.
 - Changed the `bool` type to normalize values to `true`/`false` rather than
   `1`/`0`.
+
+<a id="v3-7-0-features-and-enhancements"></a>
 
 ### Features and Enhancements
 
@@ -46,6 +271,8 @@
 - Added `$lib.cortex.provides()` to retrieve the packages the Cortex innately
   provides to power-ups.
 
+<a id="v3-7-0-bugfixes"></a>
+
 ### Bugfixes
 
 - Fixed `$lib.exit()` in a `$lib.markdown` storm block query ending the query
@@ -64,12 +291,16 @@
 - Fixed a Storm package's running onload task not being cancelled when the
   package is deleted or re-added.
 
+<a id="v3-7-0-notes"></a>
+
 ### Notes
 
 - Updated the allowed versions of the `aiohttp-socks`, `pygments`, and `xxhash`
   libraries.
 - Removed `libffi-dev` from the Synapse Docker images.
 - Updated the Docker images to Python `3.14.8`.
+
+<a id="v3-7-0-improved-documentation"></a>
 
 ### Improved documentation
 
@@ -82,6 +313,8 @@
 
 ## v3.6.0 - 2026-10-13
 
+<a id="v3-6-0-model-changes"></a>
+
 ### Model Changes
 
 - Added the `:funding:type`, `:funding:reloadable`, `:network` and
@@ -89,6 +322,8 @@
 - Added the `entity:authored` form to record an actor authoring an item, such
   as software.
 - Updated `meta:story` to display its title, version and creator by default.
+
+<a id="v3-6-0-features-and-enhancements"></a>
 
 ### Features and Enhancements
 
@@ -98,6 +333,8 @@
 - Added the `synapse.tools.storm.lint` tool to lint Storm code.
 - Added `class` entries to Storm package `apidefs`, documenting a class a
   module exports and its methods.
+
+<a id="v3-6-0-bugfixes"></a>
 
 ### Bugfixes
 
@@ -114,6 +351,8 @@
 - Fixed `demote()` API calls failing when two mirrors are at the same Nexus
   index, and changed it to try the most current mirror first.
 
+<a id="v3-6-0-improved-documentation"></a>
+
 ### Improved documentation
 
 - Updated the `time` section and added a `timeprecision` section to the Storm
@@ -122,6 +361,8 @@
   excludes a service from automatic leader selection during demotion.
 
 ## v3.5.0 - 2026-10-08
+
+<a id="v3-5-0-flag-day"></a>
 
 ### Flag Day
 
@@ -132,6 +373,8 @@
   Code which consumes packed nodes from the raw Storm APIs may also require
   adjustment.
 
+<a id="v3-5-0-model-changes"></a>
+
 ### Model Changes
 
 - Added the `:name` property to the `econ:exchange` form.
@@ -141,6 +384,8 @@
 - Added the `:deprecated` property to the `doc:document` interface.
 - Updated the `it:hardware` form to implement the `meta:reported` interface,
   adding properties such as `:id`, `:names` and `:reporter`.
+
+<a id="v3-5-0-features-and-enhancements"></a>
 
 ### Features and Enhancements
 
@@ -180,6 +425,8 @@
 - Added the `$lib.markdown` Storm library for building and editing markdown
   documents, including blocks whose content comes from a Storm query and which
   can rebuild themselves.
+
+<a id="v3-5-0-bugfixes"></a>
 
 ### Bugfixes
 
@@ -249,11 +496,15 @@
 - Updated the packed node to include the missing repr values for its virtual
   properties when the `repr` node option is set.
 
+<a id="v3-5-0-notes"></a>
+
 ### Notes
 
 - Removed the deprecated `.value` virtual property.
 - Moved the info for a node's own value into a `valuinfo` key in the packed
   node.
+
+<a id="v3-5-0-improved-documentation"></a>
 
 ### Improved documentation
 
@@ -268,6 +519,8 @@
 - Fixed Synapse doc cross-links to Storm libraries and types which displayed
   the raw anchor id as their text.
 
+<a id="v3-5-0-deprecations"></a>
+
 ### Deprecations
 
 - Deprecated the `dyncall()` and `dyniter()` Cell and telepath APIs; they will
@@ -275,11 +528,15 @@
 
 ## v3.4.0 - 2026-09-28
 
+<a id="v3-4-0-model-changes"></a>
+
 ### Model Changes
 
 - Updated the `it:sec:cwe` form to implement the `meta:observable` interface,
   adding the `:seen` property.
 - Added the `auth:apikey` form to model API keys.
+
+<a id="v3-4-0-features-and-enhancements"></a>
 
 ### Features and Enhancements
 
@@ -295,6 +552,8 @@
 - `pkg.docs` now lists a package's documents and takes a document name (path,
   stem, or title) to display just that one.
 
+<a id="v3-4-0-bugfixes"></a>
+
 ### Bugfixes
 
 - Fixed Synapse CLI tools exiting with code 1 for `--help`. They now exit 0 for
@@ -303,12 +562,16 @@
   and creating a duplicate, when a case insensitive property such as `:name`
   differed only in case.
 
+<a id="v3-4-0-notes"></a>
+
 ### Notes
 
 - The `ParserExit` exception raised by `synapse.lib.cmd.Parser` now carries its
   exit code in the `exitcode` key instead of `status`.
 
 ## v3.3.0 - 2026-09-22
+
+<a id="v3-3-0-model-changes"></a>
 
 ### Model Changes
 
@@ -319,6 +582,8 @@
 - Updated the `geo:name` and `entity:name` forms to implement the
   `meta:observable` interface.
 - Added the `it:os:windows:task` form to model Windows Scheduled Task entries.
+
+<a id="v3-3-0-features-and-enhancements"></a>
 
 ### Features and Enhancements
 
@@ -337,6 +602,8 @@
   with a user API key.
 - Updated Storm `lookup` mode to resolve the input tokens it could not scrape
   through the `search` Storm interface.
+
+<a id="v3-3-0-bugfixes"></a>
 
 ### Bugfixes
 
@@ -373,10 +640,14 @@
 - Fixed an issue where removing a tag or tagprop tombstone did not remove the
   tombstones on the parent tags.
 
+<a id="v3-3-0-notes"></a>
+
 ### Notes
 
 - Added `synapse.tools.utils.docmanifest`, which reconciles a doc bundle's
   `docs.sha256` against what is on disk without rebuilding it.
+
+<a id="v3-3-0-improved-documentation"></a>
 
 ### Improved documentation
 
@@ -385,6 +656,8 @@
   is built and stored.
 
 ## v3.2.0 - 2026-09-11
+
+<a id="v3-2-0-model-changes"></a>
 
 ### Model Changes
 
@@ -395,6 +668,8 @@
 - Added the `it:app:sigma:rule` and `it:app:sigma:matched` forms.
 - Added the `:edition` property to the `syn:cmd` form, set for a Storm command
   whose definition declares an edition and left unset otherwise.
+
+<a id="v3-2-0-features-and-enhancements"></a>
 
 ### Features and Enhancements
 
@@ -430,6 +705,8 @@
 - Added line numbers to `mddocs` doc build validation failures.
 - Added `$lib.view.get().getTagCount()` to count the tag rows in a View for a
   given tag and optional form.
+
+<a id="v3-2-0-bugfixes"></a>
 
 ### Bugfixes
 
@@ -472,10 +749,14 @@
 - Fixed a bug in `synapse.lib.scrape` where the `it:sec:cve` rule dropped every
   other CVE in a comma- or space-delimited list of CVEs.
 
+<a id="v3-2-0-improved-documentation"></a>
+
 ### Improved documentation
 
 - Removed an outdated section from the Devops Guide about migrating to using
   AHA, as Synapse 3 deployments now require using AHA.
+
+<a id="v3-2-0-deprecations"></a>
 
 ### Deprecations
 
@@ -483,6 +764,8 @@
   2026-09-24.
 
 ## v3.1.0 - 2026-08-20
+
+<a id="v3-1-0-model-changes"></a>
 
 ### Model Changes
 
@@ -497,6 +780,8 @@
   `crypto:hash:sha256`, `crypto:hash:sha384`, and `crypto:hash:sha512`
   forms to implement the `meta:usable` interface.
 
+<a id="v3-1-0-features-and-enhancements"></a>
+
 ### Features and Enhancements
 
 - Updated `$node.pack()` to include virtual property values and the
@@ -504,6 +789,8 @@
   carries, so a value which was set with one is restored with it.
 - Updated the `syn.nodes` export to carry virtual property values, so a value
   which was set with one is restored with it when the export is fed back in.
+
+<a id="v3-1-0-bugfixes"></a>
 
 ### Bugfixes
 
@@ -521,17 +808,23 @@
 
 ## v3.0.0 - 2026-08-13
 
+<a id="v3-0-0-model-changes"></a>
+
 ### Model Changes
 
 - Updated `econ:pricerange` and `econ:pricechange` to normalize their own
   normalized values, which carry the fields they compute alongside the pair
   their constructors accept.
 
+<a id="v3-0-0-features-and-enhancements"></a>
+
 ### Features and Enhancements
 
 - Relaxed the Cell storage version requirement to `>=3.0.0,<4.0.0` so that
   storage created by a Synapse `3.x` release may be used by any later `3.x`
   release.
+
+<a id="v3-0-0-bugfixes"></a>
 
 ### Bugfixes
 
@@ -548,6 +841,8 @@
 
 ## v3.0.0rc1 - 2026-08-12
 
+<a id="v3-0-0rc1-model-changes"></a>
+
 ### Model Changes
 
 - `inet:net` and `inet:cidr` now repr IPv4-mapped IPv6 ranges with the
@@ -557,11 +852,15 @@
   the same as the IPv4 address they embed.
 - Added the it:log:event:host:name property.
 
+<a id="v3-0-0rc1-features-and-enhancements"></a>
+
 ### Features and Enhancements
 
 - Synapse container images are now also published to the Vertex Hub registry at
   `hub.vertex.link`, without the `vertexproject/` prefix (e.g.
   `hub.vertex.link/synapse-cortex`).
+
+<a id="v3-0-0rc1-bugfixes"></a>
 
 ### Bugfixes
 
@@ -618,6 +917,8 @@
 - Fixed Ival types not persisting or respecting the precision virtual property
   upon setting other virtual properties.
 
+<a id="v3-0-0rc1-notes"></a>
+
 ### Notes
 
 - Updated the vendored `email` and `json` modules to the CPython 3.14.7
@@ -628,6 +929,8 @@
 - Updated the vendored `ipaddress` module to the CPython 3.14.7 release.
 - Removed Synapse patches for CVE-2024-7592 and CVE-2025-8194 since they were
   for Python versions that are no longer supported.
+
+<a id="v3-0-0rc1-improved-documentation"></a>
 
 ### Improved documentation
 
@@ -644,6 +947,8 @@
   `synapse.tools.service.healthcheck` probe path and the `v3.x.x` image
   tags.
 
+<a id="v3-0-0rc1-deprecations"></a>
+
 ### Deprecations
 
 - Removed the `storNodeEditsNoLift()` Layer API. Use `storNodeEdits()`,
@@ -651,12 +956,16 @@
 
 ## v3.0.0b6 - 2026-08-11
 
+<a id="v3-0-0b6-improved-documentation"></a>
+
 ### Improved documentation
 
 - Rebuilt the Synapse documentation bundle so it includes the `v3.0.0b5`
   changelog.
 
 ## v3.0.0b5 - 2026-08-11
+
+<a id="v3-0-0b5-model-changes"></a>
 
 ### Model Changes
 
@@ -677,6 +986,8 @@
 - Added `it:app:suricata:rule` and `it:app:suricata:matched` forms.
 - Added `:extmodel` to the `syn:form`, `syn:type`, and `syn:tagprop`
   runt nodes.
+
+<a id="v3-0-0b5-features-and-enhancements"></a>
 
 ### Features and Enhancements
 
@@ -772,6 +1083,8 @@
 - Added `synapse.tools.utils.mdstorm`, a Markdown-native Storm-directive
   processor.
 
+<a id="v3-0-0b5-bugfixes"></a>
+
 ### Bugfixes
 
 - Fixed the Storm library documentation handling of argument defaults. A list
@@ -859,6 +1172,8 @@
   release information for ordering instead of discarding it, so pre-releases
   sort correctly (1.0.0-alpha < 1.0.0-beta < 1.0.0).
 
+<a id="v3-0-0b5-notes"></a>
+
 ### Notes
 
 - Removed the internal `_loginfo` Storm opt. The cron and extended HTTP API
@@ -914,6 +1229,8 @@
 - Storm command argument lists are now terminated only by `|`, `}`, or end
   of query.
 
+<a id="v3-0-0b5-improved-documentation"></a>
+
 ### Improved documentation
 
 - Updated the Synapse glossary to reflect the 3.x data model and Storm
@@ -938,6 +1255,8 @@
   `synapse.tools.utils.doc` instead of Sphinx.
 - Converted all Synapse OSS documentation (`docs/`, `README`) from
   reStructuredText to Markdown, replacing the Sphinx build.
+
+<a id="v3-0-0b5-deprecations"></a>
 
 ### Deprecations
 
@@ -992,6 +1311,8 @@
 
 ## v3.0.0b4 - 2026-07-24
 
+<a id="v3-0-0b4-model-changes"></a>
+
 ### Model Changes
 
 - Removed the `pol:election:time` property in favor of the `:period` property from the `base:activity` interface.
@@ -999,6 +1320,8 @@
 - Replaced the per-def `prevnames` model key with a bundled v2-to-v3 model name map, exposed in the model dictionary as `v2map`.
 - Comp type fields must reference a named type; inline `(type, opts)` field definitions are no longer supported.
 - `inet:http:param:name` is now a `text` type (case-insensitive, case-preserving) instead of `str:lower`.
+
+<a id="v3-0-0b4-features-and-enhancements"></a>
 
 ### Features and Enhancements
 
@@ -1020,6 +1343,8 @@
 
 ## v3.0.0b3 - 2026-07-17
 
+<a id="v3-0-0b3-model-changes"></a>
+
 ### Model Changes
 
 - Removed the `it:exec:proc:cmd:history` property.
@@ -1029,6 +1354,8 @@
 - Added the `it:os:posix:cron` form to model cron job entries configured on a host.
 - Removed the `risk:attack:compromise`, `risk:extortion:compromise`, and `risk:outage:attack` properties.
 - Added the `inet:http:request:fetch` property to record the `it:exec:fetch` event which caused the HTTP request.
+
+<a id="v3-0-0b3-features-and-enhancements"></a>
 
 ### Features and Enhancements
 
@@ -1047,6 +1374,8 @@
 - Added the `$lib.vault.type` Storm library for registering versioned vault type schemas that validate vault data, with automatic migration on version bumps.
 - Removed the AHA service pool and Storm query mirror pool features, including the `aha.pool.*` and `cortex.storm.pool.*` Storm commands, the cron job `--pool` option, and the `pool` flag from the Extended HTTP API configuration.
 
+<a id="v3-0-0b3-bugfixes"></a>
+
 ### Bugfixes
 
 - `SYN_PROVISION_FOLLOWER` is now parsed with `envbool`, so values of `0` or `false` disable follower provisioning instead of enabling it.
@@ -1058,6 +1387,8 @@
 - `synapse.tools.axon.get` no longer leaves an empty file behind when a file fetch fails.
 - Fixed a confusing error message when lifting an array property with a bare scalar value (e.g. `syn:prop:type=ival`); the error now points to the array element lift syntax (`syn:prop:type*[=ival]`) instead of an internal implementation detail, and no longer leaks a raw Python TypeError for the `~=` and `^=` comparators.
 
+<a id="v3-0-0b3-notes"></a>
+
 ### Notes
 
 - Removed the `synapse.telepath.Client` class; use `synapse.telepath.ClientV2`.
@@ -1067,12 +1398,16 @@
 - Removed the `runBackup`, `getBackups`, `getBackupInfo`, `delBackup`, `iterBackupArchive`, and `iterNewBackupArchive` Cell APIs, the `$lib.backup` and `$lib.cell.getBackupInfo()` Storm APIs, and the `synapse.tools.service.livebackup` tool in favor of `initBackupStream()`.
 - Changed the AHA service to always start its provisioning listener now that `dns:name` is required. As such, `aha:name` and `aha:network` are no longer used to do implicit `dns:name` resolution.
 
+<a id="v3-0-0b3-improved-documentation"></a>
+
 ### Improved documentation
 
 - Removed Synapse 2.x.x model updates section from Synapse docs.
 - Removed Python API section from Synapse docs.
 
 ## v3.0.0b2 - 2026-07-11
+
+<a id="v3-0-0b2-model-changes"></a>
 
 ### Model Changes
 
@@ -1087,6 +1422,8 @@
 - Removed the unused `daterange` type.
 - Added the `activity`, `activity:day`, and `reported` ival types.
 - Inline type opts are no longer permitted on properties; a property must reference a named type. A property that needs custom normalization opts (`regex`, `enums`, `names`, `precision`, ...) must be declared once as a named type and referenced by name.
+
+<a id="v3-0-0b2-features-and-enhancements"></a>
 
 ### Features and Enhancements
 
@@ -1108,6 +1445,8 @@
 - AHA now enforces service type uniqueness: only one instance of a service type may register with an AHA deployment. Added `getAhaSvcByType` and `getAhaSvcsByType` APIs and `aha://<svctype>...` URL resolution.
 - Added the `celltype` class variable used to set the service type reported in cell info, and normalized the AHA and JSONStor service types to `aha` and `jsonstor`.
 
+<a id="v3-0-0b2-bugfixes"></a>
+
 ### Bugfixes
 
 - Reading your own API key metadata (`getApiKey`/`listApiKeys`) no longer requires the `auth.self.set.apikey` permission.
@@ -1115,12 +1454,16 @@
 - Fixed `trigger.mod` incorrectly advertising `--form`/`--tag`/`--prop`, which are not editable trigger properties.
 - Fixed a bug where `ival` tag timestamps were displayed as raw storage values instead of in the human-friendly repr format used for `ival` properties.
 
+<a id="v3-0-0b2-notes"></a>
+
 ### Notes
 
 - Services run from Docker containers now use structured logging by default.
 - Updated the pinned version of the `msgpack` library to `>=1.2.1,<1.3.0`.
 
 ## v3.0.0b1 - 2026-06-30
+
+<a id="v3-0-0b1-model-changes"></a>
 
 ### Model Changes
 
@@ -1132,6 +1475,8 @@
 - Added virtual properties: computed sub-values of a property, or context bundled with the value (such as the currency of a price), that can be lifted, filtered, and pivoted.
 - Added form inheritance and additional interfaces to the data model. (subforms).
 - Merged the `inet:ipv4` and `inet:ipv6` forms into a single `inet:ip` form whose system value is a `(version, integer)` tuple.
+
+<a id="v3-0-0b1-features-and-enhancements"></a>
 
 ### Features and Enhancements
 
@@ -1147,6 +1492,8 @@
 - Added inline value casting with the `as` clause, and support for multi-target and virtual-property pivots.
 - Added the `in` and `not in` membership operators to Storm.
 - Updated the default log timestamp format to ISO-8601 UTC with microsecond precision (for example `2026-02-13T10:38:24.545123Z`) for both structured and unstructured log output. Timestamps produced via `SYN_LOG_DATEFORMAT` are now rendered in UTC and support the `%f` directive for microsecond precision.
+
+<a id="v3-0-0b1-notes"></a>
 
 ### Notes
 

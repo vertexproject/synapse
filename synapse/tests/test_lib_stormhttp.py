@@ -875,7 +875,8 @@ class StormHttpTest(s_test.SynTest):
             msgs = await core.stormlist('$resp=$lib.axon.wget("http://vertex.link", proxy=(null)) $lib.print($resp.mesg)')
             self.stormIsInErr('HTTP proxy argument must be a string or bool.', msgs)
 
-            await self.asyncraises(s_exc.BadArg, core.nodes('$lib.axon.wget("http://vertex.link", proxy=(1.1))'))
+            with self.raises(s_exc.BadArg):
+                await core.nodes('$lib.axon.wget("http://vertex.link", proxy=(1.1))')
 
             size, sha256 = await (await core.getAxon()).put(b'asdf')
             opts = {'vars': {'sha256': s_common.ehex(sha256)}}
@@ -891,7 +892,8 @@ class StormHttpTest(s_test.SynTest):
             msgs = await core.stormlist('$resp=$lib.inet.http.get("http://vertex.link", proxy=(null)) $lib.print($resp.err)')
             self.stormIsInErr('HTTP proxy argument must be a string or bool.', msgs)
 
-            await self.asyncraises(s_exc.BadArg, core.nodes('$lib.inet.http.get("http://vertex.link", proxy=(1.1))'))
+            with self.raises(s_exc.BadArg):
+                await core.nodes('$lib.inet.http.get("http://vertex.link", proxy=(1.1))')
 
         async with self.getTestCluster() as clus:
             core = clus.cortex
@@ -1231,17 +1233,21 @@ class StormHttpTest(s_test.SynTest):
 
                 ## schema violation
                 sslopts['newp'] = 'wut'
-                await self.asyncraises(s_exc.SchemaViolation, core.callStorm(q, opts=opts))
+                with self.raises(s_exc.SchemaViolation):
+                    await core.callStorm(q, opts=opts)
+
                 sslopts.pop('newp')
 
                 ## missing key
                 sslopts['client_cert'] = user_fullchain
                 sslopts['client_key'] = None
-                await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
+                with self.raises(s_exc.BadArg):
+                    await core.callStorm(q, opts=opts)
 
                 ## bad cert
                 sslopts['client_cert'] = 'not-gonna-work'
-                await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
+                with self.raises(s_exc.BadArg):
+                    await core.callStorm(q, opts=opts)
 
             # Provide a CA certificate directly
             async with self.getTestCluster() as clus:

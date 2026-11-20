@@ -39,6 +39,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :proc=* as it:exec:proc
                     :period=(20210202, 20210203)
                     :exitcode=0
+                    :exe=* as file:bytes
                     :sandbox:file=* as file:bytes
             ]''')
             self.len(1, nodes)
@@ -46,7 +47,11 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'period', (1612224000000000, 1612310400000000, 86400000000))
             self.propeq(nodes[0], 'exitcode', 0)
             self.len(1, await core.nodes('it:exec:thread :proc -> it:exec:proc'))
+            self.len(1, await core.nodes('it:exec:thread :exe -> file:bytes'))
             self.len(1, await core.nodes('it:exec:thread :sandbox:file -> file:bytes'))
+            self.false(core.model.prop('it:exec:thread:exe').deprecated)
+            self.false(core.model.prop('it:exec:thread:sandbox:file').deprecated)
+            self.eq(['it:host:exec:exe', 'it:host:activity:exe'], core.model.prop('it:exec:thread:exe').ifaces)
 
             nodes = await core.nodes('''[
                 it:exec:lib:load=*
@@ -130,6 +135,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'path', 'c:/windows/system32/rundll32.exe')
             self.len(1, await core.nodes('it:exec:proc:path.base=rundll32.exe'))
             self.len(1, await core.nodes('it:exec:proc=80e6c59d9c349ac15f716eaa825a23fa :sandbox:file -> file:bytes'))
+            self.false(core.model.prop('it:exec:proc:sandbox:file').deprecated)
+            self.eq(['it:host:exec:host', 'it:host:activity:host'], core.model.prop('it:exec:proc:host').ifaces)
 
             nodes = await core.nodes('''[
                 it:av:scan:result=*
@@ -288,6 +295,10 @@ class InfotechModelTest(s_t_utils.SynTest):
 
     async def test_it_forms_simple(self):
         async with self.getTestCore() as core:
+            display = core.model.type('it:log:event').info.get('display')
+            self.eq(['time', 'host::name', 'service:platform::name', 'mesg'],
+                    [col['opts']['name'] for col in display['columns']])
+
             place = s_common.guid()
             nodes = await core.nodes('[it:hostname="Bobs    Computer"]')
             self.len(1, nodes)
@@ -574,6 +585,15 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:host:keyboard:layout=QWERTY'))
             self.len(1, await core.nodes('lang:language:code=en-US -> it:host'))
 
+            self.true(core.model.form('it:adid').implements('it:host:identifier'))
+            nodes = await core.nodes('it:host | limit 1 | [ :identifiers={[ it:adid=hostadid ]} ]')
+            self.len(1, nodes)
+            self.len(1, nodes[0].get('identifiers'))
+            self.len(1, await core.nodes('it:host :identifiers -> it:adid +it:adid=hostadid'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('it:host | limit 1 | [ :identifiers={[ tel:mob:imsi=310150123456789 ]} ]')
+
             nodes = await core.nodes('''
                 it:host | limit 1 |
                 [ :domain={[ inet:service:platform=*
@@ -747,6 +767,11 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(host.prop('parent'))
             self.nn(host.prop('period'))
 
+            # it:cloud:host inherits the :parent declared by it:virtual:host
+            cparent = core.model.prop('it:cloud:host:parent')
+            self.eq(core.model.prop('it:virtual:host:parent').typedef, cparent.typedef)
+            self.eq('The host which runs the cloud host.', cparent.info.get('doc'))
+
             # a base it:host can be geolocated (geo:locatable) without phys:object
             nodes = await core.nodes('[ it:host=* :place:loc=us.ny ]')
             self.len(1, nodes)
@@ -775,6 +800,9 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(node, 'url', 'https://cloud.vertex.link/instance')
             self.propeq(node, 'status', 'available')
             self.nn(node.get('platform'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('it:cloud:host [ :parent={[ it:nic=* ]} ]')
 
             # create an it:physical:host setting inherited it:host props and phys:object props
             nodes = await core.nodes('''
@@ -916,6 +944,10 @@ class InfotechModelTest(s_t_utils.SynTest):
     async def test_it_software(self):
         # Test all prodsoft and prodsoft associated linked forms
         async with self.getTestCore() as core:
+            display = core.model.type('it:software').info.get('display')
+            self.eq(['name', 'names', 'reporter:name', 'tag'],
+                    [col['opts']['name'] for col in display['columns']])
+
             nodes = await core.nodes('''[
                 it:software=*
                     :id="Foo "
@@ -950,6 +982,18 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             self.len(1, nodes := await core.nodes('[ it:software=({"name": "clowns inc"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)
+
+            # meta:observable lets a software name record when it was observed
+            self.true(core.model.form('it:softwarename').implements('meta:observable'))
+            nodes = await core.nodes('[ it:softwarename=outlook :seen=(20210101, 20210201) ]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('seen'))
+            self.len(1, await core.nodes('it:softwarename:seen.min=20210101'))
+
+            self.len(1, await core.nodes('''
+                [ inet:fqdn=outlook-368.com +(resembles)> {[ it:softwarename=outlook ]} ]
+            '''))
+            self.len(1, await core.nodes('inet:fqdn=outlook-368.com -(resembles)> it:softwarename'))
 
             # Test 'vers' semver brute forcing. version.semver is now a single
             # sortable int (packVersionCore); these are all brute-forced
@@ -1058,7 +1102,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                 '3!3.0.0b2',
             )
             for v in testvectors_bad:
-                await self.asyncraises(s_exc.BadTypeValu, t.norm(v))
+                with self.raises(s_exc.BadTypeValu):
+                    await t.norm(v)
 
             # repr reconstructs major.minor.patch plus a coarse pre-release tier
             # tag (exact pre-release/build text is intentionally not retained by
@@ -1127,7 +1172,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.true(await rangefunc(alpha))
             self.false(await rangefunc((await t.norm('2.0.0'))[0]))
 
-            await self.asyncraises(s_exc.BadTypeValu, t.getCmprCtor('range=')('1.0.0'))
+            with self.raises(s_exc.BadTypeValu):
+                await t.getCmprCtor('range=')('1.0.0')
 
             rangecmprs = await t.getStorCmprs('range=', ('1.0.0', '1.5.0'))
             self.eq(rangecmprs, (('range=', (base, (await t.norm('1.5.0'))[0]), t.stortype),))
@@ -1192,13 +1238,22 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             # a comparison against a non-version value is a bad type
             for cmpr in ('>=', '<=', '>', '<'):
-                await self.asyncraises(s_exc.BadTypeValu, t.getCmprCtor(cmpr)('notaversion'))
-            await self.asyncraises(s_exc.BadTypeValu, t.getCmprCtor('range=')(('notaversion', '1.0.0')))
+                with self.raises(s_exc.BadTypeValu):
+                    await t.getCmprCtor(cmpr)('notaversion')
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.getCmprCtor('range=')(('notaversion', '1.0.0'))
+
             # range= requires a 2-tuple
-            await self.asyncraises(s_exc.BadTypeValu, t.getCmprCtor('range=')('1.0.0'))
+            with self.raises(s_exc.BadTypeValu):
+                await t.getCmprCtor('range=')('1.0.0')
+
             # getStorCmprs also raises on a bad ordered/range RHS (lift path)
-            await self.asyncraises(s_exc.BadTypeValu, t.getStorCmprs('>=', 'notaversion'))
-            await self.asyncraises(s_exc.BadTypeValu, t.getStorCmprs('range=', ('1.0.0', 'notaversion')))
+            with self.raises(s_exc.BadTypeValu):
+                await t.getStorCmprs('>=', 'notaversion')
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.getStorCmprs('range=', ('1.0.0', 'notaversion'))
 
             # getSortKey supplies the ordering used by the min and max commands
             norm, info = await t.norm('1.0.0')
@@ -1218,6 +1273,10 @@ class InfotechModelTest(s_t_utils.SynTest):
 
     async def test_it_forms_screenshot(self):
         async with self.getTestCore() as core:
+            display = core.model.type('it:exec:screenshot').info.get('display')
+            self.eq(['time', 'host::name', 'image::sha256'],
+                    [col['opts']['name'] for col in display['columns']])
+
             nodes = await core.nodes('''[
                 it:exec:screenshot=*
                     :host=* as it:host
@@ -1236,6 +1295,10 @@ class InfotechModelTest(s_t_utils.SynTest):
 
     async def test_it_host_telem(self):
         async with self.getTestCore() as core:
+
+            display = core.model.type('it:host:telem').info.get('display')
+            self.eq(['time', 'host::name', 'place:country:code', 'place:latlong'],
+                    [col['opts']['name'] for col in display['columns']])
 
             nodes = await core.nodes('''[
                 it:host:telem=*
@@ -1296,6 +1359,10 @@ class InfotechModelTest(s_t_utils.SynTest):
 
     async def test_it_forms_hardware(self):
         async with self.getTestCore() as core:
+            display = core.model.type('it:hardware').info.get('display')
+            self.eq(['name', 'reporter:name', 'type'],
+                    [col['opts']['name'] for col in display['columns']])
+
             self.true(core.model.form('it:hardware').implements('biz:manufactured'))
             self.true(core.model.form('it:hardware').implements('meta:reported'))
             nodes = await core.nodes('''[
@@ -1457,16 +1524,51 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'serial', 'slot1')
             self.len(1, await core.nodes('it:sim:slot :imei -> tel:mob:imei'))
 
-            nodes = await core.nodes('[ it:sim:card=* :imsi=310150123456789 :serial=card1 ]')
+            nodes = await core.nodes('[ it:sim:card=* :imsi=310150123456789 :phone=+1-555-867-5309 :serial=card1 ]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[0], 'it:sim:card')
             self.propeq(nodes[0], 'imsi', '310150123456789')
+            self.propeq(nodes[0], 'phone', '15558675309')
             self.propeq(nodes[0], 'serial', 'card1')
             self.len(1, await core.nodes('it:sim:card :imsi -> tel:mob:imsi'))
+            self.len(1, await core.nodes('it:sim:card :phone -> tel:phone'))
 
     async def test_it_forms_hostexec(self):
         # forms related to the host execution model
         async with self.getTestCore() as core:
+            filecols = ['time', 'host::name', 'path', 'file::sha256']
+            namecols = ['time', 'host::name', 'name']
+            proccols = ['time', 'host::name', 'proc::name', 'target::name']
+            regcols = ['time', 'host::name', 'entry::key', 'entry::name', 'entry::value']
+            svccols = ['time', 'host::name', 'target::displayname', 'target::imagepath']
+            expcols = {
+                'it:exec:bind': ['time', 'host::name', 'server'],
+                'it:exec:fetch': ['time', 'host::name', 'url'],
+                'it:exec:file:add': filecols,
+                'it:exec:file:del': filecols,
+                'it:exec:file:read': filecols,
+                'it:exec:file:write': filecols,
+                'it:exec:lib:load': filecols,
+                'it:exec:lib:unload': filecols,
+                'it:exec:mutex:add': namecols,
+                'it:exec:pipe:add': namecols,
+                'it:exec:pipe:del': namecols,
+                'it:exec:pipe:read': namecols,
+                'it:exec:pipe:write': namecols,
+                'it:exec:proc:create': proccols,
+                'it:exec:proc:signal': proccols,
+                'it:exec:proc:terminate': proccols,
+                'it:exec:query': ['time', 'host::name', 'text', 'api:url'],
+                'it:exec:windows:registry:del': regcols,
+                'it:exec:windows:registry:get': regcols,
+                'it:exec:windows:registry:set': regcols,
+                'it:exec:windows:service:add': svccols,
+                'it:exec:windows:service:del': svccols,
+            }
+            for form, names in expcols.items():
+                display = core.model.type(form).info.get('display')
+                self.eq(names, [col['opts']['name'] for col in display['columns']])
+
             exe = s_common.guid()
             port = 80
             tick = s_common.now()
@@ -1556,6 +1658,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :host={ it:host=$hostiden }
                     :period=(202405170900, 202405171000)
                     :output="total 0 drwxr-xr-x 2 root root"
+                    :exe=* as file:bytes
+                    :sandbox:file=* as file:bytes
                 )
 
                 (it:exec:command=(1715936400000002, $sessiden)
@@ -1584,6 +1688,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.none(core.model.form('it:cmd:history'))
             self.none(core.model.prop('it:exec:command:time'))
             self.true(core.model.form('it:exec:command').implements('it:host:activity'))
+            self.len(1, await core.nodes('it:exec:command :exe -> file:bytes'))
+            self.len(1, await core.nodes('it:exec:command :sandbox:file -> file:bytes'))
 
             # the :cmd:history property was removed from it:exec:proc
             self.none(core.model.prop('it:exec:proc:cmd:history'))
@@ -1655,6 +1761,13 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.propeq(node, 'name', pipe)
                 self.propeq(node, 'sandbox:file', sandfile)
                 self.true(core.model.form(form).implements('it:host:event'))
+                self.false(core.model.prop(f'{form}:exe').deprecated)
+                self.false(core.model.prop(f'{form}:sandbox:file').deprecated)
+                self.eq(['it:host:event:exe', 'it:host:exec:exe'], core.model.prop(f'{form}:exe').ifaces)
+                self.eq(['it:host:exec:host', 'it:host:event:host'], core.model.prop(f'{form}:host').ifaces)
+
+            self.isin('it:exec:pipe:add:exe', core.model.ifaceprops['it:host:exec:exe'])
+            self.isin('it:exec:pipe:add:sandbox:file', core.model.ifaceprops['it:host:exec:sandbox:file'])
 
             nodes = await core.nodes('''
                 [ it:exec:fetch=*
@@ -1907,6 +2020,10 @@ class InfotechModelTest(s_t_utils.SynTest):
     async def test_it_app_yara(self):
 
         async with self.getTestCore() as core:
+
+            display = core.model.type('it:app:yara:rule').info.get('display')
+            self.eq(['created', 'creator:name', 'name', 'text'],
+                    [col['opts']['name'] for col in display['columns']])
 
             nodes = await core.nodes('''
                 [ it:app:yara:rule=*
@@ -2776,6 +2893,21 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('it:os:windows:service -> it:host'))
             self.len(1, await core.nodes('it:os:windows:service -> file:path'))
+            self.len(1, await core.nodes('it:host:activity:host'))
+
+            # service configuration is host metadata, not execution
+            for name in ('exe', 'sandbox:file'):
+                prop = core.model.prop(f'it:os:windows:service:{name}')
+                self.eq({'eoldate': '2027-01-01'}, prop.deprecated)
+                self.eq([f'it:host:exec:{name}', f'it:host:activity:{name}'], prop.ifaces)
+
+            self.false(core.model.prop('it:exec:proc:exe').deprecated)
+            self.false(core.model.prop('it:exec:command:exe').deprecated)
+
+            msgs = await core.stormlist('it:os:windows:service [ :exe=* as file:bytes :sandbox:file=* as file:bytes ]')
+            self.stormIsInWarn('The property it:os:windows:service:exe is deprecated and will be removed on or after 2027-01-01.', msgs)
+            self.stormIsInWarn('The property it:os:windows:service:sandbox:file is deprecated and will be removed on or after 2027-01-01.', msgs)
+            self.len(1, await core.nodes('it:os:windows:service :exe -> file:bytes'))
 
             self.len(1, await core.nodes('[ it:exec:proc=* <(ledto)+ { it:os:windows:service } ]'))
 
@@ -2901,32 +3033,38 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ it:mitre:attack:group:id=G0100 ]')
             self.len(1, nodes)
             self.eq('G0100', nodes[0].ndef[1])
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:group:id=foo ]'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ it:mitre:attack:group:id=foo ]')
 
             nodes = await core.nodes('[ it:mitre:attack:tactic:id=TA0040 ]')
             self.len(1, nodes)
             self.eq('TA0040', nodes[0].ndef[1])
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:tactic:id=foo ]'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ it:mitre:attack:tactic:id=foo ]')
 
             nodes = await core.nodes('[ it:mitre:attack:technique:id=T1548.123 ]')
             self.len(1, nodes)
             self.eq('T1548.123', nodes[0].ndef[1])
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:technique:id=foo ]'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ it:mitre:attack:technique:id=foo ]')
 
             nodes = await core.nodes('[ it:mitre:attack:mitigation:id=M1036 ]')
             self.len(1, nodes)
             self.eq('M1036', nodes[0].ndef[1])
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:mitigation:id=foo ]'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ it:mitre:attack:mitigation:id=foo ]')
 
             nodes = await core.nodes('[ it:mitre:attack:software:id=S0154 ]')
             self.len(1, nodes)
             self.eq('S0154', nodes[0].ndef[1])
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:software:id=foo ]'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ it:mitre:attack:software:id=foo ]')
 
             nodes = await core.nodes('[ it:mitre:attack:campaign:id=C0028 ]')
             self.len(1, nodes)
             self.eq('C0028', nodes[0].ndef[1])
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:campaign:id=foo ]'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ it:mitre:attack:campaign:id=foo ]')
 
             # Test that MITRE ATT&CK IDs can be set on :id/:ids properties of related forms
             nodes = await core.nodes('[ risk:threat=* :id=G0100 :ids=(G0101,) ]')

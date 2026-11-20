@@ -216,6 +216,8 @@ Assigning [`$lib.undef`](../stormtypes_libs.md#stormlibs-lib-undef) to a key rem
 
 A vault is deleted with `vault.del` or [`$vault.delete()`](../stormtypes_prims.md#stormprims-vault-delete), which require `admin`.
 
+Vaults can also be listed, read, added, modified, and deleted without Storm through the Cortex [vault HTTP APIs](../httpapi.md#apiv3vaultlist), which enforce the same permissions.
+
 <a id="storm-vaults-use"></a>
 
 

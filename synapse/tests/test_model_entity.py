@@ -7,6 +7,26 @@ class EntityModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
+            display = core.model.type('entity:motive').info.get('display')
+            self.eq(['period', 'actor:name', 'goal::name'],
+                    [col['opts']['name'] for col in display['columns']])
+
+            display = core.model.type('entity:campaign').info.get('display')
+            self.eq(['period', 'name', 'actor:name', 'reporter:name', 'tag'],
+                    [col['opts']['name'] for col in display['columns']])
+
+            display = core.model.type('entity:goal').info.get('display')
+            self.eq(['name', 'reporter:name'],
+                    [col['opts']['name'] for col in display['columns']])
+
+            display = core.model.type('entity:goal:financial').info.get('display')
+            self.eq(['name', 'target', 'actual', 'reporter:name'],
+                    [col['opts']['name'] for col in display['columns']])
+
+            display = core.model.type('entity:goal:people').info.get('display')
+            self.eq(['name', 'target', 'actual', 'reporter:name'],
+                    [col['opts']['name'] for col in display['columns']])
+
             nodes = await core.nodes('''[
                 entity:contact=*
                     :type=person.employee
@@ -38,6 +58,7 @@ class EntityModelTest(s_t_utils.SynTest):
                     :birth:place:country:code=us
                     :death:place:country:code=zz
                     :place:address:city="  new York  city "
+                    :place:address:state="  new  York "
             ]''')
             self.len(1, nodes)
             node = nodes[0]
@@ -112,6 +133,7 @@ class EntityModelTest(s_t_utils.SynTest):
             self.propeq(node, 'birth:place:country:code', 'us')
             self.propeq(node, 'death:place:country:code', 'zz')
             self.propeq(node, 'place:address:city', 'new York city')
+            self.propeq(node, 'place:address:state', 'new York')
 
             # pivots
             self.len(1, await core.nodes('entity:contact -> inet:service:account'))
@@ -159,12 +181,14 @@ class EntityModelTest(s_t_utils.SynTest):
                     :type=owner
                     :period=(2016, ?)
                     :percent=50
+                    :value=1000000
                     :actor:name=visi
                 ]
             ''')
             self.len(1, nodes)
             self.propeq(nodes[0], 'type', 'owner.')
             self.propeq(nodes[0], 'percent', '50')
+            self.propeq(nodes[0], 'value', '1000000')
             self.propeq(nodes[0], 'period', (1451606400000000, 9223372036854775807, 0xffffffffffffffff))
             self.propeq(nodes[0], 'actor:name', 'visi')
             self.len(1, await core.nodes('entity:owned :actor -> * +:name=visi'))
@@ -175,6 +199,7 @@ class EntityModelTest(s_t_utils.SynTest):
             self.true(core.model.form('entity:owned').implements('entity:activity'))
             self.none(core.model.form('entity:had').prop('percent'))
             self.nn(core.model.form('entity:owned').prop('percent'))
+            self.none(core.model.form('entity:had').prop('value'))
 
             # entity:authored links an actor to anything implementing doc:authorable.
             self.true(core.model.form('entity:authored').implements('entity:activity'))
@@ -229,6 +254,40 @@ class EntityModelTest(s_t_utils.SynTest):
             ndef = nodes[0].ndef
             self.len(1, nodes := await core.nodes('[ entity:goal=({"name": "foo goal"}) ]'))
             self.eq(nodes[0].ndef, ndef)
+
+            nodes = await core.nodes('''[
+                entity:goal:financial=*
+                    :name="raise funds"
+                    :target="1000.50 usd"
+                    :actual="800 usd"
+            ]''')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'name', 'raise funds')
+            self.propeq(nodes[0], 'target', '1000.5')
+            self.propeq(nodes[0], 'target.currency', 'USD')
+            self.propeq(nodes[0], 'actual', '800')
+            self.propeq(nodes[0], 'actual.currency', 'USD')
+
+            nodes = await core.nodes('''[
+                entity:goal:people=*
+                    :name="reach voters"
+                    :target=20000
+                    :actual=15000
+            ]''')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'name', 'reach voters')
+            self.propeq(nodes[0], 'target', 20000)
+            self.propeq(nodes[0], 'actual', 15000)
+
+            nodes = await core.nodes('[ entity:goal:people=* :name="cut staff" :target=-500 :actual=-350 ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'target', -500)
+            self.propeq(nodes[0], 'actual', -350)
+
+            self.len(4, await core.nodes('entity:goal'))
+            self.len(1, await core.nodes('entity:goal:financial'))
+            self.len(1, await core.nodes('entity:goal:people:target>10000'))
+            self.len(1, await core.nodes('entity:goal:people:actual<0'))
 
             nodes = await core.nodes('''[
                 entity:attended=*
@@ -291,6 +350,11 @@ class EntityModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('entity:campaign -(supported)> entity:goal'))
             self.len(1, await core.nodes('entity:campaign:id=Foo :slogan -> lang:phrase'))
 
+            self.true(core.model.form('ou:team').implements('entity:actor'))
+            nodes = await core.nodes('[ entity:campaign=* :actor={[ ou:team=* :name=redteam ]} ]')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('entity:campaign :actor -> ou:team +:name=redteam'))
+
             nodes = await core.nodes('''
                 [ meta:technique=*
                     :id=Foo
@@ -341,6 +405,30 @@ class EntityModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('actor'))
             self.len(1, await core.nodes('entity:contributed -> entity:campaign'))
             self.len(1, await core.nodes('entity:contributed -> ou:org +:name=vertex'))
+
+            # :campaign is deprecated in favor of :recipient
+            msgs = await core.stormlist('entity:contributed [ :campaign={[ entity:campaign=* :name="bad guys" ]} ]')
+            self.stormIsInWarn('entity:contributed:campaign is deprecated and will be removed on or after 2027-01-01', msgs)
+
+            # :recipient accepts an actor or a campaign
+            nodes = await core.nodes('''
+                [ entity:contributed=*
+                    :recipient={ entity:campaign:name="good guys" }
+                    :recipient:name="good guys"
+                ]
+            ''')
+            self.propeq(nodes[0], 'recipient:name', 'good guys')
+            self.eq('entity:campaign', nodes[0].get('recipient')[0])
+            self.len(1, await core.nodes('entity:contributed:recipient -> entity:campaign'))
+
+            nodes = await core.nodes('''
+                [ entity:contributed=*
+                    :recipient={[ ou:org=* :name=recipient ]}
+                    :recipient:name=recipient
+                ]
+            ''')
+            self.eq('ou:org', nodes[0].get('recipient')[0])
+            self.len(1, await core.nodes('entity:contributed:recipient -> ou:org +:name=recipient'))
 
             nodes = await core.nodes('''
                 [ entity:conflict=*
@@ -457,6 +545,10 @@ class EntityModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
+            display = core.model.type('entity:relationship').info.get('display')
+            self.eq(['source::name', 'target::name', 'reporter:name', 'type'],
+                    [col['opts']['name'] for col in display['columns']])
+
             nodes = await core.nodes('''[
                 entity:relationship=*
                     :type=tasks
@@ -521,6 +613,25 @@ class EntityModelTest(s_t_utils.SynTest):
             # forms which do not implement entity:destroyable are rejected for :item
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ entity:destroyed=* :item={[ ou:org=* ]} ]')
+
+            # entity:revoked records the revocation of a meta:revocable item such as an entity:achieved
+            self.eq((), core.model.ifaces.get('meta:revocable').get('props', ()))
+            self.true(core.model.form('entity:revoked').implements('entity:event'))
+            self.true(core.model.form('entity:achieved').implements('meta:revocable'))
+            nodes = await core.nodes('''[
+                entity:revoked=*
+                    :actor={[ ou:org=* :name=issuer ]}
+                    :time=20230401
+                    :item={[ entity:achieved=* :achievement={[ meta:award=* :name=cissp ]} ]}
+            ]''')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'time', 1680307200000000)
+            self.len(1, await core.nodes('entity:revoked :actor -> ou:org +:name=issuer'))
+            self.len(1, await core.nodes('entity:revoked :item -> entity:achieved :achievement -> meta:award +:name=cissp'))
+            self.len(1, await core.nodes('entity:achieved -> entity:revoked'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ entity:revoked=* :item={[ ou:org=* ]} ]')
 
             nodes = await core.nodes('''[
                 entity:asked=*

@@ -71,6 +71,41 @@ def chopurl(url):
     ret['path'] = pathrem
     return ret
 
+def zipurl(info):
+    '''
+    Reconstruct a URL string from a parsed info dict, the inverse of chopurl().
+    '''
+    # copy to prevent mutation
+    info = dict(info)
+
+    host = info.pop('host', None)
+    port = info.pop('port', None)
+    path = info.pop('path', None)
+    user = info.pop('user', None)
+    passwd = info.pop('passwd', None)
+    scheme = info.pop('scheme', None)
+
+    url = f'{scheme}://'
+    if user:
+        url += urllib.parse.quote(user, safe='')
+        if passwd:
+            url += f':{urllib.parse.quote(passwd, safe="")}'
+        url += '@'
+
+    if host:
+        url += f'[{host}]' if ':' in host and not host.startswith('[') else host
+        if port is not None:
+            url += f':{port}'
+
+    if path:
+        url += f'{path}'
+
+    if info:
+        params = '&'.join([f'{k}={v}' for (k, v) in info.items()])
+        url += f'?{params}'
+
+    return url
+
 @s_cache.memoize(size=1024)
 def sanitizeUrl(url):
     '''

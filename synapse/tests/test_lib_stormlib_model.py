@@ -3,6 +3,7 @@ import synapse.common as s_common
 
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
+import synapse.lib.editor as s_editor
 import synapse.lib.nodefuse as s_nodefuse
 
 import synapse.tests.utils as s_test
@@ -215,8 +216,11 @@ class StormlibModelTest(s_test.SynTest):
 
             # copy node data
 
-            await self.asyncraises(s_exc.BadArg, core.nodes('test:str=src $lib.model.migration.copyData($node, newp)'))
-            await self.asyncraises(s_exc.BadArg, core.nodes('test:str=dst $lib.model.migration.copyData(newp, $node)'))
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:str=src $lib.model.migration.copyData($node, newp)')
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:str=dst $lib.model.migration.copyData(newp, $node)')
 
             nodes = await core.nodes('''
                 test:str=src
@@ -247,12 +251,16 @@ class StormlibModelTest(s_test.SynTest):
             )
 
             q = 'test:str=src $n=$node -> { test:str=deny $lib.model.migration.copyData($n, $node) }'
-            await self.asyncraises(s_exc.AuthDeny, core.nodes(q, opts=aslow))
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes(q, opts=aslow)
 
             # copy edges
 
-            await self.asyncraises(s_exc.BadArg, core.nodes('test:str=src $lib.model.migration.copyEdges($node, newp)'))
-            await self.asyncraises(s_exc.BadArg, core.nodes('test:str=dst $lib.model.migration.copyEdges(newp, $node)'))
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:str=src $lib.model.migration.copyEdges($node, newp)')
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:str=dst $lib.model.migration.copyEdges(newp, $node)')
 
             nodes = await core.nodes('''
                 test:str=src
@@ -267,12 +275,16 @@ class StormlibModelTest(s_test.SynTest):
             self.eq([('refs', othernid)], [edge async for edge in nodes[0].iterEdgesN2()])
 
             q = 'test:str=src $n=$node -> { test:str=deny $lib.model.migration.copyEdges($n, $node) }'
-            await self.asyncraises(s_exc.AuthDeny, core.nodes(q, opts=aslow))
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes(q, opts=aslow)
 
             # copy tags
 
-            await self.asyncraises(s_exc.BadArg, core.nodes('test:str=src $lib.model.migration.copyTags($node, newp)'))
-            await self.asyncraises(s_exc.BadArg, core.nodes('test:str=dst $lib.model.migration.copyTags(newp, $node)'))
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:str=src $lib.model.migration.copyTags($node, newp)')
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:str=dst $lib.model.migration.copyTags(newp, $node)')
 
             await core.nodes('$lib.model.ext.addTagProp(_test, (str, ({})), ({}))')
 
@@ -305,11 +317,15 @@ class StormlibModelTest(s_test.SynTest):
             self.eq([('_test', 'src')], [(k, nodes[0].getTagProp('baz', k)) for k in nodes[0].getTagProps('baz')])
 
             q = 'test:str=src $n=$node -> { test:str=deny $lib.model.migration.copyTags($n, $node) }'
-            await self.asyncraises(s_exc.AuthDeny, core.nodes(q, opts=aslow))
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes(q, opts=aslow)
 
             # copy extended properties
-            await self.asyncraises(s_exc.BadArg, core.nodes('test:str=src $lib.model.migration.copyExtProps($node, newp)'))
-            await self.asyncraises(s_exc.BadArg, core.nodes('test:str=dst $lib.model.migration.copyExtProps(newp, $node)'))
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:str=src $lib.model.migration.copyExtProps($node, newp)')
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:str=dst $lib.model.migration.copyExtProps(newp, $node)')
 
             await core.addFormProp('test:str', '_foo', ('str', {}), {})
 
@@ -722,33 +738,29 @@ class StormlibModelTest(s_test.SynTest):
 
             await core.nodes('[ test:str=v-src test:str=v-dst ]')
 
-            await self.asyncraises(s_exc.BadArg,
-                core.nodes('test:str=v-src $lib.model.migration.fuse($node, newp)'))
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:str=v-src $lib.model.migration.fuse($node, newp)')
 
-            await self.asyncraises(s_exc.BadArg,
-                core.nodes('test:str=v-src $lib.model.migration.fuse(newp, $node)'))
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:str=v-src $lib.model.migration.fuse(newp, $node)')
 
             # src and dst must share a form or an inheritance chain
             guidval = s_common.guid()
             opts = {'vars': {'guidval': guidval}}
             await core.nodes('[ test:guid=$guidval ]', opts=opts)
-            await self.asyncraises(s_exc.BadArg,
-                core.nodes('test:str=v-src $n=$node -> { test:guid=$guidval '
-                           '$lib.model.migration.fuse($n, $node) }', opts=opts))
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:str=v-src $n=$node -> { test:guid=$guidval ' '$lib.model.migration.fuse($n, $node) }', opts=opts)
 
             # runt forms are refused from either side, and are reported as runt rather than
             # as a form mismatch even when the other side is not a runt form at all
-            await self.asyncraises(s_exc.IsRuntForm,
-                core.nodes('syn:form=test:str $n=$node -> { syn:form=test:int '
-                           '$lib.model.migration.fuse($n, $node) }'))
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('syn:form=test:str $n=$node -> { syn:form=test:int ' '$lib.model.migration.fuse($n, $node) }')
 
-            await self.asyncraises(s_exc.IsRuntForm,
-                core.nodes('syn:form=test:str $n=$node -> { test:str=v-src '
-                           '$lib.model.migration.fuse($n, $node) }'))
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('syn:form=test:str $n=$node -> { test:str=v-src ' '$lib.model.migration.fuse($n, $node) }')
 
-            await self.asyncraises(s_exc.IsRuntForm,
-                core.nodes('test:str=v-src $n=$node -> { syn:form=test:str '
-                           '$lib.model.migration.fuse($n, $node) }'))
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('test:str=v-src $n=$node -> { syn:form=test:str ' '$lib.model.migration.fuse($n, $node) }')
 
             # a self fuse warns and no-ops
             mesgs = await core.stormlist('test:str=v-src $lib.model.migration.fuse($node, $node)')
@@ -1225,10 +1237,11 @@ class StormlibModelTest(s_test.SynTest):
             await core.nodes('[ test:inhstr=rf-dst ]')
             await core.nodes('[ test:fusechildref=(rf1,) :ref={ test:inhstr2=rf-src } ]')
 
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('''
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('''
                 test:inhstr2=rf-src $n=$node -> { test:inhstr=rf-dst
                     $lib.model.migration.fuse($n, $node) }
-            '''))
+            ''')
 
             # nothing was changed
             self.len(1, await core.nodes('test:inhstr2=rf-src'))
@@ -1367,10 +1380,11 @@ class StormlibModelTest(s_test.SynTest):
             lowuser = await core.auth.addUser('fuselow')
             aslow = {'user': lowuser.iden}
 
-            await self.asyncraises(s_exc.AuthDeny, core.nodes('''
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('''
                 test:str=ad-src $n=$node -> { test:str=ad-dst
                     $lib.model.migration.fuse($n, $node) }
-            ''', opts=aslow))
+            ''', opts=aslow)
 
             # nothing was changed
             self.len(1, await core.nodes('test:str=ad-src'))
@@ -2239,10 +2253,11 @@ class StormlibModelTest(s_test.SynTest):
 
             self.len(1, await core.nodes('test:comp:hehe=10'))
 
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('''
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('''
                 test:int=10 $n=$node -> { test:int=20
                     $lib.model.migration.fuse($n, $node) }
-            '''))
+            ''')
 
             # nothing was changed
             self.len(1, await core.nodes('test:int=10'))
@@ -2267,10 +2282,11 @@ class StormlibModelTest(s_test.SynTest):
 
             with mock.patch.object(comptype, 'normFromTypedValu',
                                    side_effect=s_exc.BadTypeValu(mesg='comp boom')):
-                await self.asyncraises(s_exc.BadTypeValu, core.nodes('''
+                with self.raises(s_exc.BadTypeValu):
+                    await core.nodes('''
                     test:int=10 $n=$node -> { test:int=20
                         $lib.model.migration.fuse($n, $node) }
-                '''))
+                ''')
 
             # the refusal happened during discovery, so nothing was changed
             self.len(1, await core.nodes('test:int=10'))
@@ -2303,3 +2319,327 @@ class StormlibModelTest(s_test.SynTest):
             nodes = await core.nodes('test:arrayprop=$dstguid', opts=opts)
             self.len(1, nodes)
             self.eq((('test:arrayprop', dstguid),), nodes[0].get('children'))
+
+    async def _runNodeFuser(self, core, srcndef, dstndef, ctor=s_nodefuse.NodeFuser, **kwargs):
+
+        useriden = core.auth.rootuser.iden
+        meta = {'time': s_common.now(), 'user': useriden}
+
+        async with await ctor.anit(core, useriden, **kwargs) as fuser:
+            await fuser.getLayerEdits(srcndef, dstndef)
+            await fuser.applyLayerEdits(meta)
+            return fuser.getResult()
+
+    async def test_nodefuse_hooks(self):
+
+        class HookFuser(s_nodefuse.NodeFuser):
+
+            async def __anit__(self, core, useriden, **kwargs):
+                await s_nodefuse.NodeFuser.__anit__(self, core, useriden, **kwargs)
+                self.seen = []
+                self.flushed = []
+
+            async def _getSeedComputed(self, dstnid, dstform, dstndef):
+                editor = s_editor.MigrationEditor(self.core, self.core.auth.rootuser)
+                nodeedits = await editor.getNewNodeEdits(dstform.name, dstndef[1])
+
+                retn = {}
+                for (etyp, edit) in nodeedits[0][2]:
+                    if etyp == s_layer.EDIT_PROP_SET:
+                        retn[edit[0]] = edit[1:]
+                return retn
+
+            def _remapCompSlotValu(self, form, prop, valu):
+                if tuple(valu) == ('inet:url', 'https://slot.example/b'):
+                    return ('inet:url', 'https://slot.example/b2')
+                return s_nodefuse.NodeFuser._remapCompSlotValu(self, form, prop, valu)
+
+            async def _onConflict(self, layer, dstnid, dstform, kind, key, valu):
+                self.seen.append((layer.iden, dstform.name, kind, key, valu))
+
+            async def _flushConflicts(self, layer, srcndef, dstnid, dstform):
+                self.flushed.append((layer.iden, srcndef, dstform.name))
+
+        async with self.getTestCore() as core:
+
+            layr = core.getView().layers[0]
+
+            # --- _getSeedComputed() ---
+
+            await core.nodes('[ inet:url=https://vertex.link/a +#src ]')
+
+            # by default a new dst gets no computed props, since a fuse names an existing node
+            await self._runNodeFuser(core, ('inet:url', 'https://vertex.link/a'), ('inet:url', 'https://vertex.link/b'))
+
+            nodes = await core.nodes('inet:url=https://vertex.link/b')
+            self.len(1, nodes)
+            self.none(nodes[0].get('host'))
+            self.eq(['src'], [tag for (tag, valu) in nodes[0].getTags()])
+
+            await core.nodes('[ inet:url=https://vertex.link/c ]')
+
+            await self._runNodeFuser(core, ('inet:url', 'https://vertex.link/c'), ('inet:url', 'https://vertex.link:81/d'),
+                                     ctor=HookFuser)
+
+            nodes = await core.nodes('inet:url=https://vertex.link:81/d')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'host', 'vertex.link')
+            self.propeq(nodes[0], 'port', 81)
+            self.propeq(nodes[0], 'path', '/d')
+            self.propeq(nodes[0], 'proto', 'https')
+
+            self.len(1, await core.nodes('inet:url:port=81'))
+            self.len(0, await core.nodes('inet:url=https://vertex.link/c'))
+
+            # an existing dst keeps its own computed props rather than asking for a seed
+            await core.nodes('[ inet:url=https://vertex.link/e inet:url=https://vertex.link:82/f ]')
+
+            await self._runNodeFuser(core, ('inet:url', 'https://vertex.link/e'), ('inet:url', 'https://vertex.link:82/f'),
+                                     ctor=HookFuser)
+
+            nodes = await core.nodes('inet:url=https://vertex.link:82/f')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'port', 82)
+
+            # --- _remapCompSlotValu() ---
+
+            await core.nodes('''[
+                inet:url=https://slot.example/a2
+                inet:url:redir=(https://slot.example/a, https://slot.example/b)
+                inet:url:redir=(https://slot.example/x, https://slot.example/b)
+            ]''')
+
+            # by default only the slot naming the renamed node follows it
+            await self._runNodeFuser(core, ('inet:url', 'https://slot.example/x'), ('inet:url', 'https://slot.example/a2'))
+
+            self.len(1, await core.nodes('inet:url:redir=(https://slot.example/a2, https://slot.example/b)'))
+
+            await self._runNodeFuser(core, ('inet:url', 'https://slot.example/a'), ('inet:url', 'https://slot.example/a2'),
+                                     ctor=HookFuser)
+
+            self.len(0, await core.nodes('inet:url:redir:source=https://slot.example/a'))
+            self.len(1, await core.nodes('inet:url:redir=(https://slot.example/a2, https://slot.example/b)'))
+
+            nodes = await core.nodes('inet:url:redir=(https://slot.example/a2, https://slot.example/b2)')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'target', 'https://slot.example/b2')
+
+            # --- _onConflict() and _flushConflicts() ---
+
+            await core.addTagProp('_ival', ('ival', {}), {})
+            await core.addTagProp('_str', ('str', {}), {})
+
+            await core.nodes('''
+                [ test:str=cf-src :hehe=srchehe :seen=(2010, 2012) +#foo:_ival=(2010, 2015) +#foo:_str=srcstr ]
+                $node.data.set(woot, srcdata)
+                $node.data.set(same, samedata)
+                $node.data.set(srconly, onlysrc)
+            ''')
+            await core.nodes('''
+                [ test:str=cf-dst :hehe=dsthehe :seen=(2011, 2020) +#foo:_ival=(2012, 2020) +#foo:_str=dststr ]
+                $node.data.set(woot, dstdata)
+                $node.data.set(same, samedata)
+            ''')
+
+            useriden = core.auth.rootuser.iden
+            meta = {'time': s_common.now(), 'user': useriden}
+
+            async with await HookFuser.anit(core, useriden) as fuser:
+                await fuser.getLayerEdits(('test:str', 'cf-src'), ('test:str', 'cf-dst'))
+                await fuser.applyLayerEdits(meta)
+
+                # merging types combine rather than conflict, so only dst's winners are reported
+                self.sorteq([
+                    (layr.iden, 'test:str', 'props', 'hehe', ('str', 'srchehe')),
+                    (layr.iden, 'test:str', 'tagprops', ('foo', '_str'), 'srcstr'),
+                    (layr.iden, 'test:str', 'nodedata', 'woot', 'srcdata'),
+                    (layr.iden, 'test:str', 'nodedata', 'same', 'samedata'),
+                ], fuser.seen)
+
+                self.eq([(layr.iden, ('test:str', 'cf-src'), 'test:str')], fuser.flushed)
+
+            nodes = await core.nodes('test:str=cf-dst')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'hehe', 'dsthehe')
+            self.eq('dststr', nodes[0].getTagProp('foo', '_str'))
+            self.eq('dstdata', await nodes[0].getData('woot'))
+            self.eq('onlysrc', await nodes[0].getData('srconly'))
+
+            # --- iterLayerRefs() ---
+
+            await core.nodes('[ test:str=ir-src ] $n=$node [( test:str=ir-ref :bar=$n )]')
+
+            refs = [item async for item in s_nodefuse.iterLayerRefs(core, layr, ('test:str', 'ir-src'))]
+
+            self.len(1, refs)
+
+            (refnid, prop, isarray, reftyp) = refs[0]
+            self.eq(('test:str', 'ir-ref'), core.getNidNdef(refnid))
+            self.eq('test:str:bar', prop.full)
+            self.false(isarray)
+            self.eq('test:str', reftyp)
+
+    async def test_nodefuse_layers(self):
+
+        async with self.getTestCore() as core:
+
+            await core.addTagProp('_score', ('int', {}), {})
+
+            forkiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            forkopts = {'view': forkiden}
+
+            baselayr = core.getView().layers[0]
+            forklayr = core.getView(forkiden).layers[0]
+
+            # --- layers= ---
+
+            await core.nodes('[ test:str=nl-src :hehe=base +#base ]')
+            await core.nodes('test:str=nl-src [ +#fork ]', opts=forkopts)
+
+            # only the layers named are written to, and src is left in the others
+            retn = await self._runNodeFuser(core, ('test:str', 'nl-src'), ('test:str', 'nl-dst'),
+                                            layers=[forklayr])
+
+            self.eq([], retn['failed'])
+            self.len(1, retn['warnings'])
+            self.isin(f'Layer {baselayr.iden} is not being modified', retn['warnings'][0])
+
+            self.len(1, await core.nodes('test:str=nl-src'))
+            self.len(0, await core.nodes('test:str=nl-dst'))
+
+            # the fork's own state moved to dst in the fork layer, and src keeps what the
+            # unmodified base layer holds
+            dstnid = await core.genNdefNid(('test:str', 'nl-dst'))
+            self.eq(['fork'], list(forklayr.getStorNode(dstnid)['tags'].keys()))
+
+            nodes = await core.nodes('test:str=nl-src', opts=forkopts)
+            self.len(1, nodes)
+            self.eq(['base'], [tag for (tag, valu) in nodes[0].getTags()])
+
+            # --- keeptombs= ---
+
+            await core.nodes('''
+                [ test:str=kt-src test:str=kt-ref ]
+                test:str=kt-src
+                [ :hehe=basehehe +#basetag +#tptag:_score=10 +(refs)> { test:str=kt-ref } <(refs)+ { test:str=kt-ref } ]
+                $node.data.set(basedata, woot)
+            ''')
+            await core.nodes('[ test:str=kt-gone ]')
+
+            await core.nodes('''
+                test:str=kt-src
+                [ -:hehe -#basetag -#tptag:_score -(refs)> { test:str=kt-ref } <(refs)- { test:str=kt-ref } ]
+                $node.data.pop(basedata)
+            ''', opts=forkopts)
+
+            await core.nodes('test:str=kt-gone | delnode', opts=forkopts)
+
+            async def check(dstvalu, hidden):
+
+                nodes = await core.nodes(f'test:str={dstvalu}')
+                self.len(1, nodes)
+                self.propeq(nodes[0], 'hehe', 'basehehe')
+                self.eq(['basetag', 'tptag'], sorted(tag for (tag, valu) in nodes[0].getTags()))
+
+                nodes = await core.nodes(f'test:str={dstvalu}', opts=forkopts)
+                self.len(1, nodes)
+
+                if hidden:
+                    self.none(nodes[0].get('hehe'))
+                    self.eq(['tptag'], sorted(tag for (tag, valu) in nodes[0].getTags()))
+                    self.none(nodes[0].getTagProp('tptag', '_score'))
+                    self.none(await nodes[0].getData('basedata'))
+                    self.len(0, await core.nodes(f'test:str={dstvalu} -(refs)> *', opts=forkopts))
+                    self.len(0, await core.nodes(f'test:str={dstvalu} <(refs)- *', opts=forkopts))
+                else:
+                    self.propeq(nodes[0], 'hehe', 'basehehe')
+                    self.eq(10, nodes[0].getTagProp('tptag', '_score'))
+                    self.eq('woot', await nodes[0].getData('basedata'))
+
+            # by default src's tombstones are torn down with it, so the fork sees dst's state
+            await self._runNodeFuser(core, ('test:str', 'kt-src'), ('test:str', 'kt-dst'))
+            await check('kt-dst', False)
+
+            # with keeptombs a dst no layer held carries them, so the fork still hides them
+            await self._runNodeFuser(core, ('test:str', 'kt-dst'), ('test:str', 'kt-new'), keeptombs=True)
+            await check('kt-new', False)
+
+            await core.nodes('''
+                test:str=kt-new
+                [ -:hehe -#basetag -#tptag:_score -(refs)> { test:str=kt-ref } <(refs)- { test:str=kt-ref } ]
+                $node.data.pop(basedata)
+            ''', opts=forkopts)
+
+            await self._runNodeFuser(core, ('test:str', 'kt-new'), ('test:str', 'kt-last'), keeptombs=True)
+            await check('kt-last', True)
+
+            # a node deleted in the fork stays deleted there
+            await self._runNodeFuser(core, ('test:str', 'kt-gone'), ('test:str', 'kt-gone2'), keeptombs=True)
+            self.len(1, await core.nodes('test:str=kt-gone2'))
+            self.len(0, await core.nodes('test:str=kt-gone2', opts=forkopts))
+
+            # a dst which already existed keeps its own state visible in the fork
+            await core.nodes('[ test:str=kt-exists +#basetag ]')
+            await core.nodes('[ test:str=kt-src2 +#basetag ]')
+            await core.nodes('test:str=kt-src2 [ -#basetag ]', opts=forkopts)
+
+            await self._runNodeFuser(core, ('test:str', 'kt-src2'), ('test:str', 'kt-exists'), keeptombs=True)
+
+            nodes = await core.nodes('test:str=kt-exists', opts=forkopts)
+            self.len(1, nodes)
+            self.eq(['basetag'], [tag for (tag, valu) in nodes[0].getTags()])
+
+            # --- a read only layer, last since it toggles the base layer ---
+
+            await core.nodes('[ test:str=nr-src :hehe=base +#base ]')
+
+            await baselayr.setLayerInfo('readonly', True)
+
+            # a read only layer named by the caller is still skipped outside migration mode
+            retn = await self._runNodeFuser(core, ('test:str', 'nr-src'), ('test:str', 'nr-dst'),
+                                            layers=[baselayr])
+
+            self.eq([], retn['failed'])
+            self.len(1, await core.nodes('test:str=nr-src'))
+            self.len(0, await core.nodes('test:str=nr-dst'))
+
+            # and without layers= it is skipped even in migration mode
+            async with core.enterMigrationMode():
+                await self._runNodeFuser(core, ('test:str', 'nr-src'), ('test:str', 'nr-dst'))
+
+            self.len(1, await core.nodes('test:str=nr-src'))
+
+            # a model migration may write it, and it stays read only afterwards
+            async with core.enterMigrationMode():
+                retn = await self._runNodeFuser(core, ('test:str', 'nr-src'), ('test:str', 'nr-dst'),
+                                                layers=[baselayr])
+
+            self.eq({'failed': [], 'warnings': []}, retn)
+            self.len(0, await core.nodes('test:str=nr-src'))
+
+            nodes = await core.nodes('test:str=nr-dst')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'hehe', 'base')
+            self.eq(['base'], [tag for (tag, valu) in nodes[0].getTags()])
+
+            self.true(baselayr.readonly)
+
+            # a layer which only becomes read only after discovery is re-checked the same way
+            await baselayr.setLayerInfo('readonly', False)
+            await core.nodes('[ test:str=nr-src2 ]')
+
+            realGetLayerEdits = s_nodefuse.NodeFuser.getLayerEdits
+
+            async def getLayerEdits(self, srcndef, dstndef):
+                await realGetLayerEdits(self, srcndef, dstndef)
+                core.migration = False
+
+            with mock.patch.object(s_nodefuse.NodeFuser, 'getLayerEdits', getLayerEdits):
+                async with core.enterMigrationMode():
+                    await baselayr.setLayerInfo('readonly', True)
+                    retn = await self._runNodeFuser(core, ('test:str', 'nr-src2'), ('test:str', 'nr-dst2'),
+                                                    layers=[baselayr])
+
+            self.len(1, retn['warnings'])
+            self.isin('because it became read only', retn['warnings'][0])
+            self.len(1, await core.nodes('test:str=nr-src2'))

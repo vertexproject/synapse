@@ -2,18 +2,18 @@ import regex
 
 import synapse.exc as s_exc
 
-# TODO:  commonize with storm.lark
+# Command, form, and prop names follow storm.lark; GrammarTest.test_isre_funcs checks them against the parser.
 re_scmd = '^[a-z][a-z0-9.]+$'
 scmdre = regex.compile(re_scmd)
-proprestr = r'[a-z_][a-z0-9_]*(:[a-z0-9_]+)+([:.][a-z_ ][a-z0-9_]+)*'
-propre = regex.compile(proprestr)
 formrestr = r'[a-z_][a-z0-9_]*(:[a-z0-9_]+)+'
 formre = regex.compile(formrestr)
+proprestr = formrestr
+propre = regex.compile(proprestr)
 tagrestr = r'(\w+\.)*\w+'
 tagre = regex.compile(tagrestr)
 edgerestr = r'[\w\.:]{1,200}'
 edgere = regex.compile(edgerestr)
-basepropnopivpropstr = r'[a-z_][a-z0-9_]*(?:(\:|\.)[a-z_][a-z0-9_]*)*'
+basepropnopivpropstr = r'[a-z0-9_]+(?::[a-z0-9_]+)*'
 basepropnopivpropre = regex.compile(basepropnopivpropstr)
 
 whites = set(' \t\n')

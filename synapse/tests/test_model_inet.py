@@ -192,7 +192,8 @@ class InetModelTest(s_t_utils.SynTest):
 
             virts = {'ip': ((4, 16909060), 26), 'port': (80, 9)}
             self.eq(await t.norm('1.2.3.4:80'), ('tcp://1.2.3.4:80', {'adds': adds, 'subs': subs, 'virts': virts}))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('https://192.168.1.1:80'))  # bad proto
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('https://192.168.1.1:80')  # bad proto
 
             # IPv4
             virts = {'ip': ((4, 16909060), 26)}
@@ -202,8 +203,11 @@ class InetModelTest(s_t_utils.SynTest):
             subs = {'proto': udpsub}
             virts = {'ip': ((4, 16909060), 26), 'port': (80, 9)}
             self.eq(await t.norm('udp://1.2.3.4:80'), ('udp://1.2.3.4:80', {'adds': adds, 'subs': subs, 'virts': virts}))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('tcp://1.2.3.4:-1'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('tcp://1.2.3.4:66000'))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('tcp://1.2.3.4:-1')
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('tcp://1.2.3.4:66000')
 
             ipnorm, ipinfo = await t.iptype.norm('::1')
             ipsub = (t.iptype.typehash, (6, 1), ipinfo)
@@ -229,7 +233,8 @@ class InetModelTest(s_t_utils.SynTest):
             virts = {'ip': ((6, 0xffff01020304), 26), 'port': (2, 9)}
             self.eq(await t.norm('tcp://[::fFfF:0102:0304]:2'),
                     ('tcp://[::ffff:1.2.3.4]:2', {'adds': adds, 'subs': subs, 'virts': virts}))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('tcp://[::1'))  # bad ipv6 w/ port
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('tcp://[::1')  # bad ipv6 w/ port
 
             # a SockAddr type with a default port fills the port virt (and
             # appends it to the repr) when a value is given without one. This
@@ -506,7 +511,8 @@ class InetModelTest(s_t_utils.SynTest):
                 }}),
             }})
             self.eq(await t.norm(fqdn), expected)
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('!@#$%'))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('!@#$%')
 
             # defanging works
             self.eq(await t.norm('example[.]vertex(.)link'), expected)
@@ -573,7 +579,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(await t.norm(fqdn), expected)
 
             # Ellipsis shouldn't make it through
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('vertex…link'))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('vertex…link')
 
             # Demonstrate Invalid IDNA
             fqdn = 'xn--lskfjaslkdfjaslfj.link'
@@ -607,7 +614,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(await t.norm(fqdn), expected)
             self.eq(fqdn, t.repr(fqdn))
 
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('www.google\udcfesites.com'))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('www.google\udcfesites.com')
 
             # Capital letters are lowercased in the stdlib idna fallback
             self.eq('xn--aa-hg2o.link', (await t.norm('a\U00010c80a.link'))[0])
@@ -619,7 +627,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq('xn--1-bi8r.link', (await t.norm('1\U0001e900.link'))[0])
 
             # IP addresses are NOT valid FQDNs
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('1.2.3.4'))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('1.2.3.4')
 
             # Form Tests ======================================================
 
@@ -982,6 +991,8 @@ class InetModelTest(s_t_utils.SynTest):
                 :client:host=$p."client:host" as it:host
                 :server="5.5.5.5:443"
                 :server:host=$p."server:host" as it:host
+                :client:thread={[ it:exec:thread=* :proc={[ it:exec:proc=* :name=client ]} ]}
+                :server:thread={[ it:exec:thread=* :proc={[ it:exec:proc=* :name=server ]} ]}
                 :session=$p.sess as inet:http:session
                 :fetch=$p.fetch as it:exec:fetch
                 :sandbox:file=$p."sandbox:file" as file:bytes
@@ -1006,6 +1017,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.propeq(node, 'client:host', client)
             self.propeq(node, 'server', 'tcp://5.5.5.5:443')
             self.propeq(node, 'server:host', server)
+            self.len(1, await core.nodes('inet:http:request :client:thread -> it:exec:thread :proc -> it:exec:proc +:name=client'))
+            self.len(1, await core.nodes('inet:http:request :server:thread -> it:exec:thread :proc -> it:exec:proc +:name=server'))
 
             self.len(1, await core.nodes('inet:http:request -> inet:http:request:header'))
             self.len(1, await core.nodes('inet:http:request :response -> inet:http:response -> inet:http:response:header'))
@@ -1192,7 +1205,8 @@ class InetModelTest(s_t_utils.SynTest):
                              'version': (t.verstype.typehash, 6, {})}}
             self.eq(await t.norm('2001:0db8:0000:0000:0000:ff00:0042:8329'), (addrnorm, info))
             self.eq(await t.norm('2001:0db8:0000:0000:0000:ff00:0042\u200b:8329'), (addrnorm, info))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('newp'))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('newp')
 
             # Specific examples given in RFC5952
             addrnorm = (6, 0x20010db8000000000001000000000001)
@@ -1204,7 +1218,9 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq((await t.norm('2001:db8:0:0:1::1'))[0], addrnorm)
             self.eq((await t.norm('2001:DB8:0:0:1::1'))[0], addrnorm)
             self.eq((await t.norm('2001:DB8:0:0:1:0000:0000:1'))[0], addrnorm)
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('::1::'))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('::1::')
+
             self.eq((await t.norm('2001:0db8::0001'))[0], (6, 0x20010db8000000000000000000000001))
             self.eq((await t.norm('2001:db8:0:0:0:0:2:1'))[0], (6, 0x20010db8000000000000000000020001))
             self.eq((await t.norm('2001:db8:0:1:1:1:1:1'))[0], (6, 0x20010db8000000010001000100010001))
@@ -1375,7 +1391,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(await t.norm('00:00:00:00:00:00'), ('00:00:00:00:00:00', {}))
             self.eq(await t.norm('FF:ff:FF:ff:FF:ff'), ('ff:ff:ff:ff:ff:ff', {}))
             self.eq(await t.norm(' FF:ff:FF:ff:FF:ff'), ('ff:ff:ff:ff:ff:ff', {}))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('GG:ff:FF:ff:FF:ff'))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('GG:ff:FF:ff:FF:ff')
 
             # Form Tests ======================================================
             nodes = await core.nodes('[inet:mac="00:00:00:00:00:00" :vendor=* as ou:org :vendor:name=Cool]')
@@ -1430,15 +1447,24 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(await t.norm(valu), expected)
 
             valu = '5.6.7.8-1.2.3.4'
-            await self.asyncraises(s_exc.BadTypeValu, t.norm(valu))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm(valu)
 
             valu = ('1.2.3.4', '5.6.7.8', '7.8.9.10')
-            await self.asyncraises(s_exc.BadTypeValu, t.norm(valu))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm(valu)
 
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('10.0.0.1/-1'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('10.0.0.1/33'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('10.0.0.1/foo'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('10.0.0.1'))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('10.0.0.1/-1')
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('10.0.0.1/33')
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('10.0.0.1/foo')
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('10.0.0.1')
 
             # Form Tests ======================================================
             valu = '192[.]168.1.123/24'
@@ -1557,10 +1583,12 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(t.repr(norm), '::ffff:1.2.3.4-::ffff:1.2.3.6')
 
             valu = ('fe00::', 'fd00::')
-            await self.asyncraises(s_exc.BadTypeValu, t.norm(valu))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm(valu)
 
             valu = ('fd00::', 'fe00::', 'ff00::')
-            await self.asyncraises(s_exc.BadTypeValu, t.norm(valu))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm(valu)
 
             with self.raises(s_exc.BadTypeValu):
                 await t.norm(((6, 1), (4, 1)))
@@ -1631,13 +1659,16 @@ class InetModelTest(s_t_utils.SynTest):
 
             # Type Tests ======================================================
             t = core.model.type(tname)
-            await self.asyncraises(s_exc.BadTypeValu, t.norm(-1))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm(-1)
+
             self.eq(await t.norm(0), (0, {}))
             self.eq(await t.norm(1), (1, {}))
             self.eq(await t.norm('2'), (2, {}))
             self.eq(await t.norm('0xF'), (15, {}))
             self.eq(await t.norm(65535), (65535, {}))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm(65536))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm(65536)
 
     async def test_rfc2822_addr(self):
         formname = 'inet:rfc2822:addr'
@@ -1781,14 +1812,91 @@ class InetModelTest(s_t_utils.SynTest):
 
             # Type Tests ======================================================
             t = core.model.type(formname)
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('http:///wat'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('wat'))  # No Protocol
-            await self.asyncraises(s_exc.BadTypeValu, t.norm("file://''"))  # Missing address/url
-            await self.asyncraises(s_exc.BadTypeValu, t.norm("file://#"))  # Missing address/url
-            await self.asyncraises(s_exc.BadTypeValu, t.norm("file://$"))  # Missing address/url
-            await self.asyncraises(s_exc.BadTypeValu, t.norm("file://%"))  # Missing address/url
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('http:///wat')
 
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('www.google\udcfesites.com/hehe.asp'))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('wat')  # No Protocol
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm("file://''")  # Missing address/url
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm("file://#")  # Missing address/url
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm("file://$")  # Missing address/url
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm("file://%")  # Missing address/url
+
+            # only file: URLs may be UNC or local paths
+            for valu in ('http://///foo.com/x', 'http:////foo.com/x'):
+                with self.raises(s_exc.BadTypeValu):
+                    await t.norm(valu)  # Missing address/url
+
+            for valu in ('mailto:visi@vertex.link', 'foo:bar'):
+                with self.raises(s_exc.BadTypeValu):
+                    await t.norm(valu)  # Invalid/Missing protocol
+
+            # the text before the first :// must be a valid scheme, not part of an embedded URL
+            for valu in ('//www.example.com/submit?url=https://example.org/x',
+                         '/share?u=http://example.net/a',
+                         'www.example.com/submit?url=https://example.org/x',
+                         '//www.example.org',
+                         'mailto:visi@vertex.link?x=http://example.net',
+                         'http\n://example.com',
+                         '1http://example.com',
+                         'h_t://example.com'):
+                with self.raises(s_exc.BadTypeValu) as cm:
+                    await t.norm(valu)
+
+                self.eq(cm.exception.get('mesg'), 'Invalid/Missing protocol')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ inet:url="//www.example.com/submit?url=https://example.org/x" ]')
+
+            norm, info = await t.norm('file:/foo?x=http://a')
+            self.eq(norm, 'file:///foo?x=http://a')
+            self.eq(info['subs']['proto'], (t.lowstrtype.typehash, 'file', {}))
+            self.notin('host', info['subs'])
+
+            for proto in ('git+ssh', 'chrome-extension', 'z39.50r'):
+                norm, info = await t.norm(f'{proto}://vertex.link/x')
+                self.eq(norm, f'{proto}://vertex.link/x')
+                self.eq(info['subs']['proto'], (t.lowstrtype.typehash, proto, {}))
+
+            norm, info = await t.norm('https://www.example.com/submit?url=https://example.org/x')
+            self.eq(info['subs']['proto'], (t.lowstrtype.typehash, 'https', {}))
+            self.eq(info['subs']['host'][1], ('inet:fqdn', 'www.example.com'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('http://user@/x')  # Missing address/url
+
+            # the authority ends at the first #, so an @ in the fragment is not userinfo
+            for url, host in (
+                ('https://login.example.net#first.last@example.com', 'login.example.net'),
+                ('https://a.example#u@b.example', 'a.example'),
+                ('https://a.example#frag', 'a.example'),
+            ):
+                fqdnnorm, fqdninfo = await t.fqdntype.norm(host)
+                expected = (url, {'subs': {
+                    'proto': (t.lowstrtype.typehash, 'https', {}),
+                    'path': (t.strtype.typehash, '', {}),
+                    'params': (t.strtype.typehash, '', {}),
+                    'port': (t.porttype.typehash, 443, {}),
+                    'host': self._urlhostsub(t, 'inet:fqdn', fqdnnorm, fqdninfo),
+                    'base': (t.strtype.typehash, url, {}),
+                }})
+                self.eq(await t.norm(url), expected)
+
+            valu, info = await t.norm('https://a.example#x?y@b.example')
+            self.eq(valu, 'https://a.example#x?y@b.example')
+            self.eq(info['subs']['host'][1], ('inet:fqdn', 'a.example'))
+            self.notin('username', info['subs'])
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('www.google\udcfesites.com/hehe.asp')
 
             for proto in ('http', 'hxxp', 'hXXp'):
                 url = 'http://www.googlesites.com/hehe\udcfestuff.asp'
@@ -2020,10 +2128,17 @@ class InetModelTest(s_t_utils.SynTest):
 
             t = core.model.type('inet:url')
 
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('file:////'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('file://///'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('file://'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('file:'))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('file:////')
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('file://///')
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('file://')
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('file:')
 
             paramsub = (t.strtype.typehash, '', {})
             protosub = (t.lowstrtype.typehash, 'file', {})
@@ -2191,7 +2306,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(await t.norm(url), expected)
 
             # not allowed by the rfc
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('file:foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/'))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('file:foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/')
 
             # Also an invalid URL, but doesn't cleanly fall out, because well, it could be a valid filename
             url = 'file:/foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/'
@@ -2277,6 +2393,114 @@ class InetModelTest(s_t_utils.SynTest):
             }})
             self.eq(await t.norm(url), expected)
 
+            # the file scheme is case insensitive for UNC and local paths
+            self.eq(await t.norm('FILE:////host.vertex.link/SharedDir/Unc/FilePath'),
+                    await t.norm('file:////host.vertex.link/SharedDir/Unc/FilePath'))
+
+            norm, info = await t.norm('File:c:/foo/bar.txt')
+            self.eq(norm, 'file:///c:/foo/bar.txt')
+            self.eq(info['subs']['path'], (t.strtype.typehash, 'c:/foo/bar.txt', {}))
+            self.eq(info['subs']['proto'], protosub)
+
+            # userinfo requires a host
+            for url in (
+                'file://user@/x',
+                'file://user@',
+                'file://user:pass@/x',
+                'file://@/x',
+                'file://:@/x',
+                'file:user@/x',
+                'file:////user@/x',
+                'file://%@MAC_ACROSANDBOX_TMPDIRAcr%d%u%d%u.tmpB24@?0@',
+            ):
+                with self.raises(s_exc.BadTypeValu):
+                    await t.norm(url)
+
+            async def fqdnsub(name):
+                norm, info = await t.fqdntype.norm(name)
+                return self._urlhostsub(t, 'inet:fqdn', norm, info)
+
+            # UNC slashes are kept when userinfo is present
+            url = 'file://///user@host.vertex.link/share/x'
+            expected = ('file:////user@host.vertex.link/share/x', {'subs': {
+                'proto': protosub,
+                'params': paramsub,
+                'path': (t.strtype.typehash, '/share/x', {}),
+                'username': (t.usertype.typehash, 'user', {}),
+                'host': await fqdnsub('host.vertex.link'),
+                'base': (t.strtype.typehash, 'file:////user@host.vertex.link/share/x', {}),
+            }})
+            self.eq(await t.norm(url), expected)
+
+            url = 'file:////user:pass@host.vertex.link/share/x'
+            passnorm, passinfo = await t.passtype.norm('pass')
+            expected = (url, {'subs': {
+                'proto': protosub,
+                'params': paramsub,
+                'path': (t.strtype.typehash, '/share/x', {}),
+                'username': (t.usertype.typehash, 'user', {}),
+                'passwd': (t.passtype.typehash, passnorm, passinfo),
+                'host': await fqdnsub('host.vertex.link'),
+                'base': (t.strtype.typehash, url, {}),
+            }})
+            self.eq(await t.norm(url), expected)
+
+            # Windows WebDAV host suffix: \\server[@SSL][@port]\path in file URL form
+            url = 'file://1.2.3.4@80/t.htm'
+            ipnorm, ipinfo = await t.iptype.norm('1.2.3.4')
+            expected = (url, {'subs': {
+                'proto': protosub,
+                'params': paramsub,
+                'path': (t.strtype.typehash, '/t.htm', {}),
+                'host': self._urlhostsub(t, 'inet:ip', ipnorm, ipinfo),
+                'port': (t.porttype.typehash, 80, {}),
+                'base': (t.strtype.typehash, url, {}),
+            }})
+            self.eq(await t.norm(url), expected)
+
+            for url, norm in (
+                ('file://evil.example@SSL@443/t.htm', 'file://evil.example@SSL@443/t.htm'),
+                ('file://evil.example@ssl/t.htm', 'file://evil.example@SSL/t.htm'),
+            ):
+                expected = (norm, {'subs': {
+                    'proto': protosub,
+                    'params': paramsub,
+                    'path': (t.strtype.typehash, '/t.htm', {}),
+                    'host': await fqdnsub('evil.example'),
+                    'port': (t.porttype.typehash, 443, {}),
+                    'base': (t.strtype.typehash, norm, {}),
+                }})
+                self.eq(await t.norm(url), expected)
+
+            url = 'file://user@evil.example@80/x'
+            expected = (url, {'subs': {
+                'proto': protosub,
+                'params': paramsub,
+                'path': (t.strtype.typehash, '/x', {}),
+                'username': (t.usertype.typehash, 'user', {}),
+                'host': await fqdnsub('evil.example'),
+                'port': (t.porttype.typehash, 80, {}),
+                'base': (t.strtype.typehash, url, {}),
+            }})
+            self.eq(await t.norm(url), expected)
+
+            url = 'file:////evil.example@SSL@443/x'
+            expected = (url, {'subs': {
+                'proto': protosub,
+                'params': paramsub,
+                'path': (t.strtype.typehash, '/x', {}),
+                'host': await fqdnsub('evil.example'),
+                'port': (t.porttype.typehash, 443, {}),
+                'base': (t.strtype.typehash, url, {}),
+            }})
+            self.eq(await t.norm(url), expected)
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('file://@80/x')
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('file://host:8080@80/x')
+
     async def test_url_fqdn(self):
 
         async with self.getTestCore() as core:
@@ -2332,7 +2556,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(weird[1]['subs']['host'], self._urlhostsub(t, 'inet:ip', (6, 0x10081), {'subs': ipsubs}))
             self.eq(weird[1]['subs']['port'], (core.model.type('inet:port').typehash, 80, {}))
 
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('http://0:0:0:0:0:0:0:0:81/'))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('http://0:0:0:0:0:0:0:0:81/')
 
     async def _test_types_url_behavior(self, t, htype, host, norm_host, repr_host):
 
@@ -3166,6 +3391,14 @@ class InetModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
+            display = core.model.type('inet:service:account').info.get('display')
+            self.eq(['platform::name', 'username', 'id', 'url'],
+                    [col['opts']['name'] for col in display['columns']])
+
+            display = core.model.type('inet:service:platform').info.get('display')
+            self.eq(['name', 'provider:name', 'family', 'zone', 'url'],
+                    [col['opts']['name'] for col in display['columns']])
+
             provname = 'Slack Corp'
             opts = {'vars': {'provname': provname}}
             nodes = await core.nodes('gen.org $provname', opts=opts)
@@ -3622,6 +3855,20 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:service:bucket -> inet:service:account'))
             self.len(1, await core.nodes('inet:service:bucket:name=foobar'))
 
+            for form in ('inet:service:account', 'inet:service:resource', 'inet:service:bucket', 'inet:service:bucket:item'):
+                self.true(core.model.form(form).implements('risk:exploitable'))
+
+            for lift in ('inet:service:account:username=visi', 'inet:service:bucket:name=foobar',
+                         'inet:service:bucket:item:file:name=woot.exe', 'inet:service:resource:name="Slack Web APIs"'):
+                nodes = await core.nodes(f'[ risk:vulnerable=* :node={{ {lift} }} ]')
+                self.len(1, nodes)
+                self.nn(nodes[0].get('node'))
+
+            self.len(1, await core.nodes('risk:vulnerable :node -> inet:service:account +:username=visi'))
+            self.len(1, await core.nodes('risk:vulnerable :node -> inet:service:bucket +:name=foobar'))
+            self.len(1, await core.nodes('risk:vulnerable :node -> inet:service:bucket:item +:file:name=woot.exe'))
+            self.len(1, await core.nodes('risk:vulnerable :node -> inet:service:resource +:name="Slack Web APIs"'))
+
             q = '''
             [ inet:service:access=(api, blackout, 1715856900000000, vertex, slack)
                 :action=foo.bar
@@ -3754,12 +4001,29 @@ class InetModelTest(s_t_utils.SynTest):
                 [ inet:service:comment=*
                     :about={[ it:dev:repo:diff=* ]}
                     :replyto={ inet:service:comment:title="me too" }
+                    :text="use a constant here"
+                    :line=42
+                    :offset=8
                 ]
             ''')
             self.len(1, nodes)
             self.eq('it:dev:repo:diff', nodes[0].get('about')[0])
+            self.propeq(nodes[0], 'line', 42)
+            self.propeq(nodes[0], 'offset', 8)
+            orig = nodes[0].ndef[1]
             self.len(1, await core.nodes('inet:service:comment :about -> it:dev:repo:diff'))
             self.len(1, await core.nodes('inet:service:comment:replyto -> inet:service:comment +:title="me too"'))
+
+            # an updated comment links to the original comment it replaced
+            nodes = await core.nodes('''
+                [ inet:service:comment=*
+                    :text="use a const"
+                    :replaced={ inet:service:comment:text="use a constant here" }
+                ]
+            ''')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'replaced', orig)
+            self.len(1, await core.nodes('inet:service:comment:text="use a const" :replaced -> inet:service:comment +:line=42'))
 
             # forms which do not implement inet:service:commentable are rejected for :about
             with self.raises(s_exc.BadTypeValu):

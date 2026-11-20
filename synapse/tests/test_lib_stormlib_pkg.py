@@ -254,10 +254,9 @@ class StormLibPkgTest(s_test.SynTest):
                 msgs = await core.stormlist(f'pkg.load --ssl-noverify --raw https://127.0.0.1:{port}/api/v3/pkgtestraw/yep')
                 self.stormIsInPrint('testload @0.3.0', msgs)
 
-            buf = stream.getvalue()
-            self.isin("testload onload output: teststring", buf)
-            self.isin("testload onload output: testwarn", buf)
-            self.isin("No var with name: newp", buf)
+            await stream.expect("testload onload output: teststring")
+            await stream.expect("testload onload output: testwarn")
+            await stream.expect("No var with name: newp")
             self.len(1, await core.nodes(f'entity:contact={cont}'))
 
             evnts = await waiter.wait(timeout=4)
@@ -312,21 +311,32 @@ class StormLibPkgTest(s_test.SynTest):
 
                 # perms
 
-                await self.asyncraises(s_exc.AuthDeny, core.callStorm('$lib.print($lib.pkg.vars(pkg0))', opts=aslow))
-                await self.asyncraises(s_exc.AuthDeny, core.callStorm('return($lib.pkg.vars(pkg0).baz)', opts=aslow))
-                await self.asyncraises(s_exc.AuthDeny, core.callStorm('$lib.pkg.vars(pkg0).baz = cool', opts=aslow))
-                await self.asyncraises(s_exc.AuthDeny, core.callStorm('$lib.pkg.vars(pkg0).baz = $lib.undef', opts=aslow))
-                await self.asyncraises(s_exc.AuthDeny, core.callStorm('''
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm('$lib.print($lib.pkg.vars(pkg0))', opts=aslow)
+
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm('return($lib.pkg.vars(pkg0).baz)', opts=aslow)
+
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm('$lib.pkg.vars(pkg0).baz = cool', opts=aslow)
+
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm('$lib.pkg.vars(pkg0).baz = $lib.undef', opts=aslow)
+
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm('''
                     $kvs = ([])
                     for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
                     return($kvs)
-                ''', opts=aslow))
-                await self.asyncraises(s_exc.AuthDeny, core.callStorm('''
+                ''', opts=aslow)
+
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm('''
                     [ test:str=foo ]
                     $kvs = ([])
                     for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
                     fini { return($kvs) }
-                ''', opts=aslow))
+                ''', opts=aslow)
 
                 await core.callStorm('auth.user.addrule lowuser "power-ups.pkg0.admin"')
 
@@ -520,7 +530,8 @@ class StormLibPkgTest(s_test.SynTest):
                 '''))
 
                 # state is read-only from Storm: assignment must raise an error
-                await self.asyncraises(s_exc.StormRuntimeError, core.callStorm('$lib.pkg.state(pkg0).bar = newval'))
+                with self.raises(s_exc.StormRuntimeError):
+                    await core.callStorm('$lib.pkg.state(pkg0).bar = newval')
 
                 # perms: any user can get the state object, deref, and iter
                 self.stormHasNoWarnErr(await core.nodes('$lib.print($lib.pkg.state(pkg0))', opts=aslow))
@@ -532,7 +543,8 @@ class StormLibPkgTest(s_test.SynTest):
                 ''', opts=aslow))
 
                 # state write is still denied from Storm
-                await self.asyncraises(s_exc.StormRuntimeError, core.callStorm('$lib.pkg.state(pkg0).bar = newval', opts=aslow))
+                with self.raises(s_exc.StormRuntimeError):
+                    await core.callStorm('$lib.pkg.state(pkg0).bar = newval', opts=aslow)
 
                 # nexus no-op: set/pop must not emit entries when value is unchanged or key is absent
 
@@ -733,7 +745,7 @@ class StormLibPkgTest(s_test.SynTest):
             self.eq([], [item async for item in core.iterStormPkgState('unipkg')])
             self.eq([], [item async for item in core.listStormPkgQueues('unipkg')])
             self.len(1, [item async for item in core.listStormPkgQueues('otherpkg')])
-            self.nn(core.getVault(viden))
+            self.nn(await core.getVault(viden))
             self.nn(core.getVaultType(vtype))
 
             # without a keep list the vaults of the package vault types and the types are removed
@@ -747,9 +759,9 @@ class StormLibPkgTest(s_test.SynTest):
             self.nn(await waiter.wait(timeout=10))
 
             self.eq([], await core.getStormVar('unikeep'))
-            self.none(core.getVault(viden))
+            self.none(await core.getVault(viden))
             self.none(core.getVaultType(vtype))
-            self.nn(core.getVault(oiden))
+            self.nn(await core.getVault(oiden))
             self.nn(core.getVaultType(otype))
             self.eq([], [item async for item in core.iterStormPkgVars('unipkg')])
 
@@ -1134,10 +1146,11 @@ class StormLibPkgTest(s_test.SynTest):
 
             # a pkgdef that declares a doc sha256 the Axon never got raises
             # NoSuchFile out of get(), both for a single doc and for the full dict
-            await self.asyncraises(s_exc.NoSuchFile,
-                core.callStorm('return($lib.pkg.docs.get(ghostdoc, doc="index.md"))'))
-            await self.asyncraises(s_exc.NoSuchFile,
-                core.callStorm('return($lib.pkg.docs.get(ghostdoc))'))
+            with self.raises(s_exc.NoSuchFile):
+                await core.callStorm('return($lib.pkg.docs.get(ghostdoc, doc="index.md"))')
+
+            with self.raises(s_exc.NoSuchFile):
+                await core.callStorm('return($lib.pkg.docs.get(ghostdoc))')
 
             # metadata.json that is not valid JSON also falls back to null titles
             await core.addStormPkg({
@@ -1168,8 +1181,9 @@ class StormLibPkgTest(s_test.SynTest):
             # get() -- list() still succeeds, but metadata.json is also over
             # the limit now, so every title falls back to null
             with mock.patch('synapse.lib.stormlib.pkg.MAX_DOC_SIZE', 4):
-                await self.asyncraises(s_exc.StormRuntimeError,
-                    core.callStorm('return($lib.pkg.docs.get(testpkg, doc="guide/setup.md"))'))
+                with self.raises(s_exc.StormRuntimeError):
+                    await core.callStorm('return($lib.pkg.docs.get(testpkg, doc="guide/setup.md"))')
+
                 oksizedocs = await core.callStorm('return($lib.pkg.docs.list(testpkg))')
                 self.len(5, oksizedocs)
                 self.true(all(d['title'] is None for d in oksizedocs))

@@ -437,17 +437,21 @@ class View(s_nexus.Pusher):  # type: ignore
             errs = True
             raise
         finally:
-            if not (errs and transaction):
-                nodeedits = editor.getNodeEdits()
-                if nodeedits:
-                    meta = editor.getEditorMeta()
+            try:
+                if not (errs and transaction):
+                    nodeedits = editor.getNodeEdits()
+                    if nodeedits:
+                        meta = editor.getEditorMeta()
 
-                    if runt is not None:
-                        bus = runt.bus
-                    else:
-                        bus = None
+                        if runt is not None:
+                            bus = runt.bus
+                        else:
+                            bus = None
 
-                    await self.saveNodeEdits(nodeedits, meta, bus=bus)
+                        await self.saveNodeEdits(nodeedits, meta, bus=bus)
+
+            finally:
+                editor.clear()
 
     @contextlib.asynccontextmanager
     async def getEditor(self, runt=None, transaction=False, user=None):
@@ -472,17 +476,21 @@ class View(s_nexus.Pusher):  # type: ignore
             errs = True
             raise
         finally:
-            if not (errs and transaction):
-                nodeedits = editor.getNodeEdits()
-                if nodeedits:
-                    meta = editor.getEditorMeta()
+            try:
+                if not (errs and transaction):
+                    nodeedits = editor.getNodeEdits()
+                    if nodeedits:
+                        meta = editor.getEditorMeta()
 
-                    if runt is not None:
-                        bus = runt.bus
-                    else:
-                        bus = None
+                        if runt is not None:
+                            bus = runt.bus
+                        else:
+                            bus = None
 
-                    await self.saveNodeEdits(nodeedits, meta, bus=bus)
+                        await self.saveNodeEdits(nodeedits, meta, bus=bus)
+
+            finally:
+                editor.clear()
 
     def getParentQuorum(self):
 
@@ -545,6 +553,8 @@ class View(s_nexus.Pusher):  # type: ignore
         if self.info.get('protected'):
             mesg = f'Cannot create a merge request for view ({self.iden}) that has protected set.'
             raise s_exc.CantMergeView(mesg=mesg)
+
+        await self.core._runViewHooks('merging', self)
 
         mergeinfo['iden'] = s_common.guid()
         mergeinfo['created'] = s_common.now()
@@ -781,6 +791,89 @@ class View(s_nexus.Pusher):  # type: ignore
             self.mergetask.cancel()
             self.mergetask = None
 
+    async def _mergeLayerEdits(self, editor, meta, intnid, form, edits):
+
+        nid = s_common.int64en(intnid)
+
+        # a whole node tombstone deletes the parent node outright, which
+        # subsumes every other edit the fork staged for it. test for the edit
+        # rather than for a lone edit, so this does not depend on
+        # iterLayerNodeEdits() happening to yield it by itself.
+        if any(edit[0] == s_layer.EDIT_NODE_TOMB for edit in edits):
+            protonode = await editor.getNodeByNid(nid)
+            if protonode is None:
+                return []
+
+            await protonode.delEdgesN2(meta=meta)
+            await protonode.delete()
+
+            nodeedits = editor.getNodeEdits()
+            editor.clear()
+            return nodeedits
+
+        realedits = []
+
+        protonode = None
+        for edit in edits:
+            etyp, parms = edit
+
+            if etyp == s_layer.EDIT_PROP_TOMB:
+                if protonode is None:
+                    if (protonode := await editor.getNodeByNid(nid)) is None:
+                        continue
+
+                await protonode.pop(parms[0])
+                continue
+
+            if etyp == s_layer.EDIT_TAG_TOMB:
+                if protonode is None:
+                    if (protonode := await editor.getNodeByNid(nid)) is None:
+                        continue
+
+                await protonode.delTag(parms[0])
+                continue
+
+            if etyp == s_layer.EDIT_TAGPROP_TOMB:
+                if protonode is None:
+                    if (protonode := await editor.getNodeByNid(nid)) is None:
+                        continue
+
+                (tag, prop) = parms
+
+                await protonode.delTagProp(tag, prop)
+                continue
+
+            if etyp == s_layer.EDIT_NODEDATA_TOMB:
+                if protonode is None:
+                    if (protonode := await editor.getNodeByNid(nid)) is None:
+                        continue
+
+                await protonode.popData(parms[0])
+                continue
+
+            if etyp == s_layer.EDIT_EDGE_TOMB:
+                if protonode is None:
+                    if (protonode := await editor.getNodeByNid(nid)) is None:
+                        continue
+
+                (verb, n2nid) = parms
+
+                await protonode.delEdge(verb, s_common.int64en(n2nid))
+                continue
+
+            realedits.append(edit)
+
+        if protonode is None:
+            return [(intnid, form, realedits)]
+
+        deledits = editor.getNodeEdits()
+        editor.clear()
+        if deledits:
+            deledits[0][2].extend(realedits)
+            return deledits
+
+        return [(intnid, form, realedits)]
+
     async def runViewMerge(self):
         # run a view merge which eventually results in removing the view and top layer
         # this routine must be able to be resumed and may assume that the top layer is
@@ -803,93 +896,19 @@ class View(s_nexus.Pusher):  # type: ignore
                 nodeedits = []
                 editor = s_editor.NodeEditor(self.parent, merge.get('creator'), meta=meta)
 
-                async for (intnid, form, edits) in self.wlyr.iterLayerNodeEdits(meta=True):
-                    nid = s_common.int64en(intnid)
+                try:
+                    async for (intnid, form, edits) in self.wlyr.iterLayerNodeEdits(meta=True):
+                        nodeedits.extend(await self._mergeLayerEdits(editor, meta, intnid, form, edits))
 
-                    # a whole node tombstone deletes the parent node outright, which
-                    # subsumes every other edit the fork staged for it. test for the edit
-                    # rather than for a lone edit, so this does not depend on
-                    # iterLayerNodeEdits() happening to yield it by itself.
-                    if any(edit[0] == s_layer.EDIT_NODE_TOMB for edit in edits):
-                        protonode = await editor.getNodeByNid(nid)
-                        if protonode is None:
-                            continue
+                        if len(nodeedits) >= 5:
+                            yield nodeedits
+                            nodeedits.clear()
 
-                        await protonode.delEdgesN2(meta=meta)
-                        await protonode.delete()
-
-                        nodeedits.extend(editor.getNodeEdits())
-                        editor.protonodes.clear()
-                    else:
-                        realedits = []
-
-                        protonode = None
-                        for edit in edits:
-                            etyp, parms = edit
-
-                            if etyp == s_layer.EDIT_PROP_TOMB:
-                                if protonode is None:
-                                    if (protonode := await editor.getNodeByNid(nid)) is None:
-                                        continue
-
-                                await protonode.pop(parms[0])
-                                continue
-
-                            if etyp == s_layer.EDIT_TAG_TOMB:
-                                if protonode is None:
-                                    if (protonode := await editor.getNodeByNid(nid)) is None:
-                                        continue
-
-                                await protonode.delTag(parms[0])
-                                continue
-
-                            if etyp == s_layer.EDIT_TAGPROP_TOMB:
-                                if protonode is None:
-                                    if (protonode := await editor.getNodeByNid(nid)) is None:
-                                        continue
-
-                                (tag, prop) = parms
-
-                                await protonode.delTagProp(tag, prop)
-                                continue
-
-                            if etyp == s_layer.EDIT_NODEDATA_TOMB:
-                                if protonode is None:
-                                    if (protonode := await editor.getNodeByNid(nid)) is None:
-                                        continue
-
-                                await protonode.popData(parms[0])
-                                continue
-
-                            if etyp == s_layer.EDIT_EDGE_TOMB:
-                                if protonode is None:
-                                    if (protonode := await editor.getNodeByNid(nid)) is None:
-                                        continue
-
-                                (verb, n2nid) = parms
-
-                                await protonode.delEdge(verb, s_common.int64en(n2nid))
-                                continue
-
-                            realedits.append(edit)
-
-                        if protonode is None:
-                            nodeedits.append((intnid, form, realedits))
-                        else:
-                            deledits = editor.getNodeEdits()
-                            editor.protonodes.clear()
-                            if deledits:
-                                deledits[0][2].extend(realedits)
-                                nodeedits.extend(deledits)
-                            else:
-                                nodeedits.append((intnid, form, realedits))
-
-                    if len(nodeedits) == 5:
+                    if nodeedits:
                         yield nodeedits
-                        nodeedits.clear()
 
-                if nodeedits:
-                    yield nodeedits
+                finally:
+                    editor.clear()
 
             total = self.wlyr.getStorNodeCount()
 
@@ -917,7 +936,7 @@ class View(s_nexus.Pusher):  # type: ignore
             # delView re-parents children and unhooks the top layer from
             # their stacks, then delLayer removes the now-orphan layer.
             layriden = self.wlyr.iden
-            await self.core.delView(self.iden)
+            await self.core.delView(self.iden, hooks=False)
             await self.core.delLayer(layriden)
 
         except Exception as e: # pragma: no cover
@@ -990,7 +1009,7 @@ class View(s_nexus.Pusher):  # type: ignore
             for moddef in await self.core.getStormIfaces(name):
                 try:
                     query = await self.core.getStormQueryForDef(moddef)
-                    modconf = moddef.get('modconf', {})
+                    modconf = s_stormtypes.toReadOnly(moddef.get('modconf', {}))
                     runt = await s_storm.Runtime.anit(query, self, opts={'vars': {'modconf': modconf}}, user=root)
                     runts.append(runt)
 
@@ -1026,7 +1045,7 @@ class View(s_nexus.Pusher):  # type: ignore
             try:
                 query = await self.core.getStormQueryForDef(moddef)
 
-                modconf = moddef.get('modconf', {})
+                modconf = s_stormtypes.toReadOnly(moddef.get('modconf', {}))
 
                 # TODO look at caching the function returned as presume a persistant runtime?
                 opts = {'vars': {'modconf': modconf}}
@@ -2323,7 +2342,10 @@ class View(s_nexus.Pusher):  # type: ignore
         s_layer.reqValidLdef(ldef)
         s_schemas.reqValidView(vdef)
 
-        return await self._push('view:forkparent', ldef, vdef)
+        self.core._reqCreatedHookDepth()
+
+        pack = await self._push('view:forkparent', ldef, vdef)
+        return await self.core._runCreatedHooks(vdef['iden'], pack)
 
     @s_nexus.Pusher.onPush('view:forkparent', passitem=True)
     async def _insertParentFork(self, ldef, vdef, nexsitem):
@@ -2407,7 +2429,10 @@ class View(s_nexus.Pusher):  # type: ignore
         s_layer.reqValidLdef(ldef)
         s_schemas.reqValidView(vdef)
 
-        return await self._push('view:forkchild', ldef, vdef)
+        self.core._reqCreatedHookDepth()
+
+        pack = await self._push('view:forkchild', ldef, vdef)
+        return await self.core._runCreatedHooks(vdef['iden'], pack)
 
     @s_nexus.Pusher.onPush('view:forkchild', passitem=True)
     async def _insertChildFork(self, ldef, vdef, nexsitem):
@@ -2503,6 +2528,8 @@ class View(s_nexus.Pusher):  # type: ignore
         if vdef is None:
             vdef = {}
 
+        self.core._reqCreatedHookDepth()
+
         ldef = await self.core.addLayer(ldef)
         layriden = ldef.get('iden')
 
@@ -2530,13 +2557,14 @@ class View(s_nexus.Pusher):  # type: ignore
         # mergeAllowed so mirrors converge and no new edits can land
         # between the check and the nexus handler running. The handler
         # does not re-check mergeAllowed. Restore the prior readonly
-        # state if the check fails so the caller can recover.
+        # state if the check or a merging hook fails or is cancelled so the caller can recover.
         wasreadonly = self.wlyr.readonly
         if not wasreadonly:
             await self.wlyr.setLayerInfo('readonly', True)
         try:
             await self.mergeAllowed(user, force=force)
-        except Exception:
+            await self.core._runViewHooks('merging', self)
+        except (asyncio.CancelledError, Exception):
             if not wasreadonly:
                 await self.wlyr.setLayerInfo('readonly', False)
             raise

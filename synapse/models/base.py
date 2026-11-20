@@ -244,6 +244,13 @@ modeldefs = (
                 'doc': 'A data feed type taxonomy.'}),
 
             ('meta:source', ('guid', {}), {
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'type'}},
+                        {'type': 'prop', 'opts': {'name': 'url'}},
+                    ),
+                },
                 'props': (
                     ('name', ('base:name', {}), {
                         'doc': 'A human friendly name for the source.'}),
@@ -527,6 +534,13 @@ modeldefs = (
                 'interfaces': (
                     ('meta:reported', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                        {'type': 'prop', 'opts': {'name': 'type'}},
+                    ),
+                },
                 'props': (
                     ('type', ('meta:cluster:type:taxonomy', {}), {
                         'doc': 'The type of cluster.'}),
@@ -580,9 +594,9 @@ modeldefs = (
                 ),
                 'display': {
                     'columns': (
+                        {'type': 'prop', 'opts': {'name': 'id'}},
                         {'type': 'prop', 'opts': {'name': 'name'}},
                         {'type': 'prop', 'opts': {'name': 'reporter:name'}},
-                        {'type': 'prop', 'opts': {'name': 'tag'}},
                     ),
                 },
                 'props': (
@@ -856,6 +870,9 @@ modeldefs = (
 
             ('meta:achievable', {
                 'doc': 'An interface implemented by forms which are achievable.'}),
+
+            ('meta:revocable', {
+                'doc': 'An interface implemented by forms which can be revoked.'}),
 
             ('meta:task', {
                 'doc': 'A common interface for tasks.',

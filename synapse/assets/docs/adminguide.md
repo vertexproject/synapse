@@ -67,7 +67,7 @@ Add the user "Ron" with email address `ronthecat@vertex.link`:
 
 ```stormdoc
 storm> auth.user.add ron --email ronthecat@vertex.link
-User (ron) added with iden: 685dc82bac345c3c331df3665032063c
+User (ron) added with iden: ff497e2da1374daec7e70c44d3e08bb9
 ```
 
 > [!TIP]
@@ -85,7 +85,7 @@ Display information for user "Ron":
 
 ```stormdoc
 storm> auth.user.show ron
-User: ron (685dc82bac345c3c331df3665032063c)
+User: ron (ff497e2da1374daec7e70c44d3e08bb9)
 
   Locked: false
   Admin: false
@@ -93,7 +93,7 @@ User: ron (685dc82bac345c3c331df3665032063c)
   Rules:
 
   Roles:
-    8ea0d513e0a333781cc360592cfb86b6 - all
+    7beb71fbbd1ea17271d228d43007b2ec - all
 
   Gates:
 ```
@@ -180,7 +180,7 @@ Add the new role "cattribution analyst":
 
 ```stormdoc
 storm> auth.role.add "cattribution analyst"
-Role (cattribution analyst) added with iden: 67274f994bb1cd40b3295d334862401e
+Role (cattribution analyst) added with iden: f9f771659c128bf83a33a9ed6087f6dd
 ```
 
 > [!TIP]
@@ -198,12 +198,12 @@ Display information for the "all" role:
 
 ```stormdoc
 storm> auth.role.show all
-Role: all (8ea0d513e0a333781cc360592cfb86b6)
+Role: all (7beb71fbbd1ea17271d228d43007b2ec)
 
   Rules:
 
   Gates:
-    183048b567b2a18367f4ef0cc80f19c3 - (view)
+    d5db2dcdca587c4d8ba95ab1b50d9763 - (view)
       [0  ] - view.read
 ```
 
@@ -670,17 +670,17 @@ Display all views:
 ```stormdoc
 storm> view.list
 
-View: 183048b567b2a18367f4ef0cc80f19c3 (name: default)
-  Creator: 7cea4ca9dbf12a1499739b3f3002762e
+View: d5db2dcdca587c4d8ba95ab1b50d9763 (name: default)
+  Creator: 13f8cb65250ed6b6e6abc2fc2aba91c8
   Layers:
-    1a2708d085981f68ebcf8297d1ca74c1: default readonly: False
+    e5de61f8a6a072aa0f5c891d53e8696a: default readonly: False
 ```
 
 Display the current layer:
 
 ```stormdoc
 storm> layer.get
-Layer: 1a2708d085981f68ebcf8297d1ca74c1 (name: default) readonly: False creator: 7cea4ca9dbf12a1499739b3f3002762e
+Layer: e5de61f8a6a072aa0f5c891d53e8696a (name: default) readonly: False creator: 13f8cb65250ed6b6e6abc2fc2aba91c8
 ```
 
 ##### View a Gate's Permissions
@@ -696,12 +696,12 @@ storm> auth.gate.show $lib.view.get().iden
 Gate Type: view
 
 Auth Gate Users:
-  7cea4ca9dbf12a1499739b3f3002762e - root
+  13f8cb65250ed6b6e6abc2fc2aba91c8 - root
     Admin: true
     Rules:
 
 Auth Gate Roles:
-  8ea0d513e0a333781cc360592cfb86b6 - all
+  7beb71fbbd1ea17271d228d43007b2ec - all
     Rules:
       [0  ] - view.read
 ```
@@ -713,7 +713,7 @@ storm> auth.gate.show $lib.layer.get().iden
 Gate Type: layer
 
 Auth Gate Users:
-  7cea4ca9dbf12a1499739b3f3002762e - root
+  13f8cb65250ed6b6e6abc2fc2aba91c8 - root
     Admin: true
     Rules:
 
@@ -1235,6 +1235,16 @@ globals.set.<varname>
     gate: cortex
     default: false
 
+graph
+    Controls all graph projection permissions.
+    gate: cortex
+    default: false
+
+graph.add
+    Controls access to add a graph projection.
+    gate: cortex
+    default: true
+
 httpapi.add
     Controls the ability to add a new Extended HTTP API on the Cortex.
     gate: cortex
@@ -1574,16 +1584,6 @@ storm
     gate: cortex
     default: false
 
-storm.graph
-    Controls all Storm graph permissions.
-    gate: cortex
-    default: false
-
-storm.graph.add
-    Controls access to add a storm graph.
-    gate: cortex
-    default: true
-
 storm.lib.stix.export.maxsize
     Controls the ability to specify a STIX export bundle maxsize of greater than 10,000.
     gate: cortex
@@ -1785,6 +1785,8 @@ Synapse includes the ability to automate Storm-based tasks using triggers, cron 
 
 Refer to the [Storm Reference - Automation](userguides/storm_ref_automation.md#storm-ref-automation) section of the [Synapse User Guide](userguide.md#userguide) for a detailed discussion of automation in Synapse (including permissions considerations).
 
+Synapse admins can also add **view hooks**, which are Storm queries that run as `root` when a view is created, merged, or deleted. A `merging` or `deleted` hook which raises an error aborts the merge or delete. Only global admins can manage view hooks. See [View Hooks](userguides/storm_ref_automation.md#auto-view-hooks) for details.
+
 #### Power-Ups
 
 Power-Ups implement Storm packages and Storm services to provide additional functionality to Synapse. Power-Ups may be provided by The Vertex Project (as free or commercial offerings). Organizations may also develop their own custom Power-Ups.
@@ -1811,6 +1813,10 @@ See [Extended Model](storm_lib_modelext.md#modelext) for how to add, export, and
 ## Manage Model Deprecations
 
 As the Synapse Data Model grows and evolves, model elements (types, forms, and properties) may be deprecated and should no longer be used for new data modeling. The Storm `model.deprecated` commands can be used to prepare for the eventual removal of deprecated model elements.
+
+Setting a deprecated property produces a warning. When a removal date or version has been scheduled for the property, the warning includes it, for example: `The property it:os:windows:service:exe is deprecated and will be removed on or after 2027-01-01.`
+
+An extended model property can schedule its own removal by setting `deprecated` in its property info to a dictionary with either an `eoldate` (a `YYYY-MM-DD` date) or an `eolvers` (a version) key, and an optional `mesg` key with text to append to the warning. For example, `({"deprecated": {"eoldate": "2027-01-01"}})`. An extended property stored by an earlier release with deprecation info that is not valid is changed on upgrade to `true` if the earlier value was truthy, or to `false` if it was not, with a warning naming it.
 
 ### Lock Deprecated Model Elements
 

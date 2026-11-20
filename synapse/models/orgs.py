@@ -16,6 +16,9 @@ modeldefs = (
                         'array': {},
                         'doc': 'An array of alternate names for the {title}.'}),
 
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the {title}.'}),
+
                     ('website', ('inet:url', {}), {
                         'doc': 'The website of the {title}.'}),
 
@@ -95,6 +98,9 @@ modeldefs = (
                 }}),
 
             ('ou:team', ('guid', {}), {
+                'interfaces': (
+                    ('entity:actor', {}),
+                ),
                 'props': (
                     ('org', ('ou:org', {}), {
                         'doc': 'The organization that the team is associated with.'}),
@@ -339,6 +345,10 @@ modeldefs = (
                     ('type', ('ou:contest:type:taxonomy', {}), {
                         'ex': 'cyber.ctf',
                         'doc': 'The type of contest.'}),
+
+                    ('family', ('event:name', {}), {
+                        'ex': 'defcon ctf',
+                        'doc': 'The family name of the {title} used to group recurring events.'}),
                 ),
                 'doc': 'A competitive event resulting in a ranked set of participants.'}),
 
@@ -522,6 +532,27 @@ modeldefs = (
                         'doc': 'The duration over which the position pays.'}),
                 ),
                 'doc': 'A job/work opening within an org.'}),
+
+            ('ou:opening:location', ('guid', {}), {
+                'template': {'title': 'opening', 'happened': 'is located'},
+                'interfaces': (
+                    ('geo:locatable', {}),
+                ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'opening::title'}},
+                        {'type': 'prop', 'opts': {'name': 'place:name'}},
+                        {'type': 'prop', 'opts': {'name': 'pay:range'}},
+                    ),
+                },
+                'props': (
+                    ('opening', ('ou:opening', {}), {
+                        'doc': 'The opening which is available at the location.'}),
+
+                    ('pay:range', ('econ:pricerange', {}), {
+                        'doc': 'The range of pay for the opening at the location.'}),
+                ),
+                'doc': 'A location where a job/work opening is available.'}),
 
             ('ou:job:type:taxonomy', ('taxonomy', {}), {
                 'ex': 'it.dev.python',

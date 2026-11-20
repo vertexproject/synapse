@@ -227,6 +227,9 @@ modeldefs = (
 
                     ('type', ('transport:air:tailnum:type:taxonomy', {}), {
                         'doc': 'A type which may be specific to the country prefix.'}),
+
+                    ('country', ('pol:country', {}), {
+                        'doc': 'The country which issued the tail number.'}),
                 ),
                 'doc': 'An aircraft registration number or military aircraft serial number.',
                 'ex': 'ff023'}),
@@ -341,6 +344,9 @@ modeldefs = (
 
                     ('mmsi', ('transport:sea:mmsi', {}), {
                         'doc': 'The Maritime Mobile Service Identifier assigned to the vessel.'}),
+
+                    ('country', ('pol:country', {}), {
+                        'doc': 'The country the vessel is flagged to.'}),
 
                     ('operator', ('entity:actor', {}), {
                         'doc': 'The contact information of the operator.'}),

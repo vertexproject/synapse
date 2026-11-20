@@ -123,6 +123,7 @@ class Type:
         self._rexpr_funcs = {}  # (oper, othertypename) to reversed-operand arithmetic handler map
 
         self.virts = {}
+        self.virtcmprs = {}
         self.virtindx = {
             'created': 'created',
             'updated': 'updated'
@@ -329,6 +330,18 @@ class Type:
             raise s_exc.NoSuchVirt.init(virt, self)
 
         return info[0], info[1]
+
+    def getVirtCmprInfo(self, virt):
+        '''
+        Return the (type, getr) used to compare a virtual property value in a filter.
+
+        This is the same as getVirtInfo() unless the type compares a value other
+        than the one it reports, e.g. to tell an ongoing ival duration apart.
+        '''
+        if (info := self.virtcmprs.get(virt)) is not None:
+            return info
+
+        return self.getVirtInfo(virt)
 
     async def normVirt(self, name, valu, newvirt, oldvirts=None):
         func = self.virtstor.get(name, s_common.novalu)
@@ -2663,7 +2676,7 @@ class Int(IntBase):
 
         # strip leading 0s that do not change base...
         if len(valu) >= 2 and valu[0] == '0' and valu[1].isdigit():
-            valu = valu.lstrip('0')
+            valu = valu.lstrip('0') or '0'
 
         try:
             valu = int(valu, 0)
@@ -2846,11 +2859,18 @@ class Ival(Type):
         self.tocktype = self.modl.type('time').clone({'precision': precstr, 'maxfill': True})
         self.duratype = self.modl.type('duration')
 
+        duratype = self.duratype
+        self.duracmprtype = IvalDuration(self.modl, duratype.name, duratype.info, duratype.opts)
+
         self.virts |= {
             'min': (self.ticktype, self._getMin),
             'max': (self.tocktype, self._getMax),
             'duration': (self.duratype, self._getDuration),
             'precision': (self.prectype, self._getPrec),
+        }
+
+        self.virtcmprs |= {
+            'duration': (self.duracmprtype, self._getDurationCmpr),
         }
 
         self.virtstor |= {
@@ -3006,15 +3026,19 @@ class Ival(Type):
             if item is None:
                 return False
 
-            if item == (None, None, None):
+            # a stored value is already normalized. norm() would treat a time as an
+            # ival min and raise on an ongoing (*) time, so compare it as the lift does.
+            if isinstance(item, int):
+                return minv <= item < maxv
+
+            # a valueless tag is a null ival
+            if item[0] is None:
                 return False
 
-            othr, info = await self.norm(item)
-
-            if othr[0] >= maxv:
+            if item[0] >= maxv:
                 return False
 
-            if othr[1] <= minv:
+            if item[1] <= minv:
                 return False
 
             return True
@@ -3079,14 +3103,26 @@ class Ival(Type):
 
         return ival[1][1]
 
+    def _getIvalTriple(self, valu):
+        if isinstance(ival := valu[0], int):
+            return valu
+
+        if not isinstance(ival[0], int):
+            return ival[1]
+
+        return ival
+
+    def _getDurationCmpr(self, valu):
+        # comparing a duration needs the min, to tell an ongoing ival from a finite one.
+        # a getr is only called with a value which is present, so valu is never None.
+        ival = self._getIvalTriple(valu)
+        return (ival[0], ival[2])
+
     def _getDuration(self, valu):
         if valu is None:
             return None
 
-        if isinstance(ival := valu[0], int):
-            ival = valu
-        elif not isinstance(ival[0], int):
-            ival = ival[1]
+        ival = self._getIvalTriple(valu)
 
         if (dura := ival[2]) != self.duratype.futdura:
             return dura
@@ -3219,6 +3255,12 @@ class Ival(Type):
             raise s_exc.NoSuchVirt.init(virt, self)
 
         return self.getVirtInfo(virt)
+
+    def getTagVirtCmprInfo(self, virt):
+        if virt not in self.tagvirtindx:
+            raise s_exc.NoSuchVirt.init(virt, self)
+
+        return self.getVirtCmprInfo(virt)
 
     async def _normPyInt(self, valu, opts):
         minv, mininfo = await self.ticktype._normPyInt(valu, opts)
@@ -3625,6 +3667,16 @@ class Poly(Type):
             if virt in ntyp.virts:
                 info = ntyp.virts[virt]
                 return info[0], info[1]
+
+        raise s_exc.NoSuchVirt.init(virt, self)
+
+    def getVirtCmprInfo(self, virt):
+        if virt in self.virts:
+            return Type.getVirtCmprInfo(self, virt)
+
+        for ntyp in self.modl.getTypeSet(types=self.typeset, interfaces=self.ifaces):
+            if virt in ntyp.virts:
+                return ntyp.getVirtCmprInfo(virt)
 
         raise s_exc.NoSuchVirt.init(virt, self)
 
@@ -4718,6 +4770,137 @@ class Duration(IntBase):
         retn += f'{hours:02}:{minutes:02}:{seconds:02}{mstr}'
         return retn
 
+class IvalDuration(Duration):
+    '''
+    The type used to compare the duration virtual property of an ival.
+
+    Its comparisons receive a (min, duration) tuple, so that an ongoing ival is
+    compared by its current duration, or matched as ongoing (*). Ordered
+    comparisons never match an unknown (?) duration, and a comparison value of
+    ? or * only matches the same value.
+    '''
+    def postTypeInit(self):
+        Duration.postTypeInit(self)
+
+        self.unktime = self.modl.type('time').unksize
+
+        self._ivalctors = {
+            '=': self._ctorIvalEq,
+            '!=': self._ctorIvalNe,
+            '>': self._ctorIvalGt,
+            '>=': self._ctorIvalGe,
+            '<': self._ctorIvalLt,
+            '<=': self._ctorIvalLe,
+        }
+
+    def getCmprCtor(self, name):
+        if (ctor := self._ivalctors.get(name)) is not None:
+            return ctor
+
+        if (ctor := Duration.getCmprCtor(self, name)) is None:
+            return None
+
+        # any other cmpr compares the duration the ival reports
+        async def wrapctor(text):
+            cmpr = await ctor(text)
+
+            async def ivalcmpr(valu):
+                if (dura := self._getRepDura(valu)) is None:
+                    return False
+                return await cmpr(dura)
+            return ivalcmpr
+
+        return wrapctor
+
+    def _getRepDura(self, valu):
+        # the duration an ival reports, matching Ival._getDuration()
+        minv, dura = valu
+        if dura != self.futdura:
+            return dura
+
+        if minv == self.unktime or (dura := s_common.now() - minv) < 0:
+            return None
+
+        return dura
+
+    async def _ctorIvalEq(self, text):
+        norm, _ = await self.norm(text)
+
+        if norm in (self.unkdura, self.futdura):
+            async def cmpr(valu):
+                return valu[1] == norm
+            return cmpr
+
+        async def cmpr(valu):
+            return self._getRepDura(valu) == norm
+        return cmpr
+
+    async def _ctorIvalNe(self, text):
+        norm, _ = await self.norm(text)
+
+        if norm in (self.unkdura, self.futdura):
+            async def cmpr(valu):
+                return valu[1] != norm
+            return cmpr
+
+        async def cmpr(valu):
+            if (dura := self._getRepDura(valu)) is None:
+                return False
+            return dura != norm
+        return cmpr
+
+    # Ordered comparisons use the duration an ival reports, or unkdura when it has
+    # none to compare. Both sentinels sort after every known duration, so > and >=
+    # only need to bound a known value below unkdura; < and <= exclude it already.
+
+    def _getOrdDura(self, valu):
+        if (dura := self._getRepDura(valu)) is None:
+            return self.unkdura
+        return dura
+
+    async def _ctorIvalGt(self, text):
+        norm, _ = await self.norm(text)
+
+        async def cmpr(valu):
+            return norm < self._getOrdDura(valu) < self.unkdura
+        return cmpr
+
+    async def _ctorIvalGe(self, text):
+        norm, _ = await self.norm(text)
+
+        if norm in (self.unkdura, self.futdura):
+            async def cmpr(valu):
+                return valu[1] == norm
+            return cmpr
+
+        async def cmpr(valu):
+            return norm <= self._getOrdDura(valu) < self.unkdura
+        return cmpr
+
+    async def _ctorIvalLt(self, text):
+        norm, _ = await self.norm(text)
+
+        if norm in (self.unkdura, self.futdura):
+            async def cmpr(valu):
+                return False
+            return cmpr
+
+        async def cmpr(valu):
+            return self._getOrdDura(valu) < norm
+        return cmpr
+
+    async def _ctorIvalLe(self, text):
+        norm, _ = await self.norm(text)
+
+        if norm in (self.unkdura, self.futdura):
+            async def cmpr(valu):
+                return valu[1] == norm
+            return cmpr
+
+        async def cmpr(valu):
+            return self._getOrdDura(valu) <= norm
+        return cmpr
+
 class Time(IntBase):
 
     stortype = s_layer.STOR_TYPE_TIME
@@ -4876,18 +5059,28 @@ class Time(IntBase):
         if self.maxfill and valu.endswith('*'):
             valu = f'{valu[:-1]}?'
 
+        # clean ISO 8601 and digit values, offsets included, need no parsetz or relative time handling
+        if (tick := s_time.parsefast(valu, chop=True)) is not None:
+            return await self._normPyInt(tick, opts)
+
+        return await self._normTimeText(valu, opts)
+
+    async def _normTimeText(self, valu, opts):
+        '''
+        Norm a stripped and lowered time string without the leading parsefast attempt.
+        '''
         # parse timezone
-        valu, base = s_time.parsetz(valu)
+        text, base = s_time.parsetz(valu)
 
         # we need to be pretty sure this is meant for us, otherwise it might
         # just be a slightly messy time parse
-        unitcheck = [u for u in s_time.timeunits.keys() if u in valu]
-        if unitcheck and ('-' in valu or '+' in valu):
+        unitcheck = [u for u in s_time.timeunits.keys() if u in text]
+        if unitcheck and ('-' in text or '+' in text):
             splitter = '+'
-            if '-' in valu:
+            if '-' in text:
                 splitter = '-'
 
-            bgn, end = valu.split(splitter, 1)
+            bgn, end = text.split(splitter, 1)
             delt = s_time.delta(splitter + end)
             if bgn:
                 bgn = (await self._normPyStr(bgn, opts))[0] + base
@@ -4896,7 +5089,8 @@ class Time(IntBase):
 
             return await self._normPyInt(delt + bgn, opts)
 
-        valu, strprec = s_time.parseprec(valu, base=base, chop=True)
+        # parsefast declined valu, so only retry the fast path if parsetz removed a timezone
+        valu, strprec = s_time._parseprec(text, base, True, text != valu)
         if opts.get('precision') is None:
             opts = opts | {'precision': strprec}
 
@@ -5070,35 +5264,78 @@ class Time(IntBase):
 
         return cmpr
 
+    # Ordered comparisons treat ongoing (*) as later than any time, and never match
+    # unknown (?) unless the comparison value is also unknown. Both sentinels sort
+    # after every known time ( futsize < unksize ), so a known value only needs to
+    # bound > and >= at futsize; < and <= exclude them already.
+
+    async def _ctorCmprGt(self, text):
+        norm, info = await self.norm(text)
+
+        async def cmpr(valu):
+            return norm < valu <= self.futsize
+        return cmpr
+
+    async def _ctorCmprGe(self, text):
+        norm, info = await self.norm(text)
+
+        if norm == self.unksize:
+            async def cmpr(valu):
+                return valu == norm
+            return cmpr
+
+        async def cmpr(valu):
+            return norm <= valu <= self.futsize
+        return cmpr
+
     async def _ctorCmprLt(self, text):
 
         if isinstance(text, str):
             strip = text.strip()
-            if strip.endswith('*'):
+            if strip.endswith('*') and strip != '*':
                 tick, tock = s_time.wildrange(strip[:-1])
                 async def cmpr(valu):
                     return valu < tock
                 return cmpr
 
-        return await IntBase._ctorCmprLt(self, text)
+        norm, info = await self.norm(text)
+
+        if norm == self.unksize:
+            async def cmpr(valu):
+                return False
+            return cmpr
+
+        async def cmpr(valu):
+            return valu < norm
+        return cmpr
 
     async def _ctorCmprLe(self, text):
 
         if isinstance(text, str):
             strip = text.strip()
-            if strip.endswith('*'):
+            if strip.endswith('*') and strip != '*':
                 tick, tock = s_time.wildrange(strip[:-1])
+                last = tock - 1
                 async def cmpr(valu):
-                    return valu <= tock
+                    return valu <= last
                 return cmpr
 
-        return await IntBase._ctorCmprLe(self, text)
+        norm, info = await self.norm(text)
+
+        if norm == self.unksize:
+            async def cmpr(valu):
+                return valu == norm
+            return cmpr
+
+        async def cmpr(valu):
+            return valu <= norm
+        return cmpr
 
     async def _ctorCmprEq(self, text):
 
         if isinstance(text, str):
             strip = text.strip()
-            if strip.endswith('*'):
+            if strip.endswith('*') and strip != '*':
                 tick, tock = s_time.wildrange(strip[:-1])
                 async def cmpr(valu):
                     return valu >= tick and valu < tock
@@ -5115,11 +5352,12 @@ class Time(IntBase):
 
         if isinstance(valu, str):
             text = valu.strip()
-            if text.endswith('*'):
+            # a bare * is the ongoing value, not a wildcard
+            if text.endswith('*') and text != '*':
                 if cmpr == '=':
                     tick, tock = s_time.wildrange(text[:-1])
                     return (
-                        ('range=', (tick, tock), self.stortype),
+                        ('range=', (tick, tock - 1), self.stortype),
                     )
 
                 if cmpr == '<':
@@ -5131,7 +5369,7 @@ class Time(IntBase):
                 if cmpr == '<=':
                     tick, tock = s_time.wildrange(text[:-1])
                     return (
-                        ('<=', tock, self.stortype),
+                        ('<=', tock - 1, self.stortype),
                     )
 
         return await IntBase._storLiftNorm(self, cmpr, valu)

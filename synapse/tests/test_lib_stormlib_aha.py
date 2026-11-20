@@ -150,7 +150,7 @@ Name:       01.cell.synapse
 
                 msgs = await core00.stormlist('aha.svc.list --nexus')
                 emsg = '00.newp.synapse null   true   null  0.0.0.0         3030  ' \
-                       'Failed to connect to Telepath service: "aha://00.newp.synapse/" error:'
+                       'Unable to connect to tcp://root@0.0.0.0:3030/?certhost=synapse:'
                 self.stormIsInPrint(emsg, msgs, whitespace=False)
 
                 msgs = await core00.stormlist('aha.svc.stat --nexus 00.newp...')
@@ -162,7 +162,7 @@ Ready:      null
 Run iden:   null
 Cell iden:  null
 Leader:     No leadership term for this service type.
-Nexus:      Failed to connect to Telepath service: "aha://00.newp.synapse/" error: [Errno 111] Connect call failed ('0.0.0.0', 3030)
+Nexus:      Unable to connect to tcp://root@0.0.0.0:3030/?certhost=synapse: [Errno 111] Connect call failed ('0.0.0.0', 3030)
 Connection information:
     certhost:   synapse
     host:       0.0.0.0
@@ -228,10 +228,11 @@ Connection information:
                 ''', opts={'vars': {'skiprun': cell00_rid}})
                 self.len(2, resp)
 
-                await self.asyncraises(s_exc.NoSuchName, core00.callStorm('''
+                with self.raises(s_exc.NoSuchName):
+                    await core00.callStorm('''
                     $todo = $lib.utils.todo('getTasks')
                     for $info in $lib.aha.callPeerGenr(null, $todo) {}
-                '''))
+                ''')
 
                 # PeerApi
                 resp = await core00.callStorm('''
@@ -277,17 +278,20 @@ Connection information:
                 ''')
                 self.len(2, resp)
 
-                await self.asyncraises(s_exc.NoSuchName, core00.callStorm('''
+                with self.raises(s_exc.NoSuchName):
+                    await core00.callStorm('''
                     $todo = $lib.utils.todo('getCellInfo')
                     for $info in $lib.aha.callPeerApi(newp..., $todo) {}
-                '''))
+                ''')
 
-                await self.asyncraises(s_exc.NoSuchName, core00.callStorm('''
+                with self.raises(s_exc.NoSuchName):
+                    await core00.callStorm('''
                     $todo = $lib.utils.todo('getCellInfo')
                     for $info in $lib.aha.callPeerApi(null, $todo) {}
-                '''))
+                ''')
 
-                await self.asyncraises(s_exc.NoSuchMeth, core00.callStorm('''
+                with self.raises(s_exc.NoSuchMeth):
+                    await core00.callStorm('''
                     $todo = $lib.utils.todo('bogusMethod')
                     for $info in $lib.aha.callPeerApi(testcell00..., $todo) {
                         ($ok, $info) = $info.1
@@ -295,20 +299,23 @@ Connection information:
                             $lib.raise($info.err, $info.errmsg)
                         }
                     }
-                '''))
+                ''')
 
                 await aha.addAhaSvc('noiden.cell...', info={'urlinfo': {'scheme': 'tcp',
                                                                      'host': '0.0.0.0',
                                                                      'port': '3030'}})
 
-                await self.asyncraises(s_exc.NoSuchName, core00.callStorm('''
+                with self.raises(s_exc.NoSuchName):
+                    await core00.callStorm('''
                     $todo = $lib.utils.todo('getTasks')
                     for $info in $lib.aha.callPeerGenr(noiden.cell..., $todo) {}
-                '''))
-                await self.asyncraises(s_exc.NoSuchName, core00.callStorm('''
+                ''')
+
+                with self.raises(s_exc.NoSuchName):
+                    await core00.callStorm('''
                     $todo = $lib.utils.todo('getCellInfo')
                     for $info in $lib.aha.callPeerApi(noiden.cell..., $todo) {}
-                '''))
+                ''')
 
                 lowuser = await core00.auth.addUser('lowuser')
                 await lowuser.addRule((True, ('storm',)))

@@ -66,6 +66,7 @@ Synapse also supports large-scale analysis through the use of **automation.** Sy
 - [Triggers and Cron](storm_ref_automation.md#auto-triggers-cron)
 - [Macros](storm_ref_automation.md#auto-macros)
 - [Dmons](storm_ref_automation.md#auto-dmon)
+- [View Hooks](storm_ref_automation.md#auto-view-hooks)
 
 Automation frees analysts from performing tedious work and allows them to focus on more detailed analysis and complex tasks. You can also scale analytical operations by limiting the amount of work that must be performed manually.
 
@@ -830,3 +831,72 @@ Dmons will have the storm variable `$auto` populated when they run. The `$auto` 
 ### Syntax
 
 Users can interact with dmons using the Storm [dmon](storm_ref_cmd.md#storm-dmon) commands and the [`$lib.dmon`](../stormtypes_libs.md#stormlibs-lib-dmon) Storm libraries.
+
+<a id="auto-view-hooks"></a>
+
+
+## View Hooks
+
+A view hook is a stored Storm query that runs when a [View](../glossary.md#gloss-view) is created, merged, or deleted. View hooks allow a Synapse admin to prepare new forks or to enforce checks (such as a review process) before a view is merged or deleted.
+
+Each view hook has a **type** which determines when it runs:
+
+- `created`: Runs in a newly created view, including forks. The view has already been created when the hook runs, so an error raised by a `created` hook is logged and does **not** prevent the view from being created.
+- `merging`: Runs in a view that is about to be merged into its parent. An error raised by a `merging` hook **aborts** the merge and leaves the view intact. The view's write layer is read-only while `merging` hooks run, so a `merging` hook should inspect the view and raise an error (e.g., using `$lib.raise()`) to block the merge rather than edit data; an attempted edit fails and aborts the merge. For a view that requires a merge vote, `merging` hooks run once when the merge request is made, and an error rejects the merge request. The view remains writable until the merge is approved, so `merging` hooks are not a check on edits made after the request. `merging` hooks run only when a whole view is merged (`$view.merge()`, the `view.merge` command, or a merge request). The `merge` command applies selected edits to the parent view and does not run them; permissions on the parent view's layer control who may use it.
+- `deleted`: Runs in a view that is about to be deleted. An error raised by a `deleted` hook **aborts** the delete. The delete that occurs after a view is merged does not run `deleted` hooks.
+
+View hooks have the following properties:
+
+- **Storage.** View hooks are stored within (global to) a Cortex and run for every view.
+- **Execution.** A view hook runs as the `root` user, in the view that is being created, merged, or deleted. The hook's `creator` records the user who added it, and does not affect how the hook runs. Enabled hooks of a given type run in the order they were created. Hooks do not run when the Cortex is in safe mode. Each hook runs as a separate `storm` task owned by `root`; killing that task is treated as an error raised by the hook.
+- **Permissions.** Only a global **admin** can add, view, modify, or delete view hooks.
+- **Recursion.** Views created, merged, or deleted by the Storm query of a running view hook run view hooks, including views changed by its background and parallel subqueries and by the triggers, dmons, and package `onload` queries it starts. View hooks may nest up to 256 levels deep. A lifecycle event which would exceed that depth raises a `RecursionLimitHit` error instead of running its hooks. A view whose `created` hooks would exceed that depth is not created.
+
+View hooks are managed using the [`$lib.view.hook`](../stormtypes_libs.md#stormlibs-lib-view-hook) libraries and the [`view:hook`](../stormtypes_prims.md#stormprims-view-hook-f527) primitive.
+
+### Variables
+
+Every view hook has an associated Storm variable `$auto` that is automatically populated when the hook runs. The `$auto` variable is a dictionary which contains the following keys:
+
+- `$auto.iden`: The identifier of the view hook.
+- `$auto.type`: The type of automation. For a view hook this value will be `view:hook`.
+- `$auto.opts`: Dictionary containing view hook specific runtime information. This includes the following keys:
+  - `$auto.opts.type`: The type of the view hook (`created`, `merging`, or `deleted`).
+
+### Examples
+
+Add a `created` hook that sets the description of each new view:
+
+```storm
+$lib.view.hook.add(newview, created, ${ $lib.view.get().set(desc, "Created by an analyst.") })
+```
+
+Add a `merging` hook that prevents merging a view whose top layer contains nodes tagged `#int.review`:
+
+```storm
+$lib.view.hook.add(review, merging, ${
+    if $lib.layer.get().getTagCount(int.review) {
+        $lib.raise(BadArg, "Remove the #int.review tag from all nodes before merging.")
+    }
+})
+```
+
+List the view hooks in the Cortex:
+
+```storm
+for $hook in $lib.view.hook.list() {
+    $lib.print(`{$hook.iden} {$hook.type} {$hook.name} enabled={$hook.enabled}`)
+}
+```
+
+Disable a view hook (where `$iden` is the iden of the hook):
+
+```storm
+$lib.view.hook.get($iden).enabled = (false)
+```
+
+Delete a view hook:
+
+```storm
+$lib.view.hook.del($iden)
+```

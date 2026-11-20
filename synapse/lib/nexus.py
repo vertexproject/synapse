@@ -28,6 +28,7 @@ FOLLOWER_WRITE_WAIT_S = 30.0
 FOLLOWER_CONNECT_WAIT_S = 60.0
 
 mirrordisconnect = f'Unable to connect to leader for {FOLLOWER_CONNECT_WAIT_S}s.'
+mirrorpromoted = 'Leadership changed while a forwarded write was in flight.'
 
 WINDOW_MAXSIZE = 10_000
 
@@ -319,12 +320,13 @@ class NexsRoot(s_base.Base):
                          forwarded from a downstream mirror.
             wait (bool): When True, wait for the apply to finish and return its result. When
                          False, return as soon as the edit has been issued.
-            lock (bool): When True, cell.nexslock is acquired around the apply ( see eat ). When
-                         False, the caller must already hold it and hands ownership of it to us:
-                         it is released exactly once on every path out of this call, either here,
-                         in eat, or by the apply task. The caller must not release it. Only a
-                         leader may be issued to with lock=False, since such a caller has
-                         already computed its change against our own storage.
+            lock (bool): When True, cell.nexslock is acquired here before leadership is checked;
+                         as a follower the lock is released and the write is forwarded to the
+                         leader. When False, the caller must already hold it and hands ownership
+                         of it to us and must not release it. Either way it is released exactly
+                         once on every path out of this call, either here, in eat, or by the apply
+                         task. Only a leader may be issued to with lock=False, since such a caller
+                         has already computed its change against our own storage.
 
         Returns:
             A (nexsoffs, retn) tuple of the log offset and the handler's return value, or None
@@ -333,20 +335,22 @@ class NexsRoot(s_base.Base):
         Raises:
             s_exc.BadState: When lock is False and we are no longer the leader.
         '''
-        # pick up a reference to avoid race when we eventually can promote
-        client = self.client
+        if lock:
+            await self.cell.nexslock.acquire()
 
-        if client is None:
-            return await self.eat(nexsiden, event, args, kwargs, meta, s_common.now(), wait=wait, lock=lock)
+        # leadership is checked under nexslock so a handoff cannot demote us before eat
+        if (client := self.client) is None:
+            return await self.eat(nexsiden, event, args, kwargs, meta, s_common.now(), wait=wait, lock=False)
+
+        # never hold nexslock while forwarding: the mirror loop needs it to apply the result
+        self.cell.nexslock.release()
 
         # A lock=False caller has already computed its change against our own storage, which
         # only a leader may do: that computed change is what lands in the nexus log for every
         # mirror to replay. ( Today the one such caller is Layer.saveNodeEdits(), which runs
         # calcEdits() before saveToNexs(). ) We were demoted after it took nexslock, so
         # forwarding would have the new leader log and apply a change it did not compute.
-        # Release the caller's lock and refuse, before anything below can raise or await.
         if not lock:
-            self.cell.nexslock.release()
             mesg = f'Leadership changed while a write was in flight. iden={nexsiden} {event=}'
             raise s_exc.BadState(mesg=mesg, iden=nexsiden, event=event)
 
@@ -449,9 +453,14 @@ class NexsRoot(s_base.Base):
 
     async def _eat(self, item, indx=None):
 
+        respfutu = None
+
         try:
             if self.isfini:
                 raise s_exc.IsFini(mesg=f'Nexus has been shutdown, cannot apply {s_common.trimText(str(item))}')
+
+            # resolve our own forwarded write here, since promote() may cancel the mirror loop mid-apply
+            respfutu = self._futures.get(item[4].get('resp'))
 
             if self.donexslog:
                 saveindx, packitem = await self.nexslog.addWithPackRetn(item, indx=indx)
@@ -495,7 +504,16 @@ class NexsRoot(s_base.Base):
 
             self.setPulseIndx(saveindx)
 
+            if respfutu is not None and not respfutu.done():
+                respfutu.set_result((saveindx, retn))
+
             return (saveindx, retn)
+
+        except Exception as e:
+            if respfutu is not None and not respfutu.done():
+                respfutu.set_exception(e)
+
+            raise
 
         finally:
             self.cell.nexslock.release()
@@ -663,6 +681,15 @@ class NexsRoot(s_base.Base):
 
         await self.startup()
 
+        # the mirror loop is gone, but an apply still in flight resolves its own forwarded write
+        async with self.cell.nexslock:
+            self._failFutures(mirrorpromoted)
+
+    def _failFutures(self, mesg):
+        for futu in list(self._futures.values()):
+            if not futu.done():
+                futu.set_exception(s_exc.LinkErr(mesg=mesg))
+
     async def connectTimeout(self):
         try:
             await asyncio.wait_for(self.miruplink.wait(), FOLLOWER_CONNECT_WAIT_S)
@@ -670,8 +697,7 @@ class NexsRoot(s_base.Base):
         except asyncio.TimeoutError:
             await self.addWriteHold(mirrordisconnect)
 
-            for futu in list(self._futures.values()):
-                futu.set_exception(s_exc.LinkErr(mesg=mirrordisconnect))
+            self._failFutures(mirrordisconnect)
 
     async def _onTeleLink(self, proxy, urlinfo):
         if self.timeouttask is not None:
@@ -765,22 +791,21 @@ class NexsRoot(s_base.Base):
                     respiden = meta.get('resp')
                     respfutu = self._futures.get(respiden)
 
+                    # _eat resolves respfutu once the entry is applied
                     try:
-                        retn = await self.eat(*args)
+                        await self.eat(*args)
 
                     except Exception as e:
-                        if respfutu is not None:
-                            assert not respfutu.done()
+                        # the head of the traceback is our own still running frame
+                        # and the caller may clear the frames of the traceback it gets.
+                        e.with_traceback(e.__traceback__.tb_next)
 
-                            # the head of the traceback is our own still running frame
-                            # and the caller may clear the frames of the traceback it gets.
-                            respfutu.set_exception(e.with_traceback(e.__traceback__.tb_next))
-                        else:  # pragma: no cover
+                        if respfutu is None:  # pragma: no cover
                             logger.exception(e)
 
-                    else:
-                        if respfutu is not None:
-                            respfutu.set_result(retn)
+                        # eat() raises its checks before _eat could resolve respfutu
+                        elif not respfutu.done():
+                            respfutu.set_exception(e)
 
             except s_exc.LinkShutDown:
                 logger.warning('mirror loop: leader closed the connection.')

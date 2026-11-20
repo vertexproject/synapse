@@ -23,6 +23,17 @@ class StormLintTest(s_t_utils.SynTest):
         with self.raises(s_exc.BadArg):
             s_stormlint.rule('E001', 'dup', 'high')
 
+        self.eq(['S010', 'S00'], s_stormlint.splitRules(' S010 , ,S00 '))
+
+        self.eq('All checks passed!', s_stormlint.getSummary(0))
+        self.eq('Found 1 error.', s_stormlint.getSummary(1))
+        self.eq('Found 2 errors.', s_stormlint.getSummary(2))
+
+        ruledefs = {r['rule']: r for r in s_stormlint.getRules()}
+        self.eq(list(s_stormlint.rules), list(ruledefs))
+        self.true(ruledefs['S005']['default'])
+        self.false(ruledefs['S010']['default'])
+
         seen = {}
 
         def libtrue(ctx):
@@ -669,3 +680,12 @@ class StormLintTest(s_t_utils.SynTest):
             (31, 42, mesg.format('r2', 'r2', 'r2')),
             (32, 51, mesg.format('r3', 'r3', 'r3')),
         ))
+
+        # the fork pool worker lints with the model names it is given
+        text = '_test:lint +:_name=foo'
+        names = s_stormlint._getModelNames({'forms': {'_test:lint': {'props': {'_name': {'full': '_test:lint:_name'}}}}})
+        self.eq(s_stormlint._lintStorm(text, ['S012'], names), [
+            {'rule': 'S012', 'severity': 'low', 'line': 1, 'column': 1,
+             'mesg': 'Lift by _test:lint:_name=foo instead of filtering.'},
+        ])
+        self.eq(s_stormlint._lintStorm(text, ['S012'], s_stormlint._getModelNames()), [])

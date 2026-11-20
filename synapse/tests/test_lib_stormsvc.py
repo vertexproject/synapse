@@ -452,6 +452,15 @@ class StormSvcTest(s_test.SynTest):
             self.stormIsInPrint('removed fake: tcp://localhost:3333/foo', msgs)
             self.len(0, core.getStormSvcs())
 
+            q = 'function f(n as str, u as str) { return($lib.service.add($n, $u)) } return($f(typed, $url))'
+            sdef = await core.callStorm(q, opts={'vars': {'url': 'tcp://localhost:3333/foo'}})
+            self.eq('typed', sdef.get('name'))
+            self.eq('tcp://localhost:3333/foo', sdef.get('url'))
+            self.eq('typed', core.getStormSvcs()[0].name)
+
+            await core.stormlist('service.del typed')
+            self.len(0, core.getStormSvcs())
+
     async def test_storm_svcs_bads(self):
 
         async with self.getTestCore() as core:

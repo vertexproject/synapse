@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 class ProtoNode(s_node.NodeBase):
     '''
     A prototype node used for staging node adds using a NodeEditor.
+
+    A ProtoNode references its editor, see NodeEditor for releasing it.
     '''
     def __init__(self, editor, form, valu, node, norminfo):
         self.editor = editor
@@ -961,6 +963,11 @@ class ProtoNode(s_node.NodeBase):
 class NodeEditor:
     '''
     A NodeEditor allows tracking node edits with subs/deps as a transaction.
+
+    The editor and its protonodes reference each other, so only the cyclic GC can
+    reclaim them until clear() empties protonodes. Editors from View.getNodeEditor()
+    or View.getEditor() are cleared on exit. Code constructing a NodeEditor directly
+    must call clear() (e.g. in a finally block) once done; flushEdits() also clears it.
     '''
     def __init__(self, view, user, meta=None, tagcache=None):
         self.meta = meta
@@ -995,6 +1002,12 @@ class NodeEditor:
         if node:
             return self.loadNode(node)
 
+    async def _getViewNode(self, ndef, tombs=False):
+        '''
+        Return the node a node being added resolves to in the view, or None.
+        '''
+        return await self.view.getNodeByNdef(ndef, tombs=tombs)
+
     async def getNodeByNid(self, nid):
         node = await self.view.getNodeByNid(nid)
         if node:
@@ -1013,6 +1026,12 @@ class NodeEditor:
         if nodeedits:
             await self.view.saveNodeEdits(nodeedits, meta=self.meta)
 
+        self.clear()
+
+    def clear(self):
+        '''
+        Discard any unsaved edits and the protonodes, which reference this editor.
+        '''
         self.protonodes.clear()
 
     async def _addNode(self, form, valu, norminfo=None):
@@ -1072,7 +1091,7 @@ class NodeEditor:
             if (protonode := self.protonodes.get(ndef)) is not None:
                 break
 
-            if (node := await self.view.getNodeByNdef(ndef)) is not None:
+            if (node := await self._getViewNode(ndef)) is not None:
                 if not (adds or subs):
                     return ()
 
@@ -1115,7 +1134,7 @@ class NodeEditor:
             if (protonode := self.protonodes.get(ndef)) is not None:
                 break
 
-            if (node := await self.view.getNodeByNdef(ndef, tombs=True)) is not None:
+            if (node := await self._getViewNode(ndef, tombs=True)) is not None:
                 protonode = ProtoNode(self, node.form, node.valu(), node, norminfo)
                 self.protonodes[ndef] = protonode
                 break
@@ -1149,3 +1168,66 @@ class NodeEditor:
                 ops.extend(await oset)
 
         return protonode
+
+class MigrationEditor(NodeEditor):
+    '''
+    A NodeEditor for model migrations, which builds the nodeedits for a node without
+    resolving it, or the nodes its value adds, against a view.
+
+    A model migration repairs the layers of a Cortex directly rather than through a view,
+    so neither the node nor the nodes its value adds are looked up, and the nodeedits carry
+    every edit an ordinary add of the node into an empty layer would make. The Cortex
+    default view is only used for its norm options.
+    '''
+    def __init__(self, core, user):
+        NodeEditor.__init__(self, core.view, user)
+
+    async def _getViewNode(self, ndef, tombs=False):
+        return None
+
+    async def getNewNodeEdits(self, formname, valu, norminfo=None, layr=None):
+        '''
+        Return the nodeedits which create a node from nothing.
+
+        The edits always carry the node's own EDIT_NODE_ADD and every computed property its
+        value derives, in the stored shape an ordinary node add produces, followed by the
+        nodes its value adds (such as the inet:fqdn of an inet:url). Nothing is saved, and
+        the editor holds nothing afterward.
+
+        Args:
+            formname (str): The form of the node.
+            valu (object): The value of the node.
+            norminfo (dict): The norm info for the value, if it was already normalized.
+            layr (Layer): If set, leave out the nodes the value adds which this layer already holds.
+
+        Returns:
+            list: The nodeedits, the one for the node itself first.
+        '''
+        form = self.view.core.model.form(formname)
+        if form is None:
+            raise s_exc.NoSuchForm(mesg=f'No form named {formname} for valu={valu}.')
+
+        try:
+            (norm, norminfo) = await self._addNode(form, valu, norminfo=norminfo)
+
+            protonode = await self._initProtoNode(form, norm, norminfo)
+
+            nodeedits = [protonode.getNodeEdit()]
+            for other in self.protonodes.values():
+
+                if other is protonode:
+                    continue
+
+                if (nodeedit := other.getNodeEdit()) is None:  # pragma: no cover
+                    continue
+
+                if layr is not None and nodeedit[0] is not None:
+                    if layr.getStorNode(s_common.int64en(nodeedit[0])).get('valu') is not None:
+                        continue
+
+                nodeedits.append(nodeedit)
+
+            return nodeedits
+
+        finally:
+            self.clear()

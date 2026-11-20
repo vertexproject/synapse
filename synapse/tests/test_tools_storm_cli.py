@@ -11,8 +11,12 @@ import aiohttp_socks
 
 import synapse.tests.utils as s_test
 
+from prompt_toolkit.input import create_pipe_input
+from prompt_toolkit.output import DummyOutput
+from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.document import Document
 from prompt_toolkit.completion import Completion, CompleteEvent
+from prompt_toolkit.application import create_app_session
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -141,6 +145,110 @@ class StormCliTest(s_test.SynTest):
         async with await s_t_storm.StormCli.anit(item, outp=outp) as scli:
             await scli.runCmdLine('---' + ' ' * 80 + 'spin')
             self.isin("---                            ...\n ^", str(outp))
+
+    async def runStormCliInput(self, core, item):
+        '''
+        Answer $lib.input requests from the Storm CLI prompt.
+        '''
+        async def noinputs():
+            while core.storminputs:
+                await asyncio.sleep(0.01)
+
+        q = '$reply = $lib.input.request(text, ({"prompt": "What is your **name**?"})) $lib.print(`hi {$reply.text}`)'
+
+        outp = s_output.OutPutStr()
+        async with await s_t_storm.StormCli.anit(item, outp=outp) as scli:
+
+            prompt = mock.AsyncMock(return_value='visi')
+            with mock.patch.object(scli, '_promptInput', prompt):
+                self.true(await scli.storm(q))
+
+            prompt.assert_awaited_once_with('> ')
+            self.isin('What is your **name**?\nhi visi\n', str(outp))
+            self.len(0, core.storminputs)
+
+            # input requests are answered even when their printing is skipped
+            scli._print_skips.append('input')
+            with mock.patch.object(scli, '_promptInput', mock.AsyncMock(return_value='newp')):
+                self.true(await scli.storm(q))
+
+            self.isin('hi newp', str(outp))
+            scli._print_skips.remove('input')
+
+            # other skipped message types are still not printed
+            scli._print_skips.append('print')
+            with mock.patch.object(scli, '_promptInput', mock.AsyncMock(return_value='skip')):
+                self.true(await scli.storm(q))
+
+            self.notin('hi skip', str(outp))
+            scli._print_skips.remove('print')
+
+        # replies are read by a separate session which has no history file or completer
+        with self.getTestSynDir():
+
+            outp = s_output.OutPutStr()
+            async with await s_t_storm.StormCli.anit(item, outp=outp) as scli:
+
+                with create_pipe_input() as inpt:
+                    with create_app_session(input=inpt, output=DummyOutput()):
+
+                        inpt.send_text('$lib.print(woot)\n')
+                        self.eq('$lib.print(woot)', await scli.prompt())
+
+                        histpath = s_common.getSynPath('storm_history')
+                        with s_common.genfile(histpath) as fd:
+                            histbyts = fd.read()
+
+                        self.isin(b'$lib.print(woot)', histbyts)
+
+                        inpt.send_text('s3cr3t\n')
+                        self.true(await scli.storm(q))
+
+                        inpt.send_text('hunter2\n')
+                        self.true(await scli.storm(q))
+
+                self.isin('hi s3cr3t', str(outp))
+                self.isin('hi hunter2', str(outp))
+                self.len(0, core.storminputs)
+
+                with s_common.genfile(histpath) as fd:
+                    self.eq(histbyts, fd.read())
+
+                self.eq(['$lib.print(woot)'], scli.sess.history.get_strings())
+                self.eq(['s3cr3t', 'hunter2'], scli._inputsess.history.get_strings())
+                self.isinstance(scli._inputsess.history, InMemoryHistory)
+                self.none(scli._inputsess.completer)
+
+        for exc in (EOFError, KeyboardInterrupt):
+
+            outp = s_output.OutPutStr()
+            async with await s_t_storm.StormCli.anit(item, outp=outp) as scli:
+
+                with mock.patch.object(scli, '_promptInput', mock.AsyncMock(side_effect=exc)):
+                    self.false(await scli.storm(q))
+
+                self.isin('What is your **name**?\nQuery cancelled.\n', str(outp))
+                self.notin('hi ', str(outp))
+
+                # leaving the query cancels the request on the Cortex
+                await asyncio.wait_for(noinputs(), timeout=10)
+
+        async def fakestorm(text, opts=None):
+            yield ('input', {'iden': s_common.guid(), 'type': 'newp', 'info': {}})
+            yield ('input', {'iden': s_common.guid(), 'type': 'text', 'info': {'prompt': 'Who?'}})
+            yield ('print', {'mesg': 'still here'})
+
+        outp = s_output.OutPutStr()
+        async with await s_t_storm.StormCli.anit(item, outp=outp) as scli:
+
+            with mock.patch.object(item, 'storm', fakestorm):
+                with mock.patch.object(scli, '_promptInput', mock.AsyncMock(return_value='visi')):
+                    self.true(await scli.storm('newp'))
+
+            text = str(outp)
+            self.isin('WARNING: The Storm CLI cannot answer input of type: newp', text)
+            self.isin('Who?\nERROR: No Storm input request with iden', text)
+            self.isin('still here', text)
 
     async def runStormCliMain(self, url, args=()):
         '''
@@ -490,6 +598,7 @@ class StormCliTest(s_test.SynTest):
 
             async with core.getLocalProxy() as proxy:
                 await self.runStormCliItem(proxy)
+                await self.runStormCliInput(core, proxy)
 
             await self.runStormCliMain(core.getLocalUrl())
 
@@ -504,6 +613,7 @@ class StormCliTest(s_test.SynTest):
             async with await s_http.HttpCortex.anit(url, verify=False) as prox:
 
                 await self.runStormCliItem(prox)
+                await self.runStormCliInput(core, prox)
 
                 # an upload with no bytes written saves the empty file
                 async with await prox.getAxonUpload() as upload:

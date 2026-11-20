@@ -542,13 +542,16 @@ class SynModelTest(s_t_utils.SynTest):
             self.len(9, await core.nodes('syn:type=test:guid <-- * | uniq'))
 
             # Can't add an edge to a runt node
-            await self.asyncraises(s_exc.IsRuntForm, nodes[0].addEdge('newp', 'newp'))
+            with self.raises(s_exc.IsRuntForm):
+                await nodes[0].addEdge('newp', 'newp')
 
             q = core.nodes('syn:form [ +(newp)> { inet:ip } ]')
-            await self.asyncraises(s_exc.IsRuntForm, q)
+            with self.raises(s_exc.IsRuntForm):
+                await q
 
             q = core.nodes('[ test:str=foo +(newp)> { syn:form } ]')
-            await self.asyncraises(s_exc.IsRuntForm, q)
+            with self.raises(s_exc.IsRuntForm):
+                await q
 
             self.eq((), await core.callStorm('syn:form=inet:fqdn return($node.tags())'))
 

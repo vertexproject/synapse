@@ -10,6 +10,7 @@ import synapse.common as s_common
 
 import synapse.lib.auth as s_auth
 import synapse.lib.cell as s_cell
+import synapse.lib.coro as s_coro
 import synapse.lib.nexus as s_nexus
 import synapse.lib.version as s_version
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -251,8 +252,7 @@ class NexusTest(s_t_utils.SynTest):
                     with self.getLoggerStream('synapse.lib.nexus') as stream:
                         await nexsroot.recover()
 
-                    stream.seek(0)
-                    self.isin('while replaying log', stream.read())
+                    await stream.expect('while replaying log')
 
                     nexsindx = nexus1.nexsroot.nexslog.index()
 
@@ -382,6 +382,73 @@ class NexusTest(s_t_utils.SynTest):
 
                 if cell.nexslock.locked():
                     cell.nexslock.release()
+
+            # a lock=True writer queued on nexslock while a handoff demotes us is forwarded
+            issued = []
+
+            class Proxy:
+                async def issue(self, nexsiden, event, args, kwargs, meta=None, wait=True):
+                    # nexslock is never held while forwarding to the leader
+                    issued.append((nexsiden, event, args, kwargs, dict(meta), cell.nexslock.locked()))
+                    if (futu := cell.nexsroot._futures.get(meta['resp'])) is not None:
+                        futu.set_result((99, 'forwarded'))
+
+            class FwdClient:
+                async def proxy(self, timeout=None):
+                    return Proxy()
+
+            try:
+                indx = await cell.nexsroot.index()
+
+                await cell.nexslock.acquire()
+                task = cell.schedCoro(cell.nexsroot.issue(cell.nexsiden, 'meta:set', ('hehe', 'haha'), {}))
+                self.false(await s_coro.waittask(task, timeout=0.1))
+
+                cell.nexsroot.client = FwdClient()
+                cell.nexslock.release()
+
+                self.eq((99, 'forwarded'), await asyncio.wait_for(task, timeout=10))
+                self.len(1, issued)
+                self.eq((cell.nexsiden, 'meta:set', ('hehe', 'haha'), {}), issued[0][:4])
+                self.false(issued[0][5])
+                self.eq(indx, await cell.nexsroot.index())
+                self.false(cell.nexslock.locked())
+                self.none(cell.nexsroot._futures.get(issued[0][4]['resp']))
+
+                # a downstream mirror's forwarded write is passed along and returns None
+                await cell.nexslock.acquire()
+                cell.nexsroot.client = None
+                meta = {'resp': 'downstream'}
+                task = cell.schedCoro(cell.nexsroot.issue(cell.nexsiden, 'meta:set', ('hehe', 'hoho'), {}, meta=meta))
+                self.false(await s_coro.waittask(task, timeout=0.1))
+
+                cell.nexsroot.client = FwdClient()
+                cell.nexslock.release()
+
+                self.none(await asyncio.wait_for(task, timeout=10))
+                self.len(2, issued)
+                self.eq((cell.nexsiden, 'meta:set', ('hehe', 'hoho'), {}, {'resp': 'downstream'}, False), issued[1])
+                self.eq(indx, await cell.nexsroot.index())
+                self.false(cell.nexslock.locked())
+
+                # a follower write which never waited on nexslock is forwarded the same way
+                self.eq((99, 'forwarded'), await cell.nexsroot.issue(cell.nexsiden, 'meta:set', ('hehe', 'hehe'), {}))
+                self.len(3, issued)
+                self.eq((cell.nexsiden, 'meta:set', ('hehe', 'hehe'), {}), issued[2][:4])
+                self.false(issued[2][5])
+                self.eq(indx, await cell.nexsroot.index())
+                self.false(cell.nexslock.locked())
+
+            finally:
+                cell.nexsroot.client = None
+
+                if cell.nexslock.locked():
+                    cell.nexslock.release()
+
+            # still the leader once the lock is acquired, the write is applied locally
+            self.eq((indx, 'haha'), await cell.nexsroot.issue(cell.nexsiden, 'meta:set', ('hehe', 'haha'), {}))
+            self.eq(indx + 1, await cell.nexsroot.index())
+            self.false(cell.nexslock.locked())
 
     async def test_nexus_modroot(self):
 
@@ -590,6 +657,11 @@ class NexusTest(s_t_utils.SynTest):
                     cell01._nexshands['sync'] = orig
                     await cell01.sync()
 
+                    # the mirror failing eat() checks before the apply still fails the caller
+                    cell01._nexshands.pop('sync')
+                    with self.raises(s_exc.NoSuchName):
+                        await asyncio.wait_for(cell01.sync(), timeout=10)
+
     async def test_mirror_version_prerelease(self):
 
         with self.getTestDir() as dirn:
@@ -685,10 +757,8 @@ class NexusTest(s_t_utils.SynTest):
                         async with await s_cell.Cell.anit(dirn=path) as cell01:
                             await cell01.sync()
 
-                    stream.seek(0)
-                    data = stream.read()
                     mesg = 'Unknown error during mirror loop startup: Knock over the nexus setup.'
-                    self.isin(mesg, data)
+                    await stream.expect(mesg)
 
                 self.true(restarted)
 
@@ -929,11 +999,17 @@ class NexusTest(s_t_utils.SynTest):
 
                                 await evnt1.wait()
 
+                                # an already resolved future is left alone by the reconnect timeout
+                                donefutu = core01.nexsroot.loop.create_future()
+                                donefutu.set_result('done')
+                                core01.nexsroot._futures['donefutu'] = donefutu
+
                         # Our task should be cancelled by the reconnect timeout
                         with self.raises(s_exc.LinkErr) as cm:
                             await coro
 
                         self.true(cm.exception.get('mesg').startswith('Unable to connect to leader'))
+                        self.eq('done', core01.nexsroot._futures.pop('donefutu').result())
                         self.true(core01.nexsroot.readonly)
                         self.isin(s_nexus.mirrordisconnect, core01.nexsroot.writeholds)
 
@@ -953,8 +1029,51 @@ class NexusTest(s_t_utils.SynTest):
                             self.len(2, core00.views)
                             self.len(2, core01.views)
 
-                            # After promotion we should not have any stray connect timeouts
-                            await core01.promote()
+                            # A forwarded write still in flight fails rather than hangs on promotion
+                            with core01.nexsroot._getResponseFuture() as (iden, futu):
+
+                                with core01.nexsroot._getResponseFuture() as (doneiden, donefutu):
+                                    donefutu.set_result('done')
+
+                                    # a forwarded write being applied when promoted returns its result
+                                    applying = asyncio.Event()
+                                    release = asyncio.Event()
+                                    apply01 = core01.nexsroot._apply
+
+                                    async def blockApply(indx, mesg):
+                                        applying.set()
+                                        await release.wait()
+                                        return await apply01(indx, mesg)
+
+                                    indx = await core01.getNexsIndx()
+
+                                    with mock.patch.object(core01.nexsroot, '_apply', blockApply):
+
+                                        task = core01.schedCoro(core01.nexsroot.issue(core01.nexsiden, 'meta:set', ('promoted', 'yes'), {}))
+                                        self.true(await s_coro.event_wait(applying, timeout=10))
+
+                                        # After promotion we should not have any stray connect timeouts
+                                        prom = core01.schedCoro(core01.promote())
+
+                                        # promote waits out the in-flight apply
+                                        self.false(await s_coro.waittask(prom, timeout=0.2))
+                                        self.false(task.done())
+
+                                        release.set()
+                                        await asyncio.wait_for(prom, timeout=10)
+
+                                    self.eq((indx, 'yes'), await asyncio.wait_for(task, timeout=10))
+                                    self.eq('yes', core01.getMeta('promoted'))
+
+                                    self.eq('done', donefutu.result())
+
+                                with self.raises(s_exc.LinkErr) as cm:
+                                    await asyncio.wait_for(futu, timeout=10)
+
+                                self.eq(s_nexus.mirrorpromoted, cm.exception.get('mesg'))
+
+                            self.len(0, core01.nexsroot._futures)
+
                             await asyncio.wait_for(core00.nexsroot.miruplink.wait(), 6)
 
                             self.false(core00.nexsroot.readonly)

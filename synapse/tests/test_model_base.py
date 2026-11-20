@@ -159,6 +159,10 @@ class BaseTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
+            display = core.model.type('meta:source').info.get('display')
+            self.eq(['name', 'type', 'url'],
+                    [col['opts']['name'] for col in display['columns']])
+
             nodes = await core.nodes('''
                 [meta:source="*"
                     :name="FOO Bar"
@@ -303,6 +307,10 @@ class BaseTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             self.true(core.model.form('meta:cluster').implements('meta:reported'))
+
+            display = core.model.type('meta:cluster').info.get('display')
+            self.eq(['name', 'reporter:name', 'type'],
+                    [col['opts']['name'] for col in display['columns']])
 
             org0 = (await core.nodes('[ ou:org=* ]'))[0].ndef[1]
 

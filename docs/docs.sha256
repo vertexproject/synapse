@@ -2,21 +2,21 @@
 # verify with: sha256sum -c docs.sha256
 315eb288e1cb312a4e061cc54aa55d045de68980b2c225d417e91f7fde489a16  ../synapse/assets/docs/300_changes/index.md
 #
-4c0992ee74008b2ae67a4416348279c9848cb1e90237371bfba101168bcd3d19  ../synapse/assets/docs/adminguide.md
+56e8c8d0639ff7d65f88c7a110aaf6e8cc82e10bcf01d5e95e571caaa9434bfe  ../synapse/assets/docs/adminguide.md
 #
 3ebe68061552a5d42db82e3bdde0db7f0cd90acb0d7bac2afe9c6581d6669df2  ../synapse/assets/docs/contributing.md
 #
 654901e317c46e91b57bb6d07ba1724259b8a98c8925c58151a2a7b4fa5f83a6  ../synapse/assets/docs/datamodel.md
 #
-c6385692a28e8975d5b0abd0a4c7c7a8b15f1cc5556f7fef00dea6e1fc307a37  ../synapse/assets/docs/datamodel_forms.md
+4b34a85950752c25702d718482f20b52976abaa4e3bf83c633e89b4e47416090  ../synapse/assets/docs/datamodel_forms.md
 #
-33ec136443a64fc3afee2287cd9efba533c7e97560d44480100215be2e53b446  ../synapse/assets/docs/datamodel_types.md
+96341ccfa3efafeb99631214e7f31db7d1d9c3f1832483893f32be375100cbd3  ../synapse/assets/docs/datamodel_types.md
 #
 14f901706f4a74c463731f44118faf5162ce630848d2da7b0b78d0219bb3abb7  ../synapse/assets/docs/devguide.md
 #
 1758ef4fde0d1099636d77abac105c016b7297cfba0c58a7b952b3968c300561  ../synapse/assets/docs/devguides/adv_power_ups.md
 #
-bea140f062d3c0df5dd9fe6680bd9c0a8064589185efcfa720bf803eaf292e2b  ../synapse/assets/docs/devopsguide.md
+2b9e09235d0c516997867779cb6673cb3aba88e7aa358f3a58a024d4c33f9709  ../synapse/assets/docs/devopsguide.md
 #
 60f25a1314c13d5c38e2b63437c58762bdeed002d208edea06f5613e72077966  ../synapse/assets/docs/getting_started.md
 #
@@ -28,15 +28,15 @@ cc798fd95adb6737ff2509ae4a9c67bb3e79de5efd0e02990105bc1c5014f3af  ../synapse/ass
 #
 addc0a499552f8633d20d3f62dbe8d91c5ce76f5839bbbcbe7b0f2b4ac732fe7  ../synapse/assets/docs/stormtypes.md
 #
-5357fa9359dc2c3065114fc9fa57fa6d731544945ad32f7bc0009e3217c2b3f0  ../synapse/assets/docs/stormtypes_libs.md
+eb37ccbdcf2f0e11fcfe166ccf2b821778ac2aa9461ea0976894dff30f78d0bb  ../synapse/assets/docs/stormtypes_libs.md
 #
-775aa398bc6f8a0a06f12cf3d5c6216c8253ab8167699628e928861f82cc858a  ../synapse/assets/docs/stormtypes_prims.md
+0a98baea0dc5a385a58422b2a226ccd72c3a6d60576dd8b4e1a6e6200fbbc8b2  ../synapse/assets/docs/stormtypes_prims.md
 #
 ef7d0aa3b518b08e8baa43c060fad5376b3a1f592c84ec06bda1ddffef673b46  ../synapse/assets/docs/userguide.md
 #
 30a654faae8ef54225b5de7210ceef8828327c460b12f5dc775eec2428d205fe  ../synapse/assets/docs/userguides/analytical_model.md
 #
-58d4e8ad965451b1f76e8d295b56ed1f54c3399fbe4ee2793ac15f1937971f39  ../synapse/assets/docs/userguides/data_model.md
+b6453a856a370886f29da35f8c69ccc65ebceb581f24329ca5ceb718e2eed8c4  ../synapse/assets/docs/userguides/data_model.md
 #
 3ef685013ca807a8b9ed6cb53ca541b92306d7837133b4a0503501d37b826864  ../synapse/assets/docs/userguides/index_storm_adv.md
 #
@@ -54,11 +54,11 @@ bf78aa273e0f3465b7e856cfed0b34e713340fd3c28ff9a7f00538067319cab7  ../synapse/ass
 #
 dea69557cbe0038137daf6356c06aa1b677b6f23160272867d1cab5606e51ea3  ../synapse/assets/docs/userguides/storm_adv_vars.md
 #
-486141e85220e17fad6d3e1667a2186562aa04d7783071e75751e19ce11b2ca8  ../synapse/assets/docs/userguides/storm_adv_vaults.md
+1ffeaa3710dc5c67a172f8b317b02af4dbc64b8a369aa061decc444875798458  ../synapse/assets/docs/userguides/storm_adv_vaults.md
 #
-ea2bfceaa8d9e2e226284d42a11b64070e88091e22e66204de14933e368ab2e9  ../synapse/assets/docs/userguides/storm_ref_automation.md
+1d57c2790f279adefe757b3e47043cecec9290413c1fa263c01c2b3271258d07  ../synapse/assets/docs/userguides/storm_ref_automation.md
 #
-e75950034b09f0aff0b9a7323ccacdea23fcfa1a68e83f27bf0954704a17f042  ../synapse/assets/docs/userguides/storm_ref_cmd.md
+233cc9543fdc99e94543d0b95b0ff15c3cc797f8831ab005bea6182c4505ad22  ../synapse/assets/docs/userguides/storm_ref_cmd.md
 #
 c3c6dd97ee1d499432b58f47d40e95bbee1e2bce214565ad8eae3e30b2e09b38  ../synapse/assets/docs/userguides/storm_ref_data_mod.md
 #
@@ -66,9 +66,9 @@ c3c6dd97ee1d499432b58f47d40e95bbee1e2bce214565ad8eae3e30b2e09b38  ../synapse/ass
 #
 d98bde6094d6e805802fffd903a8264c8134653aea394d56a4fa861d22c93ec7  ../synapse/assets/docs/userguides/storm_ref_intro.md
 #
-2828b1652050890be3f916a409b043a76f4ef17c806b20c2b5b4cc7109fe7761  ../synapse/assets/docs/userguides/storm_ref_lift.md
+11da04690d9116db60aca21b7213e5f803a4340db0ffba58e1e8b7bb41d3c4e4  ../synapse/assets/docs/userguides/storm_ref_lift.md
 #
-adb225a99f0f636f029a6ebd7c6885b044f1dd0c03ae00fada50e798d6542c69  ../synapse/assets/docs/userguides/storm_ref_model_introspect.md
+e8922c873e01c9132d89d6256e9bb87d336583e922ee2c43ba659200d9ccfa54  ../synapse/assets/docs/userguides/storm_ref_model_introspect.md
 #
 7438822ff1f49dc0e4ce28ccede69d18cb07fe50da8c69ac45b5e184e0f24648  ../synapse/assets/docs/userguides/storm_ref_pivot.md
 #
@@ -76,7 +76,7 @@ adb225a99f0f636f029a6ebd7c6885b044f1dd0c03ae00fada50e798d6542c69  ../synapse/ass
 #
 bd415d227fdbd0a1d5b8a94c4bdfdbea0186015f3fa7b5f70dfc804a24fcb214  ../synapse/assets/docs/userguides/storm_ref_syntax.md
 #
-8851e4869545a6c4f06580108dc6875b0030b0afceab8fee2ae8df5034760ce5  ../synapse/assets/docs/userguides/storm_ref_type_specific.md
+0bcae4cc250f47b9ae309a2708a8b192ec17988935849d5c8bc40b5199514f9c  ../synapse/assets/docs/userguides/storm_ref_type_specific.md
 #
 731edb60f5cee5944fd045e26b73a894c94ac525b54ad947c8a5bc6b95e0b627  ../synapse/assets/docs/userguides/syn_tools_aha_clone.md
 #
@@ -126,9 +126,9 @@ c1e4bb1bd92773dad1829a5596359072f6a1f0f60f031e75e47008ee6df0264c  ../synapse/ass
 #
 c473260e9046e96848c305ead213a26bd03204bb75c1fce077f66f7fbffa62e1  ../synapse/assets/docs/userguides/syn_tools_service_snapshot.md
 #
-75dee6c26abe5ba86cad0f1aca4b39781f003c694a61d81898f12fd0ba9c6b1a  ../synapse/assets/docs/userguides/syn_tools_storm.md
+75ffbbb9b09cc231da0fa02ec9e157e6f8e3966ad69166b2a463def68a0ac8b2  ../synapse/assets/docs/userguides/syn_tools_storm.md
 #
-dacd8ce8817b01263486403878c52062090fd9120df45d11e4b9cf4956b42636  ../synapse/assets/docs/userguides/syn_tools_storm_lint.md
+79444a957daba70d5d2b6bcf46d205496e4678060a38e79dc03f9b4f574c620b  ../synapse/assets/docs/userguides/syn_tools_storm_lint.md
 #
 c4dc43f35ac9cc9dfc79597f9dfdb9fb97524acdafbfa92b3507e35e811bc3c1  ../synapse/assets/docs/userguides/syn_tools_storm_pkg_docs.md
 #
@@ -138,7 +138,7 @@ c5b0e8370421d1e4ff01b73658d4279efdfc9607db306b41e4cfc5df70d352db  ../synapse/ass
 #
 4af5df05c754602d029dcb756dfe84b1f4f8f9fe660c11951084678b9d253940  synapse/300_changes/index.md
 #
-0f19b572513654a06c2e3f2fd71291a9c8703d0990145d58ef5e7e54ae0da718  synapse/adminguide.md
+4b0083a4a839171fc908aef468fed9874f554103331f3c4eadb72c4c15a22de4  synapse/adminguide.md
 #
 2aac89061403a37423ceeffdcb5ef2d32e4343abc0676efd312eaec32c869f3d  synapse/contributing.md
 #
@@ -152,7 +152,7 @@ c5b0e8370421d1e4ff01b73658d4279efdfc9607db306b41e4cfc5df70d352db  ../synapse/ass
 #
 676bf0e8d01638ba9192fbbd646e02f995b0e78d955c8d766cff1df9b4132450  synapse/devguides/adv_power_ups.md
 #
-28ac532b0c4322f32373ea8324f5331e9ded038887ccd3b72eff2632594d6b00  synapse/devopsguide.md
+06aaa598d29f9ffa160937318eae91cb930715ca1bfdd43c0f7a9f2e782e74a1  synapse/devopsguide.md
 #
 e63bc37015d6d0567c4693b970a3240a17361fae977668ecc39aef9fc021b201  synapse/getting_started.md
 #
@@ -172,7 +172,7 @@ bf307404d7a45650c8ccfa16b2b526a7378292028e0c4857655a78ffe6764de4  synapse/intro.
 #
 c408cfd206bb43b31c57a8aaa7eb6cdd3692ca96b3343f1dbf841eb2eea82c67  synapse/userguides/analytical_model.md
 #
-2d49a5b684fdf8310ff595517a4c79208e139e9994adbb2767ce2891790ec384  synapse/userguides/data_model.md
+759819bdb298a026e3d66cae576132f40e74dd7f3faf0edb39c85c67563bfe6d  synapse/userguides/data_model.md
 #
 6fa86c8fed71ae5890e27d5d976360508cb39d0119ce1c6c30d0bafd1b73876f  synapse/userguides/index_storm_adv.md
 #
@@ -190,11 +190,11 @@ da306300a856e37f4a1fa6830ec749542f028d722f939c73124e05e781b600f2  synapse/usergu
 #
 0b34bc2fc30ad1ffc8ece649868bc40844b2901a3d4b98e4075564903ffb7a77  synapse/userguides/storm_adv_vars.md
 #
-5e92ea9cded48ec3b5f763cbb1474a90966fb533c29eed4e98fda45677987828  synapse/userguides/storm_adv_vaults.md
+b1d066338919da338e8bf7d86929229d3200b660db8eae11140a7d808acf5b34  synapse/userguides/storm_adv_vaults.md
 #
-1e8b04dad1bb5affd0dd5fadd2563a6bbca1225ba72c59ff32abcd5cbba9b1d3  synapse/userguides/storm_ref_automation.md
+d4869b702b789ca1b5d9b72b5bee8ce9563d7a5a5eaa8e3fae58df2f78f59c18  synapse/userguides/storm_ref_automation.md
 #
-0199d6ccb39b6bb23db2fd91681475a7ef5c77ab3e83648efa193db65d7cfee4  synapse/userguides/storm_ref_cmd.md
+2f50374e425e1d86534e3ce73372c5795777faaf41b1213701de69f23a02908d  synapse/userguides/storm_ref_cmd.md
 #
 827b251f43377b9c5f0581a25dacbefd6debe97300d33524126abcf6fe3d9660  synapse/userguides/storm_ref_data_mod.md
 #
@@ -202,7 +202,7 @@ fdffe09985bd77f877af9ef29ed7254b2e7f0db06976c1050dbb25e533998451  synapse/usergu
 #
 d7ca56e4347763ac27235cb707f891dfb89fb6258cbc529188939e007bec6366  synapse/userguides/storm_ref_intro.md
 #
-0c340a714f2a488303060c21add4315db4f2e7865180963bac6805806eece14b  synapse/userguides/storm_ref_lift.md
+8d195f577abea8c20e3d26997149d05424f3294d544a0dff0212a73e0224ef81  synapse/userguides/storm_ref_lift.md
 #
 f07c8f6a213e93b488ca97ac2c782817a6d4fbdff4d5de9d12504b31ff2ccbc7  synapse/userguides/storm_ref_model_introspect.md
 #
@@ -212,7 +212,7 @@ f07c8f6a213e93b488ca97ac2c782817a6d4fbdff4d5de9d12504b31ff2ccbc7  synapse/usergu
 #
 3b4018d290c66e12c50a2a311ff062f52989b209bfe5875f51185674d24ff21e  synapse/userguides/storm_ref_syntax.md
 #
-922f1dd1e8f467031095b22ea30d6babe0aa2c5f6a04b7ac510e1bb5fc0f1bfd  synapse/userguides/storm_ref_type_specific.md
+e499f7998a96aed53fd96c5b170ca3f1df673b3385bd018349976c51e898272c  synapse/userguides/storm_ref_type_specific.md
 #
 29d880b9d47c9f3337fe764205867fdd80e91c5f86eed26550f7865115993ddd  synapse/userguides/syn_tools_aha_clone.md
 #
@@ -262,9 +262,9 @@ b855c698efc27b64f1b52f23785f59d820abda109869e2fdeb542cec5ba11590  synapse/usergu
 #
 f6d2fbfe72f913902b2f617525d23580528a3dfa21851a0730d93c5bcc701ce7  synapse/userguides/syn_tools_service_snapshot.md
 #
-8b8b3061dfce7e6ba85bba09a207ee0dc8c0e2398d04feded21954155c2c9de1  synapse/userguides/syn_tools_storm.md
+8a24d7fed3f07dba4003b4a1fb95f49047fde7c75740e68df3dcf0f476af64ed  synapse/userguides/syn_tools_storm.md
 #
-ad2705d581d602e54155ae8c3976d97cd48c83e0cc047ba3f1b4436f382b66e7  synapse/userguides/syn_tools_storm_lint.md
+33ba587075ed932d0849601b5990752356dfe199cb62e883f5d3520919a575f2  synapse/userguides/syn_tools_storm_lint.md
 #
 8cf23006bf738a5a709951372010aa8a5d447925c6de0aabcbd08bf65f1c9460  synapse/userguides/syn_tools_storm_pkg_docs.md
 #

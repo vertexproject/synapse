@@ -32,7 +32,7 @@ What you need to do
 
 What changed
 
-:   The `view.fork` permission no longer defaults to allow. In 2.x this permission carried `'default': True`, so any user with read access to a view could fork it without an explicit grant. In 3.x `view.fork` has no default, so it falls through to deny unless explicitly granted. The only Cortex permissions that still default to True are `storm.graph.add` and `storm.macro.add`.
+:   The `view.fork` permission no longer defaults to allow. In 2.x this permission carried `'default': True`, so any user with read access to a view could fork it without an explicit grant. In 3.x `view.fork` has no default, so it falls through to deny unless explicitly granted. The only Cortex permissions that still default to True are `graph.add` and `macro.add`.
 
 Why
 
@@ -77,7 +77,7 @@ What you need to do
     // auth: standard node.add / node.prop.set / view permissions apply
     ```
 
-## Storm macro admin/edit permissions moved out of the `storm.*` namespace
+## Storm macro permissions moved out of the `storm.*` namespace
 
 What changed
 
@@ -89,7 +89,7 @@ Why
 
 What you need to do
 
-:   Update user/role rules: replace grants of `storm.macro.admin` with `macro.admin` and `storm.macro.edit` with `macro.edit`. Leave `storm.macro.add` rules as-is.
+:   Update user/role rules: replace grants of `storm.macro.add` with `macro.add`, `storm.macro.admin` with `macro.admin`, and `storm.macro.edit` with `macro.edit`. `macro.add` defaults to allow, so a rule that denies `storm.macro.add` must be rewritten as a deny of `macro.add` to keep blocking users from adding macros.
 
     ```text
     // 2.x
@@ -97,6 +97,28 @@ What you need to do
 
     // 3.x
     auth.user.addrule visi macro.edit
+    ```
+
+## Storm graph permissions moved out of the `storm.*` namespace
+
+What changed
+
+:   The graph projection permissions were renamed from `storm.graph` and `storm.graph.add` to top-level `graph` and `graph.add` (gate `cortex`). `graph.add` is checked when a graph projection is added, and it defaults to allow.
+
+Why
+
+:   Graph projections are their own concern rather than a general Storm capability, so their permissions sit in a top-level `graph.*` tree like `macro.*`.
+
+What you need to do
+
+:   Update user/role rules: replace `storm.graph.add` with `graph.add` and `storm.graph` with `graph`. Because `graph.add` defaults to allow, a rule that denies `storm.graph.add` no longer blocks anything and must be rewritten as a deny of `graph.add`.
+
+    ```text
+    // 2.x
+    auth.user.addrule visi "!storm.graph.add"
+
+    // 3.x
+    auth.user.addrule visi "!graph.add"
     ```
 
 ## Property permissions drop the full property path

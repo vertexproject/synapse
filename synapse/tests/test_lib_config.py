@@ -242,9 +242,8 @@ class ConfTest(s_test.SynTest):
             with self.getLoggerStream('synapse.lib.config') as stream:
                 conf3.setConfFromFile(fp, force=True)
 
-            buf = stream.getvalue()
-            self.isin('Set configuration override for [key:integer]', buf)
-            self.notin('Set configuration override for [key:string]', buf)
+            await stream.expect('Set configuration override for [key:integer]')
+            self.notin('Set configuration override for [key:string]', stream.getvalue())
             self.eq(conf3.get('key:integer'), 5678)
             self.eq(conf3.get('key:string'), 'haha')
 

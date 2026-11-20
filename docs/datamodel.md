@@ -212,6 +212,7 @@ An RFP (Request for Proposal) soliciting proposals.
 | `doc:document` |
 | `doc:published` |
 | `entity:creatable` |
+| `meta:causal` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -391,6 +392,19 @@ An individual crypto currency transaction recorded on the blockchain.
 | `:to` | `crypto:currency:address` | The destination address of the transaction. |
 | `:value` | `econ:price` | The total value of the transaction. |
 
+### `crypto:hash:lm`
+
+A hex encoded Microsoft LAN Manager (LM) password hash.
+
+| Interface |
+|-----------|
+| `crypto:hash` |
+| `meta:observable` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:seen` | `ival` | The LM hash was observed during the time interval. |
+
 ### `crypto:hash:md5`
 
 A hex encoded MD5 hash.
@@ -404,6 +418,19 @@ A hex encoded MD5 hash.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:seen` | `ival` | The MD5 was observed during the time interval. |
+
+### `crypto:hash:ntlm`
+
+A hex encoded Microsoft NT LAN Manager (NTLM) password hash.
+
+| Interface |
+|-----------|
+| `crypto:hash` |
+| `meta:observable` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:seen` | `ival` | The NTLM hash was observed during the time interval. |
 
 ### `crypto:hash:sha1`
 
@@ -929,6 +956,7 @@ A contract between multiple entities.
 | `doc:authorable` |
 | `doc:document` |
 | `doc:signable` |
+| `econ:budgetable` |
 | `entity:action` |
 | `entity:activity` |
 | `entity:creatable` |
@@ -940,6 +968,7 @@ A contract between multiple entities.
 | `:actor` | `entity:actor` | The actor who carried out the contract. |
 | `:actor:name` | `entity:name` | The name of the actor who carried out the contract. |
 | `:body` | `text` | The text of the contract. |
+| `:budget` | `econ:budget` | The budget for the contract. |
 | `:created` | `time` | The time that the contract was created. |
 | `:creator` | `entity:actor` | The primary actor which created the contract. |
 | `:creator:name` | `entity:name` | The name of the primary actor which created the contract. |
@@ -1104,6 +1133,7 @@ A single requirement, often defined by a standard.
 | `:desc` | `text` | A description of the requirement. |
 | `:id` | `base:id` | The requirement ID. |
 | `:ids` | `array of base:id` | An array of alternate IDs for the requirement. |
+| `:name` | `base:name` | The name of the requirement. |
 | `:optional` | `bool` | Set to true if the requirement is optional as defined by the standard. |
 | `:priority` | `meta:score` | The priority of the requirement as defined by the standard. |
 | `:standard` | `doc:standard` | The standard which defined the requirement. |
@@ -1449,7 +1479,7 @@ A line item included as part of a purchase.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:count` | `size` | The number of items included in this line item. |
-| `:item` | `biz:service`, `meta:havable` | The product or service. |
+| `:item` | `biz:service`, `entity:title`, `mat:spec`, `meta:havable` | The product, service, job title, or material specification. |
 | `:price` | `econ:price` | The total cost of this receipt line item. |
 
 ### `econ:pay:card`
@@ -1523,12 +1553,14 @@ A payment, crypto currency transaction, or account withdrawal.
 | `:crypto:transaction` | `crypto:currency:transaction` | A crypto currency transaction that initiated the payment. |
 | `:fee` | `econ:price` | The transaction fee paid by the recipient to the payment processor. |
 | `:id` | `base:id` | A payment processor specific transaction ID. |
+| `:memo` | `text` | A small note specified by the payer common in financial transactions. |
 | `:payee` | `entity:actor` | The entity which received the payment. |
 | `:payee:account` | `econ:account` | The account the payment was received into. |
 | `:payee:instrument` | `econ:pay:instrument` | The payment instrument used by the payee to receive payment. |
 | `:place` | `geo:place` | The place where the payment event was located. |
 | `:place:address` | `geo:address` | The postal address where the payment event was located. |
 | `:place:address:city` | `base:name` | The city where the payment event was located. |
+| `:place:address:state` | `base:name` | The state or province where the payment event was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the payment event was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the payment event was located. |
 | `:place:country` | `pol:country` | The country where the payment event was located. |
@@ -1571,6 +1603,7 @@ An event where an actor made a purchase.
 | `:place` | `geo:place` | The place where the purchase was located. |
 | `:place:address` | `geo:address` | The postal address where the purchase was located. |
 | `:place:address:city` | `base:name` | The city where the purchase was located. |
+| `:place:address:state` | `base:name` | The state or province where the purchase was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the purchase was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the purchase was located. |
 | `:place:country` | `pol:country` | The country where the purchase was located. |
@@ -1601,9 +1634,15 @@ A receipt issued as proof of payment.
 
 A financial security which is typically traded on an exchange.
 
+| Interface |
+|-----------|
+| `meta:havable` |
+
 | Property | Type | Doc |
 |----------|------|-----|
 | `:exchange` | `econ:exchange` | The exchange on which the security is traded. |
+| `:issuer` | `entity:actor` | The entity which issued the security. |
+| `:issuer:name` | `entity:name` | The name of the entity which issued the security. |
 | `:price` | `econ:price` | The last known/available price of the security. |
 | `:ticker` | `title` | The identifier for this security within the exchange. |
 | `:time` | `time` | The time of the last know price sample. |
@@ -1689,6 +1728,7 @@ An instance of an edu:course taught at a given time.
 | `:place` | `geo:place` | The place where the class was located. |
 | `:place:address` | `geo:address` | The postal address where the class was located. |
 | `:place:address:city` | `base:name` | The city where the class was located. |
+| `:place:address:state` | `base:name` | The state or province where the class was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the class was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the class was located. |
 | `:place:country` | `pol:country` | The country where the class was located. |
@@ -1758,6 +1798,7 @@ An event where an actor achieved a goal or was given an award.
 | `entity:action` |
 | `entity:event` |
 | `meta:causal` |
+| `meta:revocable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -1946,6 +1987,7 @@ A set of contact information which is used by an entity.
 | `:birth:place` | `geo:place` | The place where the contact was born. |
 | `:birth:place:address` | `geo:address` | The postal address where the contact was born. |
 | `:birth:place:address:city` | `base:name` | The city where the contact was born. |
+| `:birth:place:address:state` | `base:name` | The state or province where the contact was born. |
 | `:birth:place:altitude` | `geo:altitude` | The altitude where the contact was born. |
 | `:birth:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the contact was born. |
 | `:birth:place:country` | `pol:country` | The country where the contact was born. |
@@ -1959,6 +2001,7 @@ A set of contact information which is used by an entity.
 | `:death:place` | `geo:place` | The place where the contact died. |
 | `:death:place:address` | `geo:address` | The postal address where the contact died. |
 | `:death:place:address:city` | `base:name` | The city where the contact died. |
+| `:death:place:address:state` | `base:name` | The state or province where the contact died. |
 | `:death:place:altitude` | `geo:altitude` | The altitude where the contact died. |
 | `:death:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the contact died. |
 | `:death:place:country` | `pol:country` | The country where the contact died. |
@@ -1985,6 +2028,7 @@ A set of contact information which is used by an entity.
 | `:place` | `geo:place` | The place where the contact was located. |
 | `:place:address` | `geo:address` | The postal address where the contact was located. |
 | `:place:address:city` | `base:name` | The city where the contact was located. |
+| `:place:address:state` | `base:name` | The state or province where the contact was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the contact was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the contact was located. |
 | `:place:country` | `pol:country` | The country where the contact was located. |
@@ -2043,7 +2087,7 @@ An entry in a contact list.
 
 ### `entity:contributed`
 
-Represents a specific instance of contributing material support to a campaign.
+Represents a specific instance of contributing material support to an actor or campaign.
 
 | Interface |
 |-----------|
@@ -2057,7 +2101,9 @@ Represents a specific instance of contributing material support to a campaign.
 | `:activity` | `base:activity` | A parent activity which includes this contribution. |
 | `:actor` | `entity:actor` | The actor who made the contribution. |
 | `:actor:name` | `entity:name` | The name of the actor who made the contribution. |
-| `:campaign` | `entity:campaign` | The campaign receiving the contribution. |
+| `:campaign` | `entity:campaign` | Deprecated. Please use :recipient. Deprecated: removed on or after 2027-01-01. |
+| `:recipient` | `entity:actor`, `entity:campaign` | The actor or campaign receiving the contribution. |
+| `:recipient:name` | `entity:name` | The name of the actor or campaign receiving the contribution. |
 | `:time` | `time` | The time that the contribution occurred. |
 | `:value` | `econ:price` | The assessed value of the contribution. |
 
@@ -2146,6 +2192,64 @@ A stated or assessed goal.
 | `:resolved` | `entity:goal` | The authoritative goal which this reporting is about. |
 | `:type` | `entity:goal:type:taxonomy` | A type taxonomy entry for the goal. |
 
+### `entity:goal:financial`
+
+A goal for an amount of money such as revenue or funds raised.
+
+| Interface |
+|-----------|
+| `meta:achievable` |
+| `meta:reported` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:actual` | `econ:price` | The amount of money actually achieved toward the goal. |
+| `:desc` | `text` | A description of the financial goal. |
+| `:id` | `base:id` | A unique ID given to the financial goal. |
+| `:ids` | `array of base:id` | An array of alternate IDs given to the financial goal. |
+| `:name` | `base:name` | A terse name for the financial goal. |
+| `:names` | `array of base:name` | Alternative names for the financial goal. |
+| `:reporter` | `entity:actor` | The entity which reported on the financial goal. |
+| `:reporter:deprecated` | `time` | The time when the reporter retired the financial goal. |
+| `:reporter:name` | `entity:name` | The name of the entity which reported on the financial goal. |
+| `:reporter:period` | `reported` | The period when the financial goal existed, according to the reporter. |
+| `:reporter:published` | `time` | The time when the reporter published the financial goal. |
+| `:reporter:supersedes` | `array of entity:goal:financial` | An array of financial goal nodes which are superseded by this financial goal. |
+| `:reporter:updated` | `time` | The time when the financial goal was last updated. |
+| `:reporter:url` | `inet:url` | The URL for the financial goal provided by the reporter. |
+| `:resolved` | `entity:goal:financial` | The authoritative financial goal which this reporting is about. |
+| `:target` | `econ:price` | The amount of money the goal aimed for. |
+| `:type` | `entity:goal:type:taxonomy` | A type taxonomy entry for the goal. |
+
+### `entity:goal:people`
+
+A goal for a change in the number of people such as people reached, recruited, or removed.
+
+| Interface |
+|-----------|
+| `meta:achievable` |
+| `meta:reported` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:actual` | `int` | The change in the number of people actually achieved. A negative value is a reduction. |
+| `:desc` | `text` | A description of the people goal. |
+| `:id` | `base:id` | A unique ID given to the people goal. |
+| `:ids` | `array of base:id` | An array of alternate IDs given to the people goal. |
+| `:name` | `base:name` | A terse name for the people goal. |
+| `:names` | `array of base:name` | Alternative names for the people goal. |
+| `:reporter` | `entity:actor` | The entity which reported on the people goal. |
+| `:reporter:deprecated` | `time` | The time when the reporter retired the people goal. |
+| `:reporter:name` | `entity:name` | The name of the entity which reported on the people goal. |
+| `:reporter:period` | `reported` | The period when the people goal existed, according to the reporter. |
+| `:reporter:published` | `time` | The time when the reporter published the people goal. |
+| `:reporter:supersedes` | `array of entity:goal:people` | An array of people goal nodes which are superseded by this people goal. |
+| `:reporter:updated` | `time` | The time when the people goal was last updated. |
+| `:reporter:url` | `inet:url` | The URL for the people goal provided by the reporter. |
+| `:resolved` | `entity:goal:people` | The authoritative people goal which this reporting is about. |
+| `:target` | `int` | The change in the number of people the goal aimed for. A negative value is a reduction. |
+| `:type` | `entity:goal:type:taxonomy` | A type taxonomy entry for the goal. |
+
 ### `entity:goal:type:taxonomy`
 
 A hierarchical taxonomy of goal types.
@@ -2232,6 +2336,7 @@ Historical contact information about another contact.
 | `:place` | `geo:place` | The place where the contact history was located. |
 | `:place:address` | `geo:address` | The postal address where the contact history was located. |
 | `:place:address:city` | `base:name` | The city where the contact history was located. |
+| `:place:address:state` | `base:name` | The state or province where the contact history was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the contact history was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the contact history was located. |
 | `:place:country` | `pol:country` | The country where the contact history was located. |
@@ -2316,8 +2421,9 @@ An item which was owned by an actor.
 | `:actor:name` | `entity:name` | The name of the entity which owned the item. |
 | `:item` | `meta:havable` | The item possessed by the entity. |
 | `:percent` | `percent` | The percentage of the item owned by the owner. |
-| `:period` | `activity` | The period over which the ownership occurred. |
+| `:period` | `activity` | The time period when the entity owned the item. |
 | `:type` | `entity:had:type:taxonomy` | A taxonomy for different types of possession. |
+| `:value` | `econ:price` | The value of the portion of the item owned by the owner. |
 
 ### `entity:participated`
 
@@ -2423,6 +2529,25 @@ A hierarchical taxonomy of entity relationship types.
 | `:name` | `title` | A brief name for the definition. |
 | `:parent` | `entity:relationship:type:taxonomy` | The taxonomy parent. |
 | `:sort` | `int` | A display sort order for siblings. |
+
+### `entity:revoked`
+
+An event where an actor revoked an item.
+
+| Interface |
+|-----------|
+| `base:event` |
+| `entity:action` |
+| `entity:event` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `base:activity` | A parent activity which includes this revocation. |
+| `:actor` | `entity:actor` | The actor who carried out the revocation. |
+| `:actor:name` | `entity:name` | The name of the actor who carried out the revocation. |
+| `:item` | `meta:revocable` | The item revoked by the actor. |
+| `:time` | `time` | The time that the revocation occurred. |
 
 ### `entity:said`
 
@@ -3196,6 +3321,29 @@ A file entry contained by a host filesystem.
 | `:path` | `file:path` | The path of the file associated with the stored file entry. |
 | `:seen` | `ival` | The stored file entry was observed during the time interval. |
 
+### `file:system:posix:entry`
+
+A file entry contained by a POSIX host filesystem.
+
+| Interface |
+|-----------|
+| `file:entry` |
+| `meta:observable` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:accessed` | `time` | The last known accessed time of the file. |
+| `:added` | `time` | The time that the file entry was added. |
+| `:created` | `time` | The created time of the file. |
+| `:creator` | `it:host:posix:account` | The POSIX account which created the file. |
+| `:file` | `file:bytes` | The file associated with the stored file entry. |
+| `:group` | `it:host:posix:group` | The POSIX group which owns the file. |
+| `:host` | `it:host` | The host which contains the filesystem. |
+| `:modified` | `time` | The last known modified time of the file. |
+| `:owner` | `it:host:posix:account` | The POSIX account which owns the file. |
+| `:path` | `file:path` | The path of the file associated with the stored file entry. |
+| `:seen` | `ival` | The stored file entry was observed during the time interval. |
+
 ### `geo:name`
 
 An unstructured place name or address.
@@ -3221,6 +3369,7 @@ A geographic place.
 |----------|------|-----|
 | `:address` | `geo:address` | The postal address where the place was located. |
 | `:address:city` | `base:name` | The city where the place was located. |
+| `:address:state` | `base:name` | The state or province where the place was located. |
 | `:addresses` | `array of geo:address` | An array of postal addresses for the place. |
 | `:altitude` | `geo:altitude` | The altitude where the place was located. |
 | `:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the place was located. |
@@ -3276,6 +3425,7 @@ The geospatial position and physical characteristics of a node at a given time.
 | `:place` | `geo:place` | The place where the item was located. |
 | `:place:address` | `geo:address` | The postal address where the item was located. |
 | `:place:address:city` | `base:name` | The city where the item was located. |
+| `:place:address:state` | `base:name` | The state or province where the item was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the item was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the item was located. |
 | `:place:country` | `pol:country` | The country where the item was located. |
@@ -3611,6 +3761,7 @@ A DNS protocol request.
 | `:client:exe` | `file:bytes` | The client executable which initiated the link. |
 | `:client:host` | `it:host` | The client host which initiated the link. |
 | `:client:proc` | `it:exec:proc` | The client process which initiated the link. |
+| `:client:thread` | `it:exec:thread` | The client thread which initiated the link. |
 | `:flow` | `inet:flow` | The network flow which contained the request. |
 | `:query:name` | `inet:dns:query:name` | The DNS query name string in the request. |
 | `:query:type` | `inet:dns:query:type` | The type of record requested in the query. |
@@ -3620,6 +3771,7 @@ A DNS protocol request.
 | `:server:exe` | `file:bytes` | The server executable which received the link. |
 | `:server:host` | `it:host` | The server host which received the link. |
 | `:server:proc` | `it:exec:proc` | The server process which received the link. |
+| `:server:thread` | `it:exec:thread` | The server thread which received the link. |
 | `:time` | `time` | The time that the event occurred. |
 
 ### `inet:dns:response`
@@ -3641,6 +3793,7 @@ A DNS protocol response.
 | `:client:exe` | `file:bytes` | The client executable which initiated the link. |
 | `:client:host` | `it:host` | The client host which initiated the link. |
 | `:client:proc` | `it:exec:proc` | The client process which initiated the link. |
+| `:client:thread` | `it:exec:thread` | The client thread which initiated the link. |
 | `:code` | `dns:reply:code` | The DNS server reply code. |
 | `:flow` | `inet:flow` | The network flow which contained the response. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
@@ -3648,6 +3801,7 @@ A DNS protocol response.
 | `:server:exe` | `file:bytes` | The server executable which received the link. |
 | `:server:host` | `it:host` | The server host which received the link. |
 | `:server:proc` | `it:exec:proc` | The server process which received the link. |
+| `:server:thread` | `it:exec:thread` | The server thread which received the link. |
 | `:time` | `time` | The time that the event occurred. |
 
 ### `inet:dns:rev`
@@ -3819,6 +3973,7 @@ A network connection between a client and server.
 | `:client:proc` | `it:exec:proc` | The client process which initiated the network flow. |
 | `:client:software:cpes` | `array of it:sec:cpe` | An array of NIST CPEs identified on the client. |
 | `:client:software:names` | `array of it:softwarename` | An array of software names identified on the client. |
+| `:client:thread` | `it:exec:thread` | The client thread which initiated the network flow. |
 | `:client:txbytes` | `int` | The number of bytes sent by the client. |
 | `:client:txcount` | `int` | The number of packets sent by the client. |
 | `:client:txfiles` | `array of file:attachment` | An array of files sent by the client. |
@@ -3833,6 +3988,7 @@ A network connection between a client and server.
 | `:server:proc` | `it:exec:proc` | The server process which received the network flow. |
 | `:server:software:cpes` | `array of it:sec:cpe` | An array of NIST CPEs identified on the server. |
 | `:server:software:names` | `array of it:softwarename` | An array of software names identified on the server. |
+| `:server:thread` | `it:exec:thread` | The server thread which received the network flow. |
 | `:server:txbytes` | `int` | The number of bytes sent by the server. |
 | `:server:txcount` | `int` | The number of packets sent by the server. |
 | `:server:txfiles` | `array of file:attachment` | An array of files sent by the server. |
@@ -3898,6 +4054,7 @@ A single HTTP request.
 | `:client:exe` | `file:bytes` | The client executable which initiated the HTTP request. |
 | `:client:host` | `it:host` | The client host which initiated the HTTP request. |
 | `:client:proc` | `it:exec:proc` | The client process which initiated the HTTP request. |
+| `:client:thread` | `it:exec:thread` | The client thread which initiated the HTTP request. |
 | `:cookies` | `array of inet:http:cookie` | An array of HTTP cookie values parsed from the "Cookies:" header in the request. |
 | `:fetch` | `it:exec:fetch` | The fetch or page load event which caused the HTTP request. |
 | `:flow` | `inet:flow` | The network flow which contained the HTTP request. |
@@ -3913,6 +4070,7 @@ A single HTTP request.
 | `:server:exe` | `file:bytes` | The server executable which received the HTTP request. |
 | `:server:host` | `it:host` | The server host which received the HTTP request. |
 | `:server:proc` | `it:exec:proc` | The server process which received the HTTP request. |
+| `:server:thread` | `it:exec:thread` | The server thread which received the HTTP request. |
 | `:session` | `inet:http:session` | The HTTP session this request was part of. |
 | `:time` | `time` | The time that the HTTP request occurred. |
 | `:url` | `inet:url` | The reconstructed URL for the request if known. |
@@ -3950,6 +4108,7 @@ An HTTP response returned by a server.
 | `:client:exe` | `file:bytes` | The client executable which initiated the HTTP response. |
 | `:client:host` | `it:host` | The client host which initiated the HTTP response. |
 | `:client:proc` | `it:exec:proc` | The client process which initiated the HTTP response. |
+| `:client:thread` | `it:exec:thread` | The client thread which initiated the HTTP response. |
 | `:code` | `int` | The HTTP response code received. |
 | `:cookies` | `array of inet:http:cookie` | An array of HTTP cookie values parsed from the "Set-Cookie:" headers in the response. |
 | `:flow` | `inet:flow` | The network flow which contained the HTTP response. |
@@ -3960,6 +4119,7 @@ An HTTP response returned by a server.
 | `:server:exe` | `file:bytes` | The server executable which received the HTTP response. |
 | `:server:host` | `it:host` | The server host which received the HTTP response. |
 | `:server:proc` | `it:exec:proc` | The server process which received the HTTP response. |
+| `:server:thread` | `it:exec:thread` | The server thread which received the HTTP response. |
 | `:time` | `time` | The time that the HTTP response occurred. |
 
 ### `inet:http:response:header`
@@ -4023,6 +4183,7 @@ An IPv4 or IPv6 address.
 | `:place` | `geo:place` | The place where the IP address was located. |
 | `:place:address` | `geo:address` | The postal address where the IP address was located. |
 | `:place:address:city` | `base:name` | The city where the IP address was located. |
+| `:place:address:state` | `base:name` | The state or province where the IP address was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the IP address was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the IP address was located. |
 | `:place:country` | `pol:country` | The country where the IP address was located. |
@@ -4087,12 +4248,14 @@ An instance of an RDP handshake between a client and server.
 | `:client:hostname` | `it:hostname` | The hostname sent by the client as part of an RDP session setup. |
 | `:client:keyboard:layout` | `base:name` | The keyboard layout sent by the client as part of an RDP session setup. |
 | `:client:proc` | `it:exec:proc` | The client process which initiated the link. |
+| `:client:thread` | `it:exec:thread` | The client thread which initiated the link. |
 | `:flow` | `inet:flow` | The network flow which contained the request. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
 | `:server` | `inet:server` | The socket address of the server. |
 | `:server:exe` | `file:bytes` | The server executable which received the link. |
 | `:server:host` | `it:host` | The server host which received the link. |
 | `:server:proc` | `it:exec:proc` | The server process which received the link. |
+| `:server:thread` | `it:exec:thread` | The server thread which received the link. |
 | `:time` | `time` | The time that the event occurred. |
 
 ### `inet:rfc2822:addr`
@@ -4231,6 +4394,7 @@ An account within a service platform. Accounts may be instance specific.
 | `inet:service:subscriber` |
 | `meta:observable` |
 | `meta:usable` |
+| `risk:exploitable` |
 | `risk:targetable` |
 
 | Property | Type | Doc |
@@ -4289,6 +4453,7 @@ A file/blob storage object within a service architecture.
 | `inet:service:base` |
 | `inet:service:object` |
 | `meta:observable` |
+| `risk:exploitable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -4302,7 +4467,7 @@ A file/blob storage object within a service architecture.
 | `:seen` | `ival` | The bucket was observed during the time interval. |
 | `:status` | `title` | The status of the bucket. |
 | `:type` | `inet:service:resource:type:taxonomy` | The resource type. For example "rpc.endpoint". |
-| `:url` | `inet:url` | The primary URL associated with the bucket. |
+| `:url` | `inet:url` | The primary URL where the bucket is available from the service. |
 
 ### `inet:service:bucket:item`
 
@@ -4313,6 +4478,7 @@ An individual file stored within a bucket.
 | `inet:service:base` |
 | `inet:service:object` |
 | `meta:observable` |
+| `risk:exploitable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -4329,7 +4495,7 @@ An individual file stored within a bucket.
 | `:seen` | `ival` | The bucket item was observed during the time interval. |
 | `:status` | `title` | The status of the bucket item. |
 | `:type` | `inet:service:resource:type:taxonomy` | The resource type. For example "rpc.endpoint". |
-| `:url` | `inet:url` | The primary URL associated with the bucket item. |
+| `:url` | `inet:url` | The primary URL where the bucket item is available from the service. |
 
 ### `inet:service:channel`
 
@@ -4375,12 +4541,15 @@ A comment about a node created by an account.
 | `:creator` | `inet:service:account`, `inet:service:agent` | The service account or agent which created the comment. |
 | `:hashtags` | `array of lang:hashtag` | An array of hashtags mentioned within the comment. |
 | `:id` | `base:id` | A platform specific ID which identifies the comment. |
+| `:line` | `int` | The line number within the target which the comment is about. |
 | `:links` | `array of inet:hyperlink` | An array of links contained within the comment. |
 | `:mentions` | `array of inet:service:account, inet:service:role` | Contactable entities mentioned within the comment. |
+| `:offset` | `int` | The offset within the line which the comment is about. |
 | `:period` | `it:lifespan` | The period when the comment existed. |
 | `:platform` | `inet:service:platform` | The platform which defines the comment. |
 | `:public` | `bool` | Set to true if the comment is publicly visible. |
 | `:remover` | `inet:service:account`, `inet:service:agent` | The service account or agent which removed or decommissioned the comment. |
+| `:replaced` | `inet:service:comment` | The original comment which this comment replaced when it was updated. |
 | `:replyto` | `inet:service:comment` | The comment that this comment was made in reply to. Used for comment threading. |
 | `:seen` | `ival` | The comment was observed during the time interval. |
 | `:status` | `title` | The status of the comment. |
@@ -4502,6 +4671,7 @@ A login event for a service account.
 | `:client:host` | `it:host` | The client host which initiated the link. |
 | `:client:proc` | `it:exec:proc` | The client process which initiated the link. |
 | `:client:software` | `it:software` | The client software used to initiate the action. |
+| `:client:thread` | `it:exec:thread` | The client thread which initiated the link. |
 | `:credential` | `auth:credential` | The credential presented during the login event. |
 | `:error` | `inet:service:error` | The error generated if the action was unsuccessful. |
 | `:error:reason` | `str` | The platform specific friendly error reason if the action was unsuccessful. |
@@ -4515,6 +4685,7 @@ A login event for a service account.
 | `:server:exe` | `file:bytes` | The server executable which received the link. |
 | `:server:host` | `it:host` | The server host which received the link. |
 | `:server:proc` | `it:exec:proc` | The server process which received the link. |
+| `:server:thread` | `it:exec:thread` | The server thread which received the link. |
 | `:session` | `inet:proto:session` | The protocol session established by the login event. |
 | `:success` | `bool` | Set to true if the login event was successful. |
 | `:time` | `time` | The time that the event occurred. |
@@ -4764,6 +4935,7 @@ A generic resource provided by the service architecture.
 | `inet:service:base` |
 | `inet:service:object` |
 | `meta:observable` |
+| `risk:exploitable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -4963,6 +5135,7 @@ An instance of an SSH handshake between a client and server.
 | `:client:host` | `it:host` | The client host which initiated the link. |
 | `:client:key` | `crypto:key` | The key used by the SSH client. |
 | `:client:proc` | `it:exec:proc` | The client process which initiated the link. |
+| `:client:thread` | `it:exec:thread` | The client thread which initiated the link. |
 | `:flow` | `inet:flow` | The network flow which contained the request. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
 | `:server` | `inet:server` | The socket address of the server. |
@@ -4970,6 +5143,7 @@ An instance of an SSH handshake between a client and server.
 | `:server:host` | `it:host` | The server host which received the link. |
 | `:server:key` | `crypto:key` | The key used by the SSH server. |
 | `:server:proc` | `it:exec:proc` | The server process which received the link. |
+| `:server:thread` | `it:exec:thread` | The server thread which received the link. |
 | `:time` | `time` | The time that the event occurred. |
 
 ### `inet:tls:clientcert`
@@ -5007,6 +5181,7 @@ An instance of a TLS handshake between a client and server.
 | `:client:ja3` | `crypto:hash:md5` | The JA3 fingerprint of the client request. |
 | `:client:ja4` | `inet:tls:ja4` | The JA4 fingerprint of the client request. |
 | `:client:proc` | `it:exec:proc` | The client process which initiated the link. |
+| `:client:thread` | `it:exec:thread` | The client thread which initiated the link. |
 | `:flow` | `inet:flow` | The network flow which contained the request. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
 | `:server` | `inet:server` | The socket address of the server. |
@@ -5017,6 +5192,7 @@ An instance of a TLS handshake between a client and server.
 | `:server:ja4s` | `inet:tls:ja4s` | The JA4S fingerprint of the server response. |
 | `:server:jarmhash` | `inet:tls:jarmhash` | The JARM hash computed from the server response. |
 | `:server:proc` | `it:exec:proc` | The server process which received the link. |
+| `:server:thread` | `it:exec:thread` | The server thread which received the link. |
 | `:time` | `time` | The time that the event occurred. |
 
 ### `inet:tls:ja3:sample`
@@ -5332,6 +5508,7 @@ A wireless access point, typically defined by the combination of an SSID and a M
 | `:place` | `geo:place` | The place where the Wi-Fi access point was located. |
 | `:place:address` | `geo:address` | The postal address where the Wi-Fi access point was located. |
 | `:place:address:city` | `base:name` | The city where the Wi-Fi access point was located. |
+| `:place:address:state` | `base:name` | The state or province where the Wi-Fi access point was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the Wi-Fi access point was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the Wi-Fi access point was located. |
 | `:place:country` | `pol:country` | The country where the Wi-Fi access point was located. |
@@ -5386,6 +5563,7 @@ An authentication event for a Wi-Fi network.
 | `:client:host` | `it:host` | The client host which initiated the Wi-Fi login. |
 | `:client:mac` | `inet:mac` | The MAC address of the client for the Wi-Fi login. |
 | `:client:proc` | `it:exec:proc` | The client process which initiated the Wi-Fi login. |
+| `:client:thread` | `it:exec:thread` | The client thread which initiated the Wi-Fi login. |
 | `:credential` | `auth:credential` | The credential presented during the Wi-Fi login. |
 | `:flow` | `inet:flow` | The network flow which contained the Wi-Fi login. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
@@ -5394,6 +5572,7 @@ An authentication event for a Wi-Fi network.
 | `:server:exe` | `file:bytes` | The server executable which received the Wi-Fi login. |
 | `:server:host` | `it:host` | The server host which received the Wi-Fi login. |
 | `:server:proc` | `it:exec:proc` | The server process which received the Wi-Fi login. |
+| `:server:thread` | `it:exec:thread` | The server thread which received the Wi-Fi login. |
 | `:session` | `inet:wifi:session` | The Wi-Fi session established by the Wi-Fi login. |
 | `:success` | `bool` | Set to true if the Wi-Fi login was successful. |
 | `:time` | `time` | The time that the Wi-Fi login occurred. |
@@ -5459,6 +5638,7 @@ An advertising identification string.
 | Interface |
 |-----------|
 | `entity:identifier` |
+| `it:host:identifier` |
 | `meta:observable` |
 
 | Property | Type | Doc |
@@ -5514,7 +5694,7 @@ A Sigma rule.
 | `:text` | `text` | The text of the Sigma rule. |
 | `:type` | `meta:rule:type:taxonomy` | The rule type. |
 | `:updated` | `time` | The time that the Sigma rule was last updated. |
-| `:url` | `inet:url` | The URL where the Sigma rule is available. |
+| `:url` | `inet:url` | A URL which documents the Sigma rule. |
 | `:version` | `it:version` | The version of the Sigma rule. |
 
 ### `it:app:snort:matched`
@@ -5568,7 +5748,7 @@ A snort rule.
 | `:text` | `text` | The text of the Snort rule. |
 | `:type` | `meta:rule:type:taxonomy` | The rule type. |
 | `:updated` | `time` | The time that the Snort rule was last updated. |
-| `:url` | `inet:url` | The URL where the Snort rule is available. |
+| `:url` | `inet:url` | A URL which documents the Snort rule. |
 | `:version` | `it:version` | The version of the Snort rule. |
 
 ### `it:app:suricata:matched`
@@ -5621,7 +5801,7 @@ A suricata rule.
 | `:text` | `text` | The text of the Suricata rule. |
 | `:type` | `meta:rule:type:taxonomy` | The rule type. |
 | `:updated` | `time` | The time that the Suricata rule was last updated. |
-| `:url` | `inet:url` | The URL where the Suricata rule is available. |
+| `:url` | `inet:url` | A URL which documents the Suricata rule. |
 | `:version` | `it:version` | The version of the Suricata rule. |
 
 ### `it:app:yara:matched`
@@ -5672,7 +5852,7 @@ A YARA rule.
 | `:text` | `text` | The text of the YARA rule. |
 | `:type` | `meta:rule:type:taxonomy` | The rule type. |
 | `:updated` | `time` | The time that the YARA rule was last updated. |
-| `:url` | `inet:url` | The URL where the YARA rule is available. |
+| `:url` | `inet:url` | A URL which documents the YARA rule. |
 | `:version` | `it:version` | The version of the YARA rule. |
 
 ### `it:av:scan:result`
@@ -5723,6 +5903,7 @@ A virtual host instance which runs within a cloud service platform.
 | `:domain` | `inet:service:platform` | The authentication domain that the host is a member of. |
 | `:hardware` | `it:hardware` | The hardware specification of the cloud host. |
 | `:id` | `base:id` | An external identifier for the host. |
+| `:identifiers` | `array of it:host:identifier` | Additional identifiers for the host. |
 | `:image` | `it:software:image` | The container image or OS image running on the host. |
 | `:ip` | `inet:ip` | The last known IP address for the host. |
 | `:keyboard:language` | `lang:language` | The primary keyboard input language configured on the host. |
@@ -5732,11 +5913,12 @@ A virtual host instance which runs within a cloud service platform.
 | `:org` | `ou:org` | The org that operates the given host. |
 | `:os` | `it:software` | The operating system of the host. |
 | `:os:name` | `it:softwarename` | A software product name for the host operating system. Used for entity resolution. |
-| `:parent` | `it:component` | The parent cloud host which this cloud host is part of. |
+| `:parent` | `it:host` | The host which runs the cloud host. |
 | `:period` | `phys:lifespan` | The period when the cloud host existed, from its creation until it was retired or destroyed. |
 | `:place` | `geo:place` | The place where the cloud host was located. |
 | `:place:address` | `geo:address` | The postal address where the cloud host was located. |
 | `:place:address:city` | `base:name` | The city where the cloud host was located. |
+| `:place:address:state` | `base:name` | The state or province where the cloud host was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the cloud host was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the cloud host was located. |
 | `:place:country` | `pol:country` | The country where the cloud host was located. |
@@ -6649,7 +6831,7 @@ An event where a Microsoft Windows service configuration was added to a host.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:activity` | `base:activity` | A parent activity which includes this event. |
-| `:exe` | `file:bytes` | The executable file which caused the activity. |
+| `:exe` | `file:bytes` | The executable file which caused the event. |
 | `:host` | `it:host` | The host on which the activity occurred. |
 | `:proc` | `it:exec:proc` | The process which caused the event. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
@@ -6671,7 +6853,7 @@ An event where a Microsoft Windows service configuration was removed from a host
 | Property | Type | Doc |
 |----------|------|-----|
 | `:activity` | `base:activity` | A parent activity which includes this event. |
-| `:exe` | `file:bytes` | The executable file which caused the activity. |
+| `:exe` | `file:bytes` | The executable file which caused the event. |
 | `:host` | `it:host` | The host on which the activity occurred. |
 | `:proc` | `it:exec:proc` | The process which caused the event. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
@@ -6756,6 +6938,7 @@ A GUID that represents a host or system.
 | `:domain` | `inet:service:platform` | The authentication domain that the host is a member of. |
 | `:hardware` | `it:hardware` | The hardware specification of the host. |
 | `:id` | `base:id` | An external identifier for the host. |
+| `:identifiers` | `array of it:host:identifier` | Additional identifiers for the host. |
 | `:image` | `it:software:image` | The container image or OS image running on the host. |
 | `:ip` | `inet:ip` | The last known IP address for the host. |
 | `:keyboard:language` | `lang:language` | The primary keyboard input language configured on the host. |
@@ -6770,6 +6953,7 @@ A GUID that represents a host or system.
 | `:place` | `geo:place` | The place where the host was located. |
 | `:place:address` | `geo:address` | The postal address where the host was located. |
 | `:place:address:city` | `base:name` | The city where the host was located. |
+| `:place:address:state` | `base:name` | The state or province where the host was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the host was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the host was located. |
 | `:place:country` | `pol:country` | The country where the host was located. |
@@ -6862,6 +7046,7 @@ A login event on a host.
 | `:client:exe` | `file:bytes` | The client executable which initiated the host login. |
 | `:client:host` | `it:host` | The client host which initiated the host login. |
 | `:client:proc` | `it:exec:proc` | The client process which initiated the host login. |
+| `:client:thread` | `it:exec:thread` | The client thread which initiated the host login. |
 | `:credential` | `auth:credential` | The credential presented during the host login. |
 | `:flow` | `inet:flow` | The network flow which contained the host login. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
@@ -6869,6 +7054,7 @@ A login event on a host.
 | `:server:exe` | `file:bytes` | The server executable which received the host login. |
 | `:server:host` | `it:host` | The server host which received the host login. |
 | `:server:proc` | `it:exec:proc` | The server process which received the host login. |
+| `:server:thread` | `it:exec:thread` | The server thread which received the host login. |
 | `:session` | `inet:proto:session` | The protocol session established by the host login. |
 | `:success` | `bool` | Set to true if the host login was successful. |
 | `:time` | `time` | The time that the host login occurred. |
@@ -6953,6 +7139,7 @@ A telemetry measurement taken from a host.
 | `:place` | `geo:place` | The place where the telemetry sample was located. |
 | `:place:address` | `geo:address` | The postal address where the telemetry sample was located. |
 | `:place:address:city` | `base:name` | The city where the telemetry sample was located. |
+| `:place:address:state` | `base:name` | The state or province where the telemetry sample was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the telemetry sample was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the telemetry sample was located. |
 | `:place:country` | `pol:country` | The country where the telemetry sample was located. |
@@ -7171,6 +7358,7 @@ A Network Interface Card (NIC).
 | `:place` | `geo:place` | The place where the NIC was located. |
 | `:place:address` | `geo:address` | The postal address where the NIC was located. |
 | `:place:address:city` | `base:name` | The city where the NIC was located. |
+| `:place:address:state` | `base:name` | The state or province where the NIC was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the NIC was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the NIC was located. |
 | `:place:country` | `pol:country` | The country where the NIC was located. |
@@ -7285,12 +7473,12 @@ A Microsoft Windows service configuration on a host.
 | `:description` | `text` | The description of the service from the Description registry key. |
 | `:displayname` | `base:name` | The friendly name of the service from the DisplayName registry key. |
 | `:errorcontrol` | `uint32` | The service error handling behavior from the ErrorControl registry key. |
-| `:exe` | `file:bytes` | The executable file which caused the activity. |
+| `:exe` | `file:bytes` | The executable file which caused the activity. Deprecated: removed on or after 2027-01-01. |
 | `:host` | `it:host` | The host that the service was configured on. |
 | `:imagepath` | `file:path` | The path to the service binary from the ImagePath registry key. |
 | `:name` | `base:name` | The name of the service from the registry key within Services. |
 | `:period` | `activity` | The period over which the activity occurred. |
-| `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
+| `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. Deprecated: removed on or after 2027-01-01. |
 | `:start` | `uint32` | The start configuration of the service from the Start registry key. |
 | `:type` | `uint32` | The type of service from the Type registry key. |
 
@@ -7343,6 +7531,7 @@ A host which consists of dedicated physical hardware.
 | `:domain` | `inet:service:platform` | The authentication domain that the host is a member of. |
 | `:hardware` | `it:hardware` | The hardware specification of the host. |
 | `:id` | `base:id` | An external identifier for the host. |
+| `:identifiers` | `array of it:host:identifier` | Additional identifiers for the host. |
 | `:image` | `it:software:image` | The container image or OS image running on the host. |
 | `:ip` | `inet:ip` | The last known IP address for the host. |
 | `:keyboard:language` | `lang:language` | The primary keyboard input language configured on the host. |
@@ -7363,6 +7552,7 @@ A host which consists of dedicated physical hardware.
 | `:place` | `geo:place` | The place where the host was located. |
 | `:place:address` | `geo:address` | The postal address where the host was located. |
 | `:place:address:city` | `base:name` | The city where the host was located. |
+| `:place:address:state` | `base:name` | The state or province where the host was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the host was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the host was located. |
 | `:place:country` | `pol:country` | The country where the host was located. |
@@ -7539,9 +7729,11 @@ A SIM card.
 | `:imsi` | `tel:mob:imsi` | The IMSI of the subscriber associated with the SIM card. |
 | `:parent` | `it:component` | The parent SIM card which this SIM card is part of. |
 | `:period` | `phys:lifespan` | The period when the SIM card existed, from its creation until it was retired or destroyed. |
+| `:phone` | `tel:phone` | The phone number associated with the SIM card. |
 | `:place` | `geo:place` | The place where the SIM card was located. |
 | `:place:address` | `geo:address` | The postal address where the SIM card was located. |
 | `:place:address:city` | `base:name` | The city where the SIM card was located. |
+| `:place:address:state` | `base:name` | The state or province where the SIM card was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the SIM card was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the SIM card was located. |
 | `:place:country` | `pol:country` | The country where the SIM card was located. |
@@ -7577,6 +7769,7 @@ A SIM slot.
 | `:place` | `geo:place` | The place where the SIM slot was located. |
 | `:place:address` | `geo:address` | The postal address where the SIM slot was located. |
 | `:place:address:city` | `base:name` | The city where the SIM slot was located. |
+| `:place:address:state` | `base:name` | The state or province where the SIM slot was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the SIM slot was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the SIM slot was located. |
 | `:place:country` | `pol:country` | The country where the SIM slot was located. |
@@ -7714,6 +7907,14 @@ A hierarchical taxonomy of software types.
 
 The name of a software product or tool.
 
+| Interface |
+|-----------|
+| `meta:observable` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:seen` | `ival` | The software name was observed during the time interval. |
+
 ### `it:storage:mount`
 
 A storage volume that has been attached to an image.
@@ -7774,6 +7975,7 @@ A host which runs as a virtualized instance.
 | `:domain` | `inet:service:platform` | The authentication domain that the host is a member of. |
 | `:hardware` | `it:hardware` | The hardware specification of the virtual host. |
 | `:id` | `base:id` | An external identifier for the host. |
+| `:identifiers` | `array of it:host:identifier` | Additional identifiers for the host. |
 | `:image` | `it:software:image` | The container image or OS image running on the host. |
 | `:ip` | `inet:ip` | The last known IP address for the host. |
 | `:keyboard:language` | `lang:language` | The primary keyboard input language configured on the host. |
@@ -7788,6 +7990,7 @@ A host which runs as a virtualized instance.
 | `:place` | `geo:place` | The place where the virtual host was located. |
 | `:place:address` | `geo:address` | The postal address where the virtual host was located. |
 | `:place:address:city` | `base:name` | The city where the virtual host was located. |
+| `:place:address:state` | `base:name` | The state or province where the virtual host was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the virtual host was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the virtual host was located. |
 | `:place:country` | `pol:country` | The country where the virtual host was located. |
@@ -7826,6 +8029,7 @@ A wireless Network Interface Card (NIC).
 | `:place` | `geo:place` | The place where the Wi-Fi NIC was located. |
 | `:place:address` | `geo:address` | The postal address where the Wi-Fi NIC was located. |
 | `:place:address:city` | `base:name` | The city where the Wi-Fi NIC was located. |
+| `:place:address:state` | `base:name` | The state or province where the Wi-Fi NIC was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the Wi-Fi NIC was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the Wi-Fi NIC was located. |
 | `:place:country` | `pol:country` | The country where the Wi-Fi NIC was located. |
@@ -7930,6 +8134,7 @@ A GUID assigned to a material object.
 | `:place` | `geo:place` | The place where the item was located. |
 | `:place:address` | `geo:address` | The postal address where the item was located. |
 | `:place:address:city` | `base:name` | The city where the item was located. |
+| `:place:address:state` | `base:name` | The state or province where the item was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the item was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the item was located. |
 | `:place:country` | `pol:country` | The country where the item was located. |
@@ -8566,6 +8771,7 @@ A conference.
 |----------|------|-----|
 | `:activity` | `base:activity` | A parent activity which includes this conference. |
 | `:budget` | `econ:budget` | The budget for the conference. |
+| `:desc` | `text` | A description of the conference. |
 | `:family` | `event:name` | The family name of the conference used to group recurring events. |
 | `:name` | `event:name` | The name of the conference. |
 | `:names` | `array of event:name` | An array of alternate names for the conference. |
@@ -8573,6 +8779,7 @@ A conference.
 | `:place` | `geo:place` | The place where the conference was located. |
 | `:place:address` | `geo:address` | The postal address where the conference was located. |
 | `:place:address:city` | `base:name` | The city where the conference was located. |
+| `:place:address:state` | `base:name` | The state or province where the conference was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the conference was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the conference was located. |
 | `:place:country` | `pol:country` | The country where the conference was located. |
@@ -8607,12 +8814,15 @@ A competitive event resulting in a ranked set of participants.
 |----------|------|-----|
 | `:activity` | `base:activity` | A parent activity which includes this contest. |
 | `:budget` | `econ:budget` | The budget for the contest. |
+| `:desc` | `text` | A description of the contest. |
+| `:family` | `event:name` | The family name of the contest used to group recurring events. |
 | `:name` | `event:name` | The name of the contest. |
 | `:names` | `array of event:name` | An array of alternate names for the contest. |
 | `:period` | `activity` | The period over which the contest occurred. |
 | `:place` | `geo:place` | The place where the contest was located. |
 | `:place:address` | `geo:address` | The postal address where the contest was located. |
 | `:place:address:city` | `base:name` | The city where the contest was located. |
+| `:place:address:state` | `base:name` | The state or province where the contest was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the contest was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the contest was located. |
 | `:place:country` | `pol:country` | The country where the contest was located. |
@@ -8724,12 +8934,14 @@ A generic organized event.
 |----------|------|-----|
 | `:activity` | `base:activity` | A parent activity which includes this event. |
 | `:budget` | `econ:budget` | The budget for the event. |
+| `:desc` | `text` | A description of the event. |
 | `:name` | `event:name` | The name of the event. |
 | `:names` | `array of event:name` | An array of alternate names for the event. |
 | `:period` | `activity` | The period over which the event occurred. |
 | `:place` | `geo:place` | The place where the event was located. |
 | `:place:address` | `geo:address` | The postal address where the event was located. |
 | `:place:address:city` | `base:name` | The city where the event was located. |
+| `:place:address:state` | `base:name` | The state or province where the event was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the event was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the event was located. |
 | `:place:country` | `pol:country` | The country where the event was located. |
@@ -8853,6 +9065,7 @@ A meeting.
 | `:place` | `geo:place` | The place where the meeting was located. |
 | `:place:address` | `geo:address` | The postal address where the meeting was located. |
 | `:place:address:city` | `base:name` | The city where the meeting was located. |
+| `:place:address:state` | `base:name` | The state or province where the meeting was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the meeting was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the meeting was located. |
 | `:place:country` | `pol:country` | The country where the meeting was located. |
@@ -8888,6 +9101,31 @@ A job/work opening within an org.
 | `:postings` | `array of inet:url` | URLs where the opening is listed. |
 | `:remote` | `percent` | The percentage of the role which may be performed remotely. |
 | `:title` | `entity:title` | The title of the opening. |
+
+### `ou:opening:location`
+
+A location where a job/work opening is available.
+
+| Interface |
+|-----------|
+| `geo:locatable` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:opening` | `ou:opening` | The opening which is available at the location. |
+| `:pay:range` | `econ:pricerange` | The range of pay for the opening at the location. |
+| `:place` | `geo:place` | The place where the opening is located. |
+| `:place:address` | `geo:address` | The postal address where the opening is located. |
+| `:place:address:city` | `base:name` | The city where the opening is located. |
+| `:place:address:state` | `base:name` | The state or province where the opening is located. |
+| `:place:altitude` | `geo:altitude` | The altitude where the opening is located. |
+| `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the opening is located. |
+| `:place:country` | `pol:country` | The country where the opening is located. |
+| `:place:country:code` | `iso:3166:alpha2` | The country code where the opening is located. |
+| `:place:latlong` | `geo:latlong` | The latlong where the opening is located. |
+| `:place:latlong:accuracy` | `phys:distance` | The accuracy of the latlong where the opening is located. |
+| `:place:loc` | `loc` | The geopolitical location where the opening is located. |
+| `:place:name` | `geo:name` | The name of the place where the opening is located. |
 
 ### `ou:org`
 
@@ -8932,6 +9170,7 @@ An organization, such as a company or military unit.
 | `:place` | `geo:place` | The place where the organization was located. |
 | `:place:address` | `geo:address` | The postal address where the organization was located. |
 | `:place:address:city` | `base:name` | The city where the organization was located. |
+| `:place:address:state` | `base:name` | The state or province where the organization was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the organization was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the organization was located. |
 | `:place:country` | `pol:country` | The country where the organization was located. |
@@ -9008,12 +9247,14 @@ A webinar, conference talk, or other type of presentation.
 | `:attendee:url` | `inet:url` | The URL visited by live attendees of the presentation. |
 | `:deck:file` | `file:bytes` | A file containing the presentation materials. |
 | `:deck:url` | `inet:url` | The URL hosting a copy of the presentation materials. |
+| `:desc` | `text` | A description of the presentation. |
 | `:name` | `event:name` | The name of the presentation. |
 | `:names` | `array of event:name` | An array of alternate names for the presentation. |
 | `:period` | `activity` | The period over which the presentation occurred. |
 | `:place` | `geo:place` | The place where the presentation was located. |
 | `:place:address` | `geo:address` | The postal address where the presentation was located. |
 | `:place:address:city` | `base:name` | The city where the presentation was located. |
+| `:place:address:state` | `base:name` | The state or province where the presentation was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the presentation was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the presentation was located. |
 | `:place:country` | `pol:country` | The country where the presentation was located. |
@@ -9035,6 +9276,10 @@ A four digit Standard Industrial Classification (SIC) code.
 ### `ou:team`
 
 A GUID for a team within an organization.
+
+| Interface |
+|-----------|
+| `entity:actor` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -9517,6 +9762,7 @@ A person or persona.
 | `:birth:place` | `geo:place` | The place where the person was born. |
 | `:birth:place:address` | `geo:address` | The postal address where the person was born. |
 | `:birth:place:address:city` | `base:name` | The city where the person was born. |
+| `:birth:place:address:state` | `base:name` | The state or province where the person was born. |
 | `:birth:place:altitude` | `geo:altitude` | The altitude where the person was born. |
 | `:birth:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the person was born. |
 | `:birth:place:country` | `pol:country` | The country where the person was born. |
@@ -9530,6 +9776,7 @@ A person or persona.
 | `:death:place` | `geo:place` | The place where the person died. |
 | `:death:place:address` | `geo:address` | The postal address where the person died. |
 | `:death:place:address:city` | `base:name` | The city where the person died. |
+| `:death:place:address:state` | `base:name` | The state or province where the person died. |
 | `:death:place:altitude` | `geo:altitude` | The altitude where the person died. |
 | `:death:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the person died. |
 | `:death:place:country` | `pol:country` | The country where the person died. |
@@ -9556,6 +9803,7 @@ A person or persona.
 | `:place` | `geo:place` | The place where the person was located. |
 | `:place:address` | `geo:address` | The postal address where the person was located. |
 | `:place:address:city` | `base:name` | The city where the person was located. |
+| `:place:address:state` | `base:name` | The state or province where the person was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the person was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the person was located. |
 | `:place:country` | `pol:country` | The country where the person was located. |
@@ -9625,6 +9873,7 @@ Statistics and demographic data about a person.
 | `:place` | `geo:place` | The place where the person was located. |
 | `:place:address` | `geo:address` | The postal address where the person was located. |
 | `:place:address:city` | `base:name` | The city where the person was located. |
+| `:place:address:state` | `base:name` | The state or province where the person was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the person was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the person was located. |
 | `:place:country` | `pol:country` | The country where the person was located. |
@@ -10191,6 +10440,7 @@ A threat cluster or subgraph of threat activity, as defined by a specific source
 | `:place` | `geo:place` | The place where the threat was located. |
 | `:place:address` | `geo:address` | The postal address where the threat was located. |
 | `:place:address:city` | `base:name` | The city where the threat was located. |
+| `:place:address:state` | `base:name` | The state or province where the threat was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the threat was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the threat was located. |
 | `:place:country` | `pol:country` | The country where the threat was located. |
@@ -10588,6 +10838,7 @@ A mobile cell site which a phone may connect to.
 | `:place` | `geo:place` | The place where the cell tower was located. |
 | `:place:address` | `geo:address` | The postal address where the cell tower was located. |
 | `:place:address:city` | `base:name` | The city where the cell tower was located. |
+| `:place:address:state` | `base:name` | The state or province where the cell tower was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the cell tower was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the cell tower was located. |
 | `:place:country` | `pol:country` | The country where the cell tower was located. |
@@ -10691,6 +10942,7 @@ A mobile Type Allocation Code.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:model` | `biz:model` | The TAC model name. |
+| `:models` | `array of biz:model` | An array of alternate TAC model names. |
 
 ### `tel:mob:tadig`
 
@@ -10755,7 +11007,7 @@ A text message sent over a telephone network such as SMS, MMS, or RCS.
 | `:attachments` | `array of file:attachment` | An array of files attached to the message. |
 | `:client` | `inet:client` | The network address of the client which initiated the action. |
 | `:client:host` | `it:host` | The client host which initiated the action. |
-| `:client:software` | `it:software` | The client software used to initiate the action. |
+| `:client:software` | `it:software` | The client software version used to send the message. |
 | `:client:software:name` | `it:softwarename` | The name of the client software used to send the message. |
 | `:file` | `file:bytes` | The raw file that the message was extracted from. |
 | `:hashtags` | `array of lang:hashtag` | An array of hashtags mentioned within the message. |
@@ -10816,6 +11068,7 @@ An individual aircraft.
 | `:place` | `geo:place` | The place where the aircraft was located. |
 | `:place:address` | `geo:address` | The postal address where the aircraft was located. |
 | `:place:address:city` | `base:name` | The city where the aircraft was located. |
+| `:place:address:state` | `base:name` | The state or province where the aircraft was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the aircraft was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the aircraft was located. |
 | `:place:country` | `pol:country` | The country where the aircraft was located. |
@@ -10906,6 +11159,7 @@ An aircraft registration number or military aircraft serial number.
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:country` | `pol:country` | The country which issued the tail number. |
 | `:type` | `transport:air:tailnum:type:taxonomy` | A type which may be specific to the country prefix. |
 
 ### `transport:air:tailnum:type:taxonomy`
@@ -10942,6 +11196,7 @@ A telemetry sample from an aircraft in transit.
 | `:place` | `geo:place` | The place where the telemetry sample was located. |
 | `:place:address` | `geo:address` | The postal address where the telemetry sample was located. |
 | `:place:address:city` | `base:name` | The city where the telemetry sample was located. |
+| `:place:address:state` | `base:name` | The state or province where the telemetry sample was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the telemetry sample was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the telemetry sample was located. |
 | `:place:country` | `pol:country` | The country where the telemetry sample was located. |
@@ -11068,6 +11323,7 @@ An individual land based vehicle.
 | `:place` | `geo:place` | The place where the vehicle was located. |
 | `:place:address` | `geo:address` | The postal address where the vehicle was located. |
 | `:place:address:city` | `base:name` | The city where the vehicle was located. |
+| `:place:address:state` | `base:name` | The state or province where the vehicle was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the vehicle was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the vehicle was located. |
 | `:place:country` | `pol:country` | The country where the vehicle was located. |
@@ -11174,6 +11430,7 @@ An individual train car.
 | `:place` | `geo:place` | The place where the train car was located. |
 | `:place:address` | `geo:address` | The postal address where the train car was located. |
 | `:place:address:city` | `base:name` | The city where the train car was located. |
+| `:place:address:state` | `base:name` | The state or province where the train car was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the train car was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the train car was located. |
 | `:place:country` | `pol:country` | The country where the train car was located. |
@@ -11238,6 +11495,7 @@ A group of rail cars and locomotives connected together.
 | `:place` | `geo:place` | The place where the train was located. |
 | `:place:address` | `geo:address` | The postal address where the train was located. |
 | `:place:address:city` | `base:name` | The city where the train was located. |
+| `:place:address:state` | `base:name` | The state or province where the train was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the train was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the train was located. |
 | `:place:country` | `pol:country` | The country where the train was located. |
@@ -11302,6 +11560,7 @@ A telemetry sample from a vessel in transit.
 | `:place` | `geo:place` | The place where the telemetry sample was located. |
 | `:place:address` | `geo:address` | The postal address where the telemetry sample was located. |
 | `:place:address:city` | `base:name` | The city where the telemetry sample was located. |
+| `:place:address:state` | `base:name` | The state or province where the telemetry sample was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the telemetry sample was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the telemetry sample was located. |
 | `:place:country` | `pol:country` | The country where the telemetry sample was located. |
@@ -11333,6 +11592,7 @@ An individual sea vessel.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:callsign` | `base:id` | The callsign of the vessel. |
+| `:country` | `pol:country` | The country the vessel is flagged to. |
 | `:creator` | `entity:actor` | The primary actor which created the vessel. |
 | `:creator:name` | `entity:name` | The name of the primary actor which created the vessel. |
 | `:imo` | `transport:sea:imo` | The International Maritime Organization number for the vessel. |
@@ -11352,6 +11612,7 @@ An individual sea vessel.
 | `:place` | `geo:place` | The place where the vessel was located. |
 | `:place:address` | `geo:address` | The postal address where the vessel was located. |
 | `:place:address:city` | `base:name` | The city where the vessel was located. |
+| `:place:address:state` | `base:name` | The state or province where the vessel was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the vessel was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the vessel was located. |
 | `:place:country` | `pol:country` | The country where the vessel was located. |
@@ -11413,6 +11674,7 @@ An individual shipping container.
 | `:place` | `geo:place` | The place where the shipping container was located. |
 | `:place:address` | `geo:address` | The postal address where the shipping container was located. |
 | `:place:address:city` | `base:name` | The city where the shipping container was located. |
+| `:place:address:state` | `base:name` | The state or province where the shipping container was located. |
 | `:place:altitude` | `geo:altitude` | The altitude where the shipping container was located. |
 | `:place:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the shipping container was located. |
 | `:place:country` | `pol:country` | The country where the shipping container was located. |
@@ -11565,6 +11827,7 @@ A stop made by a vehicle on a trip.
 | `risk:loss:funds` | `had` | `econ:payment` | The loss of funds included the payment. |
 | `risk:loss:life` | `had` | `entity:singular` | The loss of life included the entity. |
 | `risk:outage` | `impacted` | `*` | The outage event impacted the availability of the target node. |
+| `risk:theft` | `stole` | `meta:aggregate` | The target node counts the items stolen during the theft. |
 | `risk:theft` | `stole` | `meta:observable` | The target node was stolen during the theft. |
 | `risk:theft` | `stole` | `phys:object` | The target node was stolen during the theft. |
 | `sci:evidence` | `has` | `*` | The evidence includes observations from the target nodes. |
@@ -11665,7 +11928,9 @@ An interface implemented by all cryptographic hashes.
 
 | Form |
 |------|
+| `crypto:hash:lm` |
 | `crypto:hash:md5` |
+| `crypto:hash:ntlm` |
 | `crypto:hash:sha1` |
 | `crypto:hash:sha256` |
 | `crypto:hash:sha384` |
@@ -11829,6 +12094,7 @@ An interface for forms which may have an associated budget.
 
 | Form |
 |------|
+| `doc:contract` |
 | `entity:campaign` |
 | `ou:conference` |
 | `ou:contest` |
@@ -11915,6 +12181,7 @@ An interface for entities which have initiative to act.
 | `inet:service:account` |
 | `inet:service:agent` |
 | `ou:org` |
+| `ou:team` |
 | `ps:person` |
 | `risk:threat` |
 | `syn:user` |
@@ -12001,6 +12268,7 @@ Properties common to events carried out by an actor.
 | `entity:destroyed` |
 | `entity:discovered` |
 | `entity:registered` |
+| `entity:revoked` |
 | `entity:signed` |
 | `risk:leak` |
 | `risk:theft` |
@@ -12132,6 +12400,7 @@ Properties common to forms representing a file at a path.
 | `file:stored:entry` |
 | `file:subfile:entry` |
 | `file:system:entry` |
+| `file:system:posix:entry` |
 | `it:dev:repo:diff` |
 | `it:dev:repo:entry` |
 | `it:exec:file:add` |
@@ -12254,6 +12523,7 @@ Properties common to items and events which may be geolocated.
 | `:` | `geo:place` | The place where the item was located. |
 | `:address` | `geo:address` | The postal address where the item was located. |
 | `:address:city` | `base:name` | The city where the item was located. |
+| `:address:state` | `base:name` | The state or province where the item was located. |
 | `:altitude` | `geo:altitude` | The altitude where the item was located. |
 | `:altitude:accuracy` | `phys:distance` | The accuracy of the altitude where the item was located. |
 | `:country` | `pol:country` | The country where the item was located. |
@@ -12276,6 +12546,7 @@ Properties common to items and events which may be geolocated.
 | `ou:contest` |
 | `ou:event` |
 | `ou:meeting` |
+| `ou:opening:location` |
 | `ou:preso` |
 | `tel:mob:cell` |
 | `transport:air:telem` |
@@ -12306,11 +12577,13 @@ Properties common to network protocol requests and transports.
 | `:client:exe` | `file:bytes` | The client executable which initiated the link. |
 | `:client:host` | `it:host` | The client host which initiated the link. |
 | `:client:proc` | `it:exec:proc` | The client process which initiated the link. |
+| `:client:thread` | `it:exec:thread` | The client thread which initiated the link. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
 | `:server` | `inet:server` | The socket address of the server. |
 | `:server:exe` | `file:bytes` | The server executable which received the link. |
 | `:server:host` | `it:host` | The server host which received the link. |
 | `:server:proc` | `it:exec:proc` | The server process which received the link. |
+| `:server:thread` | `it:exec:thread` | The server thread which received the link. |
 
 | Form |
 |------|
@@ -12545,7 +12818,9 @@ An event which occurred on a host.
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:exe` | `file:bytes` | The executable file which caused the event. |
 | `:proc` | `it:exec:proc` | The process which caused the event. |
+| `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
 | `:thread` | `it:exec:thread` | The thread which caused the event. |
 
 | Form |
@@ -12585,9 +12860,17 @@ Properties common to runtime events and activity on a host.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:exe` | `file:bytes` | The executable file which caused the activity. |
+| `:exe` | `file:bytes` | The executable file which caused the activity. Deprecated: removed on or after 2027-01-01. |
 | `:host` | `it:host` | The host on which the activity occurred. |
-| `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
+| `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. Deprecated: removed on or after 2027-01-01. |
+
+### `it:host:identifier`
+
+An interface which is implemented by host identifier forms.
+
+| Form |
+|------|
+| `it:adid` |
 
 ### `lang:transcript`
 
@@ -12609,6 +12892,8 @@ An interface implemented by forms which are achievable.
 | Form |
 |------|
 | `entity:goal` |
+| `entity:goal:financial` |
+| `entity:goal:people` |
 | `meta:award` |
 
 ### `meta:believable`
@@ -12629,6 +12914,10 @@ An interface implemented by forms which may be believed in by an actor.
 ### `meta:causal`
 
 Implemented by events and activities which can lead to effects.
+
+| Form |
+|------|
+| `biz:rfp` |
 
 ### `meta:discoverable`
 
@@ -12653,6 +12942,7 @@ An interface used to describe items that can be possessed by an entity.
 | Form |
 |------|
 | `biz:product` |
+| `econ:security` |
 | `inet:wifi:ap` |
 | `it:network` |
 | `ou:org` |
@@ -12681,7 +12971,9 @@ Properties common to forms which can be observed.
 | `auth:passwd` |
 | `crypto:currency:address` |
 | `crypto:currency:client` |
+| `crypto:hash:lm` |
 | `crypto:hash:md5` |
+| `crypto:hash:ntlm` |
 | `crypto:hash:sha1` |
 | `crypto:hash:sha256` |
 | `crypto:hash:sha384` |
@@ -12710,6 +13002,7 @@ Properties common to forms which can be observed.
 | `file:path` |
 | `file:stored:entry` |
 | `file:system:entry` |
+| `file:system:posix:entry` |
 | `geo:name` |
 | `inet:asn` |
 | `inet:asnet` |
@@ -12773,6 +13066,7 @@ Properties common to forms which can be observed.
 | `it:sec:cwe` |
 | `it:softid` |
 | `it:software` |
+| `it:softwarename` |
 | `lang:hashtag` |
 | `meta:algorithm` |
 | `meta:rule` |
@@ -12832,6 +13126,8 @@ Properties common to forms which are created on a per-source basis.
 |------|
 | `entity:campaign` |
 | `entity:goal` |
+| `entity:goal:financial` |
+| `entity:goal:people` |
 | `entity:relationship` |
 | `ind:industry` |
 | `it:hardware` |
@@ -12847,6 +13143,14 @@ Properties common to forms which are created on a per-source basis.
 | `risk:theft` |
 | `risk:threat` |
 | `risk:vuln` |
+
+### `meta:revocable`
+
+An interface implemented by forms which can be revoked.
+
+| Form |
+|------|
+| `entity:achieved` |
 
 ### `meta:schedulable`
 
@@ -13034,6 +13338,7 @@ Properties which are common to activities which are promoted by an organization.
 
 | Property | Type | Doc |
 |----------|------|-----|
+| `:desc` | `text` | A description of the event. |
 | `:name` | `event:name` | The name of the event. |
 | `:names` | `array of event:name` | An array of alternate names for the event. |
 | `:social:accounts` | `array of inet:service:account` | Social media accounts associated with the event. |
@@ -13084,7 +13389,11 @@ An interface implemented by forms which may be exploited by an actor.
 |------|
 | `inet:client` |
 | `inet:server` |
+| `inet:service:account` |
+| `inet:service:bucket` |
+| `inet:service:bucket:item` |
 | `inet:service:platform` |
+| `inet:service:resource` |
 | `it:hardware` |
 | `it:software` |
 | `ou:asset` |

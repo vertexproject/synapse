@@ -206,8 +206,10 @@ modeldefs = (
                     ('item', (
                             ('biz:service', {}),
                             ('meta:havable', {}),
+                            ('entity:title', {}),
+                            ('mat:spec', {}),
                         ), {
-                        'doc': 'The product or service.'}),
+                        'doc': 'The product, service, job title, or material specification.'}),
                 ),
                 'doc': 'A line item included as part of a purchase.'}),
 
@@ -251,6 +253,9 @@ modeldefs = (
 
                     ('amount', ('econ:price', {}), {
                         'doc': 'The amount of money transferred in the payment.'}),
+
+                    ('memo', ('text', {}), {
+                        'doc': 'A small note specified by the payer common in financial transactions.'}),
 
                     ('crypto:transaction', ('crypto:currency:transaction', {}), {
                         'doc': 'A crypto currency transaction that initiated the payment.'}),
@@ -414,6 +419,9 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of financial security types.'}),
 
             ('econ:security', ('guid', {}), {
+                'interfaces': (
+                    ('meta:havable', {}),
+                ),
                 'props': (
 
                     ('exchange', ('econ:exchange', {}), {
@@ -421,6 +429,12 @@ modeldefs = (
 
                     ('ticker', ('title', {}), {
                         'doc': 'The identifier for this security within the exchange.'}),
+
+                    ('issuer', ('entity:actor', {}), {
+                        'doc': 'The entity which issued the security.'}),
+
+                    ('issuer:name', ('entity:name', {}), {
+                        'doc': 'The name of the entity which issued the security.'}),
 
                     ('type', ('econ:security:type:taxonomy', {}), {
                         'doc': 'The type of security.'}),

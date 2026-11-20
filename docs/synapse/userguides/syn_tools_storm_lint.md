@@ -26,6 +26,43 @@ python -m synapse.tools.storm.lint acme-hello/storm/
 echo '$x = $lib.true' | python -m synapse.tools.storm.lint -
 ```
 
+### Manifests
+
+`--manifest <path>` lints Storm queries which are embedded in other source files, such as a query string in TypeScript or Python code or a shell heredoc. The tool reads a manifest; it does not create one. Your own tooling must extract the embedded queries and write the manifest, in the same format as a `synapse.utils.stormcov` `--storm-manifests` manifest. `--manifest` may be given more than once, and with or without paths. A manifest is a JSON file which lists each query and where it begins in its host file:
+
+```json
+{
+  "queries": [
+    {
+      "path": "../src/lib/users.ts",
+      "line": 467,
+      "text": "return($lib.auth.users.list())",
+      "site": "src/lib/users.ts:467:54"
+    }
+  ]
+}
+```
+
+| Key | Description |
+|-----|-------------|
+| `path` | The host file, relative to the directory of the manifest. |
+| `line` | The 1-based line of the host file where the query text begins. |
+| `text` | The Storm query text. |
+| `site` | Optional. A label for the query. When it ends with `:<line>:<column>`, the column is the 0-based column of the character before the query text, such as the opening quote. |
+
+A manifest whose path ends in `.jsonl` is a JSON Lines file instead: each line which is not blank holds one query object with the same keys. It is read a few hundred lines at a time rather than all at once, which suits a large project:
+
+```text
+{"path": "../src/lib/users.ts", "line": 467, "text": "return($lib.auth.users.list())", "site": "src/lib/users.ts:467:54"}
+{"path": "../src/lib/roles.ts", "line": 12, "text": "return($lib.auth.roles.list())"}
+```
+
+Findings are reported at their line and column in the host file, so a finding on the first line of the example query is reported at column 55 plus its column in the query. When `site` is missing or does not end with `:<line>:<column>`, the query text is taken to start at column 1. Each later line of the query text is taken to be the next line of the host file, starting at column 1, so this works for Storm extracted from any host file whose query text is laid out that way. `exclude` patterns from the [configuration](#configuration) apply to each query's host file, and a `// noqa` comment in the query text suppresses findings as it does in a Storm file. A manifest which can not be read, is not valid JSON or does not have this shape is reported as a file error, and for a `.jsonl` manifest the error names the line. Queries in a `.jsonl` manifest are linted as they are read, so findings in queries read before an invalid line are still reported.
+
+```bash
+python -m synapse.tools.storm.lint --manifest frontend/coverage/storm-queries.jsonl
+```
+
 ## Output
 
 Each finding is printed as `<path>:<line>:<column>: <rule> <message>`, followed by a count of the findings:
@@ -165,6 +202,29 @@ By default the rules which check form and property names, such as `S011` and `S0
 linter = s_stormlint.StormLinter(model=await core.getModelDict())
 ```
 
-The Cortex MCP server's `storm_lint` tool lints a query this way against the Cortex's own data model.
+The [Cortex MCP server](../httpapi.md#apiv3mcp)'s `storm_lint` tool lints a query this way against the Cortex's own data model.
 
-`StormLinter` raises `BadArg` for an unknown rule ID or prefix. `lint()` honors `noqa` comments; the `[tool.stormlint]` table is only read by the `storm.lint` tool.
+`StormLinter` raises `BadArg` for an unknown rule ID or prefix. `lint()` honors `noqa` comments; the `[tool.stormlint]` table is only read by the `storm.lint` command line tool.
+
+## Linting from Storm
+
+The `storm.lint` command lints Storm code, or an embedded query, and prints each finding as `<line>:<column>: <rule> <message>`, followed by the same summary line as the command line tool. Its `--select`, `--enable` and `--ignore` options each take a comma-separated list of rule IDs or ID prefixes, and `--show-rules` prints the rules. The nodes in the pipeline are passed through unchanged, and when the text is not runtsafe it is linted once for each node:
+
+```text
+storm.lint $text --enable S010
+storm.lint ${ $x = $lib.list() }
+```
+
+The `$lib.storm.lint.scan()` function lints Storm code against the Cortex's data model, including its extended model elements, and yields a dictionary for each finding with the `rule`, `severity`, `line`, `column` and `mesg` keys, sorted by line, column and rule:
+
+```text
+for $finding in $lib.storm.lint.scan($text, enable=(S010,)) {
+    $lib.print(`{$finding.line}:{$finding.column} {$finding.rule} {$finding.mesg}`)
+}
+```
+
+Its `select`, `enable` and `ignore` arguments are lists which work like the `--select`, `--enable` and `--ignore` options described in [Selecting Rules](#selecting-rules): `select` replaces the default rule set, `enable` adds rules, including rules which are off by default, and `ignore` removes rules and is applied last. Each entry is a rule ID or an ID prefix, and an unknown entry raises `BadArg`. An empty `select` list runs only the rules named by `enable`.
+
+The code to lint may also be an embedded query, such as `${ $x = $lib.list() }`. The line and column of each finding are relative to the text of the embedded query.
+
+The `$lib.storm.lint.rules()` function returns a dictionary for each rule with the `rule`, `name`, `severity`, `default` and `desc` keys, in rule ID order.

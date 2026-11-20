@@ -1,3 +1,4 @@
+import synapse.exc as s_exc
 import synapse.lib.const as s_const
 import synapse.lib.config as s_config
 import synapse.lib.grammar as s_grammar
@@ -74,6 +75,24 @@ _HttpExtAPIConfSchema = {
 }
 
 reqValidHttpExtAPIConf = s_config.getJsValidator(_HttpExtAPIConfSchema)
+
+_viewHookSchema = {
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'name': {'type': 'string', 'minLength': 1},
+        'type': {'type': 'string', 'enum': ['created', 'merging', 'deleted']},
+        'storm': {'type': 'string'},
+        'enabled': {'type': 'boolean'},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'created': {'type': 'integer', 'minimum': 0},
+        'updated': {'type': 'integer', 'minimum': 0},
+    },
+    'additionalProperties': False,
+    'required': ['iden', 'name', 'type', 'storm', 'enabled', 'creator', 'created', 'updated'],
+}
+
+reqValidViewHook = s_config.getJsValidator(_viewHookSchema)
 
 layerPushPullSchema = {
     'type': 'object',
@@ -912,6 +931,471 @@ _reqValidPermDefSchema = {
 
 reqValidPermDef = s_config.getJsValidator(_reqValidPermDefSchema)
 
+# A course is one self-contained document: an ordered list of modules, each of which is
+# either course material or a quiz. Every element is inlined where it is used, with no
+# internal references, so the document may be read top down. courseSchema stands on its
+# own, so a course may be validated and stored as a single item, and the courses section
+# of a package definition refers to it as a named type.
+
+# Every element carries a title, which labels it for a human and need not be unique. A
+# module carries an iden because a run is recorded against it, whichever kind it is: a run
+# of a quiz is scored, and a run of course material records only that it was read. A
+# section carries no iden, since nothing is ever recorded against one.
+
+# An answer is graded by norming the participant's attempt as a Synapse type and comparing
+# it to the answer value, and the shape of that value depends on the question type, since
+# the type is the widget the attempt was collected with: a yes or no question is answered by
+# pressing one of two buttons, and a multi question by filling in an array. A storm question
+# is the exception: the participant works in the view rather than producing a value at all,
+# so there is nothing to compare and the answer's checker query grades it instead. Each
+# question type is therefore a schema of its own, which names itself with a type const and
+# declares one answer inline, rather than one schema which allows every combination of fields
+# on every type.
+
+# The answer type is always the type of one value, and a question answered with more than one
+# carries a list of them, each of which norms as that type. There is no array type answer,
+# and so nothing which needs typeopts to say what an item of one holds.
+
+# The fields an answer carries whichever question type it belongs to, as opposed to the type
+# it is normed as and the value it is compared to, which each question type declares for
+# itself since they are what its widget collected.
+_answerProps = {
+    # The Storm queries of an answer. Grading is not one of them: the checker of a storm
+    # question is a field of the answer alongside these, since it produces the verdict rather
+    # than reacting to it. correct and incorrect run once the attempt has been graded, on
+    # whichever way it went, and each shows the participant something by firing an optic:show
+    # event rather than by returning it, so the markdown lands inline with the question.
+    # validate is the odd one out, run by an author rather than on a participant's behalf.
+    #
+    # These live on the answer rather than on the question because a learner is given a
+    # question with the whole answer removed, which is what keeps the queries away from them.
+    'hooks': {
+        'type': 'object',
+        'properties': {
+            'correct': {
+                'type': 'string',
+                'minLength': 1,
+                'description': 'A Storm query to run when an attempt is graded correct.',
+            },
+            'incorrect': {
+                'type': 'string',
+                'minLength': 1,
+                'description': 'A Storm query to run when an attempt is graded incorrect.',
+            },
+            'validate': {
+                'type': 'string',
+                'minLength': 1,
+                'description': 'A Storm query an author may run to check the view has the data the question needs.',
+            },
+        },
+        'additionalProperties': False,
+    },
+    # An ordered sequence of hints, which a participant reaches either by opting in to the
+    # next one or by getting the question wrong, since a wrong attempt reveals one. Both
+    # advance the same cursor, and each hint costs the deduction it declares. A wrong attempt
+    # which reveals a hint is charged that deduction in place of the question's deduct.
+    'hints': {
+        'type': 'array',
+        'items': {
+            'type': 'object',
+            'properties': {
+                'body': {'type': 'string',
+                         'description': 'Markdown body of the hint.'},
+                'deduction': {'type': 'integer', 'minimum': 0},
+            },
+            'additionalProperties': False,
+            'required': ['body', 'deduction'],
+        },
+    },
+}
+
+# The fields every question carries, whichever type it is. A question type schema starts
+# from these, names itself with a type const, and adds whatever else its widget needs,
+# including the ui options that widget takes.
+_questionProps = {
+    # an answer is recorded against the question iden, so a question may be reworded, or
+    # moved to another section, without orphaning it
+    'iden': {'type': 'string', 'pattern': s_config.re_iden},
+    'body': {'type': 'string', 'description': 'Markdown body of the question.'},
+    'points': {'type': 'integer', 'minimum': 0},
+    'retries': {'type': ['integer', 'null'], 'minimum': 0},
+    # the points to charge for each wrong attempt
+    'deduct': {'type': 'integer', 'minimum': 0},
+}
+
+_questionReqd = ['iden', 'type', 'body', 'points', 'answer']
+
+# Each question type is closed, so a question may carry only the fields its own type
+# declares: a type which offers nothing to choose from has no choices field to set.
+
+# one text input, so one value, which is normed as one type and compared
+_questionBasic = {
+    'type': 'object',
+    'properties': {
+        **_questionProps,
+        'type': {'const': 'basic'},
+        # the presentation options of the widget, which is a labelled input and the button
+        # which submits it. Closed like the rest of the question type, so a key which only
+        # another type's widget takes is rejected here rather than silently ignored.
+        'ui': {
+            'type': 'object',
+            'properties': {
+                'label': {'type': 'string'},
+                'placeholder': {'type': 'string'},
+                'buttontext': {'type': 'string'},
+            },
+            'additionalProperties': False,
+        },
+        'answer': {
+            'type': 'object',
+            'properties': {
+                **_answerProps,
+                # one value rather than an array of them, so not the array type
+                'type': {'type': 'string', 'minLength': 1, 'not': {'const': 'array'}},
+                'value': {'type': ['boolean', 'integer', 'string']},
+            },
+            'additionalProperties': False,
+            'required': ['type', 'value'],
+        },
+    },
+    'additionalProperties': False,
+    'required': _questionReqd,
+}
+
+# two buttons, so a bool. They are the whole widget, with nothing to label and no submit
+# button to name, so this is the one question type which declares no ui.
+_questionYesOrNo = {
+    'type': 'object',
+    'properties': {
+        **_questionProps,
+        'type': {'const': 'yesorno'},
+        'answer': {
+            'type': 'object',
+            'properties': {
+                **_answerProps,
+                # the button pressed, so the bool itself rather than any of the values the
+                # bool type will norm as one. The two buttons are the type, so the answer
+                # declares none.
+                'value': {'type': 'boolean'},
+            },
+            'additionalProperties': False,
+            'required': ['value'],
+        },
+    },
+    'additionalProperties': False,
+    'required': _questionReqd,
+}
+
+# the participant works in the view rather than producing a value, so there is nothing to
+# compare and the checker query is the only thing which can grade it. The type stays
+# available, since it is handed to the checker along with the attempt.
+_questionStorm = {
+    'type': 'object',
+    'properties': {
+        **_questionProps,
+        'type': {'const': 'storm'},
+        # the participant works in the view rather than in a widget of the question, so
+        # the submit button is all there is left to name
+        'ui': {
+            'type': 'object',
+            'properties': {
+                'buttontext': {'type': 'string'},
+            },
+            'additionalProperties': False,
+        },
+        'answer': {
+            'type': 'object',
+            'properties': {
+                **_answerProps,
+                'type': {'type': 'string', 'minLength': 1},
+                'checker': {
+                    'type': 'string',
+                    'minLength': 1,
+                    'description': 'A Storm query which grades the answer.',
+                },
+            },
+            'additionalProperties': False,
+            'required': ['checker'],
+        },
+    },
+    'additionalProperties': False,
+    'required': _questionReqd,
+}
+
+# a list editor the participant fills in themselves, so no choices are offered
+_questionMulti = {
+    'type': 'object',
+    'properties': {
+        **_questionProps,
+        'type': {'const': 'multi'},
+        # the list editor is labelled and submitted the same way a basic input is
+        'ui': {
+            'type': 'object',
+            'properties': {
+                'label': {'type': 'string'},
+                'placeholder': {'type': 'string'},
+                'buttontext': {'type': 'string'},
+            },
+            'additionalProperties': False,
+        },
+        'answer': {
+            'type': 'object',
+            'properties': {
+                **_answerProps,
+                # the list the participant filled in, each item of which norms as the type
+                'type': {'type': 'string', 'minLength': 1, 'not': {'const': 'array'}},
+                'value': {'type': 'array'},
+            },
+            'additionalProperties': False,
+            'required': ['type', 'value'],
+        },
+    },
+    'additionalProperties': False,
+    'required': _questionReqd,
+}
+
+# the choices are what there is to answer with, and more than one of them is correct when
+# the answer holds more than one
+_questionChoice = {
+    'type': 'object',
+    'properties': {
+        **_questionProps,
+        'type': {'const': 'choice'},
+        # the choices are the widget, rendered as radio buttons or check boxes, so the
+        # submit button is all there is left to name
+        'ui': {
+            'type': 'object',
+            'properties': {
+                'buttontext': {'type': 'string'},
+            },
+            'additionalProperties': False,
+        },
+        # the enveloping is kept for future ideas like per-choice answer notes
+        'choices': {
+            'type': 'array',
+            'minItems': 1,
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'type': {'type': 'string'},
+                    'value': {'type': ['boolean', 'integer', 'string', 'array']},
+                },
+                'additionalProperties': False,
+                'required': ['value'],
+            },
+        },
+        'answer': {
+            'type': 'object',
+            'properties': {
+                **_answerProps,
+                # the choices which are correct, each of which norms as the type. The
+                # participant picks from a list either way, so the answer is always a list
+                # of them, even when only one is correct.
+                'type': {'type': 'string', 'minLength': 1, 'not': {'const': 'array'}},
+                'value': {'type': 'array'},
+            },
+            'additionalProperties': False,
+            'required': ['type', 'value'],
+        },
+    },
+    'additionalProperties': False,
+    'required': _questionReqd + ['choices'],
+}
+
+# a question names itself with a type, and the anyOf selects the schema which says what
+# that type carries
+_courseQuestion = {
+    'anyOf': [_questionBasic, _questionYesOrNo, _questionStorm, _questionMulti,
+              _questionChoice],
+}
+
+# course material, which has nothing to answer
+_courseModule = {
+    'type': 'object',
+    'properties': {
+        # a run is recorded against (courseiden, moduleiden), so a module may be renamed or
+        # reordered without orphaning a user's progress
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'type': {'const': 'module'},
+        'title': {'type': 'string', 'minLength': 1, 'maxLength': 80},
+        'body': {'type': 'string',
+                 'description': 'Markdown course material for the module.'},
+    },
+    'additionalProperties': False,
+    'required': ['iden', 'type', 'title', 'body'],
+}
+
+# a quiz, which is what there is to answer
+_courseQuiz = {
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'type': {'const': 'quiz'},
+        'title': {'type': 'string', 'minLength': 1, 'maxLength': 80},
+        'body': {'type': 'string', 'description': 'Markdown body of the quiz.'},
+        # the maximum number of runs a user is allowed
+        'maxruns': {'type': ['integer', 'null'], 'minimum': 1},
+        # the lifecycle hooks of a quiz: Storm queries the cell runs on the participant's
+        # behalf at a point in the run, as opposed to the answer queries which grade what
+        # they submitted
+        'hooks': {
+            'type': 'object',
+            'properties': {
+                # the view a run is answered in. The query runs when the run starts and
+                # returns the iden of the view, so a quiz which needs data of its own may
+                # build it rather than naming a view which has to already exist.
+                'viewinit': {
+                    'type': 'string',
+                    'minLength': 1,
+                    'description': 'A Storm query which returns the iden of the view to answer in.',
+                },
+                # runs once the participant has completed the quiz
+                'completed': {
+                    'type': 'string',
+                    'minLength': 1,
+                    'description': 'A Storm query to run when a user completes the quiz.',
+                },
+            },
+            'additionalProperties': False,
+        },
+        'sections': {
+            'type': 'array',
+            'minItems': 1,
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'title': {'type': 'string', 'minLength': 1, 'maxLength': 80},
+                    'body': {'type': 'string',
+                             'description': 'Markdown body of the section.'},
+                    'questions': {
+                        'type': 'array',
+                        'items': _courseQuestion,
+                    },
+                },
+                'additionalProperties': False,
+                'required': ['title', 'questions'],
+            },
+        },
+    },
+    'additionalProperties': False,
+    'required': ['iden', 'type', 'title', 'body', 'sections'],
+}
+
+courseSchema = {
+    'type': 'object',
+    'properties': {
+        # the iden is part of the course, rather than derived from where it is stored, so
+        # that runs recorded against (courseiden, moduleiden) survive an export and import
+        # or a move from one package to another.
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'title': {'type': 'string', 'minLength': 1, 'maxLength': 80},
+        'body': {'type': 'string', 'description': 'Markdown body of the course.'},
+        'modules': {
+            'type': 'array',
+            # a module is either course material or a quiz, so each names itself with a
+            # type and the anyOf selects the branch which says what that type carries
+            'items': {'anyOf': [_courseModule, _courseQuiz]},
+        },
+    },
+    'additionalProperties': False,
+    'required': ['iden', 'title', 'modules'],
+}
+
+_reqValidCourseSchema = s_config.getJsValidator(courseSchema)
+
+def reqValidCourse(cdef, validstorm=True):
+    '''
+    Validate a course definition, including that idens are unique.
+
+    Module idens must be unique within the course, because a run is recorded against
+    guid((courseiden, moduleiden)), and question idens must be unique within the quiz,
+    because a quiz run records an answer against the question iden. A module and a quiz
+    share one iden namespace, since a run names either of them the same way. A title is
+    only a label, and need not be unique.
+
+    Args:
+        cdef (dict): A course definition.
+        validstorm (bool): Whether or not to validate that the storm quiz and answer hooks parse as valid storm queries
+
+    Returns:
+        dict: The course definition.
+    '''
+    import synapse.lib.parser as s_parser
+    _reqValidCourseSchema(cdef)
+
+    iden = cdef.get('iden')
+
+    modidens = set()
+
+    for module in cdef.get('modules'):
+
+        modiden = module.get('iden')
+        if modiden in modidens:
+            mesg = f'Course {iden} has more than one module with the iden {modiden}.'
+            raise s_exc.BadArg(mesg=mesg, course=iden, module=modiden)
+
+        modidens.add(modiden)
+
+        if module.get('type') != 'quiz':
+            continue
+
+        # a question iden must be unique across the whole quiz rather than within its
+        # section, because a run records answers in one map keyed by question iden
+        quesidens = set()
+
+        hooks = module.get('hooks', {})
+        if (viewinit := hooks.get('viewinit')) is not None and validstorm:
+            s_parser.parseQuery(viewinit)
+
+        if (completed := hooks.get('completed')) is not None and validstorm:
+            s_parser.parseQuery(completed)
+
+        if not viewinit and completed:
+            mesg = f'The quiz {modiden} has a completed hook but no viewinit hook.'
+            raise s_exc.BadArg(mesg=mesg, course=iden, module=modiden)
+
+        for section in module.get('sections'):
+
+            for question in section.get('questions'):
+
+                quesiden = question.get('iden')
+                if quesiden in quesidens:
+                    mesg = f'The quiz {modiden} has more than one question with the iden {quesiden}.'
+                    raise s_exc.BadArg(mesg=mesg, course=iden, module=modiden, question=quesiden)
+
+                answer = question.get('answer', {})
+
+                if question.get('type') == 'storm':
+                    checker = answer.get('checker')
+                    if checker:
+                        if validstorm:
+                            s_parser.parseQuery(checker)
+
+                        if not viewinit:
+                            mesg = f'The question {quesiden} in quiz {modiden} has a checker hook, but no viewinit hook.'
+                            raise s_exc.BadArg(mesg=mesg, course=iden, module=modiden, question=quesiden)
+
+                answerhooks = answer.get('hooks', {})
+                for hook in ('correct', 'incorrect', 'validate'):
+                    h = answerhooks.get(hook)
+                    if h:
+                        if validstorm:
+                            s_parser.parseQuery(h)
+
+                        if not viewinit:
+                            mesg = f'The question {quesiden} in quiz {modiden} has a {hook} hook, but no viewinit hook.'
+                            raise s_exc.BadArg(mesg=mesg, course=iden, module=modiden, question=quesiden)
+
+                hints = answer.get('hints', [])
+                retries = question.get('retries')
+                if retries is not None and len(hints) > retries:
+                    mesg = f'The quiz {modiden} has more hints available than retries allowed for the question with iden {quesiden}.'
+                    raise s_exc.BadArg(mesg=mesg, course=iden, module=modiden, question=quesiden)
+
+                quesidens.add(quesiden)
+
+    return cdef
+
 # N.B. This is kept in sync with s_datamodel.Datamodel().types
 # with the DatamodelTest.test_datamodel_schema_basetypes test.
 datamodel_basetypes = [
@@ -1037,6 +1521,10 @@ _reqValidPkgdefSchema = {
         'files': {
             'type': ['object', 'null'],
             'additionalProperties': {'$ref': '#/definitions/fileentry'},
+        },
+        'courses': {
+            'type': 'array',
+            'items': {'$ref': '#/definitions/course'},
         },
         'graphs': {
             'type': ['array', 'null'],
@@ -1417,10 +1905,14 @@ _reqValidPkgdefSchema = {
             'type': 'object',
             'properties': {
                 'form': {'type': 'string'},
+                'interface': {'type': 'string'},
                 'help': {'type': 'string'},
             },
             'additionalProperties': False,
-            'required': ['form'],
+            'oneOf': [
+                {'required': ['form']},
+                {'required': ['interface']},
+            ],
         },
         'configvartype': {
             'anyOf': [
@@ -1445,7 +1937,10 @@ _reqValidPkgdefSchema = {
                 'desc': {'type': 'string'},
             },
             'additionalProperties': False,
-        }
+        },
+        # the course document, which stands on its own as courseSchema and is a named
+        # type here because the courses section refers to it
+        'course': s_msgpack.deepcopy(courseSchema, use_list=True),
     }
 }
 # use_default=False so validating a package never writes schema defaults into it;
@@ -1473,6 +1968,29 @@ _reqValidDdefSchema = {
     'required': ['iden', 'user', 'storm'],
 }
 reqValidDdef = s_config.getJsValidator(_reqValidDdefSchema)
+
+_stormInputTextSchema = {
+    'type': 'object',
+    'properties': {
+        'prompt': {'type': 'string', 'minLength': 1, 'description': 'The prompt to show. May be markdown.'},
+    },
+    'required': ['prompt'],
+    'additionalProperties': False,
+}
+_stormInputTextReplySchema = {
+    'type': 'object',
+    'properties': {
+        'text': {'type': 'string', 'description': 'The text entered in reply to the prompt.'},
+    },
+    'required': ['text'],
+    'additionalProperties': False,
+}
+stormInputValidators = {
+    'text': s_config.getJsValidator(_stormInputTextSchema),
+}
+stormInputReplyValidators = {
+    'text': s_config.getJsValidator(_stormInputTextReplySchema),
+}
 
 _client_assertion_schema = {
     'type': 'object',

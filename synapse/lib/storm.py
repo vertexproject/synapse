@@ -2461,10 +2461,18 @@ class Parser:
             self._printf('Inputs:')
             self._printf('')
 
-            for cmdinput in sorted(cmdinputs, key=lambda x: x.get('form')):
-                form = cmdinput.get('form')
-                desc = cmdinput.get('help', f'{form} nodes')
-                printItemDesc(form, desc)
+            rows = []
+            for cmdinput in cmdinputs:
+                if (form := cmdinput.get('form')) is not None:
+                    rows.append((form, form, cmdinput.get('help', f'{form} nodes')))
+                    continue
+
+                iface = cmdinput.get('interface')
+                desc = f'Nodes which implement the {iface} interface.'
+                rows.append((iface, f'{iface} (interface)', cmdinput.get('help', desc)))
+
+            for _, name, desc in sorted(rows):
+                printItemDesc(name, desc)
 
         if mesg is not None:
             self.exc = s_exc.BadArg(mesg=mesg)
@@ -3662,17 +3670,17 @@ class MergeCmd(Cmd):
             runt.reqAdmin(gateiden=runt.view.iden, mesg=mesg)
             runt.confirm(('layer', 'del'), gateiden=runt.view.layers[0].iden)
 
-        notags = self.opts.no_tags
-        onlytags = self.opts.only_tags
-        doapply = self.opts.apply
+        doapply = self.doapply = self.opts.apply
+        self.notags = self.opts.no_tags
+        self.onlytags = self.opts.only_tags
 
-        tagfilter = self._getTagFilter()
-        propfilter = self._getPropFilter()
+        self.tagfilter = self._getTagFilter()
+        self.propfilter = self._getPropFilter()
 
-        core = runt.view.core
         layr0 = runt.view.wlyr
         layr1 = runt.view.layers[1]
 
+        allows = None
         doperms = doapply and not (runt.isAdmin(gateiden=layr0.iden) and runt.isAdmin(gateiden=layr1.iden))
 
         if doperms:
@@ -3708,7 +3716,10 @@ class MergeCmd(Cmd):
                     'edgetombs': runt.user.allowed(('node', 'edge', 'del'), gateiden=layr1.iden, deepdeny=True),
                 }
 
-            doperms = not all(allows.values())
+            if all(allows.values()):
+                allows = None
+
+        self.allows = allows
 
         if self.opts.diff:
 
@@ -3723,281 +3734,305 @@ class MergeCmd(Cmd):
 
             genr = diffgenr()
 
-        meta = {'user': runt.user.iden}
+        meta = self.meta = {'user': runt.user.iden}
+
+        editor = None
 
         if doapply:
             tagcache = runt.tagcaches[runt.view.parent]
             editor = s_editor.NodeEditor(runt.view.parent, user=runt.user, meta=meta, tagcache=tagcache)
 
-        async for node, path in genr:
+        try:
+            async for node, path in genr:
+                async for item in self._mergeNode(node, path, editor):
+                    yield item
 
-            if node.ndef[0] == 'syn:deleted':
-                node = await runt.view.getNodeByNid(node.nid, tombs=True)
-                if node is None:
-                    continue
+        finally:
+            if doapply:
+                editor.clear()
 
-            # the timestamp for the adds/subs of each node merge will match
-            if (nodeiden := node.nid) is not None:
-                nodeiden = s_common.ehex(nodeiden)
+        runt.view.clearCache()
+        if doapply and self.opts.wipe:
+            await runt.view.swapLayer()
 
-            meta['time'] = s_common.now()
+    async def _mergeNode(self, node, path, editor):
 
-            sodes = await node.getStorNodes()
-            sode = sodes[0]
+        runt = self.runt
+        meta = self.meta
+        core = runt.view.core
+        layr0 = runt.view.wlyr
+        doapply = self.doapply
+        notags = self.notags
+        onlytags = self.onlytags
+        tagfilter = self.tagfilter
+        propfilter = self.propfilter
 
-            subs = []
+        if node.ndef[0] == 'syn:deleted':
+            node = await runt.view.getNodeByNid(node.nid, tombs=True)
+            if node is None:
+                return
 
-            # check all node perms first
-            if doperms:
-                await self._checkNodePerms(node, sode, runt, allows)
+        # the timestamp for the adds/subs of each node merge will match
+        if (nodeiden := node.nid) is not None:
+            nodeiden = s_common.ehex(nodeiden)
 
-            form = node.form.name
-            if form == 'syn:tag':
-                if notags:
+        meta['time'] = s_common.now()
+
+        sodes = await node.getStorNodes()
+        sode = sodes[0]
+
+        subs = []
+
+        # check all node perms first
+        if self.allows is not None:
+            await self._checkNodePerms(node, sode, runt, self.allows)
+
+        form = node.form.name
+        if form == 'syn:tag':
+            if notags:
+                await asyncio.sleep(0)
+                return
+        else:
+            # avoid merging a tag if the node won't exist below us
+            if onlytags:
+                skip = True
+                for undr in sodes[1:]:
+                    if undr.get('valu') is not None:
+                        skip = False
+                        break
+                    elif undr.get('antivalu') is not None:
+                        break
+
+                if skip:
                     await asyncio.sleep(0)
-                    continue
-            else:
-                # avoid merging a tag if the node won't exist below us
-                if onlytags:
-                    skip = True
-                    for undr in sodes[1:]:
-                        if undr.get('valu') is not None:
-                            skip = False
-                            break
-                        elif undr.get('antivalu') is not None:
-                            break
+                    return
 
-                    if skip:
+        protonode = None
+        delnode = False
+        if not onlytags or form == 'syn:tag':
+
+            if sode.get('antivalu') is not None:
+                if tagfilter is not None and form == 'syn:tag' and tagfilter(node.ndef[1]):
+                    await asyncio.sleep(0)
+                    return
+
+                if not doapply:
+                    await runt.printf(f'{nodeiden} delete {form} = {node.repr()}')
+                else:
+                    protonode = await editor.getNodeByNid(node.nid)
+                    if protonode is None:
                         await asyncio.sleep(0)
-                        continue
+                        return
 
-            protonode = None
-            delnode = False
-            if not onlytags or form == 'syn:tag':
+                    await protonode.delEdgesN2(meta=meta)
+                    await protonode.delete()
 
-                if sode.get('antivalu') is not None:
-                    if tagfilter is not None and form == 'syn:tag' and tagfilter(node.ndef[1]):
-                        await asyncio.sleep(0)
-                        continue
+                    addedits = editor.getNodeEdits()
+                    if addedits:
+                        await runt.view.parent.storNodeEdits(addedits, meta=meta)
 
-                    if not doapply:
-                        await runt.printf(f'{nodeiden} delete {form} = {node.repr()}')
-                    else:
-                        protonode = await editor.getNodeByNid(node.nid)
-                        if protonode is None:
-                            await asyncio.sleep(0)
-                            continue
+                    editor.clear()
 
-                        await protonode.delEdgesN2(meta=meta)
-                        await protonode.delete()
+                    if not self.opts.wipe:
+                        subedits = [(s_common.int64un(node.nid), node.form.name, [(s_layer.EDIT_NODE_TOMB_DEL, ())])]
+                        await runt.view.saveNodeEdits(subedits, meta=meta)
 
-                        addedits = editor.getNodeEdits()
-                        if addedits:
-                            await runt.view.parent.storNodeEdits(addedits, meta=meta)
+                return
 
-                        if not self.opts.wipe:
-                            subedits = [(s_common.int64un(node.nid), node.form.name, [(s_layer.EDIT_NODE_TOMB_DEL, ())])]
-                            await runt.view.saveNodeEdits(subedits, meta=meta)
+            if (valu := sode.get('valu')) is not None:
 
-                    continue
+                if tagfilter is not None and form == 'syn:tag' and tagfilter(valu[0]):
+                    await asyncio.sleep(0)
+                    return
 
-                if (valu := sode.get('valu')) is not None:
+                ctime = sode['meta']['created'][0]
 
-                    if tagfilter is not None and form == 'syn:tag' and tagfilter(valu[0]):
-                        await asyncio.sleep(0)
-                        continue
-
-                    ctime = sode['meta']['created'][0]
-
-                    if not doapply:
-                        await runt.printf(f'{nodeiden} {form} = {node.repr()}')
-                        mtyp = self.runt.model.metatypes['created']
-                        await runt.printf(f'{nodeiden} {form}.created = {mtyp.repr(ctime)}')
-                    else:
-                        delnode = True
-                        try:
-                            nval = valu[0]
-                            norm, norminfo = await node.form.type.normFromTypedValu(nval, opts=editor.view.normopts)
-                            protonode = await editor.addNode(form, norm, norminfo=norminfo)
-                            if protonode.node is not None and protonode.node.valu() != nval:
-                                await protonode.setValue(nval)
-
-                        except (s_exc.BadTypeValu, s_exc.IsDeprLocked) as e:
-                            await runt.warn(e.errinfo.get('mesg'))
-                            await asyncio.sleep(0)
-                            continue
-
-                        await protonode.setMeta('created', ctime)
-
-                elif doapply:
+                if not doapply:
+                    await runt.printf(f'{nodeiden} {form} = {node.repr()}')
+                    mtyp = self.runt.model.metatypes['created']
+                    await runt.printf(f'{nodeiden} {form}.created = {mtyp.repr(ctime)}')
+                else:
+                    delnode = True
                     try:
-                        protonode = await editor.addNode(form, node.ndef[1], norminfo={})
+                        nval = valu[0]
+                        norm, norminfo = await node.form.type.normFromTypedValu(nval, opts=editor.view.normopts)
+                        protonode = await editor.addNode(form, norm, norminfo=norminfo)
+                        if protonode.node is not None and protonode.node.valu() != nval:
+                            await protonode.setValue(nval)
+
                     except (s_exc.BadTypeValu, s_exc.IsDeprLocked) as e:
+                        editor.clear()
                         await runt.warn(e.errinfo.get('mesg'))
                         await asyncio.sleep(0)
-                        continue
+                        return
 
-                for name, (valu, stortype, virts) in sode.get('props', {}).items():
+                    await protonode.setMeta('created', ctime)
 
-                    prop = node.form.prop(name)
-                    if propfilter is not None:
-                        if propfilter(prop.full):
-                            continue
-
-                    if prop.info.get('computed'):
-                        if doapply:
-                            # re-derived by destination ctor; skip the set but clean up source layer
-                            if not self.opts.wipe:
-                                subs.append((s_layer.EDIT_PROP_DEL, (name,)))
-                            continue
-
-                    if not doapply:
-                        valurepr = prop.type.repr(valu)
-                        await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
-                    else:
-                        # hand back a typed value carrying the virts it was stored with,
-                        # rather than the raw stored norm: an array's members are typed
-                        # (typename, valu) tuples which norm() cannot re-read, and a bare
-                        # value arrives with no virts for the setter to preserve. tostor()
-                        # then converts as the storm edit path does, so an array arrives
-                        # as a tuple of typed members rather than a List primitive
-                        valu = await s_stormtypes.tostor(prop.type.tostorm(valu, virts=virts))
-
-                        await protonode.set(name, valu)
-                        if not self.opts.wipe:
-                            subs.append((s_layer.EDIT_PROP_DEL, (name,)))
-
-                for name in sode.get('antiprops', {}).keys():
-                    if not doapply:
-                        await runt.printf(f'{nodeiden} delete {form}:{name}')
-                    else:
-                        await protonode.pop(name)
-                        if not self.opts.wipe:
-                            subs.append((s_layer.EDIT_PROP_TOMB_DEL, (name,)))
-
-            if doapply and protonode is None:
+            elif doapply:
                 try:
                     protonode = await editor.addNode(form, node.ndef[1], norminfo={})
                 except (s_exc.BadTypeValu, s_exc.IsDeprLocked) as e:
                     await runt.warn(e.errinfo.get('mesg'))
                     await asyncio.sleep(0)
+                    return
+
+            for name, (valu, stortype, virts) in sode.get('props', {}).items():
+
+                prop = node.form.prop(name)
+                if propfilter is not None:
+                    if propfilter(prop.full):
+                        continue
+
+                if prop.info.get('computed'):
+                    if doapply:
+                        # re-derived by destination ctor; skip the set but clean up source layer
+                        if not self.opts.wipe:
+                            subs.append((s_layer.EDIT_PROP_DEL, (name,)))
+                        continue
+
+                if not doapply:
+                    valurepr = prop.type.repr(valu)
+                    await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
+                else:
+                    # hand back a typed value carrying the virts it was stored with,
+                    # rather than the raw stored norm: an array's members are typed
+                    # (typename, valu) tuples which norm() cannot re-read, and a bare
+                    # value arrives with no virts for the setter to preserve. tostor()
+                    # then converts as the storm edit path does, so an array arrives
+                    # as a tuple of typed members rather than a List primitive
+                    valu = await s_stormtypes.tostor(prop.type.tostorm(valu, virts=virts))
+
+                    await protonode.set(name, valu)
+                    if not self.opts.wipe:
+                        subs.append((s_layer.EDIT_PROP_DEL, (name,)))
+
+            for name in sode.get('antiprops', {}).keys():
+                if not doapply:
+                    await runt.printf(f'{nodeiden} delete {form}:{name}')
+                else:
+                    await protonode.pop(name)
+                    if not self.opts.wipe:
+                        subs.append((s_layer.EDIT_PROP_TOMB_DEL, (name,)))
+
+        if doapply and protonode is None:
+            try:
+                protonode = await editor.addNode(form, node.ndef[1], norminfo={})
+            except (s_exc.BadTypeValu, s_exc.IsDeprLocked) as e:
+                await runt.warn(e.errinfo.get('mesg'))
+                await asyncio.sleep(0)
+                return
+
+        if not notags:
+            for tag, valu in sode.get('tags', {}).items():
+
+                if tagfilter is not None and tagfilter(tag):
                     continue
 
-            if not notags:
-                for tag, valu in sode.get('tags', {}).items():
+                if not doapply:
+                    valurepr = ''
+                    if valu != (None, None, None):
+                        tagrepr = runt.model.type('ival').repr(valu)
+                        valurepr = f' = {tagrepr}'
+                    await runt.printf(f'{nodeiden} {form}#{tag}{valurepr}')
+                else:
+                    await protonode.addTag(tag, valu)
+                    if not self.opts.wipe:
+                        subs.append((s_layer.EDIT_TAG_DEL, (tag,)))
 
-                    if tagfilter is not None and tagfilter(tag):
-                        continue
+            for tag in sode.get('antitags', {}).keys():
 
+                if tagfilter is not None and tagfilter(tag):
+                    continue
+
+                if not doapply:
+                    await runt.printf(f'{nodeiden} delete {form}#{tag}')
+                else:
+                    await protonode.delTag(tag)
+                    if not self.opts.wipe:
+                        subs.append((s_layer.EDIT_TAG_TOMB_DEL, (tag,)))
+
+            for tag, tagdict in sode.get('tagprops', {}).items():
+
+                if tagfilter is not None and tagfilter(tag):
+                    continue
+
+                for prop, (valu, stortype, virts) in tagdict.items():
                     if not doapply:
-                        valurepr = ''
-                        if valu != (None, None, None):
-                            tagrepr = runt.model.type('ival').repr(valu)
-                            valurepr = f' = {tagrepr}'
-                        await runt.printf(f'{nodeiden} {form}#{tag}{valurepr}')
+                        valurepr = repr(valu)
+                        await runt.printf(f'{nodeiden} {form}#{tag}:{prop} = {valurepr}')
                     else:
-                        await protonode.addTag(tag, valu)
+                        # as with a property above, the stored norm is handed back as
+                        # a typed value so its virts ride along with it
+                        tptype = core.model.reqTagProp(prop).type
+                        tpvalu = await s_stormtypes.tostor(tptype.tostorm(valu, virts=virts))
+                        await protonode.setTagProp(tag, prop, tpvalu)
                         if not self.opts.wipe:
-                            subs.append((s_layer.EDIT_TAG_DEL, (tag,)))
+                            subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop)))
 
-                for tag in sode.get('antitags', {}).keys():
+            for tag, tagdict in sode.get('antitagprops', {}).items():
 
-                    if tagfilter is not None and tagfilter(tag):
-                        continue
+                if tagfilter is not None and tagfilter(tag):
+                    continue
 
+                for prop in tagdict.keys():
                     if not doapply:
-                        await runt.printf(f'{nodeiden} delete {form}#{tag}')
+                        await runt.printf(f'{nodeiden} delete {form}#{tag}:{prop}')
                     else:
-                        await protonode.delTag(tag)
+                        await protonode.delTagProp(tag, prop)
                         if not self.opts.wipe:
-                            subs.append((s_layer.EDIT_TAG_TOMB_DEL, (tag,)))
+                            subs.append((s_layer.EDIT_TAGPROP_TOMB_DEL, (tag, prop)))
 
-                for tag, tagdict in sode.get('tagprops', {}).items():
+        if not onlytags or form == 'syn:tag':
 
-                    if tagfilter is not None and tagfilter(tag):
-                        continue
-
-                    for prop, (valu, stortype, virts) in tagdict.items():
-                        if not doapply:
-                            valurepr = repr(valu)
-                            await runt.printf(f'{nodeiden} {form}#{tag}:{prop} = {valurepr}')
-                        else:
-                            # as with a property above, the stored norm is handed back as
-                            # a typed value so its virts ride along with it
-                            tptype = core.model.reqTagProp(prop).type
-                            tpvalu = await s_stormtypes.tostor(tptype.tostorm(valu, virts=virts))
-                            await protonode.setTagProp(tag, prop, tpvalu)
-                            if not self.opts.wipe:
-                                subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop)))
-
-                for tag, tagdict in sode.get('antitagprops', {}).items():
-
-                    if tagfilter is not None and tagfilter(tag):
-                        continue
-
-                    for prop in tagdict.keys():
-                        if not doapply:
-                            await runt.printf(f'{nodeiden} delete {form}#{tag}:{prop}')
-                        else:
-                            await protonode.delTagProp(tag, prop)
-                            if not self.opts.wipe:
-                                subs.append((s_layer.EDIT_TAGPROP_TOMB_DEL, (tag, prop)))
-
-            if not onlytags or form == 'syn:tag':
-
-                async for abrv, valu, tomb in s_coro.pause(layr0.iterNodeData(node.nid)):
-                    name = core.getAbrvIndx(abrv)[0]
-                    if tomb:
-                        if not doapply:
-                            await runt.printf(f'{nodeiden} delete {form} DATA {name}')
-                        else:
-                            await protonode.popData(name)
-                            if not self.opts.wipe:
-                                subs.append((s_layer.EDIT_NODEDATA_TOMB_DEL, (name,)))
+            async for abrv, valu, tomb in s_coro.pause(layr0.iterNodeData(node.nid)):
+                name = core.getAbrvIndx(abrv)[0]
+                if tomb:
+                    if not doapply:
+                        await runt.printf(f'{nodeiden} delete {form} DATA {name}')
                     else:
-                        if not doapply:
-                            valurepr = repr(valu)
-                            await runt.printf(f'{nodeiden} {form} DATA {name} = {valurepr}')
-                        else:
-                            await protonode.setData(name, valu)
-                            if not self.opts.wipe:
-                                subs.append((s_layer.EDIT_NODEDATA_DEL, (name,)))
-
-                async for abrv, n2nid, tomb in s_coro.pause(layr0.iterNodeEdgesN1(node.nid)):
-                    verb = core.getAbrvIndx(abrv)[0]
-                    if tomb:
-                        if not doapply:
-                            dest = core.getNidNdef(n2nid)
-                            await runt.printf(f'{nodeiden} delete {form} -({verb})> {dest}')
-                        else:
-                            await protonode.delEdge(verb, n2nid)
-                            if not self.opts.wipe:
-                                subs.append((s_layer.EDIT_EDGE_TOMB_DEL, (verb, s_common.int64un(n2nid))))
+                        await protonode.popData(name)
+                        if not self.opts.wipe:
+                            subs.append((s_layer.EDIT_NODEDATA_TOMB_DEL, (name,)))
+                else:
+                    if not doapply:
+                        valurepr = repr(valu)
+                        await runt.printf(f'{nodeiden} {form} DATA {name} = {valurepr}')
                     else:
-                        if not doapply:
-                            dest = core.getNidNdef(n2nid)
-                            await runt.printf(f'{nodeiden} {form} +({verb})> {dest}')
-                        else:
-                            await protonode.addEdge(verb, n2nid)
-                            if not self.opts.wipe:
-                                subs.append((s_layer.EDIT_EDGE_DEL, (verb, s_common.int64un(n2nid))))
+                        await protonode.setData(name, valu)
+                        if not self.opts.wipe:
+                            subs.append((s_layer.EDIT_NODEDATA_DEL, (name,)))
 
-            if delnode and not self.opts.wipe:
-                subs.append((s_layer.EDIT_NODE_DEL, ()))
+            async for abrv, n2nid, tomb in s_coro.pause(layr0.iterNodeEdgesN1(node.nid)):
+                verb = core.getAbrvIndx(abrv)[0]
+                if tomb:
+                    if not doapply:
+                        dest = core.getNidNdef(n2nid)
+                        await runt.printf(f'{nodeiden} delete {form} -({verb})> {dest}')
+                    else:
+                        await protonode.delEdge(verb, n2nid)
+                        if not self.opts.wipe:
+                            subs.append((s_layer.EDIT_EDGE_TOMB_DEL, (verb, s_common.int64un(n2nid))))
+                else:
+                    if not doapply:
+                        dest = core.getNidNdef(n2nid)
+                        await runt.printf(f'{nodeiden} {form} +({verb})> {dest}')
+                    else:
+                        await protonode.addEdge(verb, n2nid)
+                        if not self.opts.wipe:
+                            subs.append((s_layer.EDIT_EDGE_DEL, (verb, s_common.int64un(n2nid))))
 
-            if doapply:
-                await editor.flushEdits()
+        if delnode and not self.opts.wipe:
+            subs.append((s_layer.EDIT_NODE_DEL, ()))
 
-                if subs:
-                    subedits = [(s_common.int64un(node.nid), node.form.name, subs)]
-                    await runt.view.saveNodeEdits(subedits, meta=meta)
+        if doapply:
+            await editor.flushEdits()
 
-            if node.hasvalu():
-                yield node, path
+            if subs:
+                subedits = [(s_common.int64un(node.nid), node.form.name, subs)]
+                await runt.view.saveNodeEdits(subedits, meta=meta)
 
-        runt.view.clearCache()
-        if doapply and self.opts.wipe:
-            await runt.view.swapLayer()
+        if node.hasvalu():
+            yield node, path
 
 class MoveNodesCmd(Cmd):
     '''
@@ -5032,7 +5067,7 @@ class DelNodeCmd(Cmd):
                                 if await n2.delEdge(verb, node.nid) and len(editor.protonodes) >= 1000:
                                     meta = editor.getEditorMeta()
                                     await self.runt.view.saveNodeEdits(editor.getNodeEdits(), meta=meta)
-                                    editor.protonodes.clear()
+                                    editor.clear()
 
             if delbytes and node.form.name == 'file:bytes':
                 sha256 = node.get('sha256')[1]
@@ -5388,6 +5423,7 @@ class ViewExecCmd(Cmd):
     events = (
         'print',
         'warn',
+        'input',
         'storm:fire',
         'csv:row',
     )
@@ -6236,6 +6272,7 @@ class RunAsCmd(Cmd):
     events = (
         'print',
         'warn',
+        'input',
         'storm:fire',
         'csv:row',
     )

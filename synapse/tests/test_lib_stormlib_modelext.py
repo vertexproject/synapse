@@ -51,6 +51,39 @@ class StormtypesModelextTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('_test:typeform', 'foo bar'))
 
+            # extended props may declare a removal date for a deprecation
+            await core.callStorm('''
+                $propinfo = ({"doc": "An old prop.", "deprecated": {"eoldate": "2027-01-01"}})
+                $lib.model.ext.addFormProp(test:int, _old, (int, ({})), $propinfo)
+            ''')
+            msgs = await core.stormlist('[ test:int=1234 :_old=10 ]')
+            self.stormIsInWarn('The property test:int:_old is deprecated and will be removed on or after 2027-01-01.', msgs)
+
+            # bad deprecation info is rejected before it reaches the nexus log
+            nexsindx = await core.getNexsIndx()
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('''
+                    $propinfo = ({"doc": "A bad prop.", "deprecated": {"eoldate": "newp"}})
+                    $lib.model.ext.addFormProp(test:int, _bad, (int, ({})), $propinfo)
+                ''')
+
+            self.none(core.model.prop('test:int:_bad'))
+            self.none(core.model.form('test:int').prop('_bad'))
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('$lib.model.ext.addFormProp(test:int, _bad, (int, ({})), ({"deprecated": {}}))')
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('$lib.model.ext.addFormProp(test:int, _bad, (int, ({})), ({"deprecated": 1}))')
+
+            self.none(core.model.form('test:int').prop('_bad'))
+            self.eq(nexsindx, await core.getNexsIndx())
+
+            # a rejected deprecation leaves nothing behind to block a valid retry
+            await core.callStorm('$lib.model.ext.addFormProp(test:int, _bad, (int, ({})), ({"deprecated": {"eoldate": "2027-01-01"}}))')
+            self.eq({'eoldate': '2027-01-01'}, core.model.prop('test:int:_bad').deprecated)
+
             with self.raises(s_exc.DupTypeName):
                 q = '$lib.model.ext.addType(_test:type, str, ({}), ({}))'
                 await core.callStorm(q)
@@ -157,6 +190,33 @@ class StormtypesModelextTest(s_test.SynTest):
             with self.raises(s_exc.BadPropDef):
                 q = '''$lib.model.ext.addTagProp(some^score, (int, ({})), ({}))'''
                 await core.callStorm(q)
+
+            # Prop names follow the Storm grammar, so a part may start with a digit but may not contain "."
+            q = '''$lib.model.ext.addFormProp(test:str, _iso:3166, (str, ({})), ({}))'''
+            self.none(await core.callStorm(q))
+
+            q = '''$lib.model.ext.addTagProp(_iso:3166, (int, ({})), ({}))'''
+            self.none(await core.callStorm(q))
+
+            self.len(1, await core.nodes('[ test:str=iso :_iso:3166=us +#foo:_iso:3166=10 ]'))
+            self.len(1, await core.nodes('test:str:_iso:3166=us +#foo:_iso:3166=10'))
+
+            with self.raises(s_exc.BadPropDef):
+                q = '''$lib.model.ext.addFormProp(test:str, _iso.3166, (str, ({})), ({}))'''
+                await core.callStorm(q)
+
+            with self.raises(s_exc.BadPropDef):
+                q = '''$lib.model.ext.addTagProp(_iso.3166, (int, ({})), ({}))'''
+                await core.callStorm(q)
+
+            q = 'return($lib.model.ext.addExtModel($model))'
+            with self.raises(s_exc.BadPropDef):
+                opts = {'vars': {'model': {'props': (('test:str', '_iso.3166', ('str', {}), {}),)}}}
+                await core.callStorm(q, opts=opts)
+
+            with self.raises(s_exc.BadPropDef):
+                opts = {'vars': {'model': {'tagprops': (('_iso.3166', ('int', {}), {}),)}}}
+                await core.callStorm(q, opts=opts)
 
             with self.raises(s_exc.BadPropDef):
                 q = '''$lib.model.ext.addTagProp(_someones:_score^value, (int, ({})), ({}))'''
@@ -580,15 +640,43 @@ class StormtypesModelextTest(s_test.SynTest):
             self.isin('_test:iface:client:proc', core.model.ifaceprops['inet:proto:request:client:proc'])
             self.isin('_test:iface:server', core.model.ifaceprops['inet:proto:link:server'])
 
+            # extended forms keep deprecated interface props until they are removed
+            await core.callStorm('''
+                $forminfo = ({"interfaces": [["it:host:activity", {}]]})
+                $lib.model.ext.addForm(_test:hostact, guid, ({}), $forminfo)
+            ''')
+            self.isin('_test:hostact:exe', core.model.ifaceprops['it:host:exec:exe'])
+            self.eq({'eoldate': '2027-01-01'}, core.model.prop('_test:hostact:exe').deprecated)
+            self.eq({'eoldate': '2027-01-01'}, core.model.prop('_test:hostact:sandbox:file').deprecated)
+
+            msgs = await core.stormlist('[ _test:hostact=* :exe=* as file:bytes ]')
+            self.stormIsInWarn('The property _test:hostact:exe is deprecated and will be removed on or after 2027-01-01.', msgs)
+
+            await core.callStorm('_test:hostact | delnode | $lib.model.ext.delForm(_test:hostact)')
+            self.none(core.model.form('_test:hostact'))
+
             q = '$lib.model.ext.delForm(_test:iface)'
             with self.raises(s_exc.CantDelForm) as exc:
                 await core.callStorm(q)
             self.eq('Form has extended properties: _tick', exc.exception.get('mesg'))
 
+            # props found through an interface by a lookup are not kept after they are deleted
+            await core.callStorm('''
+                $lib.model.ext.addFormProp(meta:note, _actors, (entity:actor, ({})), ({"array": ({})}))
+            ''')
+            await core.nodes('[ entity:campaign=* ps:person=* ]')
+            self.len(0, await core.nodes('entity:campaign ps:person <- *'))
+
             await core.callStorm('''
                 $lib.model.ext.delFormProp(_test:iface, _tick)
                 $lib.model.ext.delForm(_test:iface)
+                $lib.model.ext.delFormProp(meta:note, _actors)
             ''')
+
+            self.notin('_test:iface:activity', core.model.propsbytype['entity:campaign'])
+            self.notin('meta:note:_actors', core.model.arraysbytype['ps:person'])
+            self.len(0, await core.nodes('entity:campaign ps:person <- *'))
+            self.len(0, await core.nodes('entity:campaign ps:person | delnode'))
 
             self.none(core.model.form('_test:iface'))
             self.none(core.model.prop('_test:iface:flow'))

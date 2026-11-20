@@ -184,6 +184,14 @@ class CryptoModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
+            display = core.model.type('crypto:currency:address').info.get('display')
+            self.eq(['chain::symbol', 'iden'],
+                    [col['opts']['name'] for col in display['columns']])
+
+            display = core.model.type('crypto:currency:chain').info.get('display')
+            self.eq(['symbol', 'id'],
+                    [col['opts']['name'] for col in display['columns']])
+
             nodes = await core.nodes('[ crypto:currency:chain=({"symbol": "btc", "id": "bip122:000000000019d6689c085ae165831e93"}) :name=Bitcoin ]')
             self.len(1, nodes)
             btciden = nodes[0].ndef[1]
@@ -726,6 +734,34 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.true(nodes[0].form.implements('meta:usable'))
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[crypto:hash:sha512=$valu]', opts={'vars': {'valu': TEST_MD5}})
+
+            lmhash = 'aad3b435b51404eeaad3b435b51404ee'
+            nodes = await core.nodes('[crypto:hash:lm=$valu]', opts={'vars': {'valu': lmhash.upper()}})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('crypto:hash:lm', lmhash))
+            self.true(nodes[0].form.implements('crypto:hash'))
+            self.false(nodes[0].form.implements('meta:usable'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[crypto:hash:lm=$valu]', opts={'vars': {'valu': TEST_SHA1}})
+
+            ntlmhash = '31d6cfe0d16ae931b73c59d7e0c089c0'
+            nodes = await core.nodes('[crypto:hash:ntlm=$valu]', opts={'vars': {'valu': ntlmhash.upper()}})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('crypto:hash:ntlm', ntlmhash))
+            self.true(nodes[0].form.implements('crypto:hash'))
+            self.false(nodes[0].form.implements('meta:usable'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[crypto:hash:ntlm=$valu]', opts={'vars': {'valu': 'zz' * 16}})
+
+            nodes = await core.nodes('''
+                [ crypto:salthash=*
+                    :hash={[ crypto:hash:ntlm=$valu ]}
+                    :value={[ auth:passwd="" ]}
+                ]
+            ''', opts={'vars': {'valu': ntlmhash}})
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'hash', ntlmhash)
+            self.len(1, await core.nodes('crypto:salthash :hash -> crypto:hash:ntlm'))
 
             ssdeep_hash = '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL'
             nodes = await core.nodes('[(crypto:hash:ssdeep=$valu)]', opts={'vars': {'valu': ssdeep_hash}})

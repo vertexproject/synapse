@@ -29,6 +29,7 @@ import socket
 import asyncio
 import inspect
 import logging
+import tarfile
 import zipfile
 import tempfile
 import unittest
@@ -1480,21 +1481,25 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
     def skip(self, mesg):
         raise unittest.SkipTest(mesg)
 
+    def getRegrRoot(self):
+        '''
+        Get the directory which holds the regression cells, one tar per cell
+        under a subdirectory per service ( eg cortexes/<name>.tar.gz or axons/<name>.tar.gz ).
+        '''
+        return s_common.genpath(os.path.dirname(__file__), 'regression')
+
     @contextlib.contextmanager
     def getRegrDir(self, *path):
+        '''
+        Extract a regression cell into a temporary directory and yield its path.
+        '''
+        tarpath = os.path.join(self.getRegrRoot(), *path) + '.tar.gz'
+        if not os.path.isfile(tarpath):  # pragma: no cover
+            raise Exception(f'regression cell does not exist: {tarpath}')
 
-        regr = os.getenv('SYN_REGRESSION_REPO')
-        if regr is None:  # pragma: no cover
-            raise unittest.SkipTest('SYN_REGRESSION_REPO is not set')
-
-        regr = s_common.genpath(regr)
-
-        if not os.path.isdir(regr):  # pragma: no cover
-            raise Exception('SYN_REGRESSION_REPO is not a dir')
-
-        dirn = os.path.join(regr, *path)
-
-        with self.getTestDir(copyfrom=dirn) as regrdir:
+        with self.getTestDir() as regrdir:
+            with tarfile.open(tarpath, 'r:gz') as tar:
+                tar.extractall(regrdir, filter='data')
             yield regrdir
 
     async def waitForActiveMigration(self, core):
@@ -2574,8 +2579,15 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         Args:
             exc: Exception class to catch
             gfunc: async Generator
+
+        Notes:
+            Deprecated and will be removed on 2026-12-31. Use
+            `with self.raises(exc): await alist(genr)` instead.
         '''
-        await self.asyncraises(exc, alist(gfunc))
+        s_common.deprdate('SynTest.agenraises()', '2026-12-31')
+
+        with self.raises(exc):
+            await alist(gfunc)
 
     @contextlib.contextmanager
     def setSynDir(self, dirn):
@@ -2763,6 +2775,15 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         return self.assertRaises(*args, **kwargs)
 
     async def asyncraises(self, exc, coro):
+        '''
+        Assert that awaiting a coroutine raises an exception.
+
+        Notes:
+            Deprecated and will be removed on 2026-12-31. Use
+            `with self.raises(exc): await coro` instead.
+        '''
+        s_common.deprdate('SynTest.asyncraises()', '2026-12-31')
+
         with self.assertRaises(exc):
             await coro
 

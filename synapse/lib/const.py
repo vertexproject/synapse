@@ -54,6 +54,8 @@ MAX_FIELD_SIZE = kibibyte * 64
 
 # Axon constants
 AXON_READY_TIMEOUT = 300  # seconds
+# the current storage version of the Axon blob.lmdb slab
+AXON_BLOB_STORVERS = 1
 
 # Socket constants
 UNIX_SOCKET_PATH_MAX = 103
@@ -66,6 +68,15 @@ STORM_BUILTIN_METHODS = ('__storm_init', '__storm_fini')
 # public names which every Storm class instance provides, and which a class
 # may therefore not declare as a method or set as an instance value.
 STORM_RESERVED_NAMES = ('fini',)
+
+# The default number of seconds before a Storm input request expires.
+STORM_INPUT_TIMEOUT = 300
+
+# The maximum number of seconds before a Storm input request expires.
+STORM_INPUT_TIMEOUT_MAX = 86400
+
+# The maximum nesting depth of view hooks.
+VIEW_HOOK_MAX_DEPTH = 256
 
 # Cell boot phases, in order.
 BOOT_PHASE_EARLY = 1

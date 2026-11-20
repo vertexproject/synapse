@@ -13,6 +13,7 @@ import synapse.datamodel as s_datamodel
 import synapse.lib.ast as s_ast
 import synapse.lib.parser as s_parser
 import synapse.lib.dyndeps as s_dyndeps
+import synapse.lib.processpool as s_processpool
 
 severities = ('high', 'medium', 'low')
 
@@ -1071,6 +1072,47 @@ def _rulePrintHttpResp(ctx):
                                      f'fields such as ${name}.code and ${name}.reason instead.')
 
 
+def splitRules(valu):
+    '''
+    Return the rule IDs or prefixes in a comma-separated string.
+    '''
+    return [v.strip() for v in valu.split(',') if v.strip()]
+
+def getRules():
+    '''
+    Return a dict for each registered rule, in rule ID order.
+    '''
+    return [{'rule': r.iden, 'name': r.name, 'severity': r.severity, 'default': r.default, 'desc': r.doc}
+            for r in rules.values()]
+
+def getRuleTable():
+    '''
+    Return the lines of a table of the registered rules, with the first line of each description.
+    '''
+    rows = [('ID', 'SEVERITY', 'DEFAULT', 'NAME', 'DESCRIPTION')]
+    for r in getRules():
+        desc = r['desc'].split('\n', 1)[0]
+        rows.append((r['rule'], r['severity'], 'yes' if r['default'] else 'no', r['name'], desc))
+
+    sizes = [max(len(row[i]) for row in rows) for i in range(4)]
+
+    lines = []
+    for row in rows:
+        cols = [valu.ljust(size) for valu, size in zip(row, sizes)]
+        lines.append('  '.join(cols + [row[4]]).rstrip())
+
+    return lines
+
+def getSummary(count):
+    '''
+    Return the summary line printed after count lint findings.
+    '''
+    if count == 0:
+        return 'All checks passed!'
+
+    noun = 'error' if count == 1 else 'errors'
+    return f'Found {count} {noun}.'
+
 class StormLinter:
     '''
     Lint Storm code with the registered rules.
@@ -1086,7 +1128,7 @@ class StormLinter:
     def __init__(self, select=None, ignore=(), enable=(), model=None):
 
         if select is None:
-            idens = {r.iden for r in rules.values() if r.default}
+            idens = {r['rule'] for r in getRules() if r['default']}
         else:
             idens = self._resolve(select)
 
@@ -1147,3 +1189,22 @@ class StormLinter:
             return True
 
         return any(finding.rule.startswith(c) for c in re.split(r'[\s,]+', codes))
+
+# fork pool target: its arguments and return value must be pickleable
+def _lintStorm(text, idens, names):
+    linter = StormLinter(select=())
+    linter.rules = [rules[iden] for iden in idens]
+    linter.names = names
+    return [f._asdict() for f in linter.lint(text)]
+
+async def lintAsync(text, select=None, ignore=(), enable=(), model=None):
+    '''
+    Lint Storm text in the shared forked process pool and return a dict for each finding.
+
+    The arguments are those of StormLinter, and an unknown rule ID or prefix raises BadArg
+    before forking.
+    '''
+    linter = StormLinter(select=select, ignore=ignore, enable=enable)
+    idens = [r.iden for r in linter.rules]
+    names = _getModelNames(model)
+    return await s_processpool.semafork(_lintStorm, text, idens, names)

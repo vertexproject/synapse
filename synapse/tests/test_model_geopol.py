@@ -5,6 +5,11 @@ class GeoPolModelTest(s_t_utils.SynTest):
 
     async def test_geopol_country(self):
         async with self.getTestCore() as core:
+
+            display = core.model.type('pol:country').info.get('display')
+            self.eq(['name', 'names', 'code', 'codes', 'tld'],
+                    [col['opts']['name'] for col in display['columns']])
+
             nodes = await core.nodes('''
                 [ pol:country=*
                     :code=vi
@@ -78,21 +83,32 @@ class GeoPolModelTest(s_t_utils.SynTest):
             t = core.model.type('iso:3166:alpha2')
 
             self.eq(await t.norm('Fo'), ('fo', {}))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('A'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('asD'))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('A')
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('asD')
 
             t = core.model.type('iso:3166:alpha3')
 
             self.eq(await t.norm('Foo'), ('foo', {}))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('As'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('asdF'))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('As')
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('asdF')
 
             t = core.model.type('iso:3166:numeric3')
             self.eq(await t.norm('010'), ('010', {}))
             self.eq(await t.norm('840'), ('840', {}))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('12'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('1234'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('abc'))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('12')
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('1234')
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('abc')
 
     async def test_model_geopol_election(self):
         async with self.getTestCore() as core:

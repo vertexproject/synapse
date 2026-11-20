@@ -1184,8 +1184,8 @@ that the parent already reflects the merged data the instant this returns; re-qu
     @tool(desc=_storm_lint_desc, schema=_storm_lint_schema)
     async def storm_lint(self, query, select=None, ignore=(), enable=()):
         mdef = await (await self.getCore()).getModelDict()
-        linter = s_stormlint.StormLinter(select=select, ignore=ignore, enable=enable, model=mdef)
-        return {'findings': [f._asdict() for f in linter.lint(query)]}
+        findings = await s_stormlint.lintAsync(query, select=select, ignore=ignore, enable=enable, model=mdef)
+        return {'findings': findings}
 
     @tool(desc=_model_find_desc, schema=_model_find_schema)
     async def model_find(self, pattern):

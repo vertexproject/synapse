@@ -249,6 +249,33 @@ class CommonTest(s_t_utils.SynTest):
         self.len(32, iden3)
         self.eq(iden3, evalu)
 
+    def test_common_getitemhash(self):
+
+        item = {'foo': 'bar', 'baz': [1, 2, 3]}
+
+        hexd = s_common.getItemHash(item)
+        self.isinstance(hexd, str)
+        self.len(64, hexd)
+
+        # the item is flattened first, so the hash depends on the content rather than on
+        # the key order, or on a list where a tuple was used
+        self.eq(hexd, s_common.getItemHash({'baz': (1, 2, 3), 'foo': 'bar'}))
+
+        self.ne(hexd, s_common.getItemHash({'foo': 'bar', 'baz': [1, 2, 4]}))
+        self.ne(hexd, s_common.getItemHash({'foo': 'bar'}))
+
+        # it is stable across calls, which is what makes it usable as a key
+        self.eq(hexd, s_common.getItemHash(item))
+
+        # the value is packed before it is hashed, so this is sha256(msgpack('0')) rather
+        # than sha256('0')
+        self.eq('6a52cc13d78ca3915cacc662b84fcf1c99cec0fcafb9ffdf42c357da190f63ee',
+                s_common.getItemHash('0'))
+
+        # only the primitives flatten() accepts may be hashed
+        with self.raises(s_exc.BadDataValu):
+            s_common.getItemHash({'foo': set()})
+
     def test_common_spin(self):
         s = '1234'
         gen = iter(s)

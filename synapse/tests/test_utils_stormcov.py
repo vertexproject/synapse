@@ -524,19 +524,24 @@ class TestUtilsStormcov(s_utils.SynTest):
 
             # Absolute paths are kept, entries are ordered by line, and repeats or blank text are dropped
             abspath = os.path.join(dirn, 'other', 'app.ts')
-            good = write('good.json', s_json.dumps({'queries': [
+            queries = [
                 {'path': abspath, 'line': 9, 'text': 'inet:fqdn=b.link'},
                 {'path': 'app.ts', 'line': 3, 'text': 'inet:fqdn=a.link'},
                 {'path': 'app.ts', 'line': 3, 'text': 'inet:fqdn=a.link'},
                 {'path': 'app.ts', 'line': 1, 'text': '  '},
                 {'path': 'x/../other/app.ts', 'line': 2, 'text': 'inet:fqdn=c.link'},
-            ]}).decode())
+            ]
+            good = write('good.json', s_json.dumps({'queries': queries}).decode())
 
             hosts = s_stormcov.loadManifests([good])
             self.eq(hosts, {
                 abspath: [('inet:fqdn=c.link', 1), ('inet:fqdn=b.link', 8)],
                 os.path.join(dirn, 'app.ts'): [('inet:fqdn=a.link', 2)],
             })
+
+            # A .jsonl manifest holds one query per line, and blank lines are skipped
+            goodl = write('good.jsonl', '\n\n'.join(s_json.dumps(q).decode() for q in queries) + '\n')
+            self.eq(s_stormcov.loadManifests([goodl]), hosts)
 
             # A manifest which is missing, is not JSON or does not match the schema is skipped
             missing = os.path.join(dirn, 'missing.json')
@@ -546,11 +551,18 @@ class TestUtilsStormcov(s_utils.SynTest):
             zeroline = write('zeroline.json', '{"queries": [{"path": "a.ts", "line": 0, "text": "inet:fqdn"}]}')
             extra = write('extra.json', '{"queries": [], "newp": 1}')
             extraq = write('extraq.json', '{"queries": [{"path": "a.ts", "line": 1, "text": "x", "newp": 1}]}')
+            badjsonl = write('bad.jsonl', '{"path": "a.ts", "line": 1, "text": "x"}\n{"path": \n')
+            nolinel = write('noline.jsonl', '\n{"path": "a.ts", "text": "inet:fqdn"}\n')
 
-            for path in (missing, badjson, empty, noline, zeroline, extraq):
+            for path in (missing, badjson, empty, noline, zeroline, extraq, badjsonl, nolinel):
                 with self.getLoggerStream('synapse.utils.stormcov') as stream:
                     self.eq(s_stormcov.loadManifests([path]), {})
                 await stream.expect(f'Skipping invalid storm manifest {path}', timeout=1)
+
+            # A .jsonl error names its line
+            with self.getLoggerStream('synapse.utils.stormcov') as stream:
+                s_stormcov.loadManifests([nolinel])
+            await stream.expect(f"{nolinel}: line 2: data must contain ['line'] properties", timeout=1)
 
             # Unknown top level keys are allowed, and the others still load
             self.eq(s_stormcov.loadManifests([extra, missing, good]), hosts)
@@ -562,8 +574,12 @@ class TestUtilsStormcov(s_utils.SynTest):
                 {'path': 'app.ts', 'line': 7, 'text': 'inet:fqdn=b.link'},
             ]}).decode())
 
-            self.eq(s_stormcov.loadManifestSites([missing, badjson, sited]), {
+            sitedl = write('sited.jsonl', s_json.dumps(
+                {'path': 'app.ts', 'line': 9, 'text': 'inet:fqdn=c.link', 'site': 'app.ts:9:4'}).decode() + '\n')
+
+            self.eq(s_stormcov.loadManifestSites([missing, badjson, badjsonl, sited, sitedl]), {
                 'app.ts:3:4': (os.path.join(dirn, 'app.ts'), 'inet:fqdn=a.link', 2),
+                'app.ts:9:4': (os.path.join(dirn, 'app.ts'), 'inet:fqdn=c.link', 8),
             })
             self.eq(s_stormcov.loadManifestSites([good]), {})
 

@@ -147,6 +147,9 @@ modeldefs = (
                 ),
                 'props': (
 
+                    ('name', ('base:name', {}), {
+                        'doc': 'The name of the requirement.'}),
+
                     ('type', ('doc:requirement:type:taxonomy', {}), {
                         'doc': 'The type of requirement.'}),
 
@@ -214,6 +217,15 @@ modeldefs = (
                     ('doc:document', {}),
                     ('doc:published', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'published'}},
+                        {'type': 'prop', 'opts': {'name': 'publisher:name'}},
+                        {'type': 'prop', 'opts': {'name': 'creator:name'}},
+                        {'type': 'prop', 'opts': {'name': 'title'}},
+                        {'type': 'prop', 'opts': {'name': 'url'}},
+                    ),
+                },
                 'props': (),
                 'doc': 'A report.'}),
 
@@ -222,6 +234,7 @@ modeldefs = (
                 'interfaces': (
                     ('doc:document', {}),
                     ('doc:signable', {}),
+                    ('econ:budgetable', {}),
                     ('entity:activity', {}),
                 ),
                 'props': (),
@@ -235,6 +248,13 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of contract types.'}),
 
             ('doc:reference', ('guid', {}), {
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'source::name'}},
+                        {'type': 'prop', 'opts': {'name': 'source::title'}},
+                        {'type': 'prop', 'opts': {'name': 'doc:url'}},
+                    ),
+                },
                 'props': (
 
                     ('source', (

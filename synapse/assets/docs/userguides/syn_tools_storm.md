@@ -7,6 +7,7 @@ The Synapse Storm tool (commonly referred to as the **Storm CLI**) is a text-bas
 - [Connecting to a Cortex with the Storm CLI](syn_tools_storm.md#connecting-to-a-cortex-with-the-storm-cli)
 - [Connecting with the HTTP API](syn_tools_storm.md#connecting-with-the-http-api)
 - [Storm CLI Basics](syn_tools_storm.md#storm-cli-basics)
+- [Answering Input Requests](syn_tools_storm.md#answering-input-requests)
 - [Accessing External Commands](syn_tools_storm.md#accessing-external-commands)
 
 ## Connecting to a Cortex with the Storm CLI
@@ -75,6 +76,10 @@ To exit the Storm CLI, enter `!quit`:
 `storm> !quit`
 
 - The `!quit` command is technically an "external" (to Storm) command, so must be preceded by the bang (exclamation point) symbol.
+
+## Answering Input Requests
+
+A Storm query may request input from the caller with [`$lib.input.request()`](../stormtypes_libs.md#stormlibs-lib-input-request). When a query requests `text` input, the Storm CLI shows the prompt and reads a line at a `>` prompt, then sends the entered line as the reply and the query continues. Replies are not saved to the Storm CLI history and the `>` prompt does not offer Storm completions. Press Ctrl-D or Ctrl-C at that prompt to cancel the query instead. The Storm CLI warns about any other type of input request, which it can not answer.
 
 ## Accessing External Commands
 

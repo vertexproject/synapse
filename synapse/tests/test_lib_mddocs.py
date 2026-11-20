@@ -900,10 +900,12 @@ class MdDocsTest(s_test.SynTest):
         msgs = [
             'Sysctl values different than expected: foo',  # WARNINGS_IGNORE
             'Prop foo:bar is deprecated or using a deprecated type baz.',  # WARNINGS_ERROR
+            'The property foo:baz is deprecated and will be removed in 4.0.0',  # WARNINGS_ERROR
             'A totally new, never-seen-before problem.',  # neither list
         ]
         issues = s_mddocs._classifyWarnings(msgs)
         self.eq(['Prop foo:bar is deprecated or using a deprecated type baz.',
+                  'The property foo:baz is deprecated and will be removed in 4.0.0',
                   'unhandled warning: A totally new, never-seen-before problem.'], issues)
 
     def test_classifywarnings_ignores_expected_storm_fail_errors(self):
@@ -933,7 +935,10 @@ class MdDocsTest(s_test.SynTest):
         # clientv2 retries automatically and the storm calls still succeed.
         msgs = [
             "telepath clientv2 (tcp://root:****@127.0.0.1:41611/svc) encountered an error: "
-            "[Errno 111] Connect call failed ('127.0.0.1', 41611)",
+            "LinkErr: mesg=\"Unable to connect to tcp://127.0.0.1:41611: "
+            "[Errno 111] Connect call failed ('127.0.0.1', 41611)\" url='tcp://127.0.0.1:41611'",
+            "error in edits listen loop LinkShutDown: mesg='Remote peer disconnected (tcp://127.0.0.1:41611)' "
+            "url='tcp://127.0.0.1:41611'",
         ]
         self.eq([], s_mddocs._classifyWarnings(msgs))
 
@@ -1072,6 +1077,43 @@ class MdDocsTest(s_test.SynTest):
 
     def test_firstheading_none_when_no_headings(self):
         self.none(s_mddocs._firstHeading('just prose\n\nmore prose\n'))
+
+    def test_headingstoc_changelog_keys_headings_by_explicit_anchor(self):
+        text = '\n'.join((
+            '# Changelog',
+            '',
+            '## v2.0.0 - 2026-02-01',
+            '',
+            '<a id="v2-0-0-bugfixes"></a>',
+            '',
+            '### Bugfixes',
+            '',
+            '## v1.0.0 - 2026-01-01',
+            '',
+            '<a id="v1-0-0-bugfixes"></a>',
+            '### Bugfixes',
+            '',
+            'An anchor with prose between it and its heading does not name the heading.',
+            '<a id="stray"></a>',
+            'prose',
+            '### Notes',
+            '',
+        ))
+
+        kids = s_mddocs.headingsToc(text, 'changelog.md', 1)
+        self.eq(['changelog.md#v200---2026-02-01', 'changelog.md#v100---2026-01-01'], [k['href'] for k in kids])
+        self.eq(['changelog.md#v2-0-0-bugfixes'], [c['href'] for c in kids[0]['children']])
+        # a directory above the file name does not change which page this is
+        nested = s_mddocs.headingsToc(text, 'docs/changelog.md', 1)
+        self.eq(['docs/changelog.md#v2-0-0-bugfixes'], [c['href'] for c in nested[0]['children']])
+        self.eq(['changelog.md#v1-0-0-bugfixes', 'changelog.md#notes'],
+                [c['href'] for c in kids[1]['children']])
+
+        # every other page keeps the GFM slug, with its -1 dedup suffix
+        kids = s_mddocs.headingsToc(text, 'userguide.md', 1)
+        self.eq(['userguide.md#bugfixes'], [c['href'] for c in kids[0]['children']])
+        self.eq(['userguide.md#bugfixes-1', 'userguide.md#notes'],
+                [c['href'] for c in kids[1]['children']])
 
     def test_srclinemap_no_srcdir_falls_back(self):
         srclines = s_mddocs._SrcLineMap(None)

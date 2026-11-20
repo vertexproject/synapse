@@ -1,0 +1,93 @@
+iden: 09f6c8bd3e4a41d5b7e2c0a91f8d6b34
+title: Test Course
+body: |
+  # Test Course
+
+  A course used to test the ``courses`` section of a Storm package.
+
+modules:
+
+  - iden: 1b8f0d6a4c5e42b39d7a1f0c8e35b724
+    type: module
+    title: Introduction
+    body: |
+      Course material, with nothing to answer.
+
+  - iden: 7d3a9e21c04b45f8ba6e2d19f0c53a8e
+    type: quiz
+    title: FQDN Quiz
+    body: |
+      A quiz covering every question type.
+    maxruns: 2
+
+    hooks:
+      viewinit: return($lib.view.get().iden)
+      completed: $lib.print(done)
+
+    sections:
+
+      - title: The Basics
+        body: |
+          Questions which need no data.
+
+        questions:
+
+          - iden: a41d9e70c85b4f2ab6013d8e5c729f14
+            type: basic
+            body: What is the FQDN of The Vertex Project?
+            points: 10
+            deduct: 2
+            ui:
+              label: FQDN
+              placeholder: some.fqdn
+            answer:
+              value: vertex.link
+              type: inet:fqdn
+              hints:
+                - body: It is in the footer of every page.
+                  deduction: 1
+
+          - iden: 6e2c58fa0d374b19a8f5c1e0b73d926a
+            type: yesorno
+            body: Is ``link`` a suffix?
+            points: 5
+            retries: 1
+            answer:
+              value: true
+
+          - iden: c93b17d5e0a842f6b1c7d09e84a5f371
+            type: multi
+            body: Name two FQDNs used by The Vertex Project.
+            points: 10
+            answer:
+              type: inet:fqdn
+              value:
+                - vertex.link
+                - synapse.vertex.link
+
+          - iden: 0f5a83c1d7e64b28a9c3f10d6b7e429c
+            type: choice
+            body: Which one is the suffix?
+            points: 5
+            choices:
+              - value: link
+              - value: vertex.link
+            answer:
+              value:
+                - link
+              type: inet:fqdn
+
+      - title: Storm Questions
+        body: |
+          Questions graded by a Storm query.
+
+        questions:
+
+          - iden: 2d70b9e46c1a45f8b0d29e35c7a18f6b
+            type: storm
+            body: Lift the ``inet:fqdn`` node for The Vertex Project.
+            points: 20
+            answer:
+              hooks:
+                validate: inet:fqdn=vertex.link
+              checker: inet:fqdn=vertex.link

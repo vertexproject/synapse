@@ -441,14 +441,144 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(valu, stor.decodeIndx(indx[0]))
 
     async def test_layer_stortype_ival(self):
-        stor = s_layer.StorTypeIval(self)
 
-        vals = [(2000, 2020, 20), (1960, 1970, 10),
-                (stor.timetype.unksize, 2020, stor.unkdura),
-                (2020, stor.timetype.futsize, stor.futdura)]
+        # Lifts and filters on the ival virts must agree about the '?' (unknown)
+        # and '*' (ongoing) sentinels. '?' never matches an ordered comparison
+        # against a known value, and '*' sorts after every known time. An ongoing
+        # duration compares as (now - min), and a sentinel duration query only
+        # matches the same sentinel.
 
-        for valu, indx in ((v, stor.indx(v)) for v in vals):
-            self.eq(valu, stor.decodeIndx(indx[0]))
+        def staticnow():
+            # 2023-01-01
+            return 1672531200000000
+
+        seeds = (
+            ('fin', '(2020-01-01, 2022-01-01)'),
+            ('fut', '(2020-01-01, *)'),
+            ('unk', '(2020-01-01, ?)'),
+            ('unkmin', '(?, 2022-01-01)'),
+            ('unkall', '?'),
+            ('unkfut', '(?, *)'),
+        )
+
+        known = ('fin', 'fut', 'unk')
+        unkmin = ('unkmin', 'unkall', 'unkfut')
+        maxknown = ('fin', 'unkmin')
+        maxfut = ('fut', 'unkfut')
+        maxunk = ('unk', 'unkall')
+        duraunk = ('unk', 'unkmin', 'unkall')
+
+        # (virt, query, {cmpr: expected names})
+        cases = (
+            ('min', '2020-01-01', {'=': known, '>': (), '>=': known, '<': (), '<=': known}),
+            ('min', '2022-01-01', {'=': (), '>': (), '>=': (), '<': known, '<=': known}),
+            ('min', 'now', {'=': (), '>': (), '>=': (), '<': known, '<=': known}),
+            ('min', '*', {'=': (), '>': (), '>=': (), '<': known, '<=': known}),
+            ('min', '?', {'=': unkmin, '>': (), '>=': unkmin, '<': (), '<=': unkmin}),
+
+            ('max', '2020-01-01', {'=': (), '>': maxknown + maxfut, '>=': maxknown + maxfut, '<': (), '<=': ()}),
+            ('max', '2022-01-01', {'=': maxknown, '>': maxfut, '>=': maxknown + maxfut, '<': (), '<=': maxknown}),
+            ('max', 'now', {'=': (), '>': maxfut, '>=': maxfut, '<': maxknown, '<=': maxknown}),
+            ('max', '*', {'=': maxfut, '>': (), '>=': maxfut, '<': maxknown, '<=': maxknown + maxfut}),
+            ('max', '?', {'=': maxunk, '>': (), '>=': maxunk, '<': (), '<=': maxunk}),
+
+            ('duration', '1D', {'=': (), '>': ('fin', 'fut'), '>=': ('fin', 'fut'), '<': (), '<=': ()}),
+            ('duration', '731D', {'=': ('fin',), '>': ('fut',), '>=': ('fin', 'fut'), '<': (), '<=': ('fin',)}),
+            ('duration', '1096D', {'=': ('fut',), '>': (), '>=': ('fut',), '<': ('fin',), '<=': ('fin', 'fut')}),
+            ('duration', '10000D', {'=': (), '>': (), '>=': (), '<': ('fin', 'fut'), '<=': ('fin', 'fut')}),
+            ('duration', '*', {'=': maxfut, '>': (), '>=': maxfut, '<': (), '<=': maxfut}),
+            ('duration', '?', {'=': duraunk, '>': (), '>=': duraunk, '<': (), '<=': duraunk}),
+        )
+
+        async with self.getTestCore() as core:
+
+            stor = core.view.layers[0].stortypes[s_layer.STOR_TYPE_IVAL]
+            timetype = core.model.type('time')
+            ivaltype = core.model.type('ival')
+
+            # the layer sentinels must agree with the model sentinels
+            self.eq(stor.timetype.unksize, timetype.unksize)
+            self.eq(stor.timetype.futsize, timetype.futsize)
+            self.eq(stor.timetype.unksize, ivaltype.unksize)
+            self.eq(stor.timetype.futsize, ivaltype.futsize)
+            self.eq(stor.unkdura, ivaltype.duratype.unkdura)
+            self.eq(stor.futdura, ivaltype.duratype.futdura)
+
+            # the sentinel index bytes are persisted and must not change
+            self.eq(stor.timetype.unkbyts, b'\xff\xff\xff\xff\xff\xff\xff\xfe')
+            self.eq(stor.timetype.futbyts, b'\xff\xff\xff\xff\xff\xff\xff\xfd')
+            self.eq(stor.timetype.getIntIndx(timetype.unksize), stor.timetype.unkbyts)
+            self.eq(stor.timetype.getIntIndx(timetype.futsize), stor.timetype.futbyts)
+
+            vals = (
+                (2000, 2020),
+                (1960, 1970),
+                (2020, '*'),
+                (2020, '?'),
+                ('?', 2020),
+                ('?', '*'),
+                '?',
+            )
+
+            for valu in vals:
+                norm, _ = await ivaltype.norm(valu)
+                self.eq(norm, stor.decodeIndx(stor.indx(norm)[0]))
+
+            # lifts, reverse lifts and filters agree about the ival virt sentinels
+            await core.addTagProp('_tp', ('ival', {}), {})
+
+            with mock.patch('synapse.common.now', staticnow):
+
+                names = {}
+                for name, valu in seeds:
+                    nodes = await core.nodes(f'[ ou:asset=({name},) :period={valu} +#t.a={valu} +#t:_tp={valu} ]')
+                    names[nodes[0].ndef[1]] = name
+
+                async def getNames(text):
+                    return sorted(names[node.ndef[1]] for node in await core.nodes(text))
+
+                for virt, valu, cmprs in cases:
+                    for cmpr, expect in cmprs.items():
+
+                        expect = sorted(expect)
+
+                        for targ in (f':period.{virt}', f'#(t.a).{virt}', f'#t:_tp.{virt}'):
+
+                            lift = f'ou:asset{targ}{cmpr}{valu}'
+                            self.eq(expect, await getNames(lift), msg=lift)
+                            self.eq(expect, await getNames(f'reverse({lift})'), msg=f'reverse({lift})')
+
+                            filt = f'ou:asset | uniq | +{targ}{cmpr}{valu}'
+                            self.eq(expect, await getNames(filt), msg=filt)
+
+                # duration cmprs which only filter. != on a sentinel compares the
+                # stored sentinel; the rest compare the duration the ival reports
+                filtonly = (
+                    ('!=', '*', ('fin', 'unk', 'unkmin', 'unkall')),
+                    ('!=', '?', ('fin', 'fut', 'unkfut')),
+                    ('!=', '731D', ('fut', 'unk', 'unkmin', 'unkall')),
+                    ('*in=', '(731D, 1096D)', ('fin', 'fut')),
+                    ('*range=', '(1D, 800D)', ('fin',)),
+                )
+
+                for cmpr, valu, expect in filtonly:
+                    for targ in (':period.duration', '#(t.a).duration', '#t:_tp.duration'):
+                        filt = f'ou:asset | uniq | +{targ}{cmpr}{valu}'
+                        self.eq(sorted(expect), await getNames(filt), msg=filt)
+
+                with self.raises(s_exc.NoSuchCmpr):
+                    await core.nodes('ou:asset | uniq | +:period.duration*newp=1D')
+
+                # comparison semantics must not change the duration a node reports
+                dura = await core.callStorm('ou:asset=(fut,) return(:period.duration)')
+                self.eq(1096 * s_time.oneday, dura)
+                self.true(type(dura) is int)
+
+                dura = await core.callStorm('ou:asset=(fut,) return(#(t.a).duration)')
+                self.eq(1096 * s_time.oneday, dura)
+                self.true(type(dura) is int)
+
+                self.none(await core.callStorm('ou:asset=(unkfut,) return(:period.duration)'))
 
     async def test_layer_stortype_latlon(self):
         stor = s_layer.StorTypeLatLon(self)
@@ -608,13 +738,16 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(retn, [-99999.9, -42.1])
 
             # <= NaN
-            await self.agenraises(s_exc.NotANumberCompared, stor.indxBy(indxby, '<=', math.nan))
+            with self.raises(s_exc.NotANumberCompared):
+                await alist(stor.indxBy(indxby, '<=', math.nan))
 
             # >= NaN
-            await self.agenraises(s_exc.NotANumberCompared, stor.indxBy(indxby, '>=', math.nan))
+            with self.raises(s_exc.NotANumberCompared):
+                await alist(stor.indxBy(indxby, '>=', math.nan))
 
             # 1.0 to NaN
-            await self.agenraises(s_exc.NotANumberCompared, stor.indxBy(indxby, 'range=', (1.0, math.nan)))
+            with self.raises(s_exc.NotANumberCompared):
+                await alist(stor.indxBy(indxby, 'range=', (1.0, math.nan)))
 
     async def test_layer_stortype_guid(self):
         stor = s_layer.StorTypeGuid(None)
@@ -2389,7 +2522,8 @@ class LayerTest(s_t_utils.SynTest):
             cdir = s_common.gendir(copylayr.dirn, 'adir')
             self.true(os.path.exists(cdir))
 
-            await self.asyncraises(s_exc.NoSuchLayer, prox.cloneLayer('newp'))
+            with self.raises(s_exc.NoSuchLayer):
+                await prox.cloneLayer('newp')
 
             self.false(layr.readonly)
 
@@ -2554,6 +2688,21 @@ class LayerTest(s_t_utils.SynTest):
             rows = await alist(layr.iterTagPropRows('foo', '_score', stortype=s_layer.STOR_TYPE_I64, startvalu=42))
             self.eq(expect[1:], rows)
 
+            # ival rows with the unknown and ongoing sentinels return their stored values
+            ivals = {}
+            for name, ival in (('fut', (2020, '*')), ('unk', (2020, '?')), ('unkmin', ('?', 2020)), ('unkall', '?')):
+                opts = {'vars': {'name': name, 'ival': ival}}
+                nodes = await core.nodes('[ test:str=$name :seen=$ival +#bar=$ival ]', opts=opts)
+                self.len(1, nodes)
+                ivals[nodes[0].nid] = nodes[0].getTag('bar')
+                self.eq(nodes[0].get('seen'), ('ival', nodes[0].getTag('bar')))
+
+            rows = await alist(layr.iterPropRows('test:str', 'seen'))
+            self.eq(ivals, {nid: valu[1] for nid, valu in rows})
+
+            rows = await alist(layr.iterTagRows('bar'))
+            self.eq(ivals, dict(rows))
+
     async def test_layer_setinfo(self):
 
         with self.getTestDir() as dirn:
@@ -2565,8 +2714,11 @@ class LayerTest(s_t_utils.SynTest):
                 self.eq('hehe', await core.callStorm('$layer = $lib.layer.get() $layer.set(name, hehe) return($layer.get(name))'))
 
                 self.true(await core.callStorm('$layer=$lib.layer.get() $layer.set(readonly, (true)) return($layer.get(readonly))'))
-                await self.asyncraises(s_exc.IsReadOnly, core.nodes('[inet:ip=7.7.7.7]'))
-                await self.asyncraises(s_exc.IsReadOnly, core.nodes('$lib.layer.get().set(desc, foo)'))
+                with self.raises(s_exc.IsReadOnly):
+                    await core.nodes('[inet:ip=7.7.7.7]')
+
+                with self.raises(s_exc.IsReadOnly):
+                    await core.nodes('$lib.layer.get().set(desc, foo)')
 
                 self.false(await core.callStorm('$layer=$lib.layer.get() $layer.set(readonly, (false)) return($layer.get(readonly))'))
                 self.len(1, await core.nodes('[inet:ip=7.7.7.7]'))

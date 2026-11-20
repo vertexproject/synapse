@@ -292,7 +292,7 @@ class VertexStormTest(s_t_utils.SynTest):
                     self.eq('1.0.0', pkgdef.get('version'))
                     self.nn(await core.getStormPkg('testpkg'))
 
-                self.isin('Skipping package verification for testpkg', stream.getvalue())
+                await stream.expect('Skipping package verification for testpkg')
                 await core.delStormPkg('testpkg')
 
                 core._vtxtest['pkgdef'] = {'name': 'otherpkg', 'version': '1.0.0'}

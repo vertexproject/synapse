@@ -106,6 +106,7 @@ Help for a specific Storm command can be displayed with `<command> --help`.
 - [spin](storm_ref_cmd.md#storm-spin)
 - [stats](storm_ref_cmd.md#storm-stats)
 - [storm.exec](storm_ref_cmd.md#storm-storm-exec)
+- [storm.lint](storm_ref_cmd.md#storm-storm-lint)
 - [tag](storm_ref_cmd.md#storm-tag)
 - [task](storm_ref_cmd.md#storm-task)
 - [tee](storm_ref_cmd.md#storm-tee)
@@ -2105,6 +2106,19 @@ The `storm.exec` command executes text, or an embedded query object, as Storm in
 
 ```mdstorm
 storm.exec --help
+```
+
+<a id="storm-storm-lint"></a>
+
+
+## storm.lint
+
+The `storm.lint` command lints Storm code, or an embedded query, against the Cortex's data model and prints each finding followed by a count of the findings. It runs the same rules as the [storm.lint](syn_tools_storm_lint.md#syn-tools-storm-lint) command line tool and passes the nodes in the pipeline through unchanged. See [Linting from Storm](syn_tools_storm_lint.md#linting-from-storm).
+
+**Syntax:**
+
+```mdstorm
+storm.lint --help
 ```
 
 <a id="storm-tag"></a>

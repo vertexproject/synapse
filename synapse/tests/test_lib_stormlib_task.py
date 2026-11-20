@@ -52,7 +52,7 @@ class TaskLibTest(s_test.SynTest):
                     self.stormIsInPrint('1 task found', msgs)
                     self.stormNotInPrint('01.cortex.synapse', msgs)
 
-                self.isin('getTasks() on 01.cortex.synapse failed', stream.getvalue())
+                await stream.expect('getTasks() on 01.cortex.synapse failed')
 
             msgs = await core01.stormlist('task.list')
             self.stormIsInPrint('00.cortex.synapse', msgs)

@@ -19,6 +19,7 @@ import synapse.lib.link as s_link
 import synapse.lib.const as s_const
 import synapse.lib.share as s_share
 import synapse.lib.certdir as s_certdir
+import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_t_utils
@@ -200,16 +201,20 @@ class TeleTest(s_t_utils.SynTest):
             'aha://visi@127.0.0.1/foo/bar&hostname=hehe',
             'ssl://127.0.0.1:2222/&hostname=hehe?ca=haha',
             'tcp://visi:secret@localhost:2929/foo/bar&certname=hehe',
+            'tcp://[::1]:1234/foo',
+            'ssl://visi:secret@[fe80::1]:2222/foo?hostname=hehe',
+            'tcp://visi:pa%2Fss%3F%40@localhost:2929/foo',
         )
 
         for url in urls:
-            self.eq(url, s_telepath.zipurl(s_telepath.chopurl(url)))
+            self.eq(url, s_urlhelp.zipurl(s_telepath.chopurl(url)))
 
         async with self.getTestDmon() as dmon:
 
             dmon.share('foo', foo)
 
-            await self.asyncraises(s_exc.BadUrl, s_telepath.openurl('noscheme/foo'))
+            with self.raises(s_exc.BadUrl):
+                await s_telepath.openurl('noscheme/foo')
 
             with self.raises(s_exc.BadArg):
                 await s_telepath.openurl(10)
@@ -267,7 +272,8 @@ class TeleTest(s_t_utils.SynTest):
 
             # check async generator explodes channel
             genr = prox.agenrboom()
-            await self.asyncraises(s_exc.SynErr, genr.list())
+            with self.raises(s_exc.SynErr):
+                await genr.list()
 
             with self.raises(s_exc.SynErr) as cm:
                 await prox.raze()
@@ -291,7 +297,8 @@ class TeleTest(s_t_utils.SynTest):
         # Fini'ing a daemon fini's proxies connected to it.
         self.true(await s_coro.event_wait(evt, 2))
         self.true(prox.isfini)
-        await self.asyncraises(s_exc.IsFini, prox.bar((10, 20)))
+        with self.raises(s_exc.IsFini):
+            await prox.bar((10, 20))
 
     async def test_telepath_openinfo_cell(self):
         with self.getTestDir() as dirn:
@@ -311,6 +318,9 @@ class TeleTest(s_t_utils.SynTest):
                 async with await s_telepath.openurl(f'unix://root@{dirn}/sock:*', name=f'*/layer/{layr00.iden}') as layer:
                     self.eq(layr00.iden, await layer.getIden())
 
+                    # unix links are named by their socket path
+                    self.eq(f'unix://{dirn}/sock', layer._getExcInfo('newp').get('url'))
+
     async def test_telepath_tls_bad_cert(self):
         self.thisHostMustNot(platform='darwin')
 
@@ -327,8 +337,11 @@ class TeleTest(s_t_utils.SynTest):
             dmon.share('foo', foo)
 
             # host cert is *NOT* signed by a CA that client recognizes
-            await self.asyncraises(ssl.SSLCertVerificationError,
-                                   s_telepath.openurl(f'ssl://{hostname}/foo', port=addr[1]))
+            with self.raises(s_exc.LinkErr) as cm:
+                await s_telepath.openurl(f'ssl://{hostname}/foo', port=addr[1])
+
+            self.isin(f'ssl://{hostname}:{addr[1]}', cm.exception.get('mesg'))
+            self.isinstance(cm.exception.__cause__, ssl.SSLCertVerificationError)
 
     async def test_telepath_tls_certhash(self):
 
@@ -358,11 +371,16 @@ class TeleTest(s_t_utils.SynTest):
                 cert = certdir._loadCertByts(certtext.encode())
 
                 # host cert is *NOT* signed by a CA that client recognizes
-                with self.raises(ssl.SSLCertVerificationError):
+                with self.raises(s_exc.LinkErr) as cm:
                     await s_telepath.openurl(f'ssl://{hostname}/foo', port=port)
 
-                with self.raises(s_exc.LinkBadCert):
+                self.isin(f'ssl://{hostname}:{port}', cm.exception.get('mesg'))
+                self.isinstance(cm.exception.__cause__, ssl.SSLCertVerificationError)
+
+                with self.raises(s_exc.LinkBadCert) as cm:
                     await s_telepath.openurl(f'ssl://{hostname}/foo', port=port, certhash='asdfasdf')
+
+                self.isin(f'(ssl://{hostname}:{port})', cm.exception.get('mesg'))
 
                 # still not, but we specify a certhash for the exact server certificate
                 async with await s_telepath.openurl(f'ssl://{hostname}/foo', port=port, certhash=certhash) as foo:
@@ -558,7 +576,7 @@ class TeleTest(s_t_utils.SynTest):
                 async with await s_telepath.openurl(url, port=addr[1]) as prox:
                     pass
             mesg = cm.exception.get('mesg')
-            self.eq(mesg, 'Expected: nolisten Got: hehe')
+            self.eq(mesg, f'Expected: nolisten Got: hehe (ssl://127.0.0.1:{addr[1]})')
 
     async def test_telepath_surrogate(self):
 
@@ -590,7 +608,8 @@ class TeleTest(s_t_utils.SynTest):
                 self.eq([0, 1, 2], [x async for x in genr])
 
                 aitr = prox.corogenr('fred').__aiter__()
-                await self.asyncraises(s_exc.SynErr, aitr.__anext__())
+                with self.raises(s_exc.SynErr):
+                    await aitr.__anext__()
 
                 aitr = prox.corogenr(3).__aiter__()
                 await aitr.__anext__()
@@ -604,7 +623,13 @@ class TeleTest(s_t_utils.SynTest):
 
                 task = dmon.schedCoro(longwaiter())
 
-            await self.asyncraises(s_exc.LinkShutDown, aitr.__anext__())
+            with self.raises(s_exc.LinkShutDown) as cm:
+                await aitr.__anext__()
+
+            endp = f'tcp://127.0.0.1:{dmon.addr[1]}'
+            self.isin(endp, cm.exception.get('mesg'))
+            self.eq(endp, cm.exception.get('url'))
+
             start_event.set()
 
             # Test that a coroutine about to await on an async proxy method doesn't become "stuck" by awaiting on a
@@ -613,7 +638,8 @@ class TeleTest(s_t_utils.SynTest):
             # Give the longwaiter a chance to run
             await asyncio.sleep(.1)
 
-            await self.asyncraises(s_exc.IsFini, asyncio.wait_for(task, timeout=2))
+            with self.raises(s_exc.IsFini):
+                await asyncio.wait_for(task, timeout=2)
 
     async def test_telepath_asyncgenr_early_term(self):
 
@@ -627,7 +653,7 @@ class TeleTest(s_t_utils.SynTest):
 
             async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=dmon.addr[1]) as prox:
 
-                with self.raises(s_exc.LinkShutDown):
+                with self.raises(s_exc.LinkShutDown) as cm:
 
                     genr = prox.corogenr(1000)
                     async for i in genr:
@@ -635,6 +661,8 @@ class TeleTest(s_t_utils.SynTest):
                         if i == 2:
                             # yank out the ethernet cable
                             await list(dmon.links)[0].fini()
+
+                self.isin(f'tcp://127.0.0.1:{dmon.addr[1]}', cm.exception.get('mesg'))
 
             self.eq(retn, [0, 1, 2])
 
@@ -757,10 +785,12 @@ class TeleTest(s_t_utils.SynTest):
             host, port = dmon.addr
 
             url = 'tcp://localhost/auth'
-            await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url, port=port))
+            with self.raises(s_exc.AuthDeny):
+                await s_telepath.openurl(url, port=port)
 
             url = 'tcp://visi@localhost/auth'
-            await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url, port=port))
+            with self.raises(s_exc.AuthDeny):
+                await s_telepath.openurl(url, port=port)
 
             url = 'tcp://visi:secretsauce@localhost/auth'
             async with await s_telepath.openurl(url, port=port) as proxy:
@@ -774,7 +804,8 @@ class TeleTest(s_t_utils.SynTest):
 
             host, port = await dmon.listen('tcp://127.0.0.1:0/')
 
-            await self.asyncraises(s_exc.BadMesgVers, s_telepath.openurl('tcp://127.0.0.1/', port=port))
+            with self.raises(s_exc.BadMesgVers):
+                await s_telepath.openurl('tcp://127.0.0.1/', port=port)
 
     async def test_alias(self):
 
@@ -960,7 +991,7 @@ class TeleTest(s_t_utils.SynTest):
 
         async def onlink(proxy, urlinfo):
             self.eq(110, await proxy.dostuff(100))
-            _url = s_telepath.zipurl(urlinfo)
+            _url = s_urlhelp.zipurl(urlinfo)
             logger.info(f'Connected to url={_url}')
 
         with self.getLoggerStream('synapse.tests.test_telepath') as stream:
@@ -1100,9 +1131,15 @@ class TeleTest(s_t_utils.SynTest):
         Similar to the previous test, except tears down a proxy that another task is using
         '''
         foo = Foo()
+
+        # a port which is known to have nothing listening on it
+        async with self.getTestDmon() as dmon0:
+            deadport = dmon0.addr[1]
+
         async with self.getTestDmon() as dmon:
             dmon.share('foo', foo)
-            url = f'tcp://127.0.0.1:{dmon.addr[1]}/foo'
+            endp = f'tcp://127.0.0.1:{dmon.addr[1]}'
+            url = f'{endp}/foo'
             prox = await s_telepath.openurl(url)  # type: Foo
 
             async def doit():
@@ -1113,7 +1150,38 @@ class TeleTest(s_t_utils.SynTest):
             self.true(await s_coro.event_wait(foo.simplesleep_evt, 2))
             await prox.fini()
 
-            await self.asyncraises(s_exc.LinkShutDown, task)
+            with self.raises(s_exc.LinkShutDown) as cm:
+                await task
+
+            self.isin(endp, cm.exception.get('mesg'))
+            self.eq(endp, cm.exception.get('url'))
+
+            # connection failures name the url with the password redacted and chain the original error
+            deadendp = f'tcp://127.0.0.1:{deadport}'
+            with self.raises(s_exc.LinkErr) as cm:
+                await s_telepath.openurl(f'tcp://root:pa%2Fss@127.0.0.1:{deadport}/foo')
+
+            self.isin(f'Unable to connect to tcp://root:****@127.0.0.1:{deadport}/foo: ', cm.exception.get('mesg'))
+            self.notin('pa/ss', str(cm.exception))
+            self.notin('pa%2Fss', str(cm.exception))
+            self.eq(f'tcp://root:****@127.0.0.1:{deadport}/foo', cm.exception.get('url'))
+            self.isinstance(cm.exception.__cause__, ConnectionRefusedError)
+
+            # a failure to add a pooled link names the address it tried
+            async with await s_telepath.openurl(url) as prox:
+
+                prox.link.set('port', deadport)
+                with self.raises(s_exc.LinkErr) as cm:
+                    await prox.echo('newp')
+
+                self.isin(f'Unable to connect to {deadendp}: ', cm.exception.get('mesg'))
+                self.eq(deadendp, cm.exception.get('url'))
+                self.isinstance(cm.exception.__cause__, ConnectionRefusedError)
+
+                # ipv6 hosts stay bracketed so the port is unambiguous
+                prox.link.set('host', '::1')
+                prox.link.set('port', 1234)
+                self.eq('tcp://[::1]:1234', prox.link.endpoint())
 
     async def test_telepath_loadenv(self):
         with self.getTestDir() as dirn:
@@ -1263,8 +1331,10 @@ class TeleTest(s_t_utils.SynTest):
 
                     foo.link.set('hostname', 'deadb33f')
                     # Ensure that the hostname for the subsequent link creation matches
-                    with self.raises(s_exc.BadCertHost):
+                    with self.raises(s_exc.BadCertHost) as cm:
                         await foo.echo('woot')
+
+                    self.isin(f'(ssl://{hostname}:{port})', cm.exception.get('mesg'))
 
                     # With the correct hostname on link.info we validate the subsequent link creation.
                     foo.link.set('hostname', sni)
@@ -1317,14 +1387,19 @@ class TeleTest(s_t_utils.SynTest):
                     # Without SNI, the client context gets a mismatch between host vs default.sni.local
                     # and the client sslctx cannot validate that the default cert
                     foo.link.set('hostname', None)
-                    with self.raises(ssl.SSLCertVerificationError):
+                    with self.raises(s_exc.LinkErr) as cm:
                         await foo.echo('woot')
+
+                    self.isin(f'ssl://{hostname}:{port}', cm.exception.get('mesg'))
+                    self.isinstance(cm.exception.__cause__, ssl.SSLCertVerificationError)
 
                     # With a different SNI value, the client still gets a certificate the does not match
                     # what it expects to get.
                     foo.link.set('hostname', 'deadb33f')
-                    with self.raises(ssl.SSLCertVerificationError):
+                    with self.raises(s_exc.LinkErr) as cm:
                         await foo.echo('woot')
+
+                    self.isinstance(cm.exception.__cause__, ssl.SSLCertVerificationError)
 
                     # With the correct hostname on link.info we validate the subsequent link creation.
                     foo.link.set('hostname', sni)

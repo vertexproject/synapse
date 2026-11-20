@@ -14,6 +14,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.aha as s_aha
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
+import synapse.lib.link as s_link
 import synapse.lib.logging as s_logging
 import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.provision as s_provision
@@ -420,6 +421,24 @@ class AhaTest(s_test.SynTest):
 
                 async with await s_telepath.openurl('aha://testcell00...') as proxy:
                     self.nn(await proxy.getCellIden())
+
+                # connection failures name the address the aha url resolved to
+                orig = s_link.connect
+                svcport = cell.sockaddr[1]
+
+                async def connect(host, port, *args, **kwargs):
+                    if port == svcport:
+                        raise ConnectionRefusedError(111, 'newp')
+                    return await orig(host, port, *args, **kwargs)
+
+                with mock.patch('synapse.lib.link.connect', connect):
+                    with self.raises(s_exc.LinkErr) as cm:
+                        await s_telepath.openurl('aha://testcell00...')
+
+                self.isin(f':{svcport}', cm.exception.get('url'))
+                self.isin('Unable to connect to ', cm.exception.get('mesg'))
+                self.isin(cm.exception.get('url'), cm.exception.get('mesg'))
+                self.isinstance(cm.exception.__cause__, ConnectionRefusedError)
 
                 with self.raises(s_exc.BadArg):
                     _proxy = await cell.ahaclient.proxy(timeout=2)

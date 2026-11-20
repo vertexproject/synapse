@@ -22,6 +22,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.json as s_json
+import synapse.lib.const as s_const
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
@@ -1124,18 +1125,42 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
             aurl = f'tcp://user:test@127.0.0.1:{port}/axon'
             async with await s_telepath.openurl(aurl) as prox:  # type: s_axon.AxonApi
                 # Ensure the user can't do things with bytes they don't have permissions too.
-                await self.agenraises(s_exc.AuthDeny, prox.get(asdfhash))
-                await self.asyncraises(s_exc.AuthDeny, prox.has(asdfhash))
-                await self.asyncraises(s_exc.AuthDeny, prox.hashset(asdfhash))
-                await self.agenraises(s_exc.AuthDeny, prox.hashes(0))
-                await self.agenraises(s_exc.AuthDeny, prox.history(0))
-                await self.asyncraises(s_exc.AuthDeny, prox.del_(asdfhash))
-                await self.asyncraises(s_exc.AuthDeny, prox.dels((asdfhash,)))
-                await self.asyncraises(s_exc.AuthDeny, prox.wants((asdfhash,)))
-                await self.asyncraises(s_exc.AuthDeny, prox.put(abuf))
-                await self.asyncraises(s_exc.AuthDeny, prox.puts((abuf,)))
-                await self.asyncraises(s_exc.AuthDeny, prox.upload())
-                await self.asyncraises(s_exc.AuthDeny, prox.metrics())
+                with self.raises(s_exc.AuthDeny):
+                    await s_t_utils.alist(prox.get(asdfhash))
+
+                with self.raises(s_exc.AuthDeny):
+                    await prox.has(asdfhash)
+
+                with self.raises(s_exc.AuthDeny):
+                    await prox.hashset(asdfhash)
+
+                with self.raises(s_exc.AuthDeny):
+                    await s_t_utils.alist(prox.hashes(0))
+
+                with self.raises(s_exc.AuthDeny):
+                    await s_t_utils.alist(prox.history(0))
+
+                with self.raises(s_exc.AuthDeny):
+                    await prox.del_(asdfhash)
+
+                with self.raises(s_exc.AuthDeny):
+                    await prox.dels((asdfhash,))
+
+                with self.raises(s_exc.AuthDeny):
+                    await prox.wants((asdfhash,))
+
+                with self.raises(s_exc.AuthDeny):
+                    await prox.put(abuf)
+
+                with self.raises(s_exc.AuthDeny):
+                    await prox.puts((abuf,))
+
+                with self.raises(s_exc.AuthDeny):
+                    await prox.upload()
+
+                with self.raises(s_exc.AuthDeny):
+                    await prox.metrics()
+
                 # now add rules and run the test suite
                 await user.addRule((True, ('health',)))
                 await user.addRule((True, ('axon', 'get',)))
@@ -1174,8 +1199,7 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
             self.eq('', errs.read())
 
             # the partial read is still traced at debug level.
-            debug.seek(0)
-            self.isin(f'Stopped reading blob [{s_common.ehex(sha256)}]', debug.read())
+            await debug.expect(f'Stopped reading blob [{s_common.ehex(sha256)}]')
 
     async def test_axon_inline_readers(self):
 
@@ -1410,7 +1434,8 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
             self.false(resp.get('ok'))
             self.isin('InvalidUrlClientError: vertex.link', resp.get('mesg', ''))
 
-            await self.asyncraises(s_exc.BadArg, proxy.wget('http://vertex.link', proxy=1.1))
+            with self.raises(s_exc.BadArg):
+                await proxy.wget('http://vertex.link', proxy=1.1)
 
     async def test_axon_proxy_traversed(self):
         '''
@@ -1707,29 +1732,21 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
             (size, sha256) = await axon01.put(b'vertex')
             self.eq(await axon00.size(sha256), await axon01.size(sha256))
 
-    async def test_axon_storvers01(self):
+    async def test_axon_storvers(self):
 
-        async with self.getTestAxon() as axon:
+        with self.getTestDir() as dirn:
 
-            axon._setStorVers(0)
-            self.eq(0, axon._getStorVers())
+            async with self.getTestAxon(dirn=dirn) as axon:
+                self.eq(s_const.AXON_BLOB_STORVERS, axon._getStorVers())
+                axon._setStorVers(0)
 
-            data = [b'visi', b'vertex', b'synapse']
-            sizes = []
+            with self.raises(s_exc.BadStorageVersion) as cm:
+                async with self.getTestAxon(dirn=dirn):
+                    pass
 
-            for byts in data:
-                async with await axon.upload() as fd:
-                    await fd.write(byts)
-                    size, sha256 = await fd.save()
-                    sizes.append(size)
-
-            self.eq(1, await axon._setStorVers01())
-            self.eq(1, axon._getStorVers())
-
-            for i, byts in enumerate(data):
-                sha256 = hashlib.sha256(byts).digest()
-                self.eq(sizes[i], await axon.size(sha256))
-                self.eq(byts, b''.join([chunk async for chunk in axon.get(sha256)]))
+            self.isin('has no storage version', cm.exception.get('mesg'))
+            self.eq(0, cm.exception.get('valu'))
+            self.eq(s_const.AXON_BLOB_STORVERS, cm.exception.get('reqver'))
 
     async def test_axon_del_blob_offsets(self):
 

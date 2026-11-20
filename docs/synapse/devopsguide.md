@@ -183,6 +183,16 @@ Once complete, a WARNING level log message will be issued:
 ...model migrations complete!
 ```
 
+A migration which repairs nodes stored with invalid values may not be able to repair all of them. Those nodes are
+removed and recorded in a Cortex queue named for the migration, such as `model_3_2_0:nodes`, along with their
+properties, tags, node data, light edges, the tombstones each layer held for them, and the nodes which referenced
+them. A global admin may review them with that migration's Storm library, such as
+`$lib.model.migration.s.model_3_2_0.listNodes()` and `printNode()`, and re-create one with a corrected value using
+`repairNode()`.
+
+A migration which removes a property value of a type the property no longer accepts saves it as node data on the
+node it was removed from, named for the property, such as `_migrated:it:cloud:host:parent`.
+
 > [!NOTE]
 > Please ensure you have a tested backup available before applying these updates.
 
@@ -194,6 +204,18 @@ Synapse Services may have additional data migrations applied during updates as w
 #### Flag Day Releases
 
 A flag day release requires special attention before it is deployed, such as updating multiple services at the same time or in a specific order. Deploying one without following the documented steps may leave services unable to communicate with each other.
+
+A release is a flag day release when it includes any of the following:
+
+- A breaking API change, such as renaming or removing an argument, method, or route that callers depend on.
+- A backward incompatible change between services, where an updated service can not work with an older peer.
+- A change that requires multiple services to be updated at the same time or in a specific order.
+
+The following are **not** flag day changes:
+
+- Bugfixes.
+- A feature or fix that only requires a newer minimum version of a dependency, such as a Power-Up that requires a newer Cortex.
+- The removal of functionality that has already gone through the [deprecation](devopsguide.md#devops-deprecation-warnings) notification cycle.
 
 The Changelog for a flag day release has a `Flag Day` section at the top which describes what needs to be done. Before updating, read the `Flag Day` section and follow the steps it lists. See [Update Sequencing](devopsguide.md#update-sequencing) for the general order in which services should be updated.
 

@@ -98,7 +98,8 @@ class LinkTest(s_test.SynTest):
         # Why does this first TX post fini on the server link work,
         # but the second one fails?
         await link.tx(('me', {'k': 2}))
-        await self.asyncraises(ConnectionError, link.tx(('worry?', {'k': 3})))
+        with self.raises(ConnectionError):
+            await link.tx(('worry?', {'k': 3}))
 
     async def test_link_abort_tls(self):
         self.thisHostMustNot(platform='darwin')
@@ -140,8 +141,7 @@ class LinkTest(s_test.SynTest):
                     with self.getLoggerStream('synapse.lib.link') as stream:
                         await link.fini()
 
-                    stream.seek(0)
-                    self.isin('Link error waiting on close', stream.read())
+                    await stream.expect('Link error waiting on close')
 
                     # abort() tears the link down without a graceful shutdown.
                     link = await s_link.connect(hostname, port=port, ssl=sslctx)
@@ -284,8 +284,7 @@ class LinkTest(s_test.SynTest):
         with self.getLoggerStream('synapse.lib.link') as stream:
             link1.txfini()
 
-        stream.seek(0)
-        self.isin('Link error on txfini', stream.read())
+        await stream.expect('Link error on txfini')
 
         await link1.fini()
         sock1.close()

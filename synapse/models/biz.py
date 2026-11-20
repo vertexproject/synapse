@@ -34,6 +34,7 @@ modeldefs = (
                 'interfaces': (
                     ('doc:document', {}),
                     ('doc:published', {}),
+                    ('meta:causal', {}),
                 ),
                 'props': (
 

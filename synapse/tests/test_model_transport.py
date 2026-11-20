@@ -19,7 +19,10 @@ class TransportTest(s_test.SynTest):
             self.propeq(craft, 'serial', '1234')
             self.nn(craft.get('operator'))
 
-            tailnum = (await core.nodes('transport:air:tailnum=FF023 [ :type=fighter ]'))[0]
+            tailnum = (await core.nodes('transport:air:tailnum=FF023 [ :type=fighter :country={[ pol:country=* :code=us ]} ]'))[0]
+            self.propeq(tailnum, 'type', 'fighter.')
+            self.nn(tailnum.get('country'))
+            self.len(1, await core.nodes('transport:air:tailnum=FF023 :country -> pol:country +:code=us'))
             flightnum = (await core.nodes('[ transport:air:flightnum="ua 2437" :carrier=* as ou:org :from:port=IAD :to:port=LAS :stops=(IAD,VISI,LAS) ]'))[0]
 
             flight = (await core.nodes('''
@@ -75,6 +78,7 @@ class TransportTest(s_test.SynTest):
                     :imo="IMO 1234567"
                     :model="Speed Boat 9000"
                     :operator={[ entity:contact=* ]}
+                    :country={[ pol:country=* :code=pa ]}
                 ]'''))[0]
             self.propeq(vessel, 'mmsi', '123456789')
             self.propeq(vessel, 'name', 'Slice of Life')
@@ -86,6 +90,7 @@ class TransportTest(s_test.SynTest):
 
             self.len(1, await core.nodes('transport:sea:vessel:imo^="IMO 123"'))
             self.len(1, await core.nodes('transport:sea:vessel -> transport:sea:vessel:type:taxonomy'))
+            self.len(1, await core.nodes('transport:sea:vessel :country -> pol:country +:code=pa'))
 
             seatelem = (await core.nodes('''[
                  transport:sea:telem=*

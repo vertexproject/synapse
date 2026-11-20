@@ -1,3 +1,4 @@
+import re
 import copy
 import textwrap
 
@@ -26,6 +27,10 @@ class _FakeDocHelp:
         self.forms = forms or {}
         self.formhelp = formhelp or {}
         self.props = props or {}
+
+def _stripTestPolyNames(text):
+    # the test model has a prop and a type named poly, which are not the poly type itself
+    return re.sub(r'`:poly`|test[:-]poly\b', '', text)
 
 class _ExtendedDescConfCell(s_cell.Cell):
     confdefs = {
@@ -625,10 +630,23 @@ class AutodocTest(s_t_utils.SynTest):
         s_autodoc.processInterfacesMd(md, [
             ('no:doc', {}),
             ('has:doc', {'doc': 'Has a doc string.'}),
+            ('has:depr', {'doc': 'Has deprecated props.', 'props': (
+                ('date', ('str', {}), {'doc': 'A date prop.', 'deprecated': {'eoldate': '2027-01-01'}}),
+                ('mesg', ('str', {}), {'doc': 'A mesg prop.', 'deprecated': {'eolvers': 'v4.0.0', 'mesg': 'Use :newp instead.'}}),
+                ('nodot', ('str', {}), {'doc': 'A nodot prop.', 'deprecated': {'eolvers': 'v4.0.0', 'mesg': 'Use :newp instead'}}),
+                ('flag', ('str', {}), {'doc': 'A flag prop.', 'deprecated': True}),
+                ('live', ('str', {}), {'doc': 'A live prop.', 'deprecated': False}),
+            )}),
         ])
         s = md.getMdText()
         self.isin('The `no:doc` interface.', s)
         self.isin('Has a doc string.', s)
+        self.isin('- `:date` (`str`) - A date prop. Deprecated: removed on or after 2027-01-01.', s)
+        self.isin('- `:mesg` (`str`) - A mesg prop. Deprecated: removed in v4.0.0. Use :newp instead.', s)
+        self.isin('- `:nodot` (`str`) - A nodot prop. Deprecated: removed in v4.0.0. Use :newp instead.', s)
+        self.notin('..', s)
+        self.isin('- `:flag` (`str`) - A flag prop. Deprecated.', s)
+        self.isin('- `:live` (`str`) - A live prop.\n', s)
 
     def test_dochelp_formhelp_ctor_only_form(self):
         # a form built directly from a base ctor (e.g. a bare guid/str form)
@@ -749,6 +767,29 @@ class AutodocTest(s_t_utils.SynTest):
         self.isin('**Source Edges:**', s)
         self.isin('| `test:form` | `-(refs)>` | `*` | An edge. |', s)
 
+        md = s_autodoc.MdHelp()
+        dochelp = _FakeDocHelp(forms={'test:form': 'A form.'}, props={
+            ('test:form', 'old'): 'An old prop.',
+            ('test:form', 'older'): 'An older prop.',
+            ('test:form', 'oldest'): 'The oldest prop.',
+        })
+        forms = [('test:form', {}, [
+            ('old', ('str', {}), {'deprecated': {'eolvers': 'v4.0.0'}}),
+            ('older', ('str', {}), {'deprecated': {'eoldate': '2027-01-01'}}),
+            ('oldest', ('str', {}), {'deprecated': {'eolvers': 'v4.0.0', 'mesg': 'Use :new | :newer instead.'}}),
+        ])]
+        s_autodoc.processFormsPropsMd(md, dochelp, forms, [])
+        s = md.getMdText()
+        self.isin('| `:old` | [`str`](datamodel_types.md#dm-type-str) | An old prop. | Deprecated: removed in v4.0.0. |', s)
+        self.isin('| `:older` | [`str`](datamodel_types.md#dm-type-str) | An older prop. | Deprecated: removed on or after 2027-01-01. |', s)
+        self.isin('| `:oldest` | [`str`](datamodel_types.md#dm-type-str) | The oldest prop. | Deprecated: removed in v4.0.0. Use :new \\| :newer instead. |', s)
+
+        forms = [('test:form', {}, [
+            ('old', ('str', {}), {'deprecated': {}}),
+        ])]
+        with self.raises(KeyError):
+            s_autodoc.processFormsPropsMd(s_autodoc.MdHelp(), dochelp, forms, [])
+
     def test_process_forms_props_md_generic_edge_doc_both_sections(self):
         # a generic edge's info dict is shared between the source and target
         # buckets when the form has both -- rendering it in one section must
@@ -794,6 +835,21 @@ class AutodocTest(s_t_utils.SynTest):
         s = md.getMdText()
         self.isin('**Source Edges:**', s)
         self.isin('| `test:iface` | `-(refs)>` | `*` | An edge. |', s)
+
+    def test_get_poly_type_names(self):
+        # a typedef naming a single type is not a poly
+        self.none(s_autodoc._getPolyTypeNames(('inet:fqdn', {})))
+
+        # a prop typedef converted by the model, single and multiple members
+        self.eq(('inet:fqdn',), s_autodoc._getPolyTypeNames(('poly', {'types': ('inet:fqdn',)})))
+        self.eq(('entity:actor',), s_autodoc._getPolyTypeNames(('poly', {'interfaces': ('entity:actor',)})))
+
+        typedef = ('poly', {'interfaces': ('entity:actor',), 'types': ('ou:org',), 'docs': {'ou:org': 'An org.'}})
+        self.eq(('ou:org', 'entity:actor'), s_autodoc._getPolyTypeNames(typedef))
+
+        # a typedef with a tuple of constituents keeps the declared order
+        typedef = (('ps:person', {}), ('ou:org', {'doc': 'An org.'}))
+        self.eq(('ps:person', 'ou:org'), s_autodoc._getPolyTypeNames(typedef))
 
 class AutodocMdGeneratorsTest(s_t_utils.SynTest):
 
@@ -847,6 +903,43 @@ class AutodocMdGeneratorsTest(s_t_utils.SynTest):
             ruletext = text[ruleidx:nexthead]
             self.isin('**Source Edges:**', ruletext)
             self.isin('| `meta:rule` | `-(detects)>` | `meta:observable` |', ruletext)
+
+    async def test_docmodelformsmd_no_poly(self):
+        async with self.getTestCore() as core:
+            text = (await s_autodoc.docModelFormsMd(core)).getMdText()
+
+            # poly is how the model stores a prop type, and is never named to a user
+            self.none(re.search(r'\bpoly\b', _stripTestPolyNames(text)))
+
+            tfile = s_autodoc._TYPES_MD_FILE
+
+            # a prop declared with a single type shows that type
+            self.isin(f'| `:zone` | [`inet:fqdn`]({tfile}#dm-type-inet-fqdn) |', text)
+
+            # a prop with several member types shows each of them
+            self.isin(f'| `:key` | [`crypto:key:rsa`]({tfile}#dm-type-crypto-key-rsa) or '
+                      f'[`crypto:key:dsa`]({tfile}#dm-type-crypto-key-dsa) |', text)
+
+            # a prop declared with an interface shows the interface
+            self.isin(f'| `:issuer` | [`entity:actor`]({tfile}#dm-type-entity-actor) |', text)
+
+            # an array prop with several member types
+            self.isin(f'| `:ids` | array of [`it:mitre:attack:campaign:id`]({tfile}#dm-type-it-mitre-attack-campaign-id) or '
+                      f'[`base:id`]({tfile}#dm-type-base-id) |', text)
+
+    async def test_docmodeltypesmd_no_poly(self):
+        async with self.getTestCore() as core:
+            text = (await s_autodoc.docModelTypesMd(core)).getMdText()
+
+            self.none(re.search(r'\bpoly\b', _stripTestPolyNames(text)))
+
+            # an interface prop with several member types
+            self.isin('- `:resolved` ([`ou:org`](#dm-type-ou-org) or [`ps:person`](#dm-type-ps-person)) - ', text)
+
+            # a type which may be one of several types lists them rather than a base type
+            self.isin('The `entity:individual` type may be any of the following types: '
+                      '[`ps:person`](#dm-type-ps-person) or [`entity:contact`](#dm-type-entity-contact) or '
+                      '[`inet:service:account`](#dm-type-inet-service-account).', text)
 
     async def test_docconfdefsmd(self):
         confdocs = await s_autodoc.docConfdefsMd('synapse.cortex.Cortex')

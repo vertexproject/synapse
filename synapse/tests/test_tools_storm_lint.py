@@ -31,7 +31,7 @@ class TestStormLint(s_t_utils.SynTest):
         with self.raises(s_exc.ParserExit) as cm:
             await s_lint.main([], outp=outp)
         self.eq(cm.exception.get('exitcode'), 2)
-        outp.expect('at least one path is required')
+        outp.expect('at least one path or --manifest is required')
 
         outp = self.getTestOutp()
         with self.raises(s_exc.ParserExit) as cm:
@@ -175,6 +175,123 @@ class TestStormLint(s_t_utils.SynTest):
                 'pkg/a/b.storm:1:6: R001 $lib.true was removed, use (true).',
                 'Found 3 errors.',
             ])
+
+            # manifests of queries embedded in other files
+            queries = [
+                {'path': '../src/a.ts', 'line': 10, 'text': '$x = $lib.true', 'site': 'src/a.ts:10:20'},
+                {'path': '../src/a.ts', 'line': 20, 'text': '$x = (1)\n  $y = $lib.true', 'site': 'src/a.ts:20:4'},
+                {'path': '../src/a.ts', 'line': 30, 'text': '$x = $lib.true // noqa', 'site': 'src/a.ts:30:8'},
+                {'path': '../vendor/b.ts', 'line': 5, 'text': '$x = $lib.true', 'site': 'vendor/b.ts:5:0'},
+                {'path': '../src/c.sh', 'line': 3, 'text': '$x = $lib.true'},
+                {'path': '../src/d.py', 'line': 7, 'text': '$x = $lib.true', 'site': 'd.getQuery'},
+            ]
+            mani = os.path.join('coverage', 'queries.json')
+            _write(mani, s_json.dumps({'queries': queries}).decode())
+
+            # a .jsonl manifest has one query per line, and blank lines are skipped
+            manl = os.path.join('coverage', 'queries.jsonl')
+            _write(manl, '\n'.join(s_json.dumps(q).decode() for q in queries[:3]) + '\n\n  \n' +
+                   '\n'.join(s_json.dumps(q).decode() for q in queries[3:]) + '\n')
+
+            clean = os.path.join(dirn, 'clean.json')
+            _write(clean, s_json.dumps({'queries': [
+                {'path': 'src/a.ts', 'line': 1, 'text': 'inet:fqdn=vertex.link', 'site': 'src/a.ts:1:0'},
+            ]}).decode())
+
+            outp = self.getTestOutp()
+            self.eq(await s_lint.main(['--manifest', clean], outp=outp), 0)
+            self.eq(str(outp).strip(), 'All checks passed!')
+
+            outp = self.getTestOutp()
+            self.eq(await s_lint.main(['--manifest', mani, '--manifest', clean, 'bad.storm'], outp=outp), 1)
+            lines = str(outp).strip().split('\n')
+            self.eq(lines[3:], [
+                'src/a.ts:10:27: R001 $lib.true was removed, use (true).',
+                'src/a.ts:21:8: R001 $lib.true was removed, use (true).',
+                'vendor/b.ts:5:7: R001 $lib.true was removed, use (true).',
+                'src/c.sh:3:6: R001 $lib.true was removed, use (true).',
+                'src/d.py:7:6: R001 $lib.true was removed, use (true).',
+                'Found 8 errors.',
+            ])
+
+            outp = self.getTestOutp()
+            self.eq(await s_lint.main(['--manifest', manl, '--manifest', clean, 'bad.storm'], outp=outp), 1)
+            self.eq(str(outp).strip().split('\n'), lines)
+
+            outp = self.getTestOutp()
+            self.eq(await s_lint.main(['--format', 'json', '--manifest', mani], outp=outp), 1)
+            rows = [s_json.loads(line) for line in str(outp).strip().split('\n')]
+            self.len(5, rows)
+            self.eq(rows[1], {'path': 'src/a.ts', 'line': 21, 'column': 8, 'rule': 'R001', 'severity': 'high',
+                              'mesg': '$lib.true was removed, use (true).'})
+
+            # excludes apply to each query's host file
+            _write(os.path.join(dirn, 'pyproject.toml'), '[tool.stormlint]\nexclude = ["vendor"]\n')
+
+            outp = self.getTestOutp()
+            self.eq(await s_lint.main(['--manifest', mani], outp=outp), 1)
+            outp.expect('vendor', False)
+            outp.expect('Found 4 errors.')
+
+            # unreadable or malformed manifests
+            _write(os.path.join(dirn, 'badjson.json'), '{"queries": [')
+            _write(os.path.join(dirn, 'noqueries.json'), '{"newp": []}')
+            _write(os.path.join(dirn, 'badline.json'),
+                   '{"queries": [{"path": "a.ts", "line": "1", "text": "", "site": "a.ts:1:0"}]}')
+            _write(os.path.join(dirn, 'badkey.json'),
+                   '{"queries": [{"path": "a.ts", "line": 1, "text": "", "newp": "a.ts:1:0"}]}')
+
+            outp = self.getTestOutp()
+            argv = ['--manifest', 'newp.json', '--manifest', 'badjson.json', '--manifest', 'noqueries.json',
+                    '--manifest', 'badline.json', '--manifest', 'badkey.json', '--manifest', clean]
+            self.eq(await s_lint.main(argv, outp=outp), 2)
+            outp.expect('newp.json: error: [Errno 2] No such file or directory')
+            outp.expect('badjson.json: error: ')
+            outp.expect("noqueries.json: error: data must contain ['queries'] properties")
+            outp.expect('badline.json: error: data.queries[0].line must be integer')
+            outp.expect('badkey.json: error: data.queries[0] must not contain {\'newp\'} properties')
+            outp.expect('All checks passed', False)
+
+            # a .jsonl error names its line, after any blank lines and across chunks of lines
+            good = s_json.dumps({'path': 'a.ts', 'line': 1, 'text': 'inet:fqdn'}).decode()
+            _write(os.path.join(dirn, 'badjson.jsonl'), f'{good}\n\n{{"path": "a.ts"\n')
+            _write(os.path.join(dirn, 'badline.jsonl'), f'{good}\n{{"path": "a.ts", "line": 0, "text": ""}}\n')
+            _write(os.path.join(dirn, 'badkey.jsonl'), f'{good}\n' * 1200 + '{"path": "a.ts", "line": 1}\n')
+            _write(os.path.join(dirn, 'notobj.jsonl'), '[]\n')
+
+            outp = self.getTestOutp()
+            argv = ['--manifest', 'newp.jsonl', '--manifest', 'badjson.jsonl', '--manifest', 'badline.jsonl',
+                    '--manifest', 'badkey.jsonl', '--manifest', 'notobj.jsonl']
+            self.eq(await s_lint.main(argv, outp=outp), 2)
+            outp.expect('newp.jsonl: error: [Errno 2] No such file or directory')
+            outp.expect('badjson.jsonl: error: line 3: ')
+            outp.expect('badline.jsonl: error: line 2: data.line must be bigger than or equal to 1')
+            outp.expect("badkey.jsonl: error: line 1201: data must contain ['text'] properties")
+            outp.expect('notobj.jsonl: error: line 1: data must be object')
+
+            # findings from chunks before a bad line are still reported
+            bad = s_json.dumps({'path': 'a.ts', 'line': 1, 'text': '$x = $lib.true'}).decode()
+            _write(os.path.join(dirn, 'stream.jsonl'), f'{bad}\n' + f'{good}\n' * 500 + '{"path": "a.ts"}\n')
+
+            outp = self.getTestOutp()
+            self.eq(await s_lint.main(['--manifest', 'stream.jsonl'], outp=outp), 2)
+            self.eq(str(outp).strip().split('\n'), [
+                'a.ts:1:6: R001 $lib.true was removed, use (true).',
+                "stream.jsonl: error: line 502: data must contain ['line', 'text'] properties",
+                'Found 1 error.',
+            ])
+
+            outp = self.getTestOutp()
+            self.eq(await s_lint.main(['--format', 'json', '--manifest', 'stream.jsonl'], outp=outp), 2)
+            rows = [s_json.loads(line) for line in str(outp).strip().split('\n')]
+            self.eq([r.get('rule') for r in rows], ['R001', None])
+            self.eq(rows[1]['path'], 'stream.jsonl')
+
+            outp = self.getTestOutp()
+            self.eq(await s_lint.main(['--format', 'json', '--manifest', 'newp.json'], outp=outp), 2)
+            row = s_json.loads(str(outp))
+            self.eq(row['path'], 'newp.json')
+            self.isin('No such file', row['error'])
 
     async def test_tools_storm_lint_config(self):
 

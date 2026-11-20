@@ -23,8 +23,8 @@ modeldefs = (
                 ),
                 'display': {
                     'columns': (
+                        {'type': 'prop', 'opts': {'name': 'id'}},
                         {'type': 'prop', 'opts': {'name': 'name'}},
-                        {'type': 'prop', 'opts': {'name': 'names'}},
                         {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                     ),
                 },

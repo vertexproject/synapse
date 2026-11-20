@@ -1903,14 +1903,53 @@ class StorTypeTime(StorTypeInt):
 
     def __init__(self, layr):
         StorTypeInt.__init__(self, layr, STOR_TYPE_TIME, 8, True)
-        self.futsize = 0x7fffffffffffffff
-        self.unksize = 0x7ffffffffffffffe
-        self.unkbyts = (self.futsize + self.offset).to_bytes(8, 'big')
-        self.futbyts = (self.unksize + self.offset).to_bytes(8, 'big')
-        self.maxbyts = (self.unksize + self.offset - 1).to_bytes(8, 'big')
+        self.unksize = 0x7fffffffffffffff
+        self.futsize = 0x7ffffffffffffffe
+        self.unkbyts = (self.unksize + self.offset).to_bytes(8, 'big')
+        self.futbyts = (self.futsize + self.offset).to_bytes(8, 'big')
         self.lifters.update({
+            '<': self._liftTimeLt,
+            '>': self._liftTimeGt,
+            '<=': self._liftTimeLe,
+            '>=': self._liftTimeGe,
             '@=': self._liftAtIval,
         })
+
+    # Ordered comparisons treat ongoing (*) as greater than any time, and never
+    # match unknown (?) unless the query value is also ?.
+
+    async def _liftTimeGt(self, liftby, valu, reverse=False):
+        if valu >= self.futsize:
+            return
+
+        async for item in self._liftTimeGe(liftby, valu + 1, reverse=reverse):
+            yield item
+
+    async def _liftTimeGe(self, liftby, valu, reverse=False):
+        if valu == self.unksize:
+            async for item in self._liftIntEq(liftby, valu, reverse=reverse):
+                yield item
+            return
+
+        minindx = max(valu + self.offset, 0).to_bytes(8, 'big')
+        async for item in liftby.keyNidsByRange(minindx, self.futbyts, reverse=reverse):
+            yield item
+
+    async def _liftTimeLt(self, liftby, valu, reverse=False):
+        if valu == self.unksize:
+            return
+
+        async for item in self._liftIntLe(liftby, valu - 1, reverse=reverse):
+            yield item
+
+    async def _liftTimeLe(self, liftby, valu, reverse=False):
+        if valu == self.unksize:
+            async for item in self._liftIntEq(liftby, valu, reverse=reverse):
+                yield item
+            return
+
+        async for item in self._liftIntLe(liftby, valu, reverse=reverse):
+            yield item
 
     def getVirtIndxVals(self, nid, form, prop, virt, isarray=False, poly=False):
         return ()
@@ -1942,6 +1981,10 @@ class StorTypeIval(StorType):
         self.unkdurabyts = self.unkdura.to_bytes(8, 'big')
         self.futdurabyts = self.futdura.to_bytes(8, 'big')
         self.maxdurabyts = self.maxdura.to_bytes(8, 'big')
+
+        # the lowest ongoing duration start index for a known min, just above the
+        # one written for an ongoing ival with an unknown min, i.e. (?, *)
+        self.minstrtbyts = (self.unkdura - (self.timetype.unksize + self.timetype.offset) + 1).to_bytes(8, 'big')
 
         self.lifters.update({
             '=': self._liftIvalEq,
@@ -2050,21 +2093,40 @@ class StorTypeIval(StorType):
         async for item in liftby.keyNidsByPref(indx, reverse=reverse):
             yield item
 
+    # Ordered comparisons of an ival min/max treat ongoing (*) as greater than
+    # any time, and never match unknown (?) unless the query value is also ?.
+
     async def _liftIvalPartGt(self, liftby, valu, reverse=False):
+        if valu >= self.timetype.futsize:
+            return
+
         async for item in self._liftIvalPartGe(liftby, valu + 1, reverse=reverse):
             yield item
 
     async def _liftIvalPartGe(self, liftby, valu, reverse=False):
+        if valu == self.timetype.unksize:
+            async for item in self._liftIvalPartEq(liftby, valu, reverse=reverse):
+                yield item
+            return
+
         pkeymin = self.timetype.getIntIndx(max(valu, 0))
-        pkeymax = self.timetype.maxbyts
+        pkeymax = self.timetype.futbyts
         async for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
             yield item
 
     async def _liftIvalPartLt(self, liftby, valu, reverse=False):
+        if valu == self.timetype.unksize:
+            return
+
         async for item in self._liftIvalPartLe(liftby, valu - 1, reverse=reverse):
             yield item
 
     async def _liftIvalPartLe(self, liftby, valu, reverse=False):
+        if valu == self.timetype.unksize:
+            async for item in self._liftIvalPartEq(liftby, valu, reverse=reverse):
+                yield item
+            return
+
         maxv = min(valu, self.timetype.maxval)
 
         pkeymin = self.timetype.zerobyts
@@ -2117,8 +2179,9 @@ class StorTypeIval(StorType):
                 indxs = (duraindx, futindx)
         else:
             # If we got a >= ? or *, we're just going to get values = because > doesn't make sense.
-            byts = norm.to_bytes(8, 'big')
-            indxs = ((byts, byts),)
+            async for item in self._liftIvalDurationEq(liftby, valu, reverse=reverse):
+                yield item
+            return
 
         for (pkeymin, pkeymax) in indxs:
             async for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
@@ -2138,16 +2201,18 @@ class StorTypeIval(StorType):
         if futstart is not None:
             duraindx = (self.timetype.zerobyts, norm.to_bytes(8, 'big'))
 
+            # an ongoing ival with an unknown min has no duration to compare
             strtindx = (self.unkdura - (futstart + self.timetype.offset)).to_bytes(8, 'big')
-            futindx = (self.futdurabyts + self.timetype.zerobyts, self.futdurabyts + strtindx)
+            futindx = (self.futdurabyts + self.minstrtbyts, self.futdurabyts + strtindx)
             if reverse:
                 indxs = (futindx, duraindx)
             else:
                 indxs = (duraindx, futindx)
         else:
             # If we got a <= ? or *, we're just going to get values = because < doesn't make sense.
-            byts = norm.to_bytes(8, 'big')
-            indxs = ((byts, byts),)
+            async for item in self._liftIvalDurationEq(liftby, valu, reverse=reverse):
+                yield item
+            return
 
         for (pkeymin, pkeymax) in indxs:
             async for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):

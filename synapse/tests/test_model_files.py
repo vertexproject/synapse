@@ -73,6 +73,29 @@ class FileTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('file:system:entry :file -> file:bytes'))
 
             nodes = await core.nodes('''[
+                file:system:posix:entry=*
+                    :host={it:host}
+                    :path=foo/003.sh
+                    :owner={[ it:host:posix:account=* :id=1001 ]}
+                    :creator={[ it:host:posix:account=* :id=1002 ]}
+                    :group={[ it:host:posix:group=* :id=1001 :name=staff ]}
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('host'))
+            self.nn(nodes[0].get('owner'))
+            self.nn(nodes[0].get('creator'))
+            self.nn(nodes[0].get('group'))
+            self.propeq(nodes[0], 'path', 'foo/003.sh')
+            self.len(1, await core.nodes('file:system:posix:entry :group -> it:host:posix:group +:name=staff'))
+            self.len(1, await core.nodes('file:system:posix:entry :owner -> it:host:posix:account +:id=1001'))
+            self.len(1, await core.nodes('file:system:posix:entry :creator -> it:host:posix:account +:id=1002'))
+            self.len(1, await core.nodes('file:system:entry:owner'))
+            self.len(2, await core.nodes('file:system:entry'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('file:system:posix:entry [ :owner={[ it:host:windows:account=* ]} ]')
+
+            nodes = await core.nodes('''[
                 file:subfile:entry=*
                     :parent={file:bytes}
                     :file={file:bytes}
@@ -450,6 +473,10 @@ class FileTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
+            display = core.model.type('file:bytes').info.get('display')
+            self.eq(['sha256', 'mime', 'size'],
+                    [col['opts']['name'] for col in display['columns']])
+
             base = core.model.type('file:base')
             path = core.model.type('file:path')
 
@@ -459,8 +486,11 @@ class FileTest(s_t_utils.SynTest):
             self.eq('FOO.EXE', norm)
             self.eq((base.exttype.typehash, 'EXE', {}), subs.get('ext'))
 
-            await self.asyncraises(s_exc.BadTypeValu, base.norm('foo/bar.exe'))
-            await self.asyncraises(s_exc.BadTypeValu, base.norm('/haha'))
+            with self.raises(s_exc.BadTypeValu):
+                await base.norm('foo/bar.exe')
+
+            with self.raises(s_exc.BadTypeValu):
+                await base.norm('/haha')
 
             norm, info = await path.norm('../.././..')
             self.eq(norm, '')
@@ -477,8 +507,11 @@ class FileTest(s_t_utils.SynTest):
             norm, info = await path.norm(r'./hehe/haha')
             self.eq(norm, 'hehe/haha')
             # '.' has no normable value.
-            await self.asyncraises(s_exc.BadTypeValu, path.norm('.'))
-            await self.asyncraises(s_exc.BadTypeValu, path.norm('..'))
+            with self.raises(s_exc.BadTypeValu):
+                await path.norm('.')
+
+            with self.raises(s_exc.BadTypeValu):
+                await path.norm('..')
 
             norm, info = await path.norm('c:')
             self.eq(norm, 'c:')

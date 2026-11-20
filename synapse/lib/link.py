@@ -14,6 +14,7 @@ import synapse.common as s_common
 import synapse.lib.base as s_base
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.urlhelp as s_urlhelp
 
 READSIZE = 16 * s_const.mebibyte
 MAXWRITE = 64 * s_const.mebibyte
@@ -186,18 +187,22 @@ class Link(s_base.Base):
         self.certhash = info.get('certhash')
         self.hostname = info.get('hostname')
 
+        endp = ''
+        if info.get('host') is not None:
+            endp = f' ({self.endpoint()})'
+
         if self.certhash is not None:
 
             byts = self.writer.get_extra_info('ssl_object').getpeercert(True)
             cert = c_x509.load_der_x509_certificate(byts)
             thishash = s_common.ehex(cert.fingerprint(c_hashes.SHA256()))
             if thishash != self.certhash:
-                mesg = f'Server cert does not match pinned certhash={self.certhash}.'
+                mesg = f'Server cert does not match pinned certhash={self.certhash}.{endp}'
                 raise s_exc.LinkBadCert(mesg=mesg)
 
         elif self.hostname is not None:
             if self.hostname != self.getTlsPeerCn():
-                mesg = f'Expected: {self.hostname} Got: {self.getTlsPeerCn()}'
+                mesg = f'Expected: {self.hostname} Got: {self.getTlsPeerCn()}{endp}'
                 await self.fini()
                 raise s_exc.BadCertHost(mesg=mesg)
 
@@ -255,6 +260,16 @@ class Link(s_base.Base):
         Get a summary of address information related to the link.
         '''
         return dict(self._addrinfo)
+
+    def endpoint(self):
+        '''
+        Get a URL for the remote end of the link, built from the link info.
+        '''
+        if self.info.get('unix'):
+            return s_urlhelp.zipurl({'scheme': 'unix', 'path': self.info.get('path')})
+
+        scheme = 'tcp' if self.info.get('ssl') is None else 'ssl'
+        return s_urlhelp.zipurl({'scheme': scheme, 'host': self.info.get('host'), 'port': self.info.get('port')})
 
     async def send(self, byts):
 

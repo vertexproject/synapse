@@ -140,9 +140,6 @@ class LibModelExt(s_stormtypes.Lib):
         typedef = await s_stormtypes.toprim(typedef)
         propinfo = await s_stormtypes.toprim(propinfo)
         s_stormtypes.confirm(('model', 'admin'))
-        if not s_grammar.isBasePropNoPivprop(propname):
-            mesg = f'Invalid prop name {propname}'
-            raise s_exc.BadPropDef(prop=propname, mesg=mesg)
         await self.runt.view.core.addFormProp(formname, propname, typedef, propinfo)
 
     async def addTagProp(self, propname, typedef, propinfo):
@@ -150,10 +147,6 @@ class LibModelExt(s_stormtypes.Lib):
         typedef = await s_stormtypes.toprim(typedef)
         propinfo = await s_stormtypes.toprim(propinfo)
         s_stormtypes.confirm(('model', 'admin'))
-        if not s_grammar.isBasePropNoPivprop(propname):
-            mesg = f'Invalid prop name {propname}'
-            raise s_exc.BadPropDef(name=propname, mesg=mesg)
-
         await self.runt.view.core.addTagProp(propname, typedef, propinfo)
 
     async def delForm(self, formname):

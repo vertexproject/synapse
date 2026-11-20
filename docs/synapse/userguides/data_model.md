@@ -88,7 +88,7 @@ Interfaces have three primary uses:
 
 - First, interfaces **ensure consistent form definitions**. An interface can define a set of **secondary properties** that should be present on a set of related forms. Instead of explicitly defining the secondary properties on each form, the forms can **implement** an interface to receive its properties. This makes it easier to define objects and ensures properties are named, defined, and used consistently.
 
-  **Example**: Synapse uses several forms to represent activity occurring on a host, such as file writes (`it:exec:file:write`) or process execution (`it:exec:proc`). These forms represent similar operations and use many of the same secondary properties, such as the time of execution (`:time`) and the file (`:exe`) or process (`:proc`) responsible for the activity. These common properties are defined on the `it:host:event` **interface** which is implemented by each form for consistency.
+  **Example**: Synapse uses several forms to represent activity occurring on a host, such as file writes (`it:exec:file:write`) or process creation (`it:exec:proc:create`). These forms represent similar operations and use many of the same secondary properties, such as the time of execution (`:time`) and the file (`:exe`) or process (`:proc`) responsible for the activity. These common properties are defined on the `it:host:event` **interface** which is implemented by each form for consistency.
 
   Forms can implement multiple interfaces. Interfaces can be ordered (that is, interfaces can implement other interfaces), but they do not have any defined structure (e.g., they are not inherently hierarchical, for example). They act as building blocks that can be combined and applied where appropriate.
 
@@ -369,7 +369,7 @@ You can create:
 To avoid name collisions with existing (or future) base model elements, extended element names must begin with an underscore (`_`). This includes:
 
 - Form names (e.g., `_extended:form`).
-- Property names, whether added to existing forms (`inet:fqdn:_extended:property`) or extended forms (e.g., `_extended:form:_extended:property`). If the extended property represents source-specific or vendor-specific data, we recommend using the vendor name as the first element in the extended property name (e.g., `:_vendor:extended:property`).
+- Property names, whether added to existing forms (`inet:fqdn:_extended:property`) or extended forms (e.g., `_extended:form:_extended:property`). If the extended property represents source-specific or vendor-specific data, we recommend using the vendor name as the first element in the extended property name (e.g., `:_vendor:extended:property`). Each colon-separated part of a property name may contain only lowercase letters, digits, and underscores (e.g., `:_iso:3166`).
 - Edge verbs (e.g., `-(_verb)>`).
 
 > [!NOTE]

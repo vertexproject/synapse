@@ -76,7 +76,8 @@ Other Storm-surface changes:
   - Granular extended-model permissions (`model.form.add`, `model.prop.*`, `model.univ.*`, `model.edge.*`, `model.tagprop.*`, etc.) collapse to a single `model.admin`.
   - `view.fork` no longer defaults to allow. Fix: grant it explicitly (e.g. to the `all` role) to restore 2.x behavior.
   - `proj:project` no longer creates an authgate and `('project', ...)` permissions are gone. Fix: govern project nodes via standard `node`/`view`/`layer` permissions.
-  - `storm.macro.admin`/`storm.macro.edit` renamed to top-level `macro.admin`/`macro.edit` (`storm.macro.add` stays).
+  - `storm.macro.add`/`storm.macro.admin`/`storm.macro.edit` renamed to top-level `macro.add`/`macro.admin`/`macro.edit`.
+  - `storm.graph`/`storm.graph.add` renamed to top-level `graph`/`graph.add`. Fix: rewrite rules (especially denies, since `graph.add` defaults to allow) with the new names.
   - `node.data.pop` renamed to `node.data.del` (and `node.data.del.<key>`).
   - `node.prop.set`/`node.prop.del` no longer honor the full property path (`node.prop.set.<form>:<prop>`); only the form name plus relative property name is checked. Fix: migrate full-path grants to `node.prop.set.<form>.<prop>` / `node.prop.del.<form>.<prop>`.
   - Cortex-gated wildcard `layer.read.<layer>`/`layer.write.<layer>` removed. Fix: grant `layer.write` on the specific layer's authgate (`--gate <layeriden>`).

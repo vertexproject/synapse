@@ -49,7 +49,6 @@ modeldefs = (
                         {'type': 'prop', 'opts': {'name': 'id'}},
                         {'type': 'prop', 'opts': {'name': 'name'}},
                         {'type': 'prop', 'opts': {'name': 'reporter:name'}},
-                        {'type': 'prop', 'opts': {'name': 'type'}},
                     ),
                 },
                 'props': (
@@ -216,6 +215,15 @@ modeldefs = (
                     ('risk:victimized', {}),
                     ('meta:discoverable', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'period'}},
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'actor:name'}},
+                        {'type': 'prop', 'opts': {'name': 'victim:name'}},
+                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                    ),
+                },
                 'props': (
 
                     ('type', ('risk:attack:type:taxonomy', {}), {
@@ -301,13 +309,12 @@ modeldefs = (
                 ),
                 'display': {
                     'columns': (
-                        # TODO allow columns to use virtual props
-                        # {'type': 'prop', 'opts': {'name': 'period.min'}},
-                        # {'type': 'prop', 'opts': {'name': 'period.max'}},
+                        {'type': 'prop', 'opts': {'name': 'period'}},
                         {'type': 'prop', 'opts': {'name': 'name'}},
-                        {'type': 'prop', 'opts': {'name': 'actor::name'}},
-                        {'type': 'prop', 'opts': {'name': 'victim::name'}},
+                        {'type': 'prop', 'opts': {'name': 'actor:name'}},
+                        {'type': 'prop', 'opts': {'name': 'victim:name'}},
                         {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                        {'type': 'prop', 'opts': {'name': 'tag'}},
                     ),
                 },
                 'props': (
@@ -334,10 +341,9 @@ modeldefs = (
                 'template': {'title': 'mitigation'},
                 'display': {
                     'columns': (
+                        {'type': 'prop', 'opts': {'name': 'id'}},
                         {'type': 'prop', 'opts': {'name': 'name'}},
                         {'type': 'prop', 'opts': {'name': 'reporter:name'}},
-                        {'type': 'prop', 'opts': {'name': 'type'}},
-                        {'type': 'prop', 'opts': {'name': 'tag'}},
                     ),
                 },
                 'props': (
@@ -395,8 +401,8 @@ modeldefs = (
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'time'}},
                         {'type': 'prop', 'opts': {'name': 'name'}},
-                        {'type': 'prop', 'opts': {'name': 'actor::name'}},
-                        {'type': 'prop', 'opts': {'name': 'victim::name'}},
+                        {'type': 'prop', 'opts': {'name': 'actor:name'}},
+                        {'type': 'prop', 'opts': {'name': 'victim:name'}},
                         {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                     ),
                 },
@@ -443,11 +449,11 @@ modeldefs = (
                 ),
                 'display': {
                     'columns': (
+                        {'type': 'prop', 'opts': {'name': 'period'}},
                         {'type': 'prop', 'opts': {'name': 'name'}},
-                        {'type': 'prop', 'opts': {'name': 'actor::name'}},
-                        {'type': 'prop', 'opts': {'name': 'victim::name'}},
+                        {'type': 'prop', 'opts': {'name': 'actor:name'}},
+                        {'type': 'prop', 'opts': {'name': 'victim:name'}},
                         {'type': 'prop', 'opts': {'name': 'reporter:name'}},
-                        # TODO: period.min / period.max
                     ),
                 },
                 'props': (
@@ -486,9 +492,9 @@ modeldefs = (
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'time'}},
-                        {'type': 'prop', 'opts': {'name': 'value'}},
-                        {'type': 'prop', 'opts': {'name': 'actor::name'}},
-                        {'type': 'prop', 'opts': {'name': 'victim::name'}},
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'actor:name'}},
+                        {'type': 'prop', 'opts': {'name': 'victim:name'}},
                         {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                     ),
                 },
@@ -628,6 +634,9 @@ modeldefs = (
 
             (('risk:theft', 'stole', 'phys:object'), {
                 'doc': 'The target node was stolen during the theft.'}),
+
+            (('risk:theft', 'stole', 'meta:aggregate'), {
+                'doc': 'The target node counts the items stolen during the theft.'}),
 
             (('risk:leak', 'leaked', 'meta:observable'), {
                 'doc': 'The leak included the disclosure of the target node.'}),

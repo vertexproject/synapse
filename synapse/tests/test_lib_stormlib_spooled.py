@@ -191,7 +191,8 @@ class StormlibSpooledTest(s_test.SynTest):
                 return($set)
             '''
             stormnode = s_stormtypes.Node(nodes[0])
-            await self.asyncraises(s_exc.BadArg, core.callStorm(q, {'vars': {'stormnode': stormnode}}))
+            with self.raises(s_exc.BadArg):
+                await core.callStorm(q, {'vars': {'stormnode': stormnode}})
 
             # mutable failures
             q = '''
@@ -199,7 +200,8 @@ class StormlibSpooledTest(s_test.SynTest):
                 $set.add(({'neato': 'burrito'}))
                 return($set)
             '''
-            await self.asyncraises(s_exc.BadArg, core.callStorm(q))
+            with self.raises(s_exc.BadArg):
+                await core.callStorm(q)
 
             q = '''
                 $set = $lib.spooled.set()
@@ -207,7 +209,8 @@ class StormlibSpooledTest(s_test.SynTest):
                 $set.adds(($dict, $dict))
                 return($set)
             '''
-            await self.asyncraises(s_exc.BadArg, core.callStorm(q))
+            with self.raises(s_exc.BadArg):
+                await core.callStorm(q)
 
             q = '''
                 $set = $lib.spooled.set()
@@ -216,14 +219,16 @@ class StormlibSpooledTest(s_test.SynTest):
                 return($set)
             '''
             # it'll blow up on the first
-            await self.asyncraises(s_exc.BadArg, core.callStorm(q, {'vars': {'stormnode': stormnode}}))
+            with self.raises(s_exc.BadArg):
+                await core.callStorm(q, {'vars': {'stormnode': stormnode}})
 
             q = '''
                 $dict = ({'foo': 'bar'})
                 $set = $lib.spooled.set($dict)
                 return($set)
             '''
-            await self.asyncraises(s_exc.BadArg, core.callStorm(q))
+            with self.raises(s_exc.BadArg):
+                await core.callStorm(q)
 
             # type not msgpack-able
             q = '''
@@ -231,13 +236,15 @@ class StormlibSpooledTest(s_test.SynTest):
                 $set.add($lib.model.form("inet:ip"))
                 return($set)
             '''
-            await self.asyncraises(s_exc.BadArg, core.callStorm(q))
+            with self.raises(s_exc.BadArg):
+                await core.callStorm(q)
 
             q = '''
                 $set = $lib.spooled.set($stormnode)
                 return($set)
             '''
-            await self.asyncraises(s_exc.BadArg, core.callStorm(q, {'vars': {'stormnode': stormnode}}))
+            with self.raises(s_exc.BadArg):
+                await core.callStorm(q, {'vars': {'stormnode': stormnode}})
 
             # make sure the various spools got trashed
             path = os.path.join(core.dirn, 'tmp')

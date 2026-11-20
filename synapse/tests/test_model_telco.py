@@ -8,14 +8,20 @@ class TelcoModelTest(s_t_utils.SynTest):
 
             typ = core.model.type('tel:mob:mcc')
             self.eq((await typ.norm('001'))[0], '001')
-            await self.asyncraises(s_exc.BadTypeValu, typ.norm('01'))
-            await self.asyncraises(s_exc.BadTypeValu, typ.norm('0001'))
+            with self.raises(s_exc.BadTypeValu):
+                await typ.norm('01')
+
+            with self.raises(s_exc.BadTypeValu):
+                await typ.norm('0001')
 
             typ = core.model.type('tel:mob:mnc')
             self.eq((await typ.norm('01'))[0], '01')
             self.eq((await typ.norm('001'))[0], '001')
-            await self.asyncraises(s_exc.BadTypeValu, typ.norm('0001'))
-            await self.asyncraises(s_exc.BadTypeValu, typ.norm('1'))
+            with self.raises(s_exc.BadTypeValu):
+                await typ.norm('0001')
+
+            with self.raises(s_exc.BadTypeValu):
+                await typ.norm('1')
 
             typ = core.model.type('tel:mob:tadig')
             self.eq((await typ.norm('USAWZ'))[0], 'USAWZ')
@@ -26,13 +32,15 @@ class TelcoModelTest(s_t_utils.SynTest):
                 await typ.norm('US')
 
             # tel:mob:tac
-            props = {'model': 'eYephone 9000'}
-            q = '''[(tel:mob:tac=1 :model=$p.model)]'''
+            props = {'model': 'eYephone 9000', 'models': ('eYephone 9000x', 'eYephone nine')}
+            q = '''[(tel:mob:tac=1 :model=$p.model :models=$p.models)]'''
             nodes = await core.nodes(q, opts={'vars': {'p': props}})
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('tel:mob:tac', 1))
             self.propeq(node, 'model', 'eYephone 9000')
+            self.propeq(node, 'models', ('eYephone 9000x', 'eYephone nine'))
+            self.len(1, await core.nodes('yield $lib.lift.byPropAlts(tel:mob:tac:model, "eYephone nine")'))
 
             nodes = await core.nodes('[tel:mob:imid=(490154203237518, 310150123456789)]')
             self.len(1, nodes)
@@ -98,6 +106,13 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.eq(node.ndef, ('tel:mob:imei', '490154203237518'))
             self.propeq(node, 'serial', 323751)
             self.propeq(node, 'tac', 49015420)
+            # an all zero serial or tac norms to 0
+            nodes = await core.nodes('[tel:mob:imei=111110000000003]')
+            self.propeq(nodes[0], 'serial', 0)
+            self.propeq(nodes[0], 'tac', 11111000)
+            nodes = await core.nodes('[tel:mob:imei=000000000000000]')
+            self.propeq(nodes[0], 'serial', 0)
+            self.propeq(nodes[0], 'tac', 0)
             # the full 15 digit IMEI is required
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[tel:mob:imei=39015420323751]')
@@ -139,8 +154,11 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.eq(t.repr('12345678901'), '+1 (234) 567-8901')
             self.eq(t.repr('9999999999'), '+9999999999')
 
-            await self.asyncraises(s_exc.BadTypeValu, t.norm(-1))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('+()*'))
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm(-1)
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('+()*')
 
             nodes = await core.nodes('[tel:phone="+1 (703) 555-1212" :type=fax ]')
             self.len(1, nodes)

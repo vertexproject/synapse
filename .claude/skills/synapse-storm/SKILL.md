@@ -390,8 +390,10 @@ $lib.tags.prefix($tags, $prefix)             // prefix tag list
 
 // HTTP
 $lib.inet.http.request($meth, $url,
-    headers=$headers, params=$params,
-    json=$json, ssl=$ssl, proxy=$proxy)      // HTTP request
+    headers=$headers, params=$params, json=$json,
+    ssl=({"verify": $verify}), proxy=$proxy)     // HTTP request (ssl is a dict)
+// ssl keys: verify (bool, default true), client_cert, client_key, ca_cert (PEM strings);
+// see synapse/assets/docs/300_changes/storm-http-ssl-options.md
 $resp.code                                    // response code
 $resp.json()                                  // parse JSON body
 $resp.headers                                 // response headers

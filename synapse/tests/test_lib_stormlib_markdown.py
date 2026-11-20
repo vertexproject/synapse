@@ -917,7 +917,7 @@ class MarkdownTest(s_test.SynTest):
                 $block = $lib.markdown.stormtable("it:software:name=WEBC2")
                 return($block.text)
             ''')
-            self.isin('| it:software |', valu)
+            self.isin('| WEBC2 |', valu)
 
     async def test_stormlib_markdown_stormblock_refresh_kinds(self):
 

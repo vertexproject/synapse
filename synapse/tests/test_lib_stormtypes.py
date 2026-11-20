@@ -969,6 +969,20 @@ class StormTypesTest(s_test.SynTest):
                     'modconf': {'valu': 'foo'},
                 },
                 {
+                    'name': 'test.modconf',
+                    'storm': '''
+                        $__endpoints = $modconf.endpoints
+                        function geturl() { return($__endpoints.x.url) }
+                        function seturl() { $__endpoints.x.url = newp return($__endpoints.x.url) }
+                        function copyurl() { $c = $lib.copy($modconf) $c.endpoints.x.url = copied return($c.endpoints.x.url) }
+                    ''',
+                    'modconf': {
+                        'source': 'foo',
+                        'endpoints': {'x': {'url': 'https://good.example'}},
+                        'items': [1, [2, 3], {'k': 'v'}],
+                    },
+                },
+                {
                     'name': 'test.danger',
                     'storm': '''
                         init { $src=(null) }
@@ -1131,7 +1145,8 @@ class StormTypesTest(s_test.SynTest):
                 await core.callStorm('return($lib.guid(foo, valu=bar))')
             self.eq('Valu cannot be specified if positional arguments are provided', ectx.exception.errinfo['mesg'])
 
-            await self.asyncraises(s_exc.NoSuchType, core.callStorm('return($lib.guid(valu=$lib))'))
+            with self.raises(s_exc.NoSuchType):
+                await core.callStorm('return($lib.guid(valu=$lib))')
 
             # text typed values use their nid normalized (lower cased) form for
             # guid construction so guids deconflict text the same way nodes do.
@@ -1240,15 +1255,114 @@ class StormTypesTest(s_test.SynTest):
             self.eq(erfo[1][0], 'NoSuchName')
             self.eq(erfo[1][1].get('name'), 'newp')
 
-            await core.callStorm('$test = $lib.import(test) $test.modconf.valu=bar')
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('$test = $lib.import(test) $test.modconf.valu=bar')
+
             self.eq('foo', await core.callStorm('return($lib.import(test).getvalu())'))
             self.eq('foo', await core.callStorm('return($lib.import(test).getvalu())', opts={'readonly': True}))
 
             with self.raises(s_exc.IsReadOnly):
                 await core.callStorm('return($lib.import(test.danger).src)', opts={'readonly': True})
 
+            # $modconf is deeply read-only for importers and for the module itself
+            imp = '$p = $lib.import(test.modconf) '
+            for mutate in (
+                '$p.modconf.endpoints.x.url = evil',
+                '$p.modconf.endpoints.x = ({})',
+                '$p.modconf.foo = bar',
+                '$p.modconf.items.append(x)',
+                '$p.modconf.items.pop()',
+                '$p.modconf.items.extend((x,))',
+                '$p.modconf.items.sort()',
+                '$p.modconf.items.reverse()',
+                '$p.modconf.items.rem((1))',
+                '$i = (0) $p.modconf.items.$i = x',
+                '$i = (0) $p.modconf.items.index(1).$i = x',
+                '$p.modconf.items.index(1).append(x)',
+                '$p.modconf.items.index(2).k = x',
+                '$lib.dict.update($p.modconf, ({"a": 1}))',
+                '$lib.dict.pop($p.modconf, source)',
+                '$lib.dict.pop($p.modconf, newp)',
+                '$lib.dict.values($p.modconf.endpoints).index(0).url = evil',
+                '$lib.dict.values($p.modconf).index(2).append(x)',
+                '$p.seturl()',
+            ):
+                with self.raises(s_exc.StormRuntimeError) as cm:
+                    await core.callStorm(imp + mutate)
+                self.isin('read-only', cm.exception.get('mesg'))
+
+            self.eq('https://good.example', await core.callStorm(imp + 'return($p.geturl())'))
+            self.eq('https://good.example', await core.callStorm(imp + 'return($p.modconf.endpoints.x.url)'))
+            self.eq(('source', 'endpoints', 'items', 'pkgmeta'), await core.callStorm(imp + 'return($lib.dict.keys($p.modconf))'))
+            self.eq('https://good.example', await core.callStorm(imp + 'return($lib.dict.values($p.modconf.endpoints).index(0).url)'))
+            self.eq('dict:readonly', await core.callStorm(imp + 'return($lib.utils.type($lib.dict.values($p.modconf.endpoints).index(0)))'))
+            self.eq('copied', await core.callStorm(imp + 'return($p.copyurl())'))
+            self.eq('https://good.example', await core.callStorm(imp + 'return($p.geturl())'))
+
+            # reads, iteration, and copies still work and are detached from the module
+            self.eq('foo', await core.callStorm(imp + 'return($p.modconf.source)'))
+            self.eq(3, await core.callStorm(imp + 'return($lib.len($p.modconf.items))'))
+            self.eq(3, await core.callStorm(imp + 'return($p.modconf.items.index(1).index(1))'))
+            self.eq('v', await core.callStorm(imp + 'return($p.modconf.items.index(2).k)'))
+            self.eq('https://good.example', await core.callStorm(imp + '''
+                for ($name, $info) in $p.modconf.endpoints { return($info.url) }
+            '''))
+            self.eq(6, await core.callStorm(imp + '''
+                $sum = (0)
+                for $item in $p.modconf.items.index(1) { $sum = $($sum + $item) }
+                for $item in $p.modconf.items { if ($item = 1) { $sum = $($sum + 1) } }
+                return($sum)
+            '''))
+
+            q = imp + '''
+                $s = $p.modconf.items.slice(1)
+                $s.index(0).append(4)
+                $s.index(1).k = changed
+                $u = $p.modconf.items.unique()
+                $u.index(1).append(5)
+                $u.index(2).k = changed
+                $c = $lib.copy($p.modconf.items)
+                $c.index(1).append(6)
+                return(($p.modconf.items.index(1), $p.modconf.items.index(2)))
+            '''
+            self.eq(((2, 3), {'k': 'v'}), await core.callStorm(q))
+
+            # read-only values are not mutable: hashable, set members, and usable as parameter defaults
+            self.eq(1, await core.callStorm(imp + 'return($lib.set($p.modconf).size())'))
+            q = '$i = $p.modconf.items return($lib.set($i.index(1), $i.index(1)).size())'
+            self.eq(1, await core.callStorm(imp + q))
+            q = '$i = $p.modconf.items return($lib.set($i.index(1), $i.index(2)).size())'
+            self.eq(2, await core.callStorm(imp + q))
+            self.eq('foo', await core.callStorm(imp + 'function f(x=$p.modconf) { return($x.source) } return($f())'))
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm(imp + 'function f(x=$p.modconf) { $x.foo = bar return() } $f()')
+
+            # read-only values report distinct, registered type names; copies are plain
+            self.eq('dict:readonly', await core.callStorm(imp + 'return($lib.utils.type($p.modconf))'))
+            self.eq('dict:readonly', await core.callStorm(imp + 'return($lib.utils.type($p.modconf.endpoints.x))'))
+            self.eq('list:readonly', await core.callStorm(imp + 'return($lib.utils.type($p.modconf.items))'))
+            self.eq('list:readonly', await core.callStorm(imp + 'return($lib.utils.type($p.modconf.items.index(1)))'))
+            self.eq('dict', await core.callStorm(imp + 'return($lib.utils.type($lib.copy($p.modconf)))'))
+            self.eq('list', await core.callStorm(imp + 'return($lib.utils.type($lib.copy($p.modconf.items)))'))
+            self.isin('dict:readonly', s_stormtypes.registry.known_types)
+            self.isin('list:readonly', s_stormtypes.registry.known_types)
+
+            msgs = await core.stormlist(imp + '$lib.print($p.modconf) help $p.modconf.items')
+            self.stormIsInPrint('A read-only list.', msgs)
+
+            rodict = s_stormtypes.ReadOnlyDict({'a': 1, 'b': [1, {'c': 2}]})
+            self.false(rodict.ismutable())
+            self.eq(hash(rodict), hash(s_stormtypes.ReadOnlyDict({'b': [1, {'c': 2}], 'a': 1})))
+            self.ne(hash(rodict), hash(s_stormtypes.ReadOnlyDict({'a': 1})))
+
+            rolist = s_stormtypes.ReadOnlyList([1, [2], {'k': 'v'}])
+            self.false(rolist.ismutable())
+            self.eq(hash(rolist), hash(s_stormtypes.ReadOnlyList([1, [2], {'k': 'v'}])))
+            self.ne(hash(rolist), hash(s_stormtypes.ReadOnlyList([1])))
+
             mods = await core.getStormMods()
-            self.len(2, mods)
+            self.len(3, mods)
             mods['test']['modconf']['valu'] = 'bar'
             mods = await core.getStormMods()
             self.eq('foo', mods['test']['modconf']['valu'])
@@ -1557,9 +1671,15 @@ class StormTypesTest(s_test.SynTest):
     async def test_storm_lib_json_consts(self):
         async with self.getTestCore() as core:
             # $lib.null/true/false are removed and must raise NoSuchName
-            await self.asyncraises(s_exc.NoSuchName, core.callStorm('$lib.null'))
-            await self.asyncraises(s_exc.NoSuchName, core.callStorm('$lib.true'))
-            await self.asyncraises(s_exc.NoSuchName, core.callStorm('$lib.false'))
+            with self.raises(s_exc.NoSuchName):
+                await core.callStorm('$lib.null')
+
+            with self.raises(s_exc.NoSuchName):
+                await core.callStorm('$lib.true')
+
+            with self.raises(s_exc.NoSuchName):
+                await core.callStorm('$lib.false')
+
             # $lib.undef still works
             msgs = await core.stormlist('$lib.print($lib.undef)')
             self.stormIsInPrint('$lib.undef', msgs)
@@ -2232,7 +2352,8 @@ class StormTypesTest(s_test.SynTest):
             self.eq('', await core.callStorm(q))
 
             q = '$foo="quickbrownfox" return ( $foo.slice("newp") )'
-            await self.asyncraises(s_exc.BadCast, core.callStorm(q))
+            with self.raises(s_exc.BadCast):
+                await core.callStorm(q)
 
             q = '$foo="foobar" return ( $foo.reverse() )'
             self.eq('raboof', await core.callStorm(q))
@@ -4040,6 +4161,22 @@ class StormTypesTest(s_test.SynTest):
 
             self.none(await core.callStorm('return($lib.time.parse((true), "%m/%d/%Y", errok=(true)))'))
 
+            q = 'function f(fmt as str) { return($lib.time.parse(newp, $fmt)) } return($f("%Y"))'
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.callStorm(q)
+
+            self.eq('%Y', cm.exception.get('format'))
+
+            with self.raises(s_exc.BadArg) as cm:
+                await core.callStorm('return($lib.time.parse(None, (null)))')
+
+            self.isin('requires a format string, not (null)', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.BadArg) as cm:
+                await core.callStorm('return($lib.time.parse(None, (null), errok=(true)))')
+
+            self.isin('requires a format string, not (null)', cm.exception.get('mesg'))
+
             query = '''[test:str=1234 :tick=20190917]
             $lib.print($lib.time.format(:tick, "%Y-%d-%m"))
             '''
@@ -4073,6 +4210,17 @@ class StormTypesTest(s_test.SynTest):
             ernfos = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, ernfos)
             self.isin('', ernfos[0][1].get('mesg'))
+
+            q = 'function f(fmt as str) { return($lib.time.format("?", $fmt)) } return($f("%Y"))'
+            with self.raises(s_exc.BadArg) as cm:
+                await core.callStorm(q)
+
+            self.eq('%Y', cm.exception.get('format'))
+
+            with self.raises(s_exc.BadArg) as cm:
+                await core.callStorm('return($lib.time.format(2020, (null)))')
+
+            self.isin('requires a format string, not (null)', cm.exception.get('mesg'))
 
             # Get time parts
             self.eq(2021, await core.callStorm('return($lib.time.year(20211031020304))'))
@@ -4232,12 +4380,19 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.BadUrl):
                 await core.callStorm('$prox=$lib.telepath.open("weeeeeeeeeeeeee")')
 
-            # Python exceptions are caught and raised as StormRuntimeError exceptions.
-            with self.raises(s_exc.StormRuntimeError) as cm:
+            # Connection failures are raised as LinkErr exceptions which name the endpoint.
+            with self.raises(s_exc.LinkErr) as cm:
                 await core.callStorm('$prox=$lib.telepath.open("tcp://0.0.0.0:60000")')
             emsg = cm.exception.get('mesg')
-            self.isin('Failed to connect to Telepath service: "tcp://0.0.0.0:60000" error:', emsg)
+            self.isin('Unable to connect to tcp://0.0.0.0:60000', emsg)
             self.isin('Connect call failed', emsg)
+
+            # Other Python exceptions are caught and raised as StormRuntimeError exceptions.
+            with mock.patch('synapse.telepath.openurl', side_effect=ValueError('newp')):
+                with self.raises(s_exc.StormRuntimeError) as cm:
+                    await core.callStorm('$prox=$lib.telepath.open("tcp://0.0.0.0:60000")')
+            emsg = cm.exception.get('mesg')
+            self.isin('Failed to connect to Telepath service: "tcp://0.0.0.0:60000" error: newp', emsg)
 
     async def test_storm_lib_queue(self):
 
@@ -4846,6 +5001,18 @@ class StormTypesTest(s_test.SynTest):
             byts = b''.join([b async for b in (await core.getAxon()).get(key)])
             self.eq(byts, b'fooba?')
 
+            q = 'function f(safe as bool) { return($lib.base64.encode(newp, $safe)) } return($f((false)))'
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.callStorm(q)
+
+            self.false(cm.exception.get('urlsafe'))
+
+            q = 'function f(safe as bool) { return($lib.base64.decode(a, $safe)) } return($f((true)))'
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.callStorm(q)
+
+            self.true(cm.exception.get('urlsafe'))
+
             # unhappy cases
             opts = {'vars': {'bytes': 'not bytes'}}
             text = '[ test:str=$lib.base64.encode($bytes) ]'
@@ -5277,6 +5444,10 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchIden):
                 await core.nodes(q)
 
+            q = 'function f(i as str) { return($lib.layer.del($i)) } return($f(foo))'
+            with self.raises(s_exc.NoSuchIden):
+                await core.callStorm(q)
+
             q = f'$lib.layer.del({mainlayr})'
             with self.raises(s_exc.LayerInUse):
                 await core.nodes(q)
@@ -5474,12 +5645,14 @@ class StormTypesTest(s_test.SynTest):
 
             # sad
 
-            await self.asyncraises(s_exc.NoSuchForm, core.callStorm(scmd, opts={'vars': {'form': 'newp:newp'}}))
+            with self.raises(s_exc.NoSuchForm):
+                await core.callStorm(scmd, opts={'vars': {'form': 'newp:newp'}})
 
             lowuser = await core.auth.addUser('low')
             lowopts = opts | {'user': lowuser.iden, 'view': view_prop}
 
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=lowopts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=lowopts)
 
             await lowuser.addRule((True, ('view', 'read')), gateiden=view_prop)
             await core.callStorm(scmd, opts=lowopts)
@@ -5563,6 +5736,21 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchView):
                 await core.callStorm('return($lib.view.get($altview).fork())', opts=asderp)
 
+            # typed function params are normalized before being raised in the error
+            for typename in ('str', 'syn:tag'):
+                q = f'function f(i as {typename}) {{ return($lib.view.get($i)) }} return($f($altview))'
+                with self.raises(s_exc.NoSuchView) as cm:
+                    await core.callStorm(q, opts=asderp)
+
+                self.eq(altview, cm.exception.get('iden'))
+
+            for typename, valu in (('str', 'newp'), ('int', '10'), ('syn:tag', 'foo.bar')):
+                q = f'function f(i as {typename}) {{ return($lib.view.get($i)) }} return($f({valu}))'
+                with self.raises(s_exc.NoSuchView) as cm:
+                    await core.callStorm(q, opts=asderp)
+
+                self.eq(valu, cm.exception.get('iden'))
+
             # Fork the main view
             q = '''
                 $view=$lib.view.get().fork()
@@ -5626,7 +5814,8 @@ class StormTypesTest(s_test.SynTest):
             # write layer is read only
             core.views[childiden].parent.layers[0].readonly = True
             q = f'$lib.view.get({childiden}).merge()'
-            await self.asyncraises(s_exc.ReadOnlyLayer, core.callStorm(q))
+            with self.raises(s_exc.ReadOnlyLayer):
+                await core.callStorm(q)
 
             core.views[childiden].parent.layers[0].readonly = False
             childview = core.views[childiden]
@@ -5637,15 +5826,45 @@ class StormTypesTest(s_test.SynTest):
             self.notin(childiden, core.views)
 
             # Sad paths
-            await self.asyncraises(s_exc.NoSuchView, core.nodes('$lib.view.del(foo)'))
-            await self.asyncraises(s_exc.NoSuchView, core.nodes('$lib.view.get(foo)'))
-            await self.asyncraises(s_exc.CantMergeView, core.nodes('$lib.view.get().merge()'))
-            await self.asyncraises(s_exc.NoSuchLayer, core.nodes(f'view.add --layers {s_common.guid()}'))
-            await self.asyncraises(s_exc.SynErr, core.nodes('$lib.view.del($lib.view.get().iden)'))
-            await self.asyncraises(s_exc.SchemaViolation, core.nodes('$lib.view.add(([]))'))
+            with self.raises(s_exc.NoSuchView):
+                await core.nodes('$lib.view.del(foo)')
+
+            with self.raises(s_exc.NoSuchView):
+                await core.nodes('$lib.view.get(foo)')
+
+            with self.raises(s_exc.NoSuchView) as cm:
+                await core.callStorm('function f(i as str) { return($lib.view.get($i)) } return($f(newp))')
+
+            self.eq('newp', cm.exception.get('iden'))
+
+            with self.raises(s_exc.NoSuchView) as cm:
+                await core.callStorm('function f(i as int) { return($lib.view.get($i)) } return($f(10))')
+
+            self.eq('10', cm.exception.get('iden'))
+
+            with self.raises(s_exc.NoSuchView) as cm:
+                await core.callStorm('function f(i as syn:tag) { return($lib.view.get($i)) } return($f(foo.bar))')
+
+            self.eq('foo.bar', cm.exception.get('iden'))
+
+            with self.raises(s_exc.NoSuchView):
+                await core.callStorm('function f(i as str) { return($lib.view.del($i)) } return($f(newp))')
+
+            with self.raises(s_exc.CantMergeView):
+                await core.nodes('$lib.view.get().merge()')
+
+            with self.raises(s_exc.NoSuchLayer):
+                await core.nodes(f'view.add --layers {s_common.guid()}')
+
+            with self.raises(s_exc.SynErr):
+                await core.nodes('$lib.view.del($lib.view.get().iden)')
+
+            with self.raises(s_exc.SchemaViolation):
+                await core.nodes('$lib.view.add(([]))')
 
             q = '$iden = $lib.layer.get().iden $lib.view.add(([$iden, $iden]))'
-            await self.asyncraises(s_exc.SchemaViolation, core.nodes(q))
+            with self.raises(s_exc.SchemaViolation):
+                await core.nodes(q)
 
             # Check helper commands
             # Get the main view
@@ -6100,13 +6319,16 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint(f'Deleted trigger: {goodbuid}', mesgs)
 
             q = 'trigger.del deadbeef12341234'
-            await self.asyncraises(s_exc.BadArg, core.nodes(q))
+            with self.raises(s_exc.BadArg):
+                await core.nodes(q)
 
             q = 'trigger.mod deadbeef12341234 --enabled (true)'
-            await self.asyncraises(s_exc.BadArg, core.nodes(q))
+            with self.raises(s_exc.BadArg):
+                await core.nodes(q)
 
             q = 'trigger.mod deadbeef12341234 --enabled (false)'
-            await self.asyncraises(s_exc.BadArg, core.nodes(q))
+            with self.raises(s_exc.BadArg):
+                await core.nodes(q)
 
             mesgs = await core.stormlist(f'trigger.mod {goodbuid2} --enabled (false)')
             self.stormIsInPrint('Modified trigger', mesgs)
@@ -6118,7 +6340,8 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('Modified trigger', mesgs)
 
             q = 'trigger.mod deadbeef12341234 --storm {#foo}'
-            await self.asyncraises(s_exc.BadArg, core.nodes(q))
+            with self.raises(s_exc.BadArg):
+                await core.nodes(q)
 
             await core.nodes('trigger.add tag:add --tag another {[ +#count2 ]}')
 
@@ -6331,7 +6554,20 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint(f'Modified trigger: {othr}', mesgs)
 
             await core.stormlist(f'trigger.del {othr}')
-            await self.asyncraises(s_exc.NoSuchIden, core.callStorm(f'return($lib.trigger.get({othr}))'))
+            with self.raises(s_exc.NoSuchIden):
+                await core.callStorm(f'return($lib.trigger.get({othr}))')
+
+            q = 'function f(i as str) { return($lib.trigger.get($i)) } return($f($iden))'
+            with self.raises(s_exc.NoSuchIden) as cm:
+                await core.callStorm(q, opts={'vars': {'iden': othr}})
+
+            self.eq(othr, cm.exception.get('iden'))
+
+            q = 'function f(i as str) { return($lib.trigger.del($i)) } return($f(newp))'
+            with self.raises(s_exc.BadArg) as cm:
+                await core.callStorm(q)
+
+            self.eq('newp', cm.exception.get('iden'))
 
             # Test manipulating triggers as another user
             bond = await core.auth.addUser('bond')
@@ -6643,6 +6879,12 @@ class StormTypesTest(s_test.SynTest):
                     with self.raises(s_exc.BadArg) as cm:
                         await core.callStorm('$lib.cron.del("")')
                     self.isin('Provided iden matches more than one cron job.', cm.exception.get('mesg'))
+
+                    q = 'function f(i as str) { return($lib.cron.get($i)) } return($f(newp))'
+                    with self.raises(s_exc.BadArg) as cm:
+                        await core.callStorm(q)
+
+                    self.eq('newp', cm.exception.get('iden'))
                     iden4 = await core.callStorm('''
                         for $c in $lib.cron.list() {
                             if ($c.iden != $guid) { return($c.iden) }
@@ -8063,7 +8305,8 @@ words\tword\twrd'''
             # wget
 
             scmd = 'return($lib.axon.wget($url, ssl=({"verify": false})).code)'
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             await visi.addRule((True, ('axon', 'upload')))
             self.eq(200, await core.callStorm(scmd, opts=opts))
@@ -8072,7 +8315,8 @@ words\tword\twrd'''
             # wput
 
             scmd = 'return($lib.axon.wput($sha256, $url, method=post, ssl=({"verify": false})).code)'
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             # reading the blob is not enough to send it back out to a URL
             await visi.addRule((True, ('axon', 'get')))
@@ -8107,20 +8351,25 @@ words\tword\twrd'''
 
             opts['view'] = mainview
             scmd = 'yield $lib.axon.urlfile($url, ssl=({"verify": false})) return($node)'
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             await visi.addRule((True, ('axon', 'upload')))
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             await visi.addRule((True, ('node', 'add', 'file:bytes')), gateiden=mainlayr)
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             await visi.addRule((True, ('node', 'add', 'inet:urlfile')), gateiden=mainlayr)
             self.nn(await core.callStorm(scmd, opts=opts))
 
             # won't work in another view
             opts['view'] = forkview
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
+
             opts.pop('view')
 
             await visi.delRule((True, ('axon', 'upload')))
@@ -8128,7 +8377,8 @@ words\tword\twrd'''
             # del
 
             scmd = 'return($lib.axon.del($sha256))'
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             await visi.addRule((True, ('axon', 'del')))
             self.true(await core.callStorm(scmd, opts=opts))
@@ -8138,7 +8388,8 @@ words\tword\twrd'''
             # dels
 
             scmd = 'return($lib.axon.dels(($sha256,)))'
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             await visi.addRule((True, ('axon', 'del')))
             self.eq([True], await core.callStorm(scmd, opts=opts))
@@ -8148,7 +8399,8 @@ words\tword\twrd'''
             # list
 
             scmd = '$x=(null) for $x in $lib.axon.list() { } return($x)'
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             await visi.addRule((True, ('axon', 'has')))
             self.nn(await core.callStorm(scmd, opts=opts))
@@ -8157,7 +8409,8 @@ words\tword\twrd'''
             # readlines
 
             scmd = '$x=(null) for $x in $lib.axon.readlines($sha256) { } return($x)'
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             await visi.addRule((True, ('axon', 'get')))
             self.nn(await core.callStorm(scmd, opts=opts))
@@ -8166,7 +8419,8 @@ words\tword\twrd'''
             # jsonlines
 
             scmd = '$x=(null) for $x in $lib.axon.jsonlines($sha256) { } return($x)'
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             await visi.addRule((True, ('axon', 'get')))
             self.nn(await core.callStorm(scmd, opts=opts))
@@ -8175,7 +8429,8 @@ words\tword\twrd'''
             # csvrows
 
             scmd = '$x=(null) for $x in $lib.axon.csvrows($sha256) { } return($x)'
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             await visi.addRule((True, ('axon', 'get')))
             self.nn(await core.callStorm(scmd, opts=opts))
@@ -8184,7 +8439,8 @@ words\tword\twrd'''
             # metrics
 
             scmd = 'return($lib.axon.metrics())'
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
 
             await visi.addRule((True, ('axon', 'has')))
             self.nn(await core.callStorm(scmd, opts=opts))
@@ -8448,6 +8704,24 @@ words\tword\twrd'''
                                                  }})
 
             self.stormIsInErr('Setting name on auth:user is not marked readonly safe.', msgs)
+
+            q = '$r = $lib.random.generator() $r.seed = ({"foo": "bar"})'
+            with self.raises(s_exc.IsReadOnly) as cm:
+                await core.callStorm(q, opts={'readonly': True})
+
+            self.eq("{'foo': 'bar'}", cm.exception.get('valu'))
+
+            q = 'function f(i as syn:tag) { $r = $lib.random.generator() $r.seed = $i return() } $f(foo.bar)'
+            with self.raises(s_exc.IsReadOnly) as cm:
+                await core.callStorm(q, opts={'readonly': True})
+
+            self.eq('foo.bar', cm.exception.get('valu'))
+
+            q = '$r = $lib.random.generator() $r.seed = foo'
+            with self.raises(s_exc.IsReadOnly) as cm:
+                await core.callStorm(q, opts={'readonly': True})
+
+            self.eq('foo', cm.exception.get('valu'))
 
             mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
 
@@ -8923,8 +9197,9 @@ words\tword\twrd'''
             emptyhash = s_common.ehex(emptyhash)
 
             opts = {'user': visi.iden, 'vars': {'sha256': sha256_s, 'emptyhash': emptyhash}}
-            await self.asyncraises(s_exc.AuthDeny,
-                core.callStorm('return($lib.axon.read($sha256, offs=3, size=3))', opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.axon.read($sha256, offs=3, size=3))', opts=opts)
+
             await visi.addRule((True, ('axon', 'get')))
 
             q = 'return($lib.axon.read($sha256, offs=3, size=3))'
@@ -8938,11 +9213,16 @@ words\tword\twrd'''
             self.eq(b'', await core.callStorm(q, opts=opts))
 
             q = 'return($lib.axon.read($sha256, size=0))'
-            await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
+            with self.raises(s_exc.BadArg):
+                await core.callStorm(q, opts=opts)
+
             q = 'return($lib.axon.read($sha256, offs=-1, size=1))'
-            await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
+            with self.raises(s_exc.BadArg):
+                await core.callStorm(q, opts=opts)
+
             q = 'return($lib.axon.read($sha256, size=2097152))'
-            await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
+            with self.raises(s_exc.BadArg):
+                await core.callStorm(q, opts=opts)
 
             intdata = struct.pack('>QQQ', 1, 2, 3)
             size, sha256 = await (await core.getAxon()).put(intdata)
@@ -8951,7 +9231,9 @@ words\tword\twrd'''
 
             await visi.delRule((True, ('axon', 'get')))
             q = 'return($lib.axon.unpack($sha256, fmt=">Q"))'
-            await self.asyncraises(s_exc.AuthDeny, core.callStorm(q, opts=opts))
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(q, opts=opts)
+
             await visi.addRule((True, ('axon', 'get')))
 
             q = 'return($lib.axon.unpack($sha256, fmt=">Q"))'
@@ -8964,10 +9246,12 @@ words\tword\twrd'''
             self.eq((2, 3), await core.callStorm(q, opts=opts))
 
             q = 'return($lib.axon.unpack($sha256, fmt="not a valid format"))'
-            await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
+            with self.raises(s_exc.BadArg):
+                await core.callStorm(q, opts=opts)
 
             q = 'return($lib.axon.unpack($sha256, fmt=">Q", offs=24))'
-            await self.asyncraises(s_exc.BadDataValu, core.callStorm(q, opts=opts))
+            with self.raises(s_exc.BadDataValu):
+                await core.callStorm(q, opts=opts)
 
     async def test_storm_lib_view_list_perms(self):
         # Verify that $lib.view.list() only returns views the calling user can read.

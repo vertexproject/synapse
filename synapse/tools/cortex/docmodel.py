@@ -6,6 +6,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
+import synapse.lib.autodoc as s_autodoc
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,19 @@ def _getFormDoc(formname, forminfo, types):
     return ''
 
 def _getPropDoc(propinfo, types):
+    '''Get the doc string for a property, with any deprecation notice appended.'''
+    doc = _getPropBaseDoc(propinfo, types)
+
+    depr = propinfo.get('deprecated')
+    if isinstance(depr, dict):
+        return f'{doc} {s_autodoc.getPropDeprText(depr)}'.strip()
+
+    if depr:
+        return f'{doc} Deprecated.'.strip()
+
+    return doc
+
+def _getPropBaseDoc(propinfo, types):
     '''Get the doc string for a property, falling back to its type doc.'''
     doc = propinfo.get('doc')
     if doc is not None:

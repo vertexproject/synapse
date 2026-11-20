@@ -15,8 +15,11 @@ class StormLibGenTest(s_test.SynTest):
 
             self.len(0, await core.nodes('gen.campaign overlord (null) --try'))
             self.len(0, await core.nodes('gen.campaign (null) vertex --try'))
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.campaign (null) vertex'))
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.campaign overload (null)'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('gen.campaign (null) vertex')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('gen.campaign overload (null)')
 
             self.len(1, nodes00 := await core.nodes('gen.campaign "operation overlord" vertex | [ :names+=overlord ]'))
             self.len(1, nodes01 := await core.nodes('gen.campaign overlord vertex'))
@@ -44,7 +47,8 @@ class StormLibGenTest(s_test.SynTest):
             # gen.place
 
             self.len(0, await core.nodes('gen.place (null) --try'))
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.place (null)'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('gen.place (null)')
 
             self.len(1, nodes00 := await core.nodes('gen.place zimbabwe | [ :names+=rhodesia ]'))
             self.len(1, nodes01 := await core.nodes('gen.place rhodesia'))
@@ -60,8 +64,11 @@ class StormLibGenTest(s_test.SynTest):
 
             self.len(0, await core.nodes('gen.software rar (null) --try'))
             self.len(0, await core.nodes('gen.software (null) vertex --try'))
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.software (null) vertex'))
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.software rar (null)'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('gen.software (null) vertex')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('gen.software rar (null)')
 
             self.len(1, nodes00 := await core.nodes('gen.software rar vertex | [ :names+=rarrr ]'))
             self.len(1, nodes01 := await core.nodes('gen.software rarrr vertex'))
@@ -89,7 +96,8 @@ class StormLibGenTest(s_test.SynTest):
             # gen.language
 
             self.len(0, await core.nodes('gen.language (null) --try'))
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.language (null)'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('gen.language (null)')
 
             self.len(1, nodes00 := await core.nodes('gen.language german | [ :names+=deutsch ]'))
             self.len(1, nodes01 := await core.nodes('gen.language deutsch'))
@@ -105,8 +113,11 @@ class StormLibGenTest(s_test.SynTest):
 
             self.len(0, await core.nodes('gen.industry ngo (null) --try'))
             self.len(0, await core.nodes('gen.industry (null) vertex --try'))
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.industry (null) vertex'))
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.industry ngo (null)'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('gen.industry (null) vertex')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('gen.industry ngo (null)')
 
             self.len(1, nodes00 := await core.nodes('gen.industry ngo vertex | [ :names+=ngos ]'))
             self.len(1, nodes01 := await core.nodes('gen.industry ngos vertex'))
@@ -134,7 +145,8 @@ class StormLibGenTest(s_test.SynTest):
             # gen.org
 
             self.len(0, await core.nodes('gen.org (null) --try'))
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.org (null)'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('gen.org (null)')
 
             self.len(1, nodes00 := await core.nodes('gen.org intel | [ :names+=intelsoft ]'))
             self.len(1, nodes01 := await core.nodes('gen.org intelsoft'))
@@ -149,7 +161,8 @@ class StormLibGenTest(s_test.SynTest):
             # gen.country
 
             self.len(0, await core.nodes('gen.country (null) --try'))
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.country (null)'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('gen.country (null)')
 
             self.len(1, nodes00 := await core.nodes('gen.country us'))
             self.len(1, nodes01 := await core.nodes('gen.country us'))
@@ -163,7 +176,8 @@ class StormLibGenTest(s_test.SynTest):
             # gen.government
 
             self.len(0, await core.nodes('gen.government (null) --try'))
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.government (null)'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('gen.government (null)')
 
             self.len(1, nodes00 := await core.nodes('gen.government us'))
             self.len(1, nodes01 := await core.nodes('gen.government us'))
@@ -184,8 +198,11 @@ class StormLibGenTest(s_test.SynTest):
 
             self.len(0, await core.nodes('gen.threat apt1 (null) --try'))
             self.len(0, await core.nodes('gen.threat (null) vertex --try'))
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.threat (null) vertex'))
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.threat apt1 (null)'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('gen.threat (null) vertex')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('gen.threat apt1 (null)')
 
             self.len(1, nodes00 := await core.nodes('gen.threat apt1 vertex | [ :names+=apt-1 ]'))
             self.len(1, nodes01 := await core.nodes('gen.threat apt-1 vertex'))
@@ -214,8 +231,11 @@ class StormLibGenTest(s_test.SynTest):
 
             self.len(0, await core.nodes('gen.vuln newp (null) --try'))
             self.len(0, await core.nodes('gen.vuln (null) vertex --try'))
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.vuln (null) vertex'))
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('gen.vuln newp (null)'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('gen.vuln (null) vertex')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('gen.vuln newp (null)')
 
             self.len(1, nodes00 := await core.nodes('gen.vuln cve-2024-0123 vertex'))
             self.len(1, nodes01 := await core.nodes('gen.vuln cve-2024-0123 vertex'))

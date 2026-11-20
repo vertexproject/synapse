@@ -160,6 +160,12 @@ function bar() {
 }
 ```
 
+`$modconf` is read-only, including any nested dictionaries and lists, both within the module and for anything that imports the module. Attempting to modify it raises an error. Use `$lib.copy()` to get a mutable copy:
+
+```text
+$chains = $lib.copy($modconf.chains)
+```
+
 <a id="privileged-modules"></a>
 
 ### Privileged Modules
@@ -376,6 +382,40 @@ if $lib.debug { $lib.print("debug mode detected!") }
 
 :   To minimize duplicate API calls, many **Storm** packages cache results using the `$lib.jsonstor` API. When caching is in use, the `--asof <time>` option is used to control cache aging. Users may specify `--asof now` to disable caching.
 
+### Command Inputs
+
+A command which operates on nodes from the pipeline may declare them with `cmdinputs`. The declaration is used for the
+"Inputs:" section of `--help` output and is available to tools which read the package definition. It is not enforced
+when the command runs.
+
+Each entry names exactly one of `form` or `interface`, and may include `help`. An `interface` entry covers every
+form which implements that interface, so the command does not need to list each form.
+
+```yaml
+commands:
+
+  - name: acme.hello.enrich
+    desc: Enrich nodes.
+    cmdinputs:
+
+      - form: inet:fqdn
+        help: The FQDN to enrich.
+
+      - interface: meta:observable
+        help: Any observable node.
+```
+
+```text
+storm> acme.hello.enrich --help
+
+...
+
+Inputs:
+
+  inet:fqdn                   : The FQDN to enrich.
+  meta:observable (interface) : Any observable node.
+```
+
 ## Package Files
 
 A **Storm Package** ships arbitrary data files, such as databases or models, by placing them in a `files` directory beside the **Storm Package** YAML file. The directory is walked recursively, so it may be organized however suits the package. A package's documentation is one common use of `files`, and has a tool of its own -- see [Package Documentation](#package-documentation) below.
@@ -420,6 +460,149 @@ The `storm.pkg.gen --push` option behaves the same way for a package pushed dire
 
 > [!NOTE]
 > A file is located using the package YAML file, so it can only be uploaded when the package is built from its prototype. Pushing an already built package with `--no-build` warns for each file it cannot find locally.
+
+## Package Courses
+
+A **Storm Package** may ship training content alongside the package, for presentation by the learning tool in the commercial [Synapse User Interface](../user_interface.md#synapse-ui). Courses are not declared in the **Storm Package** YAML file. Instead, every `.yaml` file in a `courses` directory beside it becomes one course:
+
+```text
+acme-hello.yaml
+courses/
+    recon-101.yaml
+    recon-201.yaml
+```
+
+When the package is built with `storm.pkg.gen`, those files are loaded, in sorted order, into the package's `courses` section. Anything in the directory which is not a `.yaml` file is skipped with a warning.
+
+A course is a **single document**. It carries an ordered list of modules, and a module is either course material or a quiz. Each one names which it is with a `type`:
+
+```text
+iden: 09f6c8bd3e4a41d5b7e2c0a91f8d6b34
+title: Recon 101
+body: |
+  Markdown course description.
+
+modules:
+
+  - iden: 1b8f0d6a4c5e42b39d7a1f0c8e35b724
+    type: module
+    title: Passive DNS
+    body: |
+      Markdown course material.
+
+  - iden: 7d3a9e21c04b45f8ba6e2d19f0c53a8e
+    type: module
+    title: Working With WHOIS
+    body: |
+      Markdown course material.
+
+  - iden: 3f9c1e08b25d47a6ae40c7b1d9e6532f
+    type: quiz
+    title: WHOIS Quiz
+    body: |
+      Markdown quiz description.
+    maxruns: 2
+
+    sections:
+
+      - title: The Basics
+
+        questions:
+
+          - iden: a41d9e70c85b4f2ab6013d8e5c729f14
+            type: basic
+            body: What is the FQDN of The Vertex Project?
+            points: 10
+            deduct: 2
+            answer:
+              value: vertex.link
+              type: inet:fqdn
+              hints:
+                - body: It is in the footer of every page.
+                  deduction: 1
+```
+
+A question declares a `type`, which is how the participant answers it, and that decides which fields the question carries:
+
+| `type` | The participant | `answer` | `choices` | `ui` |
+|--------|-----------------|----------|-----------|------|
+| `basic` | types one value | `type` and a single `value` | -- | `label`, `placeholder`, `buttontext` |
+| `yesorno` | presses Yes or No | a boolean `value` | -- | -- |
+| `choice` | picks from what the question offers | `type` and a list `value` of the choices which are correct | required | `buttontext` |
+| `multi` | fills in a list of values | `type` and a list `value` | -- | `label`, `placeholder`, `buttontext` |
+| `storm` | works in the view | `checker` | -- | `buttontext` |
+
+A question is graded by norming the participant's attempt as `answer.type` and comparing it to `answer.value`, which every type but `storm` requires. An `answer.type` is always the type of one value, so a question answered with a list of them -- a `multi` question, or any `choice` question -- carries a list `value` and each item of it norms as that type. A `choice` answer is a list even when only one choice is correct, since the participant picks from a list either way. A `yesorno` question declares no type at all, since its two buttons are a bool.
+
+A `storm` question produces no attempt to compare, so it is graded by a Storm query given as `answer.checker`, which is handed what the participant produced along with the `answer.type`. That query is the only way a `storm` question is graded, and no other question type carries one. An `answer.value` may be a boolean, an integer, a string or a list, including an empty string or an empty list, and an empty value may equally be offered as one of a question's `choices`.
+
+A question is worth its `points`, less what the participant spends getting there. Each wrong attempt costs the question's `deduct`, so a question with `points: 10` and `deduct: 2` is worth 6 to someone who answers it correctly on their third try. A question with no `deduct` charges nothing for a wrong attempt, and a question can never score below zero. Use `retries` to cap how many attempts are allowed at all.
+
+`answer.hints` is an ordered sequence a participant is walked through two ways. They may opt in to the next one at any point, which is what makes a hint something they choose to spend on rather than something the question gives away. A wrong attempt also reveals the next one by itself, so someone who keeps guessing is helped along without having to ask.
+
+Both routes advance the same cursor, so a question never shows the same hint twice however it was reached. Each hint costs the `deduction` it declares, and is charged once. When a wrong attempt reveals a hint, that hint's `deduction` is what the attempt costs **in place of** the question's `deduct` rather than on top of it -- so the wrong attempt that hands over a 20 point hint costs 20, not 20 and the `deduct` as well. A wrong attempt with no hint left to reveal falls back to `deduct` as usual.
+
+```text
+points: 100
+deduct: 5
+retries: 3
+answer:
+  type: inet:fqdn
+  value: vertex.link
+  hints:
+    - body: It is in the footer of every page.
+      deduction: 20
+    - body: It is two labels, and the second is ``link``.
+      deduction: 50
+```
+
+Answering that correctly on the fourth try is worth 25: the first wrong attempt reveals the 20 point hint, the second reveals the 50 point one, and the third has no hint left so it costs the `deduct` of 5.
+
+A question may not carry more hints than it allows `retries`, since a sequence longer than that has hints a participant could never be shown.
+
+A question may declare a `ui` dict of presentation options for the widget it is answered with. Which options a question may set is decided by its `type`, and nothing else is accepted: a `basic` or `multi` question is a labelled input with a button to submit it, so it takes a `label`, a `placeholder` and a `buttontext`; a `choice` question is rendered as radio buttons or check boxes and a `storm` question is answered in the view, so each of those takes only a `buttontext`; and a `yesorno` question is two fixed buttons, so it takes no `ui` at all. `buttontext` defaults to `Submit`. Every option is optional, and a question needs no `ui` to be answerable.
+
+A quiz carries its Storm queries in a `hooks` dict, and so does an answer. A hook is a query the cell runs at a point in a run, as opposed to the answer `value` which is only compared to what the participant submitted. Grading is not a hook: a `storm` question's `answer.checker` produces the verdict rather than reacting to it, so it sits alongside `value` and the hooks on the answer.
+
+| Hook | Runs |
+|------|------|
+| `hooks.viewinit` | on a quiz, when a run of it starts. Returns the iden of the view the run is answered in |
+| `hooks.completed` | on a quiz, once the participant completes it |
+| `answer.hooks.correct` | after an attempt is graded correct |
+| `answer.hooks.incorrect` | after an attempt is graded incorrect |
+| `answer.hooks.validate` | when an author runs it to check the view has the data the question needs |
+
+`hooks.viewinit` is run as the participant when they start a run, and the view it returns is recorded on that run, so a quiz which wants each participant to have their own scratch view forks one here:
+
+```text
+hooks:
+  viewinit: return($lib.view.get().fork().iden)
+```
+
+Every other hook runs in that view, so a quiz which declares a `hooks.completed`, or whose answers carry a `checker` or hooks of their own, must declare a `hooks.viewinit` for them to run in.
+
+The `correct` and `incorrect` hooks show the participant something by firing an `optic:show` event rather than by returning it, so the markdown lands inline with the question:
+
+```text
+answer:
+  type: inet:fqdn
+  value: vertex.link
+  hooks:
+    incorrect: $lib.fire(optic:show, mesg="Check the footer of the page.")
+```
+
+`answer.hooks.validate` is the one hook an author runs rather than a participant. It is never run on a participant's behalf, and is offered to whoever is writing the question so they can check that the view a run is answered in really holds the data the question depends on.
+
+A learner is given a question with the whole `answer` removed rather than with the secret parts of it stripped out, so every query an answer carries -- the `checker` and all of its hooks -- is kept away from them by construction.
+
+A course, each module and each question carry an `iden`, which the author generates once ( with `s_common.guid()` or any other source of a random 32 character hex string ). A user's progress is recorded against those idens -- `(<courseiden>, <moduleiden>)` for a run of a module, whichever kind it is, and the question iden for an answer within that run. An iden is therefore part of the content rather than derived from where the content is stored or from what it is called, so progress survives an export and import, a move from one package to another, rewording anything, reordering the modules, and moving a question to a different section.
+
+Module idens must be unique within the course, question idens within their quiz, and course idens within the package. A quiz is a module, so the two share one iden namespace. Building a package with a duplicate iden fails.
+
+A course, module and section each carry a `title`, which only labels it for a human and is free to repeat and to change. A question carries none, since a question's `body` is the question itself. A section carries no iden either -- nothing is ever recorded against one, which is purely an ordered grouping for presentation.
+
+> [!NOTE]
+> The courses directory is located using the package YAML file, so courses are only loaded when the package is built from its prototype.
 
 ## Package Documentation
 

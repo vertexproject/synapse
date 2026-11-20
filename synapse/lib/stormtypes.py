@@ -641,7 +641,7 @@ class StormType:
 
         if s_scope.get('runt').readonly and not getattr(stor, '_storm_readonly', False):
             mesg = f'Setting {name} on {self._storm_typename} is not marked readonly safe.'
-            raise s_exc.IsReadOnly(mesg=mesg, name=name, valu=valu)
+            raise s_exc.IsReadOnly(mesg=mesg, name=name, valu=await torepr(valu, usestr=True))
 
         await s_coro.ornot(stor, valu)
 
@@ -1492,6 +1492,9 @@ class LibService(Lib):
         }
 
     async def _libSvcAdd(self, name, url):
+        name = await tostr(name)
+        url = await tostr(url)
+
         self.runt.confirm(('service', 'add'))
         sdef = {
             'name': name,
@@ -1973,7 +1976,7 @@ class LibBase(Lib):
                         mesg = f'Module ({name}) requires permission: {permtext}'
                         raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
-        modr = await self.runt.getModRuntime(query, opts={'vars': {'modconf': modconf}})
+        modr = await self.runt.getModRuntime(query, opts={'vars': {'modconf': toReadOnly(modconf)}})
         modr.asroot = asroot
         modr.modname = name
 
@@ -3620,6 +3623,10 @@ class LibTime(Lib):
     @stormfunc(readonly=True)
     async def _format(self, valu, format):
         valu = await toprim(valu)
+        format = await tostr(format, noneok=True)
+        if format is None:
+            raise s_exc.BadArg(mesg='$lib.time.format() requires a format string, not (null).', valu=valu)
+
         timetype = self.runt.view.core.model.type('time')
         # Give a times string a shot at being normed prior to formatting.
         try:
@@ -3645,6 +3652,10 @@ class LibTime(Lib):
     @stormfunc(readonly=True)
     async def _parse(self, valu, format, errok=False):
         valu = await tostr(valu)
+        format = await tostr(format, noneok=True)
+        if format is None:
+            raise s_exc.BadArg(mesg='$lib.time.parse() requires a format string, not (null).', valu=valu)
+
         errok = await tobool(errok)
         try:
             dt = datetime.datetime.strptime(valu, format)
@@ -4721,6 +4732,7 @@ class LibBase64(Lib):
 
     @stormfunc(readonly=True)
     async def _encode(self, valu, urlsafe=True):
+        urlsafe = await tobool(urlsafe)
         try:
             if urlsafe:
                 return base64.urlsafe_b64encode(valu).decode('ascii')
@@ -4732,6 +4744,7 @@ class LibBase64(Lib):
     @stormfunc(readonly=True)
     async def _decode(self, valu, urlsafe=True):
         valu = await toprim(valu)
+        urlsafe = await tobool(urlsafe)
         try:
             if urlsafe:
                 return base64.urlsafe_b64decode(valu)
@@ -5974,6 +5987,121 @@ class List(Prim):
         reprs = [await torepr(k) for k in self.valu]
         rval = ', '.join(reprs)
         return f'[{rval}]'
+
+def toReadOnly(valu):
+    '''
+    Wrap a python dict/list/tuple in a deeply read-only Storm Dict/List. Other values are returned as is.
+    '''
+    if isinstance(valu, dict):
+        return ReadOnlyDict(valu)
+
+    if isinstance(valu, (list, tuple)):
+        return ReadOnlyList(valu)
+
+    return valu
+
+def _roerr():
+    mesg = 'This value is read-only and cannot be modified. Use $lib.copy() to get a mutable copy.'
+    return s_exc.StormRuntimeError(mesg=mesg)
+
+def _toHashable(valu):
+    if isinstance(valu, dict):
+        return frozenset((k, _toHashable(v)) for k, v in valu.items())
+
+    if isinstance(valu, (list, tuple)):
+        return tuple(_toHashable(v) for v in valu)
+
+    return valu
+
+@registry.registerType
+class ReadOnlyDict(Dict):
+    '''
+    A read-only dictionary. Setting or removing a key, including in any nested dictionary or list, raises an error.
+    Use $lib.copy() to get a mutable copy.
+    '''
+    _storm_typename = 'dict:readonly'
+    _ismutable = False
+
+    def __hash__(self):
+        return hash((self._storm_typename, _toHashable(self.valu)))
+
+    @stormfunc(readonly=True)
+    async def setitem(self, name, valu):
+        raise _roerr()
+
+    async def _storm_pop(self, key, default=undef):
+        raise _roerr()
+
+    async def _storm_update(self, other):
+        raise _roerr()
+
+    async def _storm_values(self):
+        return [toReadOnly(v) for v in (await self._getData()).values()]
+
+    async def deref(self, name):
+        return toReadOnly(await Dict.deref(self, name))
+
+    async def iter(self):
+        for name, valu in tuple((await self._getData()).items()):
+            yield name, toReadOnly(valu)
+
+@registry.registerType
+class ReadOnlyList(List):
+    '''
+    A read-only list. It supports the non-modifying operations of a list, such as indexing, iteration, size(), and
+    has(). Methods that would modify it, including in any nested dictionary or list, raise an error. Use $lib.copy()
+    to get a mutable copy.
+    '''
+    _storm_typename = 'list:readonly'
+    _storm_locals = ()
+    _ismutable = False
+
+    def __hash__(self):
+        return hash((self._storm_typename, _toHashable(self.valu)))
+
+    @stormfunc(readonly=True)
+    async def setitem(self, name, valu):
+        raise _roerr()
+
+    @stormfunc(readonly=True)
+    async def _methListPop(self, index=-1):
+        raise _roerr()
+
+    @stormfunc(readonly=True)
+    async def _methListAppend(self, valu):
+        raise _roerr()
+
+    @stormfunc(readonly=True)
+    async def _methListReverse(self):
+        raise _roerr()
+
+    @stormfunc(readonly=True)
+    async def _methListSort(self, reverse=False):
+        raise _roerr()
+
+    @stormfunc(readonly=True)
+    async def _methListExtend(self, valu):
+        raise _roerr()
+
+    @stormfunc(readonly=True)
+    async def _methListRemove(self, item, all=False):
+        raise _roerr()
+
+    @stormfunc(readonly=True)
+    async def _methListIndex(self, valu):
+        return toReadOnly(await List._methListIndex(self, valu))
+
+    @stormfunc(readonly=True)
+    async def _methListSlice(self, start, end=None):
+        return await toprim(await List._methListSlice(self, start, end), use_list=True)
+
+    @stormfunc(readonly=True)
+    async def _methListUnique(self):
+        return await toprim(await List._methListUnique(self), use_list=True)
+
+    async def iter(self):
+        for valu in self.valu:
+            yield toReadOnly(valu)
 
 @registry.registerType
 class Bool(Prim):
@@ -7435,6 +7563,7 @@ class LibLayer(Lib):
         return Layer(self.runt, ldef, path=self.path)
 
     async def _libLayerDel(self, iden):
+        iden = await tostr(iden)
         ldef = await self.runt.view.core.getLayerDef(iden)
         if ldef is None:
             mesg = f'No layer with iden: {iden}'
@@ -8583,11 +8712,13 @@ class LibView(Lib):
         return View(self.runt, vdef, path=self.path)
 
     async def _methViewDel(self, iden):
+        iden = await tostr(iden)
         self.runt.confirm(('view', 'del'), gateiden=iden)
         return await self.runt.view.core.delView(iden)
 
     @stormfunc(readonly=True)
     async def _methViewGet(self, iden=None):
+        iden = await tostr(iden, noneok=True)
         explicit = iden is not None
         if iden is None:
             iden = self.runt.view.iden
@@ -9555,6 +9686,7 @@ class LibTrigger(Lib):
         Returns the iden that starts with prefix.  Prints out error and returns None if it doesn't match
         exactly one.
         '''
+        prefix = await tostr(prefix)
         match = None
         for view in self.runt.view.core.listViews():
             if not allowed(('view', 'read'), gateiden=view.iden):
@@ -9678,6 +9810,7 @@ class LibTrigger(Lib):
 
     @stormfunc(readonly=True)
     async def _methTriggerGet(self, iden):
+        iden = await tostr(iden)
         trigger = None
         try:
             # fast path to our current view
@@ -10123,6 +10256,7 @@ class LibCron(Lib):
         Returns the cron that starts with prefix.  Prints out error and returns None if it doesn't match
         exactly one.
         '''
+        prefix = await tostr(prefix)
         crons = await self.runt.view.core.listCronJobs()
         matchcron = None
 

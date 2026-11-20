@@ -181,44 +181,57 @@ class AgendaTest(s_t_utils.SynTest):
 
                 # Missing reqs
                 cdef = {'user': core.auth.rootuser.iden, 'iden': 'fakeiden', 'storm': 'foo'}
-                await self.asyncraises(s_exc.BadArg, agenda.add(cdef))
+                with self.raises(s_exc.BadArg):
+                    await agenda.add(cdef)
 
                 # Missing user
                 cdef = {'iden': 'fakeiden', 'storm': 'foo',
                         'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
-                await self.asyncraises(s_exc.BadArg, agenda.add(cdef))
+                with self.raises(s_exc.BadArg):
+                    await agenda.add(cdef)
 
                 # Missing storm
                 cdef = {'user': core.auth.rootuser.iden, 'iden': 'fakeiden',
                         'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
-                await self.asyncraises(s_exc.BadArg, agenda.add(cdef))
-                await self.asyncraises(s_exc.NoSuchIden, agenda.get('newp'))
+                with self.raises(s_exc.BadArg):
+                    await agenda.add(cdef)
+
+                with self.raises(s_exc.NoSuchIden):
+                    await agenda.get('newp')
 
                 # Missing incvals
                 cdef = {'user': core.auth.rootuser.iden, 'iden': 'DOIT', 'storm': '[test:str=doit]',
                         'reqs': {s_agenda.TimeUnit.NOW: True},
                         'incunit': s_agenda.TimeUnit.MONTH}
-                await self.asyncraises(s_exc.BadArg, agenda.add(cdef))
+                with self.raises(s_exc.BadArg):
+                    await agenda.add(cdef)
 
                 # Cannot schedule a recurring job with 'now'
                 cdef = {'user': core.auth.rootuser.iden, 'iden': 'DOIT', 'storm': '[test:str=doit]',
                         'reqs': {s_agenda.TimeUnit.NOW: True},
                         'incunit': s_agenda.TimeUnit.MONTH,
                         'incvals': 1}
-                await self.asyncraises(s_exc.BadArg, agenda.add(cdef))
-                await self.asyncraises(s_exc.NoSuchIden, agenda.get('DOIT'))
+                with self.raises(s_exc.BadArg):
+                    await agenda.add(cdef)
+
+                with self.raises(s_exc.NoSuchIden):
+                    await agenda.get('DOIT')
 
                 # Require valid storm
                 cdef = {'user': core.auth.rootuser.iden, 'iden': 'DOIT', 'storm': ' | | | ',
                         'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
-                await self.asyncraises(s_exc.BadSyntax, agenda.add(cdef))
-                await self.asyncraises(s_exc.NoSuchIden, agenda.get('DOIT'))
+                with self.raises(s_exc.BadSyntax):
+                    await agenda.add(cdef)
+
+                with self.raises(s_exc.NoSuchIden):
+                    await agenda.get('DOIT')
 
                 # invalid loglevel
                 cdef = {'creator': core.auth.rootuser.iden, 'iden': 'DOIT',
                         'storm': '$lib.print(hehe)', 'loglevel': 'nope',
                         'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
-                await self.asyncraises(s_exc.SchemaViolation, agenda.add(cdef))
+                with self.raises(s_exc.SchemaViolation):
+                    await agenda.add(cdef)
 
                 # Schedule a one-shot to run immediately
                 doit = s_common.guid()
@@ -228,7 +241,8 @@ class AgendaTest(s_t_utils.SynTest):
                 await agenda.add(cdef)
 
                 # Can't have two with the same iden
-                await self.asyncraises(s_exc.DupIden, agenda.add(cdef))
+                with self.raises(s_exc.DupIden):
+                    await agenda.add(cdef)
 
                 self.eq((0, 'woot'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=(true)))'), timeout=5))
 
@@ -303,7 +317,8 @@ class AgendaTest(s_t_utils.SynTest):
 
                 # Cancel the Wednesday/Friday appt
                 await agenda.delete(guid)
-                await self.asyncraises(s_exc.NoSuchIden, agenda.delete('1234'))
+                with self.raises(s_exc.NoSuchIden):
+                    await agenda.delete('1234')
 
                 # Then Dec 25
                 unixtime = datetime.datetime(year=2018, month=12, day=25, hour=10, minute=16, tzinfo=tz.utc).timestamp()
@@ -314,7 +329,9 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq((9, 'baz'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=(true)))'), timeout=5))
 
                 # Modify the last appointment
-                await self.asyncraises(s_exc.BadArg, agenda.mod(guid2, {'storm': ''}))
+                with self.raises(s_exc.BadArg):
+                    await agenda.mod(guid2, {'storm': ''})
+
                 await agenda.mod(guid2, {'storm': '#baz'})
                 self.eq(agenda.appts[guid2].storm, '#baz')
 
@@ -430,9 +447,7 @@ class AgendaTest(s_t_utils.SynTest):
                 with self.getLoggerStream('synapse.lib.agenda') as stream:
                     unixtime = datetime.datetime(year=2019, month=2, day=16, hour=10, minute=16, tzinfo=tz.utc).timestamp()
 
-                    # pump the ioloop via sleep(0) until the log message appears
-                    while 'locked' not in stream.getvalue():
-                        await asyncio.sleep(0)
+                    await stream.expect('locked')
 
                     while not await core.nexsroot.waitOffs(strt + 4):
                         await asyncio.sleep(0)
@@ -448,7 +463,9 @@ class AgendaTest(s_t_utils.SynTest):
                         'incunit': 'dayofweek',
                         'incvals': (2, 4),
                         'iden': viewiden}
-                await self.asyncraises(s_exc.DupIden, core.addCronJob(cdef))
+                with self.raises(s_exc.DupIden):
+                    await core.addCronJob(cdef)
+
                 await core.delCronJob(viewiden)
 
                 self.nn(await core.getAuthGate(viewiden))
@@ -784,7 +801,8 @@ class AgendaTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=path00) as core00:
                 self.false(core00.conf.get('parent'))
 
-                await core00.callStorm('cron.add hourly@:01 { $lib.time.sleep(5) }')
+                # a one-shot job keeps a second run from racing the leader/mirror comparison
+                await core00.callStorm('cron.at --minute +1 { $lib.time.sleep(5) }')
 
                 url = core00.getLocalUrl()
 
@@ -809,6 +827,7 @@ class AgendaTest(s_t_utils.SynTest):
                     cron01 = await core01.callStorm('return($lib.cron.list())')
 
                     self.eq(cron00, cron01)
+                    self.none(cron00[0]['nexttime'])
 
                     start = mesgs[0]
                     stop = mesgs[1]
@@ -830,9 +849,7 @@ class AgendaTest(s_t_utils.SynTest):
                     }
                     await core00.addCronEdits(appt.iden, edits)
 
-                stream.seek(0)
-                data = stream.read()
-                self.isin("_Appt.edits() Invalid attribute received: invalid = 'newp'", data)
+                await stream.expect("_Appt.edits() Invalid attribute received: invalid = 'newp'")
 
     async def test_agenda_promotions(self):
         # Adjust this knob for the number of cron jobs you want to test. Below
@@ -930,9 +947,8 @@ class AgendaTest(s_t_utils.SynTest):
                         self.true(core01.isactive)
                         await stream.expect('name=CRON99', timeout=6)
 
-                    data = stream.getvalue()
                     for ii in range(NUMJOBS):
-                        self.isin(f' name=CRON{ii} with result \\"cancelled\\" took ', data)
+                        await stream.expect(f' name=CRON{ii} with result \\"cancelled\\" took ')
 
                     # Sync the (now) follower so the isrunning status gets updated to false on both cortexes
                     await core00.sync()
@@ -1437,11 +1453,11 @@ class AgendaTest(s_t_utils.SynTest):
             # sad
 
             # modify period with 'now' and recurring
-            await self.asyncraises(s_exc.BadConfValu, core.editCronJob(
-                guid, {'reqs': {'now': True}, 'incunit': 'day', 'incvals': 1}))
+            with self.raises(s_exc.BadConfValu):
+                await core.editCronJob(guid, {'reqs': {'now': True}, 'incunit': 'day', 'incvals': 1})
 
-            await self.asyncraises(s_exc.BadConfValu, core.editCronJob(
-                guid, {'reqs': [{'hour': 12, 'minute': 0}, {'now': True}], 'incunit': 'day', 'incvals': 1}))
+            with self.raises(s_exc.BadConfValu):
+                await core.editCronJob(guid, {'reqs': [{'hour': 12, 'minute': 0}, {'now': True}], 'incunit': 'day', 'incvals': 1})
 
             # modify period for a non-recurring job
             cdef = {
@@ -1453,13 +1469,12 @@ class AgendaTest(s_t_utils.SynTest):
             }
             adef = await core.addCronJob(cdef)
             guid = adef.get('iden')
-            await self.asyncraises(s_exc.BadConfValu,
-                core.editCronJob(guid, {'reqs': {'hour': 10}, 'incunit': 'day', 'incvals': 1})
-            )
+            with self.raises(s_exc.BadConfValu):
+                await core.editCronJob(guid, {'reqs': {'hour': 10}, 'incunit': 'day', 'incvals': 1})
 
             # modify with an invalid iden
-            await self.asyncraises(s_exc.NoSuchIden, agenda.mod(
-                'nonexistent', {'storm': '#test'}))
+            with self.raises(s_exc.NoSuchIden):
+                await agenda.mod('nonexistent', {'storm': '#test'})
 
             # modify a recurring period that's in the past
             cdef = {'creator': core.auth.rootuser.iden,
@@ -1472,12 +1487,8 @@ class AgendaTest(s_t_utils.SynTest):
             adef = await agenda.add(cdef)
             guid = adef.get('iden')
             past_year = datetime.datetime.now(tz.utc).year - 1
-            await self.asyncraises(s_exc.BadTime, agenda.mod(guid, {
-                'reqs': {'year': past_year, 'month': 1, 'dayofmonth': 1,
-                         'hour': 0, 'minute': 0},
-                'incunit': 'year',
-                'incvals': 1,
-            }))
+            with self.raises(s_exc.BadTime):
+                await agenda.mod(guid, {'reqs': {'year': past_year, 'month': 1, 'dayofmonth': 1, 'hour': 0, 'minute': 0}, 'incunit': 'year', 'incvals': 1})
 
             # modify with empty increment values
             cdef = {'user': core.auth.rootuser.iden,
@@ -1488,11 +1499,8 @@ class AgendaTest(s_t_utils.SynTest):
                     'incvals': 1}
             adef = await agenda.add(cdef)
             guid = adef.get('iden')
-            await self.asyncraises(s_exc.BadTime, agenda.mod(guid, {
-                'reqs': {'hour': 11, 'minute': 0},
-                'incunit': 'day',
-                'incvals': [],
-            }))
+            with self.raises(s_exc.BadTime):
+                await agenda.mod(guid, {'reqs': {'hour': 11, 'minute': 0}, 'incunit': 'day', 'incvals': []})
 
     async def test_agenda_period_add_storm(self):
 

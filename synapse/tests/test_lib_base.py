@@ -3,8 +3,11 @@ import sys
 import signal
 import asyncio
 import logging
+import traceback
 import contextlib
 import multiprocessing
+
+import unittest.mock as mock
 
 import synapse.exc as s_exc
 
@@ -55,6 +58,12 @@ class Haha(s_base.Base, s_spawner.SpawnerMixin):
     async def fini(self):
         await s_base.Base.fini(self)
 
+class Stacky(s_base.Base):
+
+    async def __anit__(self):
+        self.refstack = traceback.format_stack()
+        await s_base.Base.__anit__(self)
+
 class BaseTest(s_t_utils.SynTest):
 
     async def test_base_basics(self):
@@ -100,6 +109,33 @@ class BaseTest(s_t_utils.SynTest):
             with self.raises(AssertionError) as cm:
                 Hehe()
             self.eq(str(cm.exception), 'Objects from Base must be constructed solely via "anit"')
+
+            # call_stack is formatted lazily and read-only
+            stacky = await Stacky.anit()
+            with self.raises(AttributeError):
+                stacky.call_stack = ['newp']
+
+            # every frame above the subclass __anit__ matches traceback.format_stack()
+            stack = stacky.call_stack
+            self.eq(stack[:-2], stacky.refstack[:-1])
+            self.isin('test_lib_base.py', stack[-2])
+            self.isin('in __anit__', stack[-2])
+            self.isin('await s_base.Base.__anit__(self)', stack[-2])
+            self.isin('lib/base.py', stack[-1])
+            self.isin('in __anit__', stack[-1])
+
+            # the atexit leak report reads call_stack for Bases that were never fini'd
+            with mock.patch('gc.get_objects', return_value=[stacky]):
+                with mock.patch.object(s_base, 'OMIT_FINI_WARNS', False):
+                    with self.getLoggerStream('synapse.lib.base', struct=False) as stream:
+                        s_base._fini_atexit()
+
+            await stream.expect('At exit: Missing fini for')
+            await stream.expect('in test_base_anit')
+            await stream.expect('stacky = await Stacky.anit()')
+            self.false(stacky.isfini)
+
+            await stacky.fini()
 
     async def test_coro_fini(self):
 
@@ -379,7 +415,8 @@ class BaseTest(s_t_utils.SynTest):
     async def test_baseref_gen(self):
 
         async with await s_base.BaseRef.anit() as refs:
-            await self.asyncraises(s_exc.NoSuchCtor, refs.gen('woot'))
+            with self.raises(s_exc.NoSuchCtor):
+                await refs.gen('woot')
 
         async def ctor(name):
             return await s_base.Base.anit()
@@ -640,7 +677,8 @@ class BaseTest(s_t_utils.SynTest):
         # the generator exception is raised to the consumer, and *only* to the
         # consumer. the Base.schedCoro() taskDone callback must not also log it.
         with self.getLoggerStream('', level=logging.ERROR) as stream:
-            await self.agenraises(s_exc.SynErr, s_base.schedGenr(badgenr()))
+            with self.raises(s_exc.SynErr):
+                await s_t_utils.alist(s_base.schedGenr(badgenr()))
 
         self.eq('', stream.getvalue())
 
@@ -652,13 +690,14 @@ class BaseTest(s_t_utils.SynTest):
             self.eq('foo', await genr.__anext__())
             await genr.aclose()
 
-        self.isin('scheduled through Base.schedCoro raised exception', stream.getvalue())
+        await stream.expect('scheduled through Base.schedCoro raised exception')
 
         async with await s_base.Base.anit() as base:
             task = base.schedCoro(slowtask())
             self.true(await s_coro.event_wait(event, 3.0))
 
-        await self.asyncraises(asyncio.CancelledError, task)
+        with self.raises(asyncio.CancelledError):
+            await task
 
     async def test_lib_base_scope(self):
 

@@ -7,6 +7,15 @@ modeldefs = (
                 'interfaces': (
                     ('risk:targetable', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'names'}},
+                        {'type': 'prop', 'opts': {'name': 'code'}},
+                        {'type': 'prop', 'opts': {'name': 'codes'}},
+                        {'type': 'prop', 'opts': {'name': 'tld'}},
+                    ),
+                },
                 'props': (
                     ('flag', ('file:bytes', {}), {
                         'doc': 'A thumbnail image of the flag of the country.'}),

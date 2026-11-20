@@ -2,9 +2,11 @@ import os
 import copy
 import asyncio
 import logging
+import contextlib
 
 import regex
 import prompt_toolkit
+import prompt_toolkit.patch_stdout
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -446,6 +448,9 @@ class StormCli(s_cli.Cli, s_printer.StormPrinter):
 
         self._print_skips = []
 
+        # input replies use their own session so they are never saved to history or completed
+        self._inputsess = None
+
     def initCmdClasses(self):
         self.addCmdClass(QuitCmd)
         self.addCmdClass(HelpCmd)
@@ -474,6 +479,44 @@ class StormCli(s_cli.Cli, s_printer.StormPrinter):
     async def handleErr(self, mesg):
         self.printErr(mesg)
 
+    async def _promptInput(self, text):
+        '''
+        Read a reply to an input request without history or completion.
+        '''
+        if self._inputsess is None:
+            self._inputsess = prompt_toolkit.PromptSession()
+
+        with prompt_toolkit.patch_stdout.patch_stdout():
+            return await self._inputsess.prompt_async(text, vi_mode=self.vi_mode, handle_sigint=False)
+
+    async def _handleInput(self, mesg):
+        '''
+        Answer an input request from a Storm query. Returns False if the user cancelled.
+        '''
+        info = mesg[1]
+        itype = info['type']
+
+        if itype != 'text':
+            self.printWarn(('warn', {'mesg': f'The Storm CLI cannot answer input of type: {itype}'}))
+            return True
+
+        self.printf(info['info']['prompt'])
+
+        try:
+            line = await self._promptInput('> ')
+        except (EOFError, KeyboardInterrupt):
+            self.printf('Query cancelled.')
+            return False
+
+        opts = {'vars': {'iden': info['iden'], 'info': {'text': line}}}
+
+        try:
+            await self.item.callStorm('$lib.input.send($iden, $info)', opts=opts)
+        except s_exc.SynErr as e:
+            self.printErr(('err', (e.__class__.__name__, e.errinfo)))
+
+        return True
+
     async def storm(self, text, opts=None):
 
         ret = True
@@ -481,30 +524,40 @@ class StormCli(s_cli.Cli, s_printer.StormPrinter):
         if opts is not None:
             realopts.update(opts)
 
-        async for mesg in self.item.storm(text, opts=realopts):
+        genr = self.item.storm(text, opts=realopts).__aiter__()
+        async with contextlib.aclosing(genr):
 
-            await self.fire('storm:mesg', mesg=mesg)
+            async for mesg in genr:
 
-            mtyp = mesg[0]
+                await self.fire('storm:mesg', mesg=mesg)
 
-            if mtyp in self._print_skips:
-                continue
+                mtyp = mesg[0]
 
-            if mtyp == 'node' and self.modeldict is None:
-                self.modeldict = (await self.item.getCoreInfoV2())['modeldict']
+                # input requests are answered even when their printing is skipped
+                if mtyp == 'input':
+                    if not await self._handleInput(mesg):
+                        return False
 
-            if mtyp == 'edits':
-                edit = mesg[1]
-                count = sum(len(e[2]) for e in edit.get('edits', ()))
-                s_cli.Cli.printf(self, '.' * count, addnl=False, color=s_printer.NODEEDIT_COLOR)
-                self.indented = True
+                    continue
 
-            elif mtyp == 'err':
-                await self.handleErr(mesg)
-                ret = False
+                if mtyp in self._print_skips:
+                    continue
 
-            else:
-                self.printMesg(mesg)
+                if mtyp == 'node' and self.modeldict is None:
+                    self.modeldict = (await self.item.getCoreInfoV2())['modeldict']
+
+                if mtyp == 'edits':
+                    edit = mesg[1]
+                    count = sum(len(e[2]) for e in edit.get('edits', ()))
+                    s_cli.Cli.printf(self, '.' * count, addnl=False, color=s_printer.NODEEDIT_COLOR)
+                    self.indented = True
+
+                elif mtyp == 'err':
+                    await self.handleErr(mesg)
+                    ret = False
+
+                else:
+                    self.printMesg(mesg)
 
         return ret
 

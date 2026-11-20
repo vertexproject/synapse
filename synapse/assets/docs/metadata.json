@@ -725,6 +725,10 @@
               "title": "Package Files"
             },
             {
+              "href": "devguides/power-ups.md#package-courses",
+              "title": "Package Courses"
+            },
+            {
               "href": "devguides/power-ups.md#package-documentation",
               "title": "Package Documentation"
             },
@@ -1915,8 +1919,32 @@
               "title": "/api/v3/storm/vars/pop"
             },
             {
+              "href": "httpapi.md#apiv3vaultlist",
+              "title": "/api/v3/vault/list"
+            },
+            {
+              "href": "httpapi.md#apiv3vaultget",
+              "title": "/api/v3/vault/get"
+            },
+            {
+              "href": "httpapi.md#apiv3vaultadd",
+              "title": "/api/v3/vault/add"
+            },
+            {
+              "href": "httpapi.md#apiv3vaultmod",
+              "title": "/api/v3/vault/mod"
+            },
+            {
+              "href": "httpapi.md#apiv3vaultdel",
+              "title": "/api/v3/vault/del"
+            },
+            {
               "href": "httpapi.md#apiv3coreinfo",
               "title": "/api/v3/core/info"
+            },
+            {
+              "href": "httpapi.md#apiv3mcp",
+              "title": "/api/v3/mcp"
             },
             {
               "href": "httpapi.md#apiext",
@@ -2187,6 +2215,10 @@
               "title": "$lib.infosec.mitre.attack.flow"
             },
             {
+              "href": "stormtypes_libs.md#libinput",
+              "title": "$lib.input"
+            },
+            {
               "href": "stormtypes_libs.md#libiters",
               "title": "$lib.iters"
             },
@@ -2245,6 +2277,10 @@
             {
               "href": "stormtypes_libs.md#libmodelmigrations",
               "title": "$lib.model.migration.s"
+            },
+            {
+              "href": "stormtypes_libs.md#libmodelmigrationsmodel_3_2_0",
+              "title": "$lib.model.migration.s.model_3_2_0"
             },
             {
               "href": "stormtypes_libs.md#libmodeltags",
@@ -2315,6 +2351,10 @@
               "title": "$lib.storm"
             },
             {
+              "href": "stormtypes_libs.md#libstormlint",
+              "title": "$lib.storm.lint"
+            },
+            {
               "href": "stormtypes_libs.md#libtabular",
               "title": "$lib.tabular"
             },
@@ -2365,6 +2405,10 @@
             {
               "href": "stormtypes_libs.md#libview",
               "title": "$lib.view"
+            },
+            {
+              "href": "stormtypes_libs.md#libviewhook",
+              "title": "$lib.view.hook"
             },
             {
               "href": "stormtypes_libs.md#libxml",
@@ -2445,6 +2489,10 @@
               "title": "dict"
             },
             {
+              "href": "stormtypes_prims.md#dictreadonly",
+              "title": "dict:readonly"
+            },
+            {
               "href": "stormtypes_prims.md#environmentvars",
               "title": "environment:vars"
             },
@@ -2507,6 +2555,10 @@
             {
               "href": "stormtypes_prims.md#list",
               "title": "list"
+            },
+            {
+              "href": "stormtypes_prims.md#listreadonly",
+              "title": "list:readonly"
             },
             {
               "href": "stormtypes_prims.md#markdownblock",
@@ -2693,6 +2745,10 @@
               "title": "view"
             },
             {
+              "href": "stormtypes_prims.md#viewhook",
+              "title": "view:hook"
+            },
+            {
               "href": "stormtypes_prims.md#xmlelement",
               "title": "xml:element"
             }
@@ -2785,27 +2841,61 @@
         {
           "children": [
             {
-              "href": "changelog.md#automatic-migrations",
+              "href": "changelog.md#v3-8-0-automatic-migrations",
               "title": "Automatic Migrations"
             },
             {
-              "href": "changelog.md#model-changes",
+              "href": "changelog.md#v3-8-0-model-changes",
               "title": "Model Changes"
             },
             {
-              "href": "changelog.md#features-and-enhancements",
+              "href": "changelog.md#v3-8-0-features-and-enhancements",
               "title": "Features and Enhancements"
             },
             {
-              "href": "changelog.md#bugfixes",
+              "href": "changelog.md#v3-8-0-bugfixes",
               "title": "Bugfixes"
             },
             {
-              "href": "changelog.md#notes",
+              "href": "changelog.md#v3-8-0-notes",
               "title": "Notes"
             },
             {
-              "href": "changelog.md#improved-documentation",
+              "href": "changelog.md#v3-8-0-improved-documentation",
+              "title": "Improved documentation"
+            },
+            {
+              "href": "changelog.md#v3-8-0-deprecations",
+              "title": "Deprecations"
+            }
+          ],
+          "href": "changelog.md#v380---2026-11-20",
+          "title": "v3.8.0 - 2026-11-20"
+        },
+        {
+          "children": [
+            {
+              "href": "changelog.md#v3-7-0-automatic-migrations",
+              "title": "Automatic Migrations"
+            },
+            {
+              "href": "changelog.md#v3-7-0-model-changes",
+              "title": "Model Changes"
+            },
+            {
+              "href": "changelog.md#v3-7-0-features-and-enhancements",
+              "title": "Features and Enhancements"
+            },
+            {
+              "href": "changelog.md#v3-7-0-bugfixes",
+              "title": "Bugfixes"
+            },
+            {
+              "href": "changelog.md#v3-7-0-notes",
+              "title": "Notes"
+            },
+            {
+              "href": "changelog.md#v3-7-0-improved-documentation",
               "title": "Improved documentation"
             }
           ],
@@ -2815,19 +2905,19 @@
         {
           "children": [
             {
-              "href": "changelog.md#model-changes-1",
+              "href": "changelog.md#v3-6-0-model-changes",
               "title": "Model Changes"
             },
             {
-              "href": "changelog.md#features-and-enhancements-1",
+              "href": "changelog.md#v3-6-0-features-and-enhancements",
               "title": "Features and Enhancements"
             },
             {
-              "href": "changelog.md#bugfixes-1",
+              "href": "changelog.md#v3-6-0-bugfixes",
               "title": "Bugfixes"
             },
             {
-              "href": "changelog.md#improved-documentation-1",
+              "href": "changelog.md#v3-6-0-improved-documentation",
               "title": "Improved documentation"
             }
           ],
@@ -2837,31 +2927,31 @@
         {
           "children": [
             {
-              "href": "changelog.md#flag-day",
+              "href": "changelog.md#v3-5-0-flag-day",
               "title": "Flag Day"
             },
             {
-              "href": "changelog.md#model-changes-2",
+              "href": "changelog.md#v3-5-0-model-changes",
               "title": "Model Changes"
             },
             {
-              "href": "changelog.md#features-and-enhancements-2",
+              "href": "changelog.md#v3-5-0-features-and-enhancements",
               "title": "Features and Enhancements"
             },
             {
-              "href": "changelog.md#bugfixes-2",
+              "href": "changelog.md#v3-5-0-bugfixes",
               "title": "Bugfixes"
             },
             {
-              "href": "changelog.md#notes-1",
+              "href": "changelog.md#v3-5-0-notes",
               "title": "Notes"
             },
             {
-              "href": "changelog.md#improved-documentation-2",
+              "href": "changelog.md#v3-5-0-improved-documentation",
               "title": "Improved documentation"
             },
             {
-              "href": "changelog.md#deprecations",
+              "href": "changelog.md#v3-5-0-deprecations",
               "title": "Deprecations"
             }
           ],
@@ -2871,19 +2961,19 @@
         {
           "children": [
             {
-              "href": "changelog.md#model-changes-3",
+              "href": "changelog.md#v3-4-0-model-changes",
               "title": "Model Changes"
             },
             {
-              "href": "changelog.md#features-and-enhancements-3",
+              "href": "changelog.md#v3-4-0-features-and-enhancements",
               "title": "Features and Enhancements"
             },
             {
-              "href": "changelog.md#bugfixes-3",
+              "href": "changelog.md#v3-4-0-bugfixes",
               "title": "Bugfixes"
             },
             {
-              "href": "changelog.md#notes-2",
+              "href": "changelog.md#v3-4-0-notes",
               "title": "Notes"
             }
           ],
@@ -2893,23 +2983,23 @@
         {
           "children": [
             {
-              "href": "changelog.md#model-changes-4",
+              "href": "changelog.md#v3-3-0-model-changes",
               "title": "Model Changes"
             },
             {
-              "href": "changelog.md#features-and-enhancements-4",
+              "href": "changelog.md#v3-3-0-features-and-enhancements",
               "title": "Features and Enhancements"
             },
             {
-              "href": "changelog.md#bugfixes-4",
+              "href": "changelog.md#v3-3-0-bugfixes",
               "title": "Bugfixes"
             },
             {
-              "href": "changelog.md#notes-3",
+              "href": "changelog.md#v3-3-0-notes",
               "title": "Notes"
             },
             {
-              "href": "changelog.md#improved-documentation-3",
+              "href": "changelog.md#v3-3-0-improved-documentation",
               "title": "Improved documentation"
             }
           ],
@@ -2919,23 +3009,23 @@
         {
           "children": [
             {
-              "href": "changelog.md#model-changes-5",
+              "href": "changelog.md#v3-2-0-model-changes",
               "title": "Model Changes"
             },
             {
-              "href": "changelog.md#features-and-enhancements-5",
+              "href": "changelog.md#v3-2-0-features-and-enhancements",
               "title": "Features and Enhancements"
             },
             {
-              "href": "changelog.md#bugfixes-5",
+              "href": "changelog.md#v3-2-0-bugfixes",
               "title": "Bugfixes"
             },
             {
-              "href": "changelog.md#improved-documentation-4",
+              "href": "changelog.md#v3-2-0-improved-documentation",
               "title": "Improved documentation"
             },
             {
-              "href": "changelog.md#deprecations-1",
+              "href": "changelog.md#v3-2-0-deprecations",
               "title": "Deprecations"
             }
           ],
@@ -2945,15 +3035,15 @@
         {
           "children": [
             {
-              "href": "changelog.md#model-changes-6",
+              "href": "changelog.md#v3-1-0-model-changes",
               "title": "Model Changes"
             },
             {
-              "href": "changelog.md#features-and-enhancements-6",
+              "href": "changelog.md#v3-1-0-features-and-enhancements",
               "title": "Features and Enhancements"
             },
             {
-              "href": "changelog.md#bugfixes-6",
+              "href": "changelog.md#v3-1-0-bugfixes",
               "title": "Bugfixes"
             }
           ],
@@ -2963,15 +3053,15 @@
         {
           "children": [
             {
-              "href": "changelog.md#model-changes-7",
+              "href": "changelog.md#v3-0-0-model-changes",
               "title": "Model Changes"
             },
             {
-              "href": "changelog.md#features-and-enhancements-7",
+              "href": "changelog.md#v3-0-0-features-and-enhancements",
               "title": "Features and Enhancements"
             },
             {
-              "href": "changelog.md#bugfixes-7",
+              "href": "changelog.md#v3-0-0-bugfixes",
               "title": "Bugfixes"
             }
           ],
@@ -2981,27 +3071,27 @@
         {
           "children": [
             {
-              "href": "changelog.md#model-changes-8",
+              "href": "changelog.md#v3-0-0rc1-model-changes",
               "title": "Model Changes"
             },
             {
-              "href": "changelog.md#features-and-enhancements-8",
+              "href": "changelog.md#v3-0-0rc1-features-and-enhancements",
               "title": "Features and Enhancements"
             },
             {
-              "href": "changelog.md#bugfixes-8",
+              "href": "changelog.md#v3-0-0rc1-bugfixes",
               "title": "Bugfixes"
             },
             {
-              "href": "changelog.md#notes-4",
+              "href": "changelog.md#v3-0-0rc1-notes",
               "title": "Notes"
             },
             {
-              "href": "changelog.md#improved-documentation-5",
+              "href": "changelog.md#v3-0-0rc1-improved-documentation",
               "title": "Improved documentation"
             },
             {
-              "href": "changelog.md#deprecations-2",
+              "href": "changelog.md#v3-0-0rc1-deprecations",
               "title": "Deprecations"
             }
           ],
@@ -3011,7 +3101,7 @@
         {
           "children": [
             {
-              "href": "changelog.md#improved-documentation-6",
+              "href": "changelog.md#v3-0-0b6-improved-documentation",
               "title": "Improved documentation"
             }
           ],
@@ -3021,27 +3111,27 @@
         {
           "children": [
             {
-              "href": "changelog.md#model-changes-9",
+              "href": "changelog.md#v3-0-0b5-model-changes",
               "title": "Model Changes"
             },
             {
-              "href": "changelog.md#features-and-enhancements-9",
+              "href": "changelog.md#v3-0-0b5-features-and-enhancements",
               "title": "Features and Enhancements"
             },
             {
-              "href": "changelog.md#bugfixes-9",
+              "href": "changelog.md#v3-0-0b5-bugfixes",
               "title": "Bugfixes"
             },
             {
-              "href": "changelog.md#notes-5",
+              "href": "changelog.md#v3-0-0b5-notes",
               "title": "Notes"
             },
             {
-              "href": "changelog.md#improved-documentation-7",
+              "href": "changelog.md#v3-0-0b5-improved-documentation",
               "title": "Improved documentation"
             },
             {
-              "href": "changelog.md#deprecations-3",
+              "href": "changelog.md#v3-0-0b5-deprecations",
               "title": "Deprecations"
             }
           ],
@@ -3051,11 +3141,11 @@
         {
           "children": [
             {
-              "href": "changelog.md#model-changes-10",
+              "href": "changelog.md#v3-0-0b4-model-changes",
               "title": "Model Changes"
             },
             {
-              "href": "changelog.md#features-and-enhancements-10",
+              "href": "changelog.md#v3-0-0b4-features-and-enhancements",
               "title": "Features and Enhancements"
             }
           ],
@@ -3065,23 +3155,23 @@
         {
           "children": [
             {
-              "href": "changelog.md#model-changes-11",
+              "href": "changelog.md#v3-0-0b3-model-changes",
               "title": "Model Changes"
             },
             {
-              "href": "changelog.md#features-and-enhancements-11",
+              "href": "changelog.md#v3-0-0b3-features-and-enhancements",
               "title": "Features and Enhancements"
             },
             {
-              "href": "changelog.md#bugfixes-10",
+              "href": "changelog.md#v3-0-0b3-bugfixes",
               "title": "Bugfixes"
             },
             {
-              "href": "changelog.md#notes-6",
+              "href": "changelog.md#v3-0-0b3-notes",
               "title": "Notes"
             },
             {
-              "href": "changelog.md#improved-documentation-8",
+              "href": "changelog.md#v3-0-0b3-improved-documentation",
               "title": "Improved documentation"
             }
           ],
@@ -3091,19 +3181,19 @@
         {
           "children": [
             {
-              "href": "changelog.md#model-changes-12",
+              "href": "changelog.md#v3-0-0b2-model-changes",
               "title": "Model Changes"
             },
             {
-              "href": "changelog.md#features-and-enhancements-12",
+              "href": "changelog.md#v3-0-0b2-features-and-enhancements",
               "title": "Features and Enhancements"
             },
             {
-              "href": "changelog.md#bugfixes-11",
+              "href": "changelog.md#v3-0-0b2-bugfixes",
               "title": "Bugfixes"
             },
             {
-              "href": "changelog.md#notes-7",
+              "href": "changelog.md#v3-0-0b2-notes",
               "title": "Notes"
             }
           ],
@@ -3113,15 +3203,15 @@
         {
           "children": [
             {
-              "href": "changelog.md#model-changes-13",
+              "href": "changelog.md#v3-0-0b1-model-changes",
               "title": "Model Changes"
             },
             {
-              "href": "changelog.md#features-and-enhancements-13",
+              "href": "changelog.md#v3-0-0b1-features-and-enhancements",
               "title": "Features and Enhancements"
             },
             {
-              "href": "changelog.md#notes-8",
+              "href": "changelog.md#v3-0-0b1-notes",
               "title": "Notes"
             }
           ],

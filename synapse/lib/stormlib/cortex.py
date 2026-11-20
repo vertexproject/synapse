@@ -651,10 +651,12 @@ class HttpHeaderDict(s_stormtypes.Dict):
     _ismutable = True
 
     async def setitem(self, name, valu):
+        name = await s_stormtypes.tostr(name)
         mesg = f'{self._storm_typename} may not be modified by the runtime.'
         raise s_exc.StormRuntimeError(mesg=mesg, name=name)
 
     async def _storm_pop(self, key, default=s_stormtypes.undef):
+        key = await s_stormtypes.tostr(key)
         mesg = f'{self._storm_typename} may not be modified by the runtime.'
         raise s_exc.StormRuntimeError(mesg=mesg, name=key)
 
@@ -1184,6 +1186,7 @@ class CortexHttpApi(s_stormtypes.Lib):
         path = await s_stormtypes.tostr(path)
         name = await s_stormtypes.tostr(name)
         desc = await s_stormtypes.tostr(desc)
+        iden = await s_stormtypes.tostr(iden, noneok=True)
         runas = await s_stormtypes.tostr(runas)
         readonly = await s_stormtypes.tobool(readonly)
         authenticated = await s_stormtypes.tobool(authenticated)

@@ -270,7 +270,7 @@ class DataModelTest(s_t_utils.SynTest):
             modl.addType('foo:bar', 'int', {}, {'interfaces': (('depr:iface', {}),)})
             modl.addForm('foo:bar', {}, ())
 
-        self.isin('Form foo:bar depends on deprecated interface depr:iface', stream.getvalue())
+        await stream.expect('Form foo:bar depends on deprecated interface depr:iface')
 
         # interfaces reached by more than one path register the form once
         modl.addIface('test:dmd:base', {'props': (('size', ('int', {}), {}),)})
@@ -437,6 +437,48 @@ class DataModelTest(s_t_utils.SynTest):
         self.eq(modl.prop('test:arrbase:tags').info['array'], kidtags.info['array'])
         self.eq('The kid tags.', kidtags.info.get('doc'))
 
+        # a child form inherits the parent's own declaration of an interface prop
+        modl.addIface('test:exec:able', {
+            'template': {'title': 'thing'},
+            'props': (
+                ('exe', ('str', {}), {
+                    'deprecated': {'eoldate': '2027-01-01'},
+                    'doc': 'The executable of the {title}.'}),
+                ('host', ('str', {}), {
+                    'doc': 'The host of the {title}.'}),
+            ),
+        })
+        modl.addType('test:iparent', 'guid', {}, {
+            'template': {'title': 'parent'},
+            'interfaces': (('test:exec:able', {}),),
+        })
+        modl.addForm('test:iparent', {}, (
+            ('exe', ('int', {}), {'doc': 'The main executable of the {title}.'}),
+            ('host', None, {'doc': 'The host which ran the {title}.'}),
+        ))
+        modl.addType('test:ikid', 'test:iparent', {}, {})
+        modl.addForm('test:ikid', {}, ())
+        modl.addType('test:igrand', 'test:ikid', {}, {})
+        modl.addForm('test:igrand', {}, ())
+
+        for formname in ('test:iparent', 'test:ikid', 'test:igrand'):
+            exe = modl.prop(f'{formname}:exe')
+            self.eq(('poly', {'types': ('int',)}), exe.typedef)
+            self.none(exe.info.get('deprecated'))
+            self.eq('The main executable of the parent.', exe.info.get('doc'))
+            self.isin('test:exec:able:exe', exe.ifaces)
+
+            host = modl.prop(f'{formname}:host')
+            self.eq(('poly', {'types': ('str',)}), host.typedef)
+            self.eq('The host which ran the parent.', host.info.get('doc'))
+            self.isin('test:exec:able:host', host.ifaces)
+
+        modl.delForm('test:igrand')
+        modl.delForm('test:ikid')
+        self.none(modl.form('test:ikid'))
+        self.none(modl.prop('test:ikid:exe'))
+        self.nn(modl.prop('test:iparent:exe'))
+
         # a None typedef with no parent/interface source to resolve raises
         modl.addType('test:orphan', 'guid', {}, {})
         with self.raises(s_exc.BadPropDef):
@@ -475,6 +517,40 @@ class DataModelTest(s_t_utils.SynTest):
 
             self.len(1, [prop for prop in core.model.getPropsByType('time') if prop.full == 'it:exec:fetch:time'])
 
+            # props declared for an interface are found by type for every form which implements it
+            await core.addFormProp('test:str', '_actor', ('entity:actor', {}), {})
+            await core.addFormProp('test:str', '_actors', ('entity:actor', {}), {'array': {}})
+
+            names = [p.full for p in core.model.getPropsByType('ps:person')]
+            self.isin('test:str:_actor', names)
+            self.isin('test:str2:_actor', names)
+
+            names = [p.full for p in core.model.getArrayPropsByType('ps:person')]
+            self.isin('test:str:_actors', names)
+            self.isin('test:str2:_actors', names)
+
+            await core.delFormProp('test:str', '_actor')
+            await core.delFormProp('test:str', '_actors')
+
+            self.none(core.model.prop('test:str2:_actor'))
+            self.none(core.model.prop('test:str2:_actors'))
+
+            names = [p.full for p in core.model.getPropsByType('ps:person')]
+            self.notin('test:str:_actor', names)
+            self.notin('test:str2:_actor', names)
+
+            names = [p.full for p in core.model.getArrayPropsByType('ps:person')]
+            self.notin('test:str:_actors', names)
+            self.notin('test:str2:_actors', names)
+
+            await core.addForm('_test:task', 'str', {}, {'interfaces': [['entity:creatable', {}]]})
+            self.isin('_test:task:creator', [p.full for p in core.model.getPropsByType('ps:person')])
+            self.isin('entity:created:item', [p.full for p in core.model.getPropsByType('_test:task')])
+
+            await core.delForm('_test:task')
+            self.notin('_test:task:creator', [p.full for p in core.model.getPropsByType('ps:person')])
+            self.len(0, core.model.getPropsByType('_test:task'))
+
     async def test_model_deprecation(self):
 
         with self.getTestDir() as dirn:
@@ -492,7 +568,7 @@ class DataModelTest(s_t_utils.SynTest):
                 # Using deprecated forms and props is warned to the user
                 msgs = await core.stormlist('[test:dep:easy=test1 :guid=(t1,) as test:guid] [:guid=(t2,) as test:guid]')
                 self.stormIsInWarn('The form test:dep:easy is deprecated', msgs)
-                self.stormIsInWarn('The property test:dep:easy:guid is deprecated or using a deprecated type', msgs)
+                self.stormIsInWarn('The property test:dep:easy:guid is deprecated and will be removed in 4.0.0', msgs)
 
                 msgs = await core.stormlist('[test:depriface=tehe :pdep=beep]')
                 self.stormIsInWarn('property test:depriface:pdep is deprecated', msgs)
@@ -512,6 +588,48 @@ class DataModelTest(s_t_utils.SynTest):
             msgs = await core.stormlist('[test:dep:str=" test" :beep=" boop "]')
             self.stormIsInWarn('form test:dep:str is deprecated or using a deprecated type', msgs)
             # self.stormIsInWarn('property test:dep:str:beep is deprecated or using a deprecated type', msgs)
+
+            # Deprecated props may specify when they will be removed
+            await core._addModelDefs(({
+                'types': (
+                    ('test:eol', ('str', {}), {
+                        'props': (
+                            ('date', ('str', {}), {'deprecated': {'eoldate': '2027-01-01'}}),
+                            ('vers', ('str', {}), {'deprecated': {'eolvers': 'v4.0.0', 'mesg': 'Use :newp instead.'}}),
+                        ),
+                    }),
+                ),
+            },))
+
+            msgs = await core.stormlist('[ test:eol=foo :date=bar :vers=baz ]')
+            self.stormIsInWarn('The property test:eol:date is deprecated and will be removed on or after 2027-01-01.', msgs)
+            self.stormIsInWarn('The property test:eol:vers is deprecated and will be removed in v4.0.0. Use :newp instead.', msgs)
+            self.isin('test:eol:date', (await core.getDeprLocks()))
+
+            badinfos = (
+                ({'eoldate': '2027-01-01', 'newp': 'newp'}, 'has invalid keys: newp'),
+                ({'mesg': 'no removal'}, 'must specify eoldate or eolvers'),
+                ({}, 'must specify eoldate or eolvers'),
+                ({'eoldate': '2027-01-01', 'eolvers': 'v4.0.0'}, 'cannot specify both eoldate and eolvers'),
+                ({'eoldate': 'newp'}, 'has an invalid eoldate: newp (expected YYYY-MM-DD)'),
+                ({'eoldate': 20270101}, 'has an invalid eoldate: 20270101 (expected YYYY-MM-DD)'),
+                ({'eoldate': '2027/01/01'}, 'has an invalid eoldate: 2027/01/01 (expected YYYY-MM-DD)'),
+                ({'eoldate': '2027-01-01 12:00'}, 'has an invalid eoldate: 2027-01-01 12:00 (expected YYYY-MM-DD)'),
+                ({'eoldate': '2027-02-30'}, 'has an invalid eoldate: 2027-02-30 (expected YYYY-MM-DD)'),
+                ('2027-01-01', 'must be a bool or dict, not str'),
+                (1, 'must be a bool or dict, not int'),
+                (None, 'must be a bool or dict, not NoneType'),
+            )
+            for info, errmesg in badinfos:
+                modl = s_datamodel.getBaseModel()
+                modl.addType('test:bad', 'guid', {}, {})
+                with self.raises(s_exc.BadArg) as cm:
+                    modl.addForm('test:bad', {}, (
+                        ('prop', ('guid', {}), {'deprecated': info}),
+                    ))
+
+                self.isin(errmesg, cm.exception.get('mesg'))
+                self.none(modl.form('test:bad').prop('prop'))
 
             await core.fini()
 
@@ -1917,8 +2035,24 @@ class DataModelTest(s_t_utils.SynTest):
 
             await core.delFormProp('test:str', '_arryprop')
 
+            await core.addType('_test:who', 'poly', {'types': ('ps:person', 'ou:org')}, {})
+            await core.addFormProp('test:str', '_who', ('_test:who', {}), {})
+
+            with self.raises(s_exc.CantDelType) as exc:
+                core.model.reqTypeNotInUse('_test:who')
+            self.eq('Cannot delete type _test:who as it is still in use by properties.', exc.exception.get('mesg'))
+
+            await core.delFormProp('test:str', '_who')
+            await core.delType('_test:who')
+            self.none(core.model.type('_test:who'))
+
             await core.addFormProp('test:str', '_ifpoly', (('inet:fqdn', {}), ('meta:observable', {})), {})
             self.nn(core.model.prop('test:str:_ifpoly'))
+
+            names = [t.name for t in core.model.prop('test:str:_ifpoly').type.getTypeSet()]
+            self.gt(len(names), 1)
+            self.eq(names, sorted(names))
+
             await core.delFormProp('test:str', '_ifpoly')
             self.none(core.model.prop('test:str:_ifpoly'))
 
@@ -1929,6 +2063,14 @@ class DataModelTest(s_t_utils.SynTest):
 
             ptyp = core.model.prop('test:str:seen').type
             self.true(ptyp.ispoly)
+
+            # the type set is returned in a stable, name sorted order
+            ptyp = core.model.prop('test:str:poly').type
+            names = [t.name for t in ptyp.getTypeSet()]
+            self.gt(len(names), 1)
+            self.eq(names, sorted(names))
+
+            ptyp = core.model.prop('test:str:seen').type
 
             # getVirtType via getTypeSet path (ival's min virt)
             vtyp = ptyp.getVirtType('min')

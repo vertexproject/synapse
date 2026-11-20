@@ -39,6 +39,10 @@ class BizModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('biz:rfp -> file:bytes'))
             self.len(1, await core.nodes('biz:rfp -> entity:contact'))
 
+            nodes = await core.nodes('biz:rfp [ +(ledto)> {[ econ:purchase=* ]} ]')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('biz:rfp -(ledto)> econ:purchase'))
+
             nodes = await core.nodes('''
                 [ biz:deal=*
 

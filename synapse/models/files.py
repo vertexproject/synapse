@@ -302,6 +302,13 @@ modeldefs = (
                     ('meta:usable', {}),
                     ('meta:observable', {}),
                 ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'sha256'}},
+                        {'type': 'prop', 'opts': {'name': 'mime'}},
+                        {'type': 'prop', 'opts': {'name': 'size'}},
+                    ),
+                },
                 'props': (
 
                     ('size', ('int', {}), {
@@ -380,6 +387,20 @@ modeldefs = (
                     # TODO: volume=<it:host:volume>?
                 ),
                 'doc': 'A file entry contained by a host filesystem.'}),
+
+            ('file:system:posix:entry', ('file:system:entry', {}), {
+                'props': (
+
+                    ('owner', ('it:host:posix:account', {}), {
+                        'doc': 'The POSIX account which owns the file.'}),
+
+                    ('creator', ('it:host:posix:account', {}), {
+                        'doc': 'The POSIX account which created the file.'}),
+
+                    ('group', ('it:host:posix:group', {}), {
+                        'doc': 'The POSIX group which owns the file.'}),
+                ),
+                'doc': 'A file entry contained by a POSIX host filesystem.'}),
 
             # we can now extend types of filesystem entries to capture details!
             # ('file:system:ext3:entry', ('file:system:entry', {}), {}),

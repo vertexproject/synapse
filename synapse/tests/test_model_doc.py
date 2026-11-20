@@ -6,6 +6,14 @@ class DocModelTest(s_tests.SynTest):
 
         async with self.getTestCore() as core:
 
+            display = core.model.type('doc:reference').info.get('display')
+            self.eq(['source::name', 'source::title', 'doc:url'],
+                    [col['opts']['name'] for col in display['columns']])
+
+            display = core.model.type('doc:report').info.get('display')
+            self.eq(['published', 'publisher:name', 'creator:name', 'title', 'url'],
+                    [col['opts']['name'] for col in display['columns']])
+
             nodes = await core.nodes('''
                 [ doc:policy=*
                     :id=V-41
@@ -52,6 +60,7 @@ class DocModelTest(s_tests.SynTest):
             nodes = await core.nodes('''
                 [ doc:requirement=*
                     :id=V-99
+                    :name="Access Control"
                     :type=technical.access
                     :priority=low
                     :optional=(false)
@@ -62,6 +71,7 @@ class DocModelTest(s_tests.SynTest):
                 ]
             ''')
             self.propeq(nodes[0], 'id', 'V-99')
+            self.propeq(nodes[0], 'name', 'Access Control')
             self.propeq(nodes[0], 'desc', 'Some requirement text.')
             self.propeq(nodes[0], 'type', 'technical.access.')
             self.propeq(nodes[0], 'priority', 20)
@@ -103,9 +113,11 @@ class DocModelTest(s_tests.SynTest):
                 :file={[ file:bytes=* ]}
                 :signed=202001
                 :period=(202002, 202003)
+                :budget={[ econ:budget=* :funds=(5000, 1000) ]}
             ]''')
             self.len(1, nodes)
             self.propeq(nodes[0], 'title', 'Fullbright Scholarship')
+            self.len(1, await core.nodes('doc:contract :budget -> econ:budget +:funds.allocated=5000'))
             self.propeq(nodes[0], 'type', 'foo.bar.')
             self.propeq(nodes[0], 'signed', 1577836800000000)
             self.propeq(nodes[0], 'period', (1580515200000000, 1583020800000000, 2505600000000))

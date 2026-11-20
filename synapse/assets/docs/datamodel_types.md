@@ -1059,31 +1059,6 @@ The base type `phys:distance` has the following default options set:
 - ismin: `False`
 - ismax: `False`
 
-<a id="dm-type-poly"></a>
-
-### poly
-
-A prop which can be of one or more types.
-It is implemented by the following class: `synapse.lib.types.Poly`.
-
-This type has the following virtual properties:
-
-- `type`
-
-This type supports lifting using the following operators:
-
-- `=`
-- `~=`
-- `?=`
-- `in=`
-- `range=`
-
-The base type `poly` has the following default options set:
-
-- docs: `None`
-- interfaces: `None`
-- types: `None`
-
 <a id="dm-type-range"></a>
 
 ### range
@@ -2398,6 +2373,7 @@ This type implements the following interfaces:
 
 - `('doc:document', {})`
 - `('doc:published', {})`
+- `('meta:causal', {})`
 
 <a id="dm-type-biz-deal"></a>
 
@@ -2853,6 +2829,48 @@ This type has the following options set:
 - size: `128`
 - zeropad: `0`
 
+<a id="dm-type-crypto-hash-lm"></a>
+
+### crypto:hash:lm
+
+A hex encoded Microsoft LAN Manager (LM) password hash.
+The `crypto:hash:lm` type is derived from the base type: [`hex`](#dm-type-hex).
+
+This type implements the following interfaces:
+
+- `('crypto:hash', {})`
+- `('meta:observable', {})`
+
+An example of `crypto:hash:lm`:
+
+- `aad3b435b51404eeaad3b435b51404ee`
+
+This type has the following options set:
+
+- size: `32`
+- zeropad: `0`
+
+<a id="dm-type-crypto-hash-ntlm"></a>
+
+### crypto:hash:ntlm
+
+A hex encoded Microsoft NT LAN Manager (NTLM) password hash.
+The `crypto:hash:ntlm` type is derived from the base type: [`hex`](#dm-type-hex).
+
+This type implements the following interfaces:
+
+- `('crypto:hash', {})`
+- `('meta:observable', {})`
+
+An example of `crypto:hash:ntlm`:
+
+- `31d6cfe0d16ae931b73c59d7e0c089c0`
+
+This type has the following options set:
+
+- size: `32`
+- zeropad: `0`
+
 <a id="dm-type-crypto-hash-ssdeep"></a>
 
 ### crypto:hash:ssdeep
@@ -3067,17 +3085,11 @@ This type has the following options set:
 ### inet:dns:query:name
 
 A DNS query name.
-The `inet:dns:query:name` type is derived from the base type: [`poly`](#dm-type-poly).
+The `inet:dns:query:name` type may be any of the following types: [`inet:fqdn`](#dm-type-inet-fqdn) or [`it:dev:str`](#dm-type-it-dev-str).
 
 An example of `inet:dns:query:name`:
 
 - `vertex.link`
-
-This type has the following options set:
-
-- docs: `None`
-- interfaces: `None`
-- types: `('inet:fqdn', 'it:dev:str')`
 
 <a id="dm-type-inet-dns-a"></a>
 
@@ -3691,6 +3703,7 @@ This type implements the following interfaces:
 
 - `('doc:document', {})`
 - `('doc:signable', {})`
+- `('econ:budgetable', {})`
 - `('entity:activity', {})`
 
 <a id="dm-type-doc-contract-type-taxonomy"></a>
@@ -4014,6 +4027,10 @@ This type has the following options set:
 A financial security which is typically traded on an exchange.
 The `econ:security` type is derived from the base type: [`guid`](#dm-type-guid).
 
+This type implements the following interfaces:
+
+- `('meta:havable', {})`
+
 <a id="dm-type-econ-security-ochlv"></a>
 
 ### econ:security:ochlv
@@ -4210,13 +4227,7 @@ This type has the following options set:
 ### entity:individual
 
 A singular entity such as a person.
-The `entity:individual` type is derived from the base type: [`poly`](#dm-type-poly).
-
-This type has the following options set:
-
-- docs: `None`
-- interfaces: `None`
-- types: `('ps:person', 'entity:contact', 'inet:service:account')`
+The `entity:individual` type may be any of the following types: [`ps:person`](#dm-type-ps-person) or [`entity:contact`](#dm-type-entity-contact) or [`inet:service:account`](#dm-type-inet-service-account).
 
 <a id="dm-type-entity-name"></a>
 
@@ -4469,6 +4480,30 @@ This type implements the following interfaces:
 - `('meta:reported', {})`
 - `('meta:achievable', {})`
 
+<a id="dm-type-entity-goal-financial"></a>
+
+### entity:goal:financial
+
+A goal for an amount of money such as revenue or funds raised.
+The `entity:goal:financial` type is derived from the base type: [`entity:goal`](#dm-type-entity-goal).
+
+This type implements the following interfaces:
+
+- `('meta:reported', {})`
+- `('meta:achievable', {})`
+
+<a id="dm-type-entity-goal-people"></a>
+
+### entity:goal:people
+
+A goal for a change in the number of people such as people reached, recruited, or removed.
+The `entity:goal:people` type is derived from the base type: [`entity:goal`](#dm-type-entity-goal).
+
+This type implements the following interfaces:
+
+- `('meta:reported', {})`
+- `('meta:achievable', {})`
+
 <a id="dm-type-entity-motive"></a>
 
 ### entity:motive
@@ -4533,7 +4568,7 @@ This type implements the following interfaces:
 
 ### entity:contributed
 
-Represents a specific instance of contributing material support to a campaign.
+Represents a specific instance of contributing material support to an actor or campaign.
 The `entity:contributed` type is derived from the base type: [`guid`](#dm-type-guid).
 
 This type implements the following interfaces:
@@ -4561,6 +4596,7 @@ The `entity:achieved` type is derived from the base type: [`guid`](#dm-type-guid
 This type implements the following interfaces:
 
 - `('entity:event', {})`
+- `('meta:revocable', {})`
 
 <a id="dm-type-entity-believed"></a>
 
@@ -4590,6 +4626,17 @@ This type implements the following interfaces:
 
 An event where an actor destroyed an item.
 The `entity:destroyed` type is derived from the base type: [`guid`](#dm-type-guid).
+
+This type implements the following interfaces:
+
+- `('entity:event', {})`
+
+<a id="dm-type-entity-revoked"></a>
+
+### entity:revoked
+
+An event where an actor revoked an item.
+The `entity:revoked` type is derived from the base type: [`guid`](#dm-type-guid).
 
 This type implements the following interfaces:
 
@@ -4759,6 +4806,18 @@ This type implements the following interfaces:
 
 A file entry contained by a host filesystem.
 The `file:system:entry` type is derived from the base type: [`file:stored:entry`](#dm-type-file-stored-entry).
+
+This type implements the following interfaces:
+
+- `('file:entry', {})`
+- `('meta:observable', {})`
+
+<a id="dm-type-file-system-posix-entry"></a>
+
+### file:system:posix:entry
+
+A file entry contained by a POSIX host filesystem.
+The `file:system:posix:entry` type is derived from the base type: [`file:system:entry`](#dm-type-file-system-entry).
 
 This type implements the following interfaces:
 
@@ -5769,13 +5828,7 @@ This type implements the following interfaces:
 ### pol:country:code
 
 A country code.
-The `pol:country:code` type is derived from the base type: [`poly`](#dm-type-poly).
-
-This type has the following options set:
-
-- docs: `None`
-- interfaces: `None`
-- types: `('iso:3166:alpha2', 'iso:3166:numeric3', 'iso:3166:alpha3', 'base:id')`
+The `pol:country:code` type may be any of the following types: [`iso:3166:alpha2`](#dm-type-iso-3166-alpha2) or [`iso:3166:numeric3`](#dm-type-iso-3166-numeric3) or [`iso:3166:alpha3`](#dm-type-iso-3166-alpha3) or [`base:id`](#dm-type-base-id).
 
 <a id="dm-type-pol-immigration-status"></a>
 
@@ -6640,13 +6693,7 @@ This type has the following options set:
 ### ind:industry:id
 
 An ID given to an industry.
-The `ind:industry:id` type is derived from the base type: [`poly`](#dm-type-poly).
-
-This type has the following options set:
-
-- docs: `None`
-- interfaces: `None`
-- types: `('ou:naics', 'ou:sic', 'ou:isic', 'base:id')`
+The `ind:industry:id` type may be any of the following types: [`ou:naics`](#dm-type-ou-naics) or [`ou:sic`](#dm-type-ou-sic) or [`ou:isic`](#dm-type-ou-isic) or [`base:id`](#dm-type-base-id).
 
 <a id="dm-type-ind-industry"></a>
 
@@ -7467,6 +7514,7 @@ This type implements the following interfaces:
 - `('entity:actor', {})`
 - `('meta:usable', {})`
 - `('risk:targetable', {})`
+- `('risk:exploitable', {})`
 - `('entity:resolvable', {})`
 - `('econ:pay:instrument', {})`
 - `('inet:service:subscriber', {})`
@@ -7822,6 +7870,7 @@ The `inet:service:resource` type is derived from the base type: [`guid`](#dm-typ
 
 This type implements the following interfaces:
 
+- `('risk:exploitable', {})`
 - `('inet:service:object', {})`
 
 <a id="dm-type-inet-service-bucket"></a>
@@ -7833,6 +7882,7 @@ The `inet:service:bucket` type is derived from the base type: [`inet:service:res
 
 This type implements the following interfaces:
 
+- `('risk:exploitable', {})`
 - `('inet:service:object', {})`
 
 <a id="dm-type-inet-service-bucket-item"></a>
@@ -7844,6 +7894,7 @@ The `inet:service:bucket:item` type is derived from the base type: [`inet:servic
 
 This type implements the following interfaces:
 
+- `('risk:exploitable', {})`
 - `('inet:service:object', {})`
 
 <a id="dm-type-inet-rdp-handshake"></a>
@@ -8894,6 +8945,10 @@ This type implements the following interfaces:
 The name of a software product or tool.
 The `it:softwarename` type is derived from the base type: [`base:name`](#dm-type-base-name).
 
+This type implements the following interfaces:
+
+- `('meta:observable', {})`
+
 This type has the following options set:
 
 - globsuffix: `False`
@@ -9047,6 +9102,7 @@ This type implements the following interfaces:
 
 - `('meta:observable', {})`
 - `('entity:identifier', {})`
+- `('it:host:identifier', {})`
 
 This type has the following options set:
 
@@ -9677,13 +9733,7 @@ This type implements the following interfaces:
 ### it:app:yara:target
 
 A type which is limited to forms which YARA rules can match.
-The `it:app:yara:target` type is derived from the base type: [`poly`](#dm-type-poly).
-
-This type has the following options set:
-
-- docs: `None`
-- interfaces: `None`
-- types: `('file:bytes', 'it:exec:proc', 'inet:ip', 'inet:fqdn', 'inet:url')`
+The `it:app:yara:target` type may be any of the following types: [`file:bytes`](#dm-type-file-bytes) or [`it:exec:proc`](#dm-type-it-exec-proc) or [`inet:ip`](#dm-type-inet-ip) or [`inet:fqdn`](#dm-type-inet-fqdn) or [`inet:url`](#dm-type-inet-url).
 
 <a id="dm-type-it-app-yara-matched"></a>
 
@@ -10198,6 +10248,10 @@ This type implements the following interfaces:
 A GUID for a team within an organization.
 The `ou:team` type is derived from the base type: [`guid`](#dm-type-guid).
 
+This type implements the following interfaces:
+
+- `('entity:actor', {})`
+
 <a id="dm-type-ou-org-type-taxonomy"></a>
 
 ### ou:org:type:taxonomy
@@ -10453,6 +10507,17 @@ The `ou:vitals` type is derived from the base type: [`guid`](#dm-type-guid).
 
 A job/work opening within an org.
 The `ou:opening` type is derived from the base type: [`guid`](#dm-type-guid).
+
+<a id="dm-type-ou-opening-location"></a>
+
+### ou:opening:location
+
+A location where a job/work opening is available.
+The `ou:opening:location` type is derived from the base type: [`guid`](#dm-type-guid).
+
+This type implements the following interfaces:
+
+- `('geo:locatable', {})`
 
 <a id="dm-type-ou-job-type-taxonomy"></a>
 
@@ -10841,13 +10906,7 @@ This type implements the following interfaces:
 ### risk:vuln:id
 
 A unique ID given to a vulnerability.
-The `risk:vuln:id` type is derived from the base type: [`poly`](#dm-type-poly).
-
-This type has the following options set:
-
-- docs: `None`
-- interfaces: `None`
-- types: `('it:sec:cve', 'base:id')`
+The `risk:vuln:id` type may be any of the following types: [`it:sec:cve`](#dm-type-it-sec-cve) or [`base:id`](#dm-type-base-id).
 
 <a id="dm-type-risk-vuln-type-taxonomy"></a>
 
@@ -12487,7 +12546,7 @@ An abstract entity which can be resolved to an organization or person.
 
 This interface defines the following properties:
 
-- `:resolved` (poly) - The resolved entity to which this entity belongs.
+- `:resolved` ([`ou:org`](#dm-type-ou-org) or [`ps:person`](#dm-type-ps-person)) - The resolved entity to which this entity belongs.
 
 <a id="dm-type-entity-singular"></a>
 
@@ -12641,6 +12700,7 @@ This interface defines the following properties:
 - `:` ([`geo:place`](#dm-type-geo-place)) - The place where the item was located.
 - `:address` ([`geo:address`](#dm-type-geo-address)) - The postal address where the item was located.
 - `:address:city` ([`base:name`](#dm-type-base-name)) - The city where the item was located.
+- `:address:state` ([`base:name`](#dm-type-base-name)) - The state or province where the item was located.
 - `:altitude` ([`geo:altitude`](#dm-type-geo-altitude)) - The altitude where the item was located.
 - `:altitude:accuracy` ([`phys:distance`](#dm-type-phys-distance)) - The accuracy of the altitude where the item was located.
 - `:country` ([`pol:country`](#dm-type-pol-country)) - The country where the item was located.
@@ -12668,11 +12728,13 @@ This interface defines the following properties:
 - `:client:exe` ([`file:bytes`](#dm-type-file-bytes)) - The client executable which initiated the link.
 - `:client:host` ([`it:host`](#dm-type-it-host)) - The client host which initiated the link.
 - `:client:proc` ([`it:exec:proc`](#dm-type-it-exec-proc)) - The client process which initiated the link.
+- `:client:thread` ([`it:exec:thread`](#dm-type-it-exec-thread)) - The client thread which initiated the link.
 - `:sandbox:file` ([`file:bytes`](#dm-type-file-bytes)) - The initial sample given to a sandbox environment to analyze.
 - `:server` ([`inet:server`](#dm-type-inet-server)) - The socket address of the server.
 - `:server:exe` ([`file:bytes`](#dm-type-file-bytes)) - The server executable which received the link.
 - `:server:host` ([`it:host`](#dm-type-it-host)) - The server host which received the link.
 - `:server:proc` ([`it:exec:proc`](#dm-type-it-exec-proc)) - The server process which received the link.
+- `:server:thread` ([`it:exec:thread`](#dm-type-it-exec-thread)) - The server thread which received the link.
 
 <a id="dm-type-inet-proto-login"></a>
 
@@ -12750,7 +12812,7 @@ This interface extends the following interfaces:
 
 This interface defines the following properties:
 
-- `:actor` (poly) - The service account or agent which performed the action.
+- `:actor` ([`inet:service:account`](#dm-type-inet-service-account) or [`inet:service:agent`](#dm-type-inet-service-agent)) - The service account or agent which performed the action.
 - `:client` ([`inet:client`](#dm-type-inet-client)) - The network address of the client which initiated the action.
 - `:client:host` ([`it:host`](#dm-type-it-host)) - The client host which initiated the action.
 - `:client:software` ([`it:software`](#dm-type-it-software)) - The client software used to initiate the action.
@@ -12819,9 +12881,9 @@ This interface extends the following interfaces:
 
 This interface defines the following properties:
 
-- `:creator` (poly) - The service account or agent which created the object.
+- `:creator` ([`inet:service:account`](#dm-type-inet-service-account) or [`inet:service:agent`](#dm-type-inet-service-agent)) - The service account or agent which created the object.
 - `:period` ([`it:lifespan`](#dm-type-it-lifespan)) - The period when the object existed.
-- `:remover` (poly) - The service account or agent which removed or decommissioned the object.
+- `:remover` ([`inet:service:account`](#dm-type-inet-service-account) or [`inet:service:agent`](#dm-type-inet-service-agent)) - The service account or agent which removed or decommissioned the object.
 - `:status` ([`title`](#dm-type-title)) - The status of the object.
 - `:url` ([`inet:url`](#dm-type-inet-url)) - The primary URL associated with the object.
 
@@ -12888,7 +12950,9 @@ This interface extends the following interfaces:
 
 This interface defines the following properties:
 
+- `:exe` ([`file:bytes`](#dm-type-file-bytes)) - The executable file which caused the event.
 - `:proc` ([`it:exec:proc`](#dm-type-it-exec-proc)) - The process which caused the event.
+- `:sandbox:file` ([`file:bytes`](#dm-type-file-bytes)) - The initial sample given to a sandbox environment to analyze.
 - `:thread` ([`it:exec:thread`](#dm-type-it-exec-thread)) - The thread which caused the event.
 
 <a id="dm-type-it-host-exec"></a>
@@ -12899,9 +12963,15 @@ Properties common to runtime events and activity on a host.
 
 This interface defines the following properties:
 
-- `:exe` ([`file:bytes`](#dm-type-file-bytes)) - The executable file which caused the activity.
+- `:exe` ([`file:bytes`](#dm-type-file-bytes)) - The executable file which caused the activity. Deprecated: removed on or after 2027-01-01.
 - `:host` ([`it:host`](#dm-type-it-host)) - The host on which the activity occurred.
-- `:sandbox:file` ([`file:bytes`](#dm-type-file-bytes)) - The initial sample given to a sandbox environment to analyze.
+- `:sandbox:file` ([`file:bytes`](#dm-type-file-bytes)) - The initial sample given to a sandbox environment to analyze. Deprecated: removed on or after 2027-01-01.
+
+<a id="dm-type-it-host-identifier"></a>
+
+### it:host:identifier
+
+An interface which is implemented by host identifier forms.
 
 <a id="dm-type-lang-transcript"></a>
 
@@ -13005,6 +13075,12 @@ This interface defines the following properties:
 - `:reporter:url` ([`inet:url`](#dm-type-inet-url)) - The URL for the item provided by the reporter.
 - `:resolved` ([`meta:reported`](#dm-type-meta-reported)) - The authoritative item which this reporting is about.
 
+<a id="dm-type-meta-revocable"></a>
+
+### meta:revocable
+
+An interface implemented by forms which can be revoked.
+
 <a id="dm-type-meta-schedulable"></a>
 
 ### meta:schedulable
@@ -13072,6 +13148,7 @@ Properties which are common to activities which are promoted by an organization.
 
 This interface defines the following properties:
 
+- `:desc` ([`text`](#dm-type-text)) - A description of the event.
 - `:name` ([`event:name`](#dm-type-event-name)) - The name of the event.
 - `:names` ([`event:name`](#dm-type-event-name)) - An array of alternate names for the event.
 - `:social:accounts` ([`inet:service:account`](#dm-type-inet-service-account)) - Social media accounts associated with the event.
