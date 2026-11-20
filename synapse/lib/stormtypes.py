@@ -8302,6 +8302,28 @@ class LayerPushPull(Prim):
     '''
     The shared implementation of the layer push and pull configuration types.
     '''
+    _storm_locals = (
+        {'name': 'iden', 'desc': 'The iden of the configuration.', 'type': 'str'},
+        {'name': 'url', 'desc': 'The telepath URL of the remote layer or feed, with any password hidden.',
+         'type': {'type': 'gtor', '_gtorfunc': '_gtorUrl', 'returns': {'type': 'str'}}},
+        {'name': 'soffs', 'desc': 'The layer offset the configuration started from.',
+         'type': {'type': 'gtor', '_gtorfunc': '_gtorSoffs', 'returns': {'type': 'int'}}},
+        {'name': 'offs', 'desc': 'The current offset of the configuration, or -1 if nothing has been synced.',
+         'type': {'type': 'gtor', '_gtorfunc': '_gtorOffs', 'returns': {'type': 'int'}}},
+        {'name': 'enabled', 'desc': '''
+            Set to true if the configuration is enabled.
+
+            Setting this to false stops the configuration, and setting it to true starts it again
+            from its current offset. Setting it requires admin privileges on the layer, and setting
+            it to true also requires the ``storm.lib.telepath.open.<scheme>`` permission.
+            ''',
+         'type': {'type': ['gtor', 'stor'], '_gtorfunc': '_gtorEnabled', '_storfunc': '_storEnabled',
+                  'returns': {'type': 'boolean'}}},
+        {'name': 'creator', 'desc': 'The iden of the user who added the configuration.',
+         'type': {'type': 'gtor', '_gtorfunc': '_gtorCreator', 'returns': {'type': 'str'}}},
+        {'name': 'created', 'desc': 'The time the configuration was created.',
+         'type': {'type': 'gtor', '_gtorfunc': '_gtorCreated', 'returns': {'type': 'time'}}},
+    )
     _ismutable = False
     _layr_field_name = None
 
@@ -8383,36 +8405,12 @@ class LayerPushPull(Prim):
         url = await self._gtorUrl()
         return f'{self._storm_typename}: {self.valu} ({url})'
 
-_layer_pushpull_locals = (
-    {'name': 'iden', 'desc': 'The iden of the configuration.', 'type': 'str'},
-    {'name': 'url', 'desc': 'The telepath URL of the remote layer or feed, with any password hidden.',
-     'type': {'type': 'gtor', '_gtorfunc': '_gtorUrl', 'returns': {'type': 'str'}}},
-    {'name': 'soffs', 'desc': 'The layer offset the configuration started from.',
-     'type': {'type': 'gtor', '_gtorfunc': '_gtorSoffs', 'returns': {'type': 'int'}}},
-    {'name': 'offs', 'desc': 'The current offset of the configuration, or -1 if nothing has been synced.',
-     'type': {'type': 'gtor', '_gtorfunc': '_gtorOffs', 'returns': {'type': 'int'}}},
-    {'name': 'enabled', 'desc': '''
-        Set to true if the configuration is enabled.
-
-        Setting this to false stops the configuration, and setting it to true starts it again
-        from its current offset. Setting it requires admin privileges on the layer, and setting
-        it to true also requires the ``storm.lib.telepath.open.<scheme>`` permission.
-        ''',
-     'type': {'type': ['gtor', 'stor'], '_gtorfunc': '_gtorEnabled', '_storfunc': '_storEnabled',
-              'returns': {'type': 'boolean'}}},
-    {'name': 'creator', 'desc': 'The iden of the user who added the configuration.',
-     'type': {'type': 'gtor', '_gtorfunc': '_gtorCreator', 'returns': {'type': 'str'}}},
-    {'name': 'created', 'desc': 'The time the configuration was created.',
-     'type': {'type': 'gtor', '_gtorfunc': '_gtorCreated', 'returns': {'type': 'time'}}},
-)
-
 @registry.registerType
 class LayerPush(LayerPushPull):
     '''
     Implements the Storm API for a layer push configuration.
     '''
     _storm_typename = 'layer:push'
-    _storm_locals = _layer_pushpull_locals
     _layr_field_name = 'pushs'
 
 @registry.registerType
@@ -8421,7 +8419,6 @@ class LayerPull(LayerPushPull):
     Implements the Storm API for a layer pull configuration.
     '''
     _storm_typename = 'layer:pull'
-    _storm_locals = _layer_pushpull_locals
     _layr_field_name = 'pulls'
 
 class LayerPushPulls(Prim):
