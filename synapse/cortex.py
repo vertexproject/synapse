@@ -6242,10 +6242,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.auth.addAuthGate(layr.iden, 'layer')
 
         for pdef in layrinfo.get('pushs', {}).values():
-            await self.runLayrPush(layr, pdef)
+            if pdef.get('enabled', True):
+                await self.runLayrPush(layr, pdef)
 
         for pdef in layrinfo.get('pulls', {}).values():
-            await self.runLayrPull(layr, pdef)
+            if pdef.get('enabled', True):
+                await self.runLayrPull(layr, pdef)
 
         await self.fire('core:layr:add', iden=layr.iden, offs=layr.addoffs)
 
@@ -6286,7 +6288,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         layr.layrinfo['pushs'] = pushs
         self.layerdefs.set(layr.iden, layr.layrinfo)
 
-        await self.runLayrPush(layr, pdef)
+        if pdef.get('enabled', True):
+            await self.runLayrPush(layr, pdef)
 
     @s_nexus.Pusher.onPushAuto('layer:push:del')
     async def delLayrPush(self, layriden, pushiden):
@@ -6332,7 +6335,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         layr.layrinfo['pulls'] = pulls
         self.layerdefs.set(layr.iden, layr.layrinfo)
 
-        await self.runLayrPull(layr, pdef)
+        if pdef.get('enabled', True):
+            await self.runLayrPull(layr, pdef)
 
     @s_nexus.Pusher.onPushAuto('layer:pull:del')
     async def delLayrPull(self, layriden, pulliden):
@@ -6353,6 +6357,66 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.layerdefs.set(layr.iden, layr.layrinfo)
 
         await self.delActiveCoro(pulliden)
+
+    async def modLayrPush(self, layriden, iden, info):
+        '''
+        Modify the enabled field of a layer push configuration.
+        '''
+        info = self._reqLayrPushPullInfo(layriden, 'pushs', iden, info)
+        return await self._push('layer:push:mod', layriden, iden, info)
+
+    @s_nexus.Pusher.onPush('layer:push:mod')
+    async def _modLayrPush(self, layriden, iden, info):
+        await self._modLayrPushPull(layriden, 'pushs', iden, info, self.runLayrPush)
+
+    async def modLayrPull(self, layriden, iden, info):
+        '''
+        Modify the enabled field of a layer pull configuration.
+        '''
+        info = self._reqLayrPushPullInfo(layriden, 'pulls', iden, info)
+        return await self._push('layer:pull:mod', layriden, iden, info)
+
+    @s_nexus.Pusher.onPush('layer:pull:mod')
+    async def _modLayrPull(self, layriden, iden, info):
+        await self._modLayrPushPull(layriden, 'pulls', iden, info, self.runLayrPull)
+
+    def _reqLayrPushPullInfo(self, layriden, name, iden, info):
+
+        layr = self.layers.get(layriden)
+        if layr is None:
+            raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
+
+        pdefs = layr.layrinfo.get(name)
+        if pdefs is None or pdefs.get(iden) is None:
+            raise s_exc.NoSuchIden(mesg=f'No layer {name} config for {iden=}', iden=iden)
+
+        return s_schemas.reqValidPushPullMod(info)
+
+    async def _modLayrPushPull(self, layriden, name, iden, info, runfunc):
+
+        layr = self.layers.get(layriden)
+        if layr is None:
+            return
+
+        pdefs = layr.layrinfo.get(name)
+        if pdefs is None:
+            return
+
+        pdef = pdefs.get(iden)
+        if pdef is None:
+            return
+
+        enabled = info['enabled']
+        if pdef.get('enabled', True) == enabled:
+            return
+
+        pdef['enabled'] = enabled
+        self.layerdefs.set(layr.iden, layr.layrinfo)
+
+        if enabled:
+            await runfunc(layr, pdef)
+        else:
+            await self.delActiveCoro(iden)
 
     async def runLayrPush(self, layr, pdef):
         url = pdef.get('url')

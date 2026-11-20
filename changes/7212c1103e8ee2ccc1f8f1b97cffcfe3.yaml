@@ -1,0 +1,7 @@
+---
+desc: Fixed an issue where `$layer.get(pulls)` and the `layer.pull.list` command reported
+  the current offset of a pull as 0.
+desc:literal: false
+prs: []
+type: bug
+...
