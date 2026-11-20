@@ -1,9 +1,39 @@
+import random
+import datetime
+
 import synapse.exc as s_exc
 
 import synapse.lib.time as s_time
 import synapse.lookup.timezones as s_l_timezones
 
 import synapse.tests.utils as s_t_utils
+
+def getTimeVals():
+    '''
+    Return seeded time values for comparing the fast path with the general path.
+    '''
+    rand = random.Random(0)
+    dates = ('2015', '2015-11', '2015/11', '2015-11-02', '2015/11/02', '2015-11/02', '2015-11-2', '2015:11:02',
+             '2015:11:2', '2015-13-02', '2015-00-02', '2015-11-31', '2015-11-32', '2015-02-29', '2016-02-29',
+             '0000-01-01', '0001-01-01', '9999-12-31', '2015-1-02', '20151102')
+    times = ('', 'T05:55', 't05:55', ' 05:55', 'T5:55', ' 5:55', 'T05:55:00', 't23:59:59', ' 05:55:59',
+             'T24:00', 'T05:60', 'T05:55:60', 'T055500', ' 0555', 'T05:55:00,1') + tuple(
+             f'{sep}05:55:00.{"123456789"[:size]}' for sep in 'Tt ' for size in range(1, 10))
+    tzs = ('', '', '', 'Z', 'z', ' Z', '+05:30', '-0500', ' -05:00', '-05', '+0000', '+24:00', '-23:59', '+5:30',
+           '-0205', ' EST', 'x', '*', '?')
+    digits = '20151102055500123456789'
+    vals = [digits[:size] for size in range(1, 24)]
+    for size in range(4, 24):
+        vals.append(''.join(rand.choice('0123456789') for _ in range(size)))
+
+    for _ in range(1000):
+        valu = rand.choice(dates) + rand.choice(times) + rand.choice(tzs)
+        if rand.random() < 0.1:
+            valu = rand.choice((' ', '\t', '')) + valu + rand.choice((' ', '\n', ''))
+
+        vals.append(valu)
+
+    return vals
 
 class TimeTest(s_t_utils.SynTest):
 
@@ -35,6 +65,87 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parse('205012170304321015'), 2554859072101)
         self.eq(s_time.parse('20501217030432101567'), 2554859072101)
         self.raises(s_exc.BadTypeValu, s_time.parse, '2050121703043210156789')
+        self.eq(s_time.parse('2050121703043210156789', chop=True), 2554859072101)
+
+        # clean iso 8601 and separator free digit values are read by the fast path
+        tick = s_time.parse('2015-11-02T05:55:00Z')
+        self.eq(tick, 1446443700000)
+        self.eq(s_time._fastparse('2015', None, False), (datetime.datetime(2015, 1, 1), 0, 4))
+        self.eq(s_time._fastparse(' 2015-11 ', None, False), (datetime.datetime(2015, 11, 1), 0, 6))
+        self.eq(s_time._fastparse('2015/11/02', None, False), (datetime.datetime(2015, 11, 2), 0, 8))
+        self.eq(s_time._fastparse('2015-11-02 05:55', 10, False), (datetime.datetime(2015, 11, 2, 5, 55), 10, 12))
+        self.eq(s_time._fastparse('2015-11-02t05:55:00z', None, False), (datetime.datetime(2015, 11, 2, 5, 55), 0, 14))
+        self.eq(s_time._fastparse('2015-11-02T05:55:00.12 +05:30', None, False),
+                (datetime.datetime(2015, 11, 2, 5, 55, 0, 120000), -19800000, 16))
+        self.eq(s_time._fastparse('2015-11-02T05:55:00.123456Z', None, False),
+                (datetime.datetime(2015, 11, 2, 5, 55, 0, 123456), 0, 20))
+        self.eq(s_time._fastparse('2015-11-02T05:55:00.123456789Z', None, True),
+                (datetime.datetime(2015, 11, 2, 5, 55, 0, 123000), 0, 17))
+        self.eq(s_time._fastparse('2015110205', None, False), (datetime.datetime(2015, 11, 2, 5), 0, 10))
+        self.eq(s_time._fastparse('201511020555001234567', None, True),
+                (datetime.datetime(2015, 11, 2, 5, 55, 0, 123000), 0, 17))
+        self.eq(s_time.parse('2015-11-02T00:55:00-0500'), tick)
+        self.eq(s_time.parse('2015-11-02T05:55:00+00:00'), tick)
+        self.eq(s_time.parse('2015-11-02T05:55:00+23:59'), 1446357360000)
+        self.eq(s_time.parse('2015-11-02T05:55:00', base=5), tick + 5)
+        self.eq(s_time.parse('2015-11-02T05:55:00.123456Z'), tick + 123)
+        self.eq(s_time.parse('20151102055500123'), tick + 123)
+        self.eq(s_time.parsefast('2015-11-02T05:55:00.123456789Z', chop=True), tick + 123)
+        self.eq(s_time.wildrange('2015-11-02T05:55'), (tick, tick + s_time.onemin))
+
+        # values the fast path declines take the general path
+        for text in ('2015-11-02T5:55:00Z', '2015/11/2 05:55:00', '2015-11-2', '2015-1-02', '2015110',
+                     '2015-11-02T05:55:00-05', '2015-11-02T05:55:00,123', '2015-11-02T05:55:00.1234567Z',
+                     '2015-11-02 05:55-0205', '2015-11-02T05:55-0205', '2015-11-02T05:55:00+24:00', '2015-02-30',
+                     '20151302', '2015-11-02T05:55:60', '2015-11-02 24:00', '0000-01-01', '2015-11-02*', '2015-11-02?',
+                     '\uff12\uff10\uff11\uff15'):
+            self.none(s_time._fastparse(text, None, False))
+            self.none(s_time.parsefast(text))
+
+        self.none(s_time._fastparse('2015-11-02T05:55:00Z', 0, False))
+
+        self.eq(s_time.parse('2015-11-02T05:55:00-05'), tick + 5 * s_time.onehour)
+        self.eq(s_time.parse('2015-11-02T05:55:00,123'), tick + 123)
+        self.eq(s_time.parse('2015-11-02T05:55-0205'), tick + 125 * s_time.onemin)
+        for text in ('2015-11-02T5:55:00Z', '2015/11/2 05:55:00', '2015-11-02T05:55:00.1234567Z',
+                     '2015-11-02 05:55-0205', '2015-11-02T05:55:00+24:00', '2015-02-30', '20151302',
+                     '2015-11-02T05:55:60', '2015-11-02 24:00', '0000-01-01'):
+            with self.raises(s_exc.BadTypeValu):
+                s_time.parse(text)
+
+        with self.raises(s_exc.BadTypeValu) as cm:
+            s_time.parse('2015-11-02T05:55:00Z', base=0)
+
+        self.isin('unexpected text in time value', cm.exception.get('mesg'))
+
+        # colon separated dates
+        self.eq(s_time._fastparse('2015:11:02', None, False), (datetime.datetime(2015, 11, 2), 0, 8))
+        self.eq(s_time._fastparse('2015:11:02 05:55:00+00:00', None, False),
+                (datetime.datetime(2015, 11, 2, 5, 55), 0, 14))
+        self.eq(s_time.parse('2015:11:02 05:55:00'), tick)
+        self.eq(s_time.parse('2015:11:02T00:55:00-05:00'), tick)
+        self.eq(s_time.parse('2015:11:02 05:55:00.123Z'), tick + 123)
+
+        # colon dates the fast path declines, since mixed separators may read as an offset
+        for text in ('2015:11', '2015:11:2', '2015:11-02', '2015-11:02', '2015:11/02 05:55', '2015:11:0205:55'):
+            self.none(s_time._fastparse(text, None, False))
+
+        self.eq(s_time._rawparse('2015:11'), (datetime.datetime(2015, 11, 1), 0, 6))
+        self.eq(s_time._rawparse('2015:11:0205:55'), (datetime.datetime(2015, 11, 2, 5, 55), 0, 12))
+        self.eq(s_time._rawparse('2015:11-02'), (datetime.datetime(2015, 11, 2), 0, 8))
+        for text in ('2015:11:2', '2015-11:02'):
+            with self.raises(s_exc.BadTypeValu):
+                s_time.parse(text)
+
+        # every value the fast path reads matches the general path
+        hits = 0
+        for valu in getTimeVals():
+            for base, chop in ((None, False), (None, True), (7, False)):
+                if (info := s_time._fastparse(valu, base, chop)) is not None:
+                    hits += 1
+                    self.eq(s_time._textparse(valu, base, chop), info, msg=f'{valu!r} {base} {chop}')
+
+        self.gt(hits, 350)
 
         # malformed times with leftover text are not silently misparsed
         with self.raises(s_exc.BadTypeValu) as cm:
