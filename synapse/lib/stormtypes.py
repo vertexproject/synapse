@@ -8272,9 +8272,23 @@ class Layer(Prim):
     async def _gtorPulls(self):
         return LayerPulls(self.runt, self.valu.get('iden'))
 
-def _reqLayrPdefs(runt, layriden, name):
+def _getLayrPdef(runt, layriden, name, iden):
+    '''Return a layer push or pull config by iden, or None.'''
     layr = runt.snap.core.reqLayer(layriden)
-    return layr.layrinfo.get(name, {})
+    pdefs = layr.layrinfo.get(name)
+    if pdefs is None:
+        return None
+
+    return pdefs.get(iden)
+
+def _getLayrPdefIdens(runt, layriden, name):
+    '''Return the idens of a layer's push or pull configs.'''
+    layr = runt.snap.core.reqLayer(layriden)
+    pdefs = layr.layrinfo.get(name)
+    if pdefs is None:
+        return ()
+
+    return list(pdefs.keys())
 
 async def _fillLayrPdef(runt, iden, pdef, defoffs):
     '''Fill in the start offset, current offset, and enabled state of a layer push or pull config.'''
@@ -8313,7 +8327,7 @@ class LayerPushPull(Prim):
         return hash((self._storm_typename, self.layriden, self.valu))
 
     def _reqPdef(self):
-        pdef = _reqLayrPdefs(self.runt, self.layriden, self._layr_field_name).get(self.valu)
+        pdef = _getLayrPdef(self.runt, self.layriden, self._layr_field_name, self.valu)
         if pdef is None:
             mesg = f'No {self._storm_typename} configuration with iden: {self.valu}'
             raise s_exc.NoSuchIden(mesg=mesg, iden=self.valu)
@@ -8426,26 +8440,26 @@ class LayerPushPulls(Prim):
         return hash((self._storm_typename, self.valu))
 
     def __len__(self):
-        return len(_reqLayrPdefs(self.runt, self.valu, self._layr_field_name))
+        return len(_getLayrPdefIdens(self.runt, self.valu, self._layr_field_name))
 
     async def bool(self):
         return bool(len(self))
 
     async def deref(self, name):
         iden = await tostr(name)
-        if _reqLayrPdefs(self.runt, self.valu, self._layr_field_name).get(iden) is None:
+        if _getLayrPdef(self.runt, self.valu, self._layr_field_name, iden) is None:
             mesg = f'No {self._layr_item_ctor._storm_typename} configuration with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg, iden=iden)
 
         return self._layr_item_ctor(self.runt, self.valu, iden)
 
     async def iter(self):
-        for iden in list(_reqLayrPdefs(self.runt, self.valu, self._layr_field_name).keys()):
+        for iden in _getLayrPdefIdens(self.runt, self.valu, self._layr_field_name):
             yield iden, self._layr_item_ctor(self.runt, self.valu, iden)
 
     async def value(self):
         retn = {}
-        for iden in list(_reqLayrPdefs(self.runt, self.valu, self._layr_field_name).keys()):
+        for iden in _getLayrPdefIdens(self.runt, self.valu, self._layr_field_name):
             retn[iden] = await self._layr_item_ctor(self.runt, self.valu, iden).value()
 
         return retn

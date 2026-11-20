@@ -5972,6 +5972,10 @@ class StormTest(s_t_utils.SynTest):
                 with self.raises(s_exc.NoSuchIden):
                     await core.callStorm('return($lib.layer.get($layr2).pulls.$pushiden)', opts=opts)
 
+                # a layer with no pull configs
+                with self.raises(s_exc.NoSuchIden):
+                    await core.callStorm('$newp = $lib.guid() return($lib.layer.get($layr0).pulls.$newp)', opts=opts)
+
                 # disable and enable from Storm
                 await core.callStorm('$lib.layer.get($layr2).pulls.$pulliden.enabled = (false)', opts=opts)
                 self.notin(pulliden, core.activecoros)
