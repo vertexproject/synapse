@@ -1,6 +1,0 @@
----
-desc: Fixed ``inet:url`` normalization accepting malformed URLs such as ``http://///foo.com/x``.
-desc:literal: false
-prs: []
-type: bug
-...
