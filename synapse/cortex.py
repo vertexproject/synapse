@@ -6390,18 +6390,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if pdefs is None or pdefs.get(iden) is None:
             raise s_exc.NoSuchIden(mesg=f'No layer {name} config for {iden=}', iden=iden)
 
-        if not info:
-            raise s_exc.BadArg(mesg=f'No layer {name} config fields specified.')
-
-        for key in info.keys():
-            if key != 'enabled':
-                raise s_exc.BadArg(mesg=f'Cannot set {key=} on layer {name} config', name=key)
-
-        valu = info['enabled']
-        if not isinstance(valu, bool):
-            raise s_exc.BadArg(mesg=f'Layer {name} config enabled must be a bool, not {valu!r}', name='enabled')
-
-        return {'enabled': valu}
+        return s_schemas.reqValidPushPullMod(info)
 
     async def _modLayrPushPull(self, layriden, name, iden, info, runfunc):
 

@@ -5881,16 +5881,16 @@ class StormTest(s_t_utils.SynTest):
                 with self.raises(s_exc.NoSuchIden):
                     await core.modLayrPush(core.getView().layers[0].iden, pushiden, {'enabled': False})
 
-                with self.raises(s_exc.BadArg):
+                with self.raises(s_exc.SchemaViolation):
                     await core.modLayrPush(layr0, pushiden, {})
 
-                with self.raises(s_exc.BadArg):
+                with self.raises(s_exc.SchemaViolation):
                     await core.modLayrPull(layr2, pulliden, {'enabled': False, 'url': 'tcp://newp'})
 
-                with self.raises(s_exc.BadArg):
+                with self.raises(s_exc.SchemaViolation):
                     await core.modLayrPush(layr0, pushiden, {'enabled': 'false'})
 
-                with self.raises(s_exc.BadArg):
+                with self.raises(s_exc.SchemaViolation):
                     await core.modLayrPull(layr2, pulliden, {'enabled': 0})
 
                 self.true(core.getLayer(layr2).layrinfo['pulls'][pulliden]['enabled'])

@@ -114,6 +114,16 @@ _LayerPushPullSchema = {
 reqValidPush = s_config.getJsValidator(_LayerPushPullSchema)
 reqValidPull = reqValidPush
 
+_LayerPushPullModSchema = {
+    'type': 'object',
+    'properties': {
+        'enabled': {'type': 'boolean'},
+    },
+    'additionalProperties': False,
+    'required': ['enabled'],
+}
+reqValidPushPullMod = s_config.getJsValidator(_LayerPushPullModSchema)
+
 loglevelSchema = {'type': 'string', 'enum': list(s_const.LOG_LEVEL_CHOICES.keys())}
 reqValidLoglevel = s_config.getJsValidator(loglevelSchema)
 
