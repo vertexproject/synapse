@@ -1,0 +1,6 @@
+---
+desc: Improved the performance of parsing ISO 8601 and digit only `time` values.
+desc:literal: false
+prs: []
+type: feat
+...
