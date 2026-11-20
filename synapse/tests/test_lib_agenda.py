@@ -810,7 +810,8 @@ class AgendaTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=path00) as core00:
                 self.false(core00.conf.get('mirror'))
 
-                await core00.callStorm('cron.add --minute +1 { $lib.time.sleep(5) }')
+                # a one-shot job keeps a second run from racing the leader/mirror comparison
+                await core00.callStorm('cron.at --minute +1 { $lib.time.sleep(5) }')
 
                 url = core00.getLocalUrl()
 
@@ -832,6 +833,7 @@ class AgendaTest(s_t_utils.SynTest):
                     cron01 = await core01.callStorm('return($lib.cron.list())')
 
                     self.eq(cron00, cron01)
+                    self.none(cron00[0]['nexttime'])
 
                     start = mesgs[0]
                     stop = mesgs[1]
