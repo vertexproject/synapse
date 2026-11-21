@@ -1,0 +1,8 @@
+---
+desc: Fixed a bug where retrying an MCP storm_continue call after a lost response
+  (a client timeout or dropped connection) would silently skip a page of Storm results
+  instead of replaying it.
+desc:literal: false
+prs: []
+type: bug
+...
