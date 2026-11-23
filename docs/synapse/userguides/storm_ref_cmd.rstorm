@@ -1513,7 +1513,8 @@ The ``layer.pull.add`` command adds a pull configuration to a layer.
 layer.pull.list
 +++++++++++++++
 
-The ``layer.pull.list`` command lists the pull configurations for a layer.
+The ``layer.pull.list`` command lists the pull configurations for a layer, including the start offset, the
+current offset, and whether each configuration is enabled.
 
 **Syntax**
 
@@ -1549,7 +1550,8 @@ The ``layer.push.add`` command adds a push configuration to a layer.
 layer.push.list
 +++++++++++++++
 
-The ``layer.push.list`` command lists the push configurations for a layer.
+The ``layer.push.list`` command lists the push configurations for a layer, including the start offset, the
+current offset, and whether each configuration is enabled.
 
 **Syntax**
 

@@ -1,0 +1,9 @@
+---
+desc: Added `pushs` and `pulls` properties to `layer` objects to view and enable or
+  disable Layer push and pull configurations, `Start Offset` and `Enabled` columns
+  to the `layer.push.list` and `layer.pull.list` commands, and `soffs` and `enabled`
+  keys to the push and pull configs returned by `$layer.get()` and `$layer.pack()`.
+desc:literal: false
+prs: []
+type: feat
+...
