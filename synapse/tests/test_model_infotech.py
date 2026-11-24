@@ -101,7 +101,12 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.none(nodes[0].get('name'))
             self.none(nodes[0].get('datasource'))
 
-            nodes = await core.nodes('it:mitre:attack:data:component [ :name="Active Directory Credential Request" :datasource=DS0026 ]')
+            nodes = await core.nodes('''
+                it:mitre:attack:data:component [
+                    :name="Active Directory Credential Request"
+                    :datasource=DS0026
+                ]
+            ''')
             self.len(1, nodes)
             self.eq(nodes[0].get('name'), 'active directory credential request')
             self.eq(nodes[0].get('datasource'), 'DS0026')

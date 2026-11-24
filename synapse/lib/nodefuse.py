@@ -719,11 +719,10 @@ class NodeFuser(s_base.Base):
             # same reason, even though dst's own norm cannot re-derive it. Guid._normPyList()
             # hashes its inputs and returns no subs at all, so a guid form built from a tuple
             # keeps those inputs as read only props because nothing can recover them from the
-            # guid.
-            # Those props are still a restatement of the node's identity, so copying src's
-            # would claim a name dst's own guid is not the hash of, and no later read could
-            # detect the mismatch. Absent subs means the derivation is one way, not that the
-            # prop is independent data src could hand over.
+            # guid. Those props are still a restatement of the node's identity, so copying
+            # src's would claim a name dst's own guid is not the hash of, and no later read
+            # could detect the mismatch. Absent subs means the derivation is one way, not
+            # that the prop is independent data src could hand over.
             #
             # The same holds for a read only prop a form populates from an onAdd callback
             # rather than from norm(), such as the inet:passwd md5/sha1/sha256 hashes: those
