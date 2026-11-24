@@ -1,0 +1,7 @@
+---
+desc: Updated the ``v3.prepare`` command to warn about each enabled layer push or
+  pull configuration, which the Synapse 3.x migration disables.
+desc:literal: false
+prs: []
+type: feat
+...

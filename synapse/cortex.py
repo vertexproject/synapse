@@ -3973,7 +3973,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _checkV3Layers(self):
 
-        yield ('print', 'Checking for mirror and upstream layers...')
+        yield ('print', 'Checking for mirror and upstream layers, and layer push and pull configurations...')
 
         for layr in self.layers.values():
 
@@ -3997,6 +3997,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         'drops the upstream setting, so it stops syncing. Set up layer push or pull again after '
                         'migrating.')
                 yield ('warning', mesg)
+
+            # the Synapse 3.x migration disables every layer push and pull, so warn about each one still running
+            for (key, kind, verb) in (('pushs', 'push', 'pushes to'), ('pulls', 'pull', 'pulls from')):
+
+                for (iden, pdef) in (layr.layrinfo.get(key) or {}).items():
+
+                    if not pdef.get('enabled', True):
+                        continue
+
+                    url = self._getV3LayerUrls(pdef.get('url'))
+                    mesg = (f'{desc} {verb} {url} (layer {kind} {iden}). The Synapse 3.x migration disables it. '
+                            f'Once both Cortexes are on 3.x, re-create it with layer.{kind}.add rather than '
+                            're-enabling it, so it does not resume from a 2.x offset.')
+                    yield ('warning', mesg)
 
     def _getV3LayerUrls(self, valu):
 

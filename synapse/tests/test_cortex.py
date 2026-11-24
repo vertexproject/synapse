@@ -604,7 +604,8 @@ class CortexTest(s_t_utils.SynTest):
                         ' layer push or pull again after migrating.')
 
                 msgs = await core.stormlist('v3.prepare --dry-run')
-                self.stormIsInPrint('Checking for mirror and upstream layers...', msgs)
+                self.stormIsInPrint('Checking for mirror and upstream layers, and layer push and pull configurations...',
+                                    msgs)
                 self.len(0, getWarns(msgs))
                 self.stormHasNoWarnErr(msgs)
 
@@ -687,6 +688,98 @@ class CortexTest(s_t_utils.SynTest):
 
                 layr.layrinfo.pop('mirror')
                 layr.layrinfo.pop('upstream')
+
+                msgs = await core.stormlist('v3.prepare --dry-run')
+                self.len(0, getWarns(msgs))
+                self.stormHasNoWarnErr(msgs)
+
+    async def test_cortex_v3_layers_pushpull(self):
+
+        async with self.getTestAxon() as axon, self.getTestJsonStor() as jsonstor:
+
+            conf = {'axon': axon.getLocalUrl(), 'jsonstor': jsonstor.getLocalUrl()}
+
+            async with self.getTestCore(conf=conf) as core:
+
+                def getWarns(msgs):
+                    return [m[1]['mesg'] for m in msgs
+                            if m[0] == 'print' and m[1]['mesg'].startswith('WARNING: ')]
+
+                tail = ('The Synapse 3.x migration disables it. Once both Cortexes are on 3.x, re-create it with '
+                        'layer.{}.add rather than re-enabling it, so it does not resume from a 2.x offset.')
+
+                await core.auth.rootuser.setPasswd('secret')
+                host, port = await core.dmon.listen('tcp://127.0.0.1:0/')
+
+                pushlayr = await core.addLayer({'name': 'pushlayr'})
+                pulllayr = await core.addLayer({'name': 'pulllayr'})
+                offlayr = await core.addLayer({'name': 'offlayr'})
+                plainlayr = await core.addLayer()
+
+                url = f'tcp://root:secret@127.0.0.1:{port}/*/layer/{plainlayr["iden"]}'
+                masked = f'tcp://root:****@127.0.0.1:{port}/*/layer/{plainlayr["iden"]}'
+
+                opts = {'vars': {'url': url, 'push': pushlayr['iden'], 'pull': pulllayr['iden'],
+                                 'off': offlayr['iden']}}
+
+                push = await core.callStorm('return($lib.layer.get($push).addPush($url))', opts=opts)
+                pull = await core.callStorm('return($lib.layer.get($pull).addPull($url))', opts=opts)
+                offpush = await core.callStorm('return($lib.layer.get($off).addPush($url))', opts=opts)
+                offpull = await core.callStorm('return($lib.layer.get($off).addPull($url))', opts=opts)
+
+                self.none(await core.modLayrPush(offlayr['iden'], offpush['iden'], {'enabled': False}))
+                self.none(await core.modLayrPull(offlayr['iden'], offpull['iden'], {'enabled': False}))
+
+                pushmesg = (f"WARNING: Layer {pushlayr['iden']} (pushlayr) pushes to {masked} (layer push "
+                            f"{push['iden']}). " + tail.format('push'))
+                pullmesg = (f"WARNING: Layer {pulllayr['iden']} (pulllayr) pulls from {masked} (layer pull "
+                            f"{pull['iden']}). " + tail.format('pull'))
+
+                msgs = await core.stormlist('v3.prepare --dry-run')
+                warns = getWarns(msgs)
+                self.len(2, warns)
+                self.isin(pushmesg, warns)
+                self.isin(pullmesg, warns)
+
+                # disabled configurations, a layer without any, and the default layer get no warning
+                self.stormNotInPrint(f"Layer {offlayr['iden']}", msgs)
+                self.stormNotInPrint(f"Layer {plainlayr['iden']}", msgs)
+                self.stormNotInPrint(f'Layer {core.getLayer().iden}', msgs)
+                self.stormNotInPrint('secret', msgs)
+                self.stormNotInPrint('ERROR: ', msgs)
+                self.stormIsInPrint('Your Cortex has no errors blocking Synapse 3.x.', msgs)
+
+                # the check reads the current state of each configuration
+                self.none(await core.modLayrPush(offlayr['iden'], offpush['iden'], {'enabled': True}))
+
+                msgs = await core.stormlist('v3.prepare --dry-run')
+                warns = getWarns(msgs)
+                self.len(3, warns)
+                self.isin(pushmesg, warns)
+                self.isin(pullmesg, warns)
+                self.isin(f"WARNING: Layer {offlayr['iden']} (offlayr) pushes to {masked} (layer push "
+                          f"{offpush['iden']}). " + tail.format('push'), warns)
+
+                self.none(await core.modLayrPush(offlayr['iden'], offpush['iden'], {'enabled': False}))
+
+                # any stored url renders safely
+                layr = core.getLayer(plainlayr['iden'])
+                layr.layrinfo['pushs'] = {'newp': {'url': 10}}
+                layr.layrinfo['pulls'] = {'nope': {}}
+
+                msgs = await core.stormlist('v3.prepare --dry-run')
+                warns = getWarns(msgs)
+                self.len(4, warns)
+                self.isin(f"WARNING: Layer {plainlayr['iden']} pushes to <int> (layer push newp). "
+                          + tail.format('push'), warns)
+                self.isin(f"WARNING: Layer {plainlayr['iden']} pulls from <NoneType> (layer pull nope). "
+                          + tail.format('pull'), warns)
+
+                layr.layrinfo.pop('pushs')
+                layr.layrinfo.pop('pulls')
+
+                for ldef in (pushlayr, pulllayr, offlayr):
+                    await core.delLayer(ldef['iden'])
 
                 msgs = await core.stormlist('v3.prepare --dry-run')
                 self.len(0, getWarns(msgs))

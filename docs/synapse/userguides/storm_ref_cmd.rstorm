@@ -2840,7 +2840,9 @@ The check of the Cortex prints an ``ERROR:`` line for each:
 It prints a ``WARNING:`` line for an ``axon`` or ``jsonstor`` directory left in the Cortex storage once the ``axon`` or
 ``jsonstor`` configuration option is set. It also prints a ``WARNING:`` line for each layer with a ``mirror`` or
 ``upstream`` setting. Synapse 3.x keeps the layer and its data but drops the setting, so the layer stops syncing. Layer
-push or pull can be set up again after migrating.
+push or pull can be set up again after migrating. It also prints a ``WARNING:`` line for each enabled layer push or pull
+configuration, which the Synapse 3.x migration disables. Once both Cortexes are on Synapse 3.x, re-create it with
+``layer.push.add`` or ``layer.pull.add`` rather than re-enabling it, so it does not resume from a 2.x offset.
 
 Each Storm service, and then the Axon and JSONStor which the Cortex is configured to use, is checked and prepared in a
 section of its own, printing its own errors and warnings. An embedded Axon or JSONStor is not checked or prepared
