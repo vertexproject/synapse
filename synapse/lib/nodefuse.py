@@ -719,7 +719,7 @@ class NodeFuser(s_base.Base):
             # same reason, even though dst's own norm cannot re-derive it. Guid._normPyList()
             # hashes its inputs and returns no subs at all, so a guid form built from a tuple
             # keeps those inputs as read only props because nothing can recover them from the
-            # guid - it:mitre:attack:data:component=(datasource, name) is the model's example.
+            # guid.
             # Those props are still a restatement of the node's identity, so copying src's
             # would claim a name dst's own guid is not the hash of, and no later read could
             # detect the mismatch. Absent subs means the derivation is one way, not that the

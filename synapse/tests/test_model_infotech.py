@@ -95,6 +95,17 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[1].ndef, ('it:mitre:attack:datasource', 'DS0026'))
             dcguid = nodes[0].ndef[1]
 
+            # :name and :datasource should not be RO
+            nodes = await core.nodes('it:mitre:attack:data:component [ -:name -:datasource ]')
+            self.len(1, nodes)
+            self.none(nodes[0].get('name'))
+            self.none(nodes[0].get('datasource'))
+
+            nodes = await core.nodes('it:mitre:attack:data:component [ :name="Active Directory Credential Request" :datasource=DS0026 ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'active directory credential request')
+            self.eq(nodes[0].get('datasource'), 'DS0026')
+
             nodes = await core.nodes('''[
                 it:mitre:attack:tactic=TA0100
                     :name=tactilneck
