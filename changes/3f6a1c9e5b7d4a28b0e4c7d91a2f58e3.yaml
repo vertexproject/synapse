@@ -1,0 +1,7 @@
+---
+desc: Removed the readonly attribute from the `it:mitre:attack:data:component:name`
+  and `it:mitre:attack:data:component:datasource` properties.
+desc:literal: false
+prs: []
+type: model
+...

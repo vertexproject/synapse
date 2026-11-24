@@ -1897,13 +1897,11 @@ class ItModule(s_module.CoreModule):
                 )),
                 ('it:mitre:attack:data:component', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
-                        'ro': True,
                         'doc': 'The name of the data component.'}),
                     ('description', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the data component.'}),
                     ('datasource', ('it:mitre:attack:datasource', {}), {
-                        'ro': True,
                         'doc': 'The datasource this data component belongs to.'}),
                 )),
                 ('it:dev:int', {}, ()),

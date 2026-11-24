@@ -839,10 +839,9 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
               restates the node's own primary property rather than being data src can hand
               over, so after the fuse it must describe dst. Where dst's type derives it, it is
               set from dst's own value. Where dst's type derives it one way - a guid form
-              built from a tuple of its inputs, such as
-              ``it:mitre:attack:data:component``, keeps those inputs as read-only properties
-              because nothing can recover them from the guid - it is left alone, since src's
-              value would name something dst's own guid is not built from.
+              built from a tuple of its inputs which keeps those inputs as read-only
+              properties because nothing can recover them from the guid - it is left alone,
+              since src's value would name something dst's own guid is not built from.
 
               One consequence is worth noting: a read-only property a form populates from a
               callback rather than from normalization, such as the ``inet:passwd``
