@@ -96,9 +96,12 @@ _LayerPushPullSchema = {
     'type': 'object',
     'properties': {
         'url': {'type': 'string'},
-        'time': {'type': 'number'},
+        'time': {'type': 'integer'},
+        'soffs': {'type': 'integer'},
+        'offs': {'type': 'integer'},
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'user': {'type': 'string', 'pattern': s_config.re_iden},
+        'enabled': {'type': 'boolean'},
         'queue:size': {'type': 'integer', 'default': s_const.layer_pdef_qsize,
                        'minimum': 1, 'maximum': s_const.layer_pdef_qsize_max},
         'chunk:size': {'type': 'integer', 'default': s_const.layer_pdef_csize,
@@ -110,6 +113,16 @@ _LayerPushPullSchema = {
 }
 reqValidPush = s_config.getJsValidator(_LayerPushPullSchema)
 reqValidPull = reqValidPush
+
+_LayerPushPullModSchema = {
+    'type': 'object',
+    'properties': {
+        'enabled': {'type': 'boolean'},
+    },
+    'additionalProperties': False,
+    'required': ['enabled'],
+}
+reqValidPushPullMod = s_config.getJsValidator(_LayerPushPullModSchema)
 
 loglevelSchema = {'type': 'string', 'enum': list(s_const.LOG_LEVEL_CHOICES.keys())}
 reqValidLoglevel = s_config.getJsValidator(loglevelSchema)
