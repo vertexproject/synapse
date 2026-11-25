@@ -6071,6 +6071,8 @@ class V3PrepareCmd(Cmd):
     Errors block the upgrade and must be fixed by hand, so they also skip the
     preparation of the Cortex or service which has them. Warnings do not. Use
     --dry-run first to see what to fix, and run it again once it is fixed.
+    The command waits for each check and preparation to finish, however long
+    it takes. Cancel the command to stop it.
 
     Run it on the Cortex leader, with each Storm service added, and the axon
     and jsonstor config options set, by the AHA name of its leader. The Cortex
@@ -6089,9 +6091,6 @@ class V3PrepareCmd(Cmd):
     '''
 
     name = 'v3.prepare'
-
-    # seconds the 3.x readiness check of a service may take in a dry run
-    svctimeout = 60
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
@@ -6175,16 +6174,9 @@ class V3PrepareCmd(Cmd):
             await runt.printf(f'Checking and preparing {desc}...')
 
         try:
-            coro = self._printMesgs(runt, proxy.prepareV3(dryrun=dryrun))
-            if dryrun:
-                coro = s_common.wait_for(coro, timeout=self.svctimeout)
-
-            if not await coro:
+            # a check or preparation may take as long as it needs, since cancelling the command stops it
+            if not await self._printMesgs(runt, proxy.prepareV3(dryrun=dryrun)):
                 notready.append(name)
-
-        except TimeoutError:
-            await runt.printf(f'ERROR: {title} could not be checked within {self.svctimeout} seconds.')
-            notready.append(name)
 
         except Exception as e:
             verb = 'checked' if dryrun else 'prepared'
@@ -6231,8 +6223,10 @@ class V3PrepareCmd(Cmd):
         Print the messages of a Synapse 3.x preparation as they arrive, returning whether it had no errors.
         '''
         ok = True
-        async for name, info in genr:
-            ok = ok and name != 'error'
-            await runt.printf(s_cell.getV3MesgLine(name, info))
+        # closing the generator when the command is cancelled stops the run in the cell
+        async with contextlib.aclosing(genr) as genr:
+            async for name, info in genr:
+                ok = ok and name != 'error'
+                await runt.printf(s_cell.getV3MesgLine(name, info))
 
         return ok

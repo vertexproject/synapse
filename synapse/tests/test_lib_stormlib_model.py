@@ -8,7 +8,6 @@ import synapse.lib.cell as s_cell
 import synapse.lib.time as s_time
 import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
-import synapse.lib.storm as s_storm
 import synapse.lib.spooled as s_spooled
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.nodefuse as s_nodefuse
@@ -554,20 +553,48 @@ class StormlibModelTest(s_test.SynTest):
 
                             ready.mesgs = []
 
-                            # a dry run gives up on a service whose check hangs
-                            ready.delay = 1
-                            with mock.patch.object(s_storm.V3PrepareCmd, 'svctimeout', 0.01):
-                                msgs = await core.stormlist('v3.prepare --dry-run')
-                            self.stormIsInPrint('ERROR: Service v3ready could not be checked within 0.01 seconds.', msgs)
-                            self.stormIsInPrint('These services have errors blocking Synapse 3.x: v3ready.', msgs)
-                            ready.delay = 0
+                            # a dry run waits for a slow check, which is not an error
+                            ready.mesgs = [('print', 'Checking the widgets...')]
+                            ready.delay = 0.2
+                            msgs = await core.stormlist('v3.prepare --dry-run')
+                            self.stormIsInPrint('Checking the widgets...', msgs)
+                            self.stormNotInPrint('could not be checked', msgs)
+                            self.stormNotInPrint('These services have errors', msgs)
+                            self.stormIsInPrint('Your Cortex has no errors blocking Synapse 3.x.', msgs)
 
-                            # the service stops the check which the dry run gave up on
+                            async def busy():
+                                while not ready.v3running:
+                                    await asyncio.sleep(0.01)
+
                             async def idle():
                                 while ready.v3running:
                                     await asyncio.sleep(0.01)
 
+                            # cancelling a dry run stops the check of the service, however long it takes
+                            ready.delay = 60
+                            task = core.schedCoro(core.stormlist('v3.prepare --dry-run'))
+                            await s_common.wait_for(busy(), timeout=10)
+
+                            task.cancel()
+                            await asyncio.gather(task, return_exceptions=True)
                             await s_common.wait_for(idle(), timeout=10)
+
+                            # killing the Storm task of a dry run also stops the check of the service
+                            taskiden = s_common.guid()
+                            task = core.schedCoro(core.stormlist('v3.prepare --dry-run', opts={'task': taskiden}))
+                            await s_common.wait_for(busy(), timeout=10)
+
+                            await core.stormlist('ps.kill $iden', opts={'vars': {'iden': taskiden}})
+                            await s_common.wait_for(idle(), timeout=10)
+                            await s_common.wait_for(asyncio.gather(task, return_exceptions=True), timeout=10)
+
+                            ready.mesgs = []
+                            ready.delay = 0
+
+                            # a dry run after the cancelled ones finds the service idle, not busy
+                            msgs = await core.stormlist('v3.prepare --dry-run')
+                            self.stormNotInPrint('already being prepared', msgs)
+                            self.stormNotInPrint('These services', msgs)
 
                             # a service which is already being prepared is busy, not blocked
                             ready.v3running = True

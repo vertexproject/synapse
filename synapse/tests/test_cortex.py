@@ -7614,18 +7614,24 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     async def hang():
                         yield ('print', 'Hanging...')
-                        await asyncio.sleep(1)
+                        await asyncio.sleep(60)
 
+                    # cancelling a dry run stops the check of the Axon, however long it takes
                     with patch.object(axon, '_checkV3Ready', hang):
-                        with patch.object(s_storm.V3PrepareCmd, 'svctimeout', 0.01):
-                            msgs = await core.stormlist('v3.prepare --dry-run')
+                        task = core.schedCoro(core.stormlist('v3.prepare --dry-run'))
 
-                        self.stormIsInPrint('ERROR: The Axon could not be checked within 0.01 seconds.', msgs)
+                        async def busy():
+                            while not axon.v3running:
+                                await asyncio.sleep(0.01)
 
                         async def idle():
                             while axon.v3running:
                                 await asyncio.sleep(0.01)
 
+                        await s_common.wait_for(busy(), timeout=10)
+
+                        task.cancel()
+                        await asyncio.gather(task, return_exceptions=True)
                         await s_common.wait_for(idle(), timeout=10)
 
                 unset = False
