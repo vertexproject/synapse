@@ -1,10 +1,7 @@
 ---
-desc: Added the `v3.prepare` Storm command, which prepares a Cortex, its Storm services, and the Axon and JSONStor
-  it is configured to use for the upgrade to Synapse 3.x, and reports an error when the Cortex has an embedded Axon
-  or JSONStor and a warning for each enabled layer push or pull configuration, which the Synapse 3.x migration
-  disables, and for stored Storm which must change for Synapse 3.x, in cron jobs, triggers, macros, dmons,
-  Extended HTTP APIs, view hooks, and graph projections, and the `synapse.tools.service.v3prepare` tool, which does
-  the same for a single service.
+desc: Added the ``v3.prepare`` Storm command and the ``synapse.tools.service.v3prepare`` tool, which check a
+  Cortex, its Storm services, and the Axon and JSONStor it is configured to use for the upgrade to Synapse 3.x,
+  and prepare each one which has no errors. See :ref:`storm-v3-prepare` for the errors and warnings it reports.
 desc:literal: false
 prs: []
 type: feat
