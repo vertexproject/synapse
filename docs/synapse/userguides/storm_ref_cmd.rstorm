@@ -2853,8 +2853,9 @@ itself. The command prints an ``ERROR:`` line for a service which:
 - is connected to a mirror
 - raises an error while it is checked or prepared
 
-The command waits for each service to finish preparing. A service which is already being prepared is listed, to be
-run again once it finishes.
+The command waits for each service to finish its check and preparation, however long they take, including in a dry
+run. Cancel the command to stop it, which also stops the check or preparation of the service it is waiting for. A
+service which is already being prepared is listed, to be run again once it finishes.
 
 Errors block the upgrade and must be fixed by hand, so they also skip the preparation of the service which has them.
 Warnings do not block the upgrade. The command prints whether the Cortex is ready for Synapse 3.x, and names each
@@ -2863,7 +2864,7 @@ This command does not check the lock status of deprecated model elements (see :r
 
 Use ``--dry-run`` to only check the Cortex and its services, without preparing them. A dry run prints whether
 each has errors blocking Synapse 3.x, and records nothing, except that a dry run which finds errors clears the result
-recorded before them. A dry run gives up on a service whose check takes longer than 60 seconds.
+recorded before them.
 
 Run the command on the Cortex leader, with each Storm service added, and the ``axon`` and ``jsonstor`` configuration
 options set, by the AHA name of its leader.
