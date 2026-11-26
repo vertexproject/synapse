@@ -1052,9 +1052,18 @@ class View(s_nexus.Pusher):  # type: ignore
 
         async def runStorm():
             cancelled = False
+            status = 'ok'
             tick = s_common.now()
             abstick = s_common.mononow()
             count = 0
+
+            # nested queries count toward the top-level query, which logs the totals
+            stats = s_layer.querystats.get()
+            toplevel = stats is None or stats.done
+            if toplevel:
+                # runStorm runs in its own task so this does not leak into the caller
+                stats = self.core._getStormQueryStats()
+                s_layer.querystats.set(stats)
 
             try:
 
@@ -1095,9 +1104,11 @@ class View(s_nexus.Pusher):  # type: ignore
                 pass
 
             except asyncio.CancelledError:
-                extra = self.core.getLogExtra(text=text)
+                took = s_common.mononow() - abstick
+                extra = self.core.getLogExtra(text=text, hash=texthash, took=took)
                 logger.warning('Storm runtime cancelled.', extra=extra)
                 cancelled = True
+                status = 'cancelled'
                 raise
 
             except Exception as e:
@@ -1112,7 +1123,10 @@ class View(s_nexus.Pusher):  # type: ignore
                 if mesg:
                     logmesg = f'{logmesg} - {mesg}'
 
-                logger.exception(logmesg, extra=self.core.getLogExtra(text=text, view=self.iden))
+                status = 'error'
+                took = s_common.mononow() - abstick
+                logger.exception(logmesg, extra=self.core.getLogExtra(text=text, hash=texthash, view=self.iden,
+                                                                      took=took))
 
                 enfo = s_common.err(e)
                 enfo[1].pop('esrc', None)
@@ -1120,9 +1134,17 @@ class View(s_nexus.Pusher):  # type: ignore
                 await chan.put(('err', enfo))
 
             finally:
+                abstock = s_common.mononow()
+                abstook = abstock - abstick
+
+                if toplevel and stats is not None:
+                    stats.done = True
+                    info = dict(opts.get('_loginfo', {}))
+                    info.update({'mode': mode, 'view': self.iden, 'status': status, 'took': abstook, 'count': count,
+                                 'stats': stats.pack()})
+                    self.core._logStormFini(text, user, info)
+
                 if not cancelled:
-                    abstock = s_common.mononow()
-                    abstook = abstock - abstick
                     tock = tick + abstook
                     await chan.put(('fini', {'tock': tock, 'abstock': abstock, 'took': abstook, 'count': count, }))
 
