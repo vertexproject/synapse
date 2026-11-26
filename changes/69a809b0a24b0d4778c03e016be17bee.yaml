@@ -1,0 +1,5 @@
+---
+desc: Deprecate ``inet:web:*`` forms and the ``inet:search:query:acct`` property.
+prs: []
+type: deprecation
+...
